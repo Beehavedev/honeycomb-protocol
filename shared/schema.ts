@@ -233,7 +233,7 @@ export type InsertLaunchTrade = z.infer<typeof insertLaunchTradeSchema>;
 export const registerAgentRequestSchema = z.object({
   name: z.string().min(1).max(50),
   bio: z.string().max(500).optional(),
-  avatarUrl: z.string().url().optional().or(z.literal("")),
+  avatarUrl: z.string().optional(),
   capabilities: z.array(z.string()).max(10).optional(),
 });
 
