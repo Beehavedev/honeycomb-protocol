@@ -31,8 +31,8 @@ import { HoneycombTokenFactoryABI } from "@/contracts/abis";
 import { generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
 import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
 
-// BSC Testnet is currently the only deployed network
-const DEPLOYED_CHAIN_ID = 97;
+// BSC Mainnet is now the primary deployed network
+const DEPLOYED_CHAIN_ID = 56;
 
 const createTokenSchema = z.object({
   name: z.string().min(1, "Name is required").max(32, "Name too long"),
@@ -319,8 +319,8 @@ export default function LaunchCreate() {
         if (!isUserRejection) {
           // Show helpful message with manual instructions
           toast({
-            title: "Please switch to BSC Testnet",
-            description: "Open your wallet and switch to BSC Testnet (Chain ID: 97), then try again.",
+            title: "Please switch to BNB Smart Chain",
+            description: "Open your wallet and switch to BNB Smart Chain (Chain ID: 56), then try again.",
             variant: "destructive",
           });
         }
@@ -488,7 +488,7 @@ export default function LaunchCreate() {
                     Wrong Network Detected
                   </p>
                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Please switch to BSC Testnet (Chain ID: 97) in your wallet to launch tokens.
+                    Please switch to BNB Smart Chain (Chain ID: 56) in your wallet to launch tokens.
                   </p>
                 </div>
               </div>

@@ -139,6 +139,23 @@ async function main() {
     console.log("\n9. Skipping HoneycombMigration (no DEX router configured for this network)");
   }
 
+  // 11. Deploy HoneycombRouter (for bot compatibility)
+  let routerAddress = "0x0000000000000000000000000000000000000000";
+  
+  if (dexConfig.wbnb !== "0x0000000000000000000000000000000000000000") {
+    console.log("\n11. Deploying HoneycombRouter (for bot compatibility)...");
+    const Router = await ethers.getContractFactory("contracts/launchpad/HoneycombRouter.sol:HoneycombRouter");
+    const router = await Router.deploy(
+      bondingCurveMarketAddress,
+      dexConfig.wbnb
+    );
+    await router.waitForDeployment();
+    routerAddress = await router.getAddress();
+    console.log("   HoneycombRouter deployed to:", routerAddress);
+  } else {
+    console.log("\n11. Skipping HoneycombRouter (no WBNB configured for this network)");
+  }
+
   // Save deployment addresses
   const deploymentInfo = {
     chainId: Number(network.chainId),
@@ -154,6 +171,7 @@ async function main() {
       HoneycombTokenFactory: tokenFactoryAddress,
       HoneycombBondingCurveMarket: bondingCurveMarketAddress,
       HoneycombMigration: migrationAddress,
+      HoneycombRouter: routerAddress,
     },
     dexConfig: {
       router: dexConfig.router,
@@ -190,6 +208,7 @@ async function main() {
   console.log("HoneycombTokenFactory:", tokenFactoryAddress);
   console.log("HoneycombBondingCurveMarket:", bondingCurveMarketAddress);
   console.log("HoneycombMigration:", migrationAddress);
+  console.log("HoneycombRouter:", routerAddress);
   console.log("\nDEX Configuration:");
   console.log("==================");
   console.log("PancakeSwap Router:", dexConfig.router);
