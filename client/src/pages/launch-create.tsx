@@ -294,6 +294,7 @@ export default function LaunchCreate() {
 
     // Auto-switch network if needed (like four.meme)
     if (!isOnDeployedNetwork) {
+      console.log("Need to switch network. Target chain:", DEPLOYED_CHAIN_ID);
       try {
         // Store form data in both state and localStorage (for page reload scenarios)
         setPendingSubmit(data);
@@ -301,24 +302,29 @@ export default function LaunchCreate() {
         
         // Use the raw ethereum provider for more reliable switching
         if (window.ethereum) {
-          await window.ethereum.request({
+          console.log("Calling wallet_switchEthereumChain...");
+          const result = await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: `0x${DEPLOYED_CHAIN_ID.toString(16)}` }],
           });
+          console.log("Switch result:", result);
         } else {
+          console.log("No window.ethereum, using wagmi switchChain");
           await switchChain({ chainId: DEPLOYED_CHAIN_ID });
         }
+        console.log("Switch call completed, waiting for chain update...");
         // The effects above will handle submission after chain updates
         return;
       } catch (e: any) {
         console.error("Network switch failed:", e);
+        console.error("Error code:", e?.code, "Error message:", e?.message);
         setPendingSubmit(null);
         localStorage.removeItem("pendingTokenLaunch");
         // Don't show error for user rejection
         if (e?.code !== 4001) {
           toast({
             title: "Network switch failed",
-            description: "Please switch to BSC Testnet manually.",
+            description: e?.message || "Please switch to BSC Testnet manually.",
             variant: "destructive",
           });
         }
@@ -375,14 +381,14 @@ export default function LaunchCreate() {
             });
             
             // Check if dev buy is requested
-            if (devBuyAmountWei && devBuyAmountWei > 0n) {
+            if (devBuyAmountWei && devBuyAmountWei > BigInt(0)) {
               setIsDevBuying(true);
               toast({
                 title: "Token created!",
                 description: "Now executing your initial buy...",
               });
               console.log("Executing dev buy for token:", tokenAddress, "amount:", devBuyAmountWei.toString());
-              buyTokens(tokenAddress as `0x${string}`, 0n, devBuyAmountWei);
+              buyTokens(tokenAddress as `0x${string}`, BigInt(0), devBuyAmountWei);
             } else {
               toast({
                 title: "Token launched!",
