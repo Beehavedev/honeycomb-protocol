@@ -1,6 +1,5 @@
 import { keccak256, encodeAbiParameters, encodePacked, concat, toHex } from 'viem';
-
-const TOKEN_BYTECODE_HASH_PLACEHOLDER = '0x0000000000000000000000000000000000000000000000000000000000000000';
+import { HONEYCOMB_TOKEN_BYTECODE } from '@/contracts/token-bytecode';
 
 export interface VanityMineResult {
   salt: `0x${string}`;
@@ -173,4 +172,55 @@ export function estimateTimeToFind(suffix: string): { expectedAttempts: number; 
   const estimatedSeconds = Math.ceil(expectedAttempts / attemptsPerSecond);
   
   return { expectedAttempts, estimatedSeconds };
+}
+
+// Fast off-chain mining using the actual token bytecode
+export async function mineVanityAddressFast(
+  factoryAddress: `0x${string}`,
+  name: string,
+  symbol: string,
+  metadataCID: string,
+  creatorBeeId: bigint,
+  onProgress?: (progress: VanityMineProgress) => void,
+  suffix: string = '8888',
+  maxAttempts: number = 500000
+): Promise<VanityMineResult | null> {
+  // Compute init code hash using actual bytecode
+  const initCodeHash = getTokenInitCodeHash(
+    name,
+    symbol,
+    metadataCID,
+    creatorBeeId,
+    HONEYCOMB_TOKEN_BYTECODE as `0x${string}`
+  );
+  
+  let salt = generateRandomSalt();
+  let attempts = 0;
+  const batchSize = 5000; // Large batches for speed
+  
+  while (attempts < maxAttempts) {
+    for (let i = 0; i < batchSize && attempts < maxAttempts; i++) {
+      const address = predictCreate2Address(factoryAddress, salt, initCodeHash);
+      attempts++;
+      
+      if (address.toLowerCase().endsWith(suffix.toLowerCase())) {
+        if (onProgress) {
+          onProgress({ attempts, currentAddress: address });
+        }
+        return { salt, address, attempts };
+      }
+      
+      salt = incrementSalt(salt);
+    }
+    
+    // Update progress and yield to UI
+    if (onProgress) {
+      const currentAddress = predictCreate2Address(factoryAddress, salt, initCodeHash);
+      onProgress({ attempts, currentAddress });
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+  
+  return null;
 }
