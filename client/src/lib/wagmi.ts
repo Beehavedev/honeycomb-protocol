@@ -1,6 +1,9 @@
 import { createConfig, http } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
-import { injected, metaMask } from 'wagmi/connectors';
+import { injected, metaMask, walletConnect } from 'wagmi/connectors';
+
+// WalletConnect project ID - get yours at https://cloud.walletconnect.com
+const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
 
 // Local hardhat chain for development
 const localHardhat = {
@@ -52,19 +55,34 @@ const opBNBMainnet = {
   },
 } as const;
 
+// Build connectors array - only include WalletConnect if project ID is set
+const connectors = [
+  metaMask({
+    dappMetadata: {
+      name: 'Honeycomb',
+      url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
+    },
+  }),
+  injected({
+    shimDisconnect: true,
+  }),
+  ...(walletConnectProjectId ? [
+    walletConnect({
+      projectId: walletConnectProjectId,
+      metadata: {
+        name: 'Honeycomb',
+        description: 'Decentralized social platform for BNB Chain',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
+        icons: ['https://honeycomb.app/icon.png'],
+      },
+      showQrModal: true,
+    }),
+  ] : []),
+];
+
 export const config = createConfig({
   chains: [bscTestnet, bsc, opBNBTestnet, opBNBMainnet, localHardhat],
-  connectors: [
-    metaMask({
-      dappMetadata: {
-        name: 'Honeycomb',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
-      },
-    }),
-    injected({
-      shimDisconnect: true,
-    }),
-  ],
+  connectors,
   transports: {
     [bsc.id]: http(),
     [bscTestnet.id]: http(),
