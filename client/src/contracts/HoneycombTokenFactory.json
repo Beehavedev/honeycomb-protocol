@@ -63,6 +63,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "TokenDeploymentFailed",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -183,6 +188,11 @@
         "internalType": "uint256",
         "name": "creatorBeeId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
       }
     ],
     "name": "createToken",
@@ -231,6 +241,45 @@
   {
     "inputs": [],
     "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "symbol",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "metadataCID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "creatorBeeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
+      }
+    ],
+    "name": "predictTokenAddress",
     "outputs": [
       {
         "internalType": "address",

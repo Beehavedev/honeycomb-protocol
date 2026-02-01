@@ -3370,6 +3370,19 @@ export const HoneycombTokenABI = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "burnSelf",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "creatorBeeId",
     "outputs": [
@@ -3624,6 +3637,11 @@ export const HoneycombTokenFactoryABI = [
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "TokenDeploymentFailed",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -3744,6 +3762,11 @@ export const HoneycombTokenFactoryABI = [
         "internalType": "uint256",
         "name": "creatorBeeId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
       }
     ],
     "name": "createToken",
@@ -3792,6 +3815,45 @@ export const HoneycombTokenFactoryABI = [
   {
     "inputs": [],
     "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "symbol",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "metadataCID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "creatorBeeId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
+      }
+    ],
+    "name": "predictTokenAddress",
     "outputs": [
       {
         "internalType": "address",
