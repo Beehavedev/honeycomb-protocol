@@ -25,10 +25,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useCreateToken, useTokenFactoryAddress, useBuyTokens } from "@/contracts/hooks";
-import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId } from "wagmi";
+import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
 import { decodeEventLog, parseEther } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
-import { generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
+import { generateRandomSalt, VanityMineProgress, incrementSalt } from "@/lib/vanity-miner";
 import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
 
 // BSC Mainnet is now the primary deployed network
@@ -54,6 +54,7 @@ export default function LaunchCreate() {
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const factoryAddress = useTokenFactoryAddress();
+  const publicClient = usePublicClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [step, setStep] = useState<"form" | "mining" | "creating" | "recording">("form");
@@ -198,6 +199,52 @@ export default function LaunchCreate() {
     },
   });
 
+  // Mine for a vanity address ending with 8888
+  const mineVanityAddress = async (
+    name: string,
+    symbol: string,
+    cid: string,
+    beeId: bigint,
+    maxAttempts: number = 100000
+  ): Promise<{ salt: `0x${string}`; address: `0x${string}` } | null> => {
+    if (!publicClient || !factoryAddress) return null;
+    
+    let salt = generateRandomSalt();
+    const batchSize = 50; // Check multiple salts per batch to reduce RPC calls
+    
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const predictedAddress = await publicClient.readContract({
+          address: factoryAddress,
+          abi: HoneycombTokenFactoryABI,
+          functionName: 'predictTokenAddress',
+          args: [name, symbol, cid, beeId, salt],
+        }) as `0x${string}`;
+        
+        if (i % 100 === 0) {
+          setMiningProgress({ attempts: i, currentAddress: predictedAddress });
+        }
+        
+        if (predictedAddress.toLowerCase().endsWith('8888')) {
+          console.log(`Found vanity address after ${i + 1} attempts:`, predictedAddress);
+          return { salt, address: predictedAddress };
+        }
+        
+        salt = incrementSalt(salt);
+        
+        // Allow UI updates periodically
+        if (i % batchSize === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      } catch (error) {
+        console.error("Error predicting address:", error);
+        salt = incrementSalt(salt);
+      }
+    }
+    
+    return null;
+  };
+
   // Helper function to continue after network switch
   const handleSubmitAfterSwitch = async (data: CreateTokenForm) => {
     try {
@@ -223,23 +270,49 @@ export default function LaunchCreate() {
       const cid = metaResult.metadataCID;
       setMetadataCID(cid);
       
-      // Generate salt and create token
+      // Mine for vanity address ending with 8888
       setStep("mining");
       setMiningProgress({ attempts: 0, currentAddress: "" });
       
-      // For now, use 0 as beeId since we use UUIDs in the database, not numeric IDs
-      // The on-chain beeId is optional for token creation
       const beeId = BigInt(0);
-      const randomSalt = generateRandomSalt();
-      setMinedSalt(randomSalt);
+      
+      toast({
+        title: "Mining vanity address",
+        description: "Searching for a token address ending with 8888...",
+      });
+      
+      const vanityResult = await mineVanityAddress(
+        data.name,
+        data.symbol.toUpperCase(),
+        cid,
+        beeId
+      );
+      
+      let finalSalt: `0x${string}`;
+      if (vanityResult) {
+        finalSalt = vanityResult.salt;
+        toast({
+          title: "Vanity address found!",
+          description: `Token will deploy to ${vanityResult.address}`,
+        });
+      } else {
+        // Fall back to random salt if vanity mining times out
+        finalSalt = generateRandomSalt();
+        toast({
+          title: "Using standard address",
+          description: "Vanity mining timed out, using standard deployment.",
+        });
+      }
+      
+      setMinedSalt(finalSalt);
       setStep("creating");
       
       toast({
         title: "Creating token",
-        description: "Token will be created with CREATE2 deployment.",
+        description: "Please confirm the transaction in your wallet.",
       });
       
-      createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
+      createToken(data.name, data.symbol.toUpperCase(), cid, beeId, finalSalt);
     } catch (error: any) {
       console.error("Error creating token:", error);
       console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));

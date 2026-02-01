@@ -360,24 +360,29 @@ export function useCreateToken() {
   return { createToken, isPending, isConfirming, isSuccess, hash, error };
 }
 
+export function usePredictTokenAddressSingle(
+  name?: string,
+  symbol?: string,
+  metadataCID?: string,
+  creatorBeeId?: bigint,
+  salt?: `0x${string}`
+) {
+  const address = useTokenFactoryAddress();
+  const enabled = !!address && !!name && !!symbol && !!metadataCID && creatorBeeId !== undefined && !!salt;
+  
+  return useReadContract({
+    address,
+    abi: HoneycombTokenFactoryABI,
+    functionName: 'predictTokenAddress',
+    args: enabled ? [name!, symbol!, metadataCID!, creatorBeeId!, salt!] : undefined,
+    query: { enabled },
+  });
+}
+
 export function usePredictTokenAddress() {
   const address = useTokenFactoryAddress();
   
-  const predictAddress = async (
-    name: string,
-    symbol: string,
-    metadataCID: string,
-    creatorBeeId: bigint,
-    salt: `0x${string}`
-  ): Promise<`0x${string}` | null> => {
-    if (!address) return null;
-    
-    // This would need to call the contract's predictTokenAddress function
-    // For now, we'll compute it off-chain
-    return null;
-  };
-  
-  return { predictAddress, factoryAddress: address };
+  return { factoryAddress: address };
 }
 
 export function useGetAllTokens() {
