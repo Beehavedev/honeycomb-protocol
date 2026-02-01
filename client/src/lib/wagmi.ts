@@ -1,6 +1,44 @@
 import { createConfig, http } from 'wagmi';
-import { bsc, bscTestnet } from 'wagmi/chains';
 import { injected, metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
+import { type Chain } from 'viem';
+
+// Custom BSC Testnet with reliable RPC
+const bscTestnet: Chain = {
+  id: 97,
+  name: 'BNB Smart Chain Testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'BNB',
+    symbol: 'tBNB',
+  },
+  rpcUrls: {
+    default: { http: ['https://bsc-testnet.public.blastapi.io'] },
+  },
+  blockExplorers: {
+    default: { name: 'BscScan', url: 'https://testnet.bscscan.com' },
+  },
+  testnet: true,
+};
+
+// Custom BSC Mainnet with reliable RPC
+const bsc: Chain = {
+  id: 56,
+  name: 'BNB Smart Chain',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'BNB',
+    symbol: 'BNB',
+  },
+  rpcUrls: {
+    default: { http: ['https://bsc.public.blastapi.io'] },
+  },
+  blockExplorers: {
+    default: { name: 'BscScan', url: 'https://bscscan.com' },
+  },
+};
+
+// Export chains for use in other components
+export { bsc, bscTestnet };
 
 // WalletConnect project ID - get yours at https://cloud.walletconnect.com
 const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';

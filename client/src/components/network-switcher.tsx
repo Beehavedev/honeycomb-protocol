@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertTriangle, ChevronDown, Check } from "lucide-react";
-import { bsc, bscTestnet } from "wagmi/chains";
+import { bsc, bscTestnet } from "@/lib/wagmi";
 
 const SUPPORTED_CHAINS = [
   { ...bscTestnet, label: "BSC Testnet" },
