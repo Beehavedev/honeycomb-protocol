@@ -27,6 +27,7 @@ contract HoneycombBondingCurveMarket is Ownable, ReentrancyGuard {
 
     ITokenFactory public factory;
     address public feeVault;
+    address public migrationContract;
     
     mapping(address => MarketState) public markets;
     mapping(address => mapping(address => uint256)) public lastTradeTime;
@@ -56,6 +57,9 @@ contract HoneycombBondingCurveMarket is Ownable, ReentrancyGuard {
     error InsufficientNative();
     error TransferFailed();
     error ZeroAmount();
+    error OnlyMigrationContract();
+    error NotGraduated();
+    error AlreadyWithdrawn();
 
     constructor(
         address _factory,
@@ -209,6 +213,29 @@ contract HoneycombBondingCurveMarket is Ownable, ReentrancyGuard {
     function setLaunchDelay(uint256 _delay) external onlyOwner { launchDelay = _delay; }
     function setFactory(address _factory) external onlyOwner { factory = ITokenFactory(_factory); }
     function setFeeVault(address _feeVault) external onlyOwner { feeVault = _feeVault; }
+    function setMigrationContract(address _migration) external onlyOwner { migrationContract = _migration; }
+
+    /**
+     * @notice Withdraw reserves for DEX migration (only callable by migration contract)
+     * @param token The token to withdraw reserves for
+     * @return nativeAmount The amount of native tokens withdrawn
+     * @return tokenAmount The amount of tokens to mint for liquidity
+     */
+    function withdrawForMigration(address token) external returns (uint256 nativeAmount, uint256 tokenAmount) {
+        if (msg.sender != migrationContract) revert OnlyMigrationContract();
+        
+        MarketState storage state = markets[token];
+        if (!state.graduated) revert NotGraduated();
+        if (state.nativeReserve == 0 && state.tokenReserve == 0) revert AlreadyWithdrawn();
+        
+        nativeAmount = state.nativeReserve;
+        tokenAmount = state.tokenReserve;
+        
+        state.nativeReserve = 0;
+        state.tokenReserve = 0;
+        
+        _sendNative(msg.sender, nativeAmount);
+    }
 
     receive() external payable {}
 }

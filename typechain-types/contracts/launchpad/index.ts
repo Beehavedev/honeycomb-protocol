@@ -3,7 +3,11 @@
 /* eslint-disable */
 import type * as honeycombBondingCurveMarketSol from "./HoneycombBondingCurveMarket.sol";
 export type { honeycombBondingCurveMarketSol };
+import type * as honeycombMigrationSol from "./HoneycombMigration.sol";
+export type { honeycombMigrationSol };
 import type * as honeycombTokenFactorySol from "./HoneycombTokenFactory.sol";
 export type { honeycombTokenFactorySol };
+import type * as interfaces from "./interfaces";
+export type { interfaces };
 export type { HoneycombFeeVault } from "./HoneycombFeeVault";
 export type { HoneycombToken } from "./HoneycombToken";

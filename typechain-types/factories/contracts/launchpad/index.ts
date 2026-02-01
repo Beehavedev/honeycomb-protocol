@@ -2,6 +2,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export * as honeycombBondingCurveMarketSol from "./HoneycombBondingCurveMarket.sol";
+export * as honeycombMigrationSol from "./HoneycombMigration.sol";
 export * as honeycombTokenFactorySol from "./HoneycombTokenFactory.sol";
+export * as interfaces from "./interfaces";
 export { HoneycombFeeVault__factory } from "./HoneycombFeeVault__factory";
 export { HoneycombToken__factory } from "./HoneycombToken__factory";

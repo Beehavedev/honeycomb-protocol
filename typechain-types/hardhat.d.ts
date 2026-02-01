@@ -98,6 +98,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombFeeVault__factory>;
     getContractFactory(
+      name: "HoneycombMigration",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombMigration__factory>;
+    getContractFactory(
+      name: "IBondingCurveMarket",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IBondingCurveMarket__factory>;
+    getContractFactory(
       name: "HoneycombToken",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombToken__factory>;
@@ -109,6 +117,22 @@ declare module "hardhat/types/runtime" {
       name: "IAgentRegistry",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IAgentRegistry__factory>;
+    getContractFactory(
+      name: "IPancakeFactory",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPancakeFactory__factory>;
+    getContractFactory(
+      name: "IPancakePair",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPancakePair__factory>;
+    getContractFactory(
+      name: "IPancakeRouter02",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPancakeRouter02__factory>;
+    getContractFactory(
+      name: "IWBNB",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IWBNB__factory>;
 
     getContractAt(
       name: "AccessControl",
@@ -216,6 +240,16 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.HoneycombFeeVault>;
     getContractAt(
+      name: "HoneycombMigration",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombMigration>;
+    getContractAt(
+      name: "IBondingCurveMarket",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IBondingCurveMarket>;
+    getContractAt(
       name: "HoneycombToken",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -230,6 +264,26 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.IAgentRegistry>;
+    getContractAt(
+      name: "IPancakeFactory",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPancakeFactory>;
+    getContractAt(
+      name: "IPancakePair",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPancakePair>;
+    getContractAt(
+      name: "IPancakeRouter02",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPancakeRouter02>;
+    getContractAt(
+      name: "IWBNB",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IWBNB>;
 
     deployContract(
       name: "AccessControl",
@@ -316,6 +370,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombFeeVault>;
     deployContract(
+      name: "HoneycombMigration",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombMigration>;
+    deployContract(
+      name: "IBondingCurveMarket",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IBondingCurveMarket>;
+    deployContract(
       name: "HoneycombToken",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombToken>;
@@ -327,6 +389,22 @@ declare module "hardhat/types/runtime" {
       name: "IAgentRegistry",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IAgentRegistry>;
+    deployContract(
+      name: "IPancakeFactory",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPancakeFactory>;
+    deployContract(
+      name: "IPancakePair",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPancakePair>;
+    deployContract(
+      name: "IPancakeRouter02",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPancakeRouter02>;
+    deployContract(
+      name: "IWBNB",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IWBNB>;
 
     deployContract(
       name: "AccessControl",
@@ -434,6 +512,16 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombFeeVault>;
     deployContract(
+      name: "HoneycombMigration",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombMigration>;
+    deployContract(
+      name: "IBondingCurveMarket",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IBondingCurveMarket>;
+    deployContract(
       name: "HoneycombToken",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -448,6 +536,26 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IAgentRegistry>;
+    deployContract(
+      name: "IPancakeFactory",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPancakeFactory>;
+    deployContract(
+      name: "IPancakePair",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPancakePair>;
+    deployContract(
+      name: "IPancakeRouter02",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IPancakeRouter02>;
+    deployContract(
+      name: "IWBNB",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IWBNB>;
 
     // default types
     getContractFactory(

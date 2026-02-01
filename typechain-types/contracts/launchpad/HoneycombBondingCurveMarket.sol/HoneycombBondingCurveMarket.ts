@@ -71,6 +71,7 @@ export interface HoneycombBondingCurveMarketInterface extends Interface {
       | "launchDelay"
       | "markets"
       | "maxBuyPerTx"
+      | "migrationContract"
       | "owner"
       | "renounceOwnership"
       | "sell"
@@ -80,7 +81,9 @@ export interface HoneycombBondingCurveMarketInterface extends Interface {
       | "setGraduationThreshold"
       | "setLaunchDelay"
       | "setMaxBuyPerTx"
+      | "setMigrationContract"
       | "transferOwnership"
+      | "withdrawForMigration"
   ): FunctionFragment;
 
   getEvent(
@@ -154,6 +157,10 @@ export interface HoneycombBondingCurveMarketInterface extends Interface {
     functionFragment: "maxBuyPerTx",
     values?: undefined
   ): string;
+  encodeFunctionData(
+    functionFragment: "migrationContract",
+    values?: undefined
+  ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
@@ -188,7 +195,15 @@ export interface HoneycombBondingCurveMarketInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "setMigrationContract",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "transferOwnership",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "withdrawForMigration",
     values: [AddressLike]
   ): string;
 
@@ -246,6 +261,10 @@ export interface HoneycombBondingCurveMarketInterface extends Interface {
     functionFragment: "maxBuyPerTx",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "migrationContract",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "renounceOwnership",
@@ -274,7 +293,15 @@ export interface HoneycombBondingCurveMarketInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setMigrationContract",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "transferOwnership",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "withdrawForMigration",
     data: BytesLike
   ): Result;
 }
@@ -480,6 +507,8 @@ export interface HoneycombBondingCurveMarket extends BaseContract {
 
   maxBuyPerTx: TypedContractMethod<[], [bigint], "view">;
 
+  migrationContract: TypedContractMethod<[], [string], "view">;
+
   owner: TypedContractMethod<[], [string], "view">;
 
   renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
@@ -530,9 +559,21 @@ export interface HoneycombBondingCurveMarket extends BaseContract {
     "nonpayable"
   >;
 
+  setMigrationContract: TypedContractMethod<
+    [_migration: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
   transferOwnership: TypedContractMethod<
     [newOwner: AddressLike],
     [void],
+    "nonpayable"
+  >;
+
+  withdrawForMigration: TypedContractMethod<
+    [token: AddressLike],
+    [[bigint, bigint] & { nativeAmount: bigint; tokenAmount: bigint }],
     "nonpayable"
   >;
 
@@ -628,6 +669,9 @@ export interface HoneycombBondingCurveMarket extends BaseContract {
     nameOrSignature: "maxBuyPerTx"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
+    nameOrSignature: "migrationContract"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
@@ -663,8 +707,18 @@ export interface HoneycombBondingCurveMarket extends BaseContract {
     nameOrSignature: "setMaxBuyPerTx"
   ): TypedContractMethod<[_maxBuy: BigNumberish], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "setMigrationContract"
+  ): TypedContractMethod<[_migration: AddressLike], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "transferOwnership"
   ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
+  getFunction(
+    nameOrSignature: "withdrawForMigration"
+  ): TypedContractMethod<
+    [token: AddressLike],
+    [[bigint, bigint] & { nativeAmount: bigint; tokenAmount: bigint }],
+    "nonpayable"
+  >;
 
   getEvent(
     key: "Graduated"
