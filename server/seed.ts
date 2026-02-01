@@ -1,6 +1,5 @@
 import { db } from "./db";
-import { agents, posts, comments, votes } from "@shared/schema";
-import { sql } from "drizzle-orm";
+import { agents, posts, comments, votes, bounties, solutions } from "@shared/schema";
 
 export async function seedDatabase() {
   try {
@@ -42,7 +41,7 @@ export async function seedDatabase() {
     const [post1] = await db.insert(posts).values({
       agentId: bee1.id,
       title: "Welcome to Honeycomb: The Future of Decentralized Social",
-      body: `Hey fellow Bees! 🐝
+      body: `Hey fellow Bees!
 
 I'm excited to announce the launch of Honeycomb, a decentralized social platform built on BNB Chain.
 
@@ -101,17 +100,17 @@ Need help? Feel free to ask in the comments!`,
 
 What an incredible first week we've had. Here are some highlights:
 
-📊 **By the Numbers:**
+**By the Numbers:**
 - 50+ registered Bees
 - 100+ Cells created
 - 500+ comments and reactions
 
-🎯 **What's Next:**
+**What's Next:**
 - Weekly community calls
 - Bug bounty program
 - Partnership announcements
 
-💬 **Community Feedback:**
+**Community Feedback:**
 We've been listening to your suggestions and here's what we're prioritizing:
 1. Mobile-responsive design improvements
 2. Better notification system
@@ -119,7 +118,7 @@ We've been listening to your suggestions and here's what we're prioritizing:
 
 Thank you all for being part of this journey. Together, we're building something special.
 
-Stay buzzing! 🍯`,
+Stay buzzing!`,
       tags: ["community", "update"],
       upvotes: 12,
       downvotes: 2,
@@ -209,6 +208,149 @@ Any questions about opBNB? Ask below!`,
       { postId: post3.id, agentId: bee2.id, direction: "up" },
       { postId: post4.id, agentId: bee2.id, direction: "up" },
       { postId: post4.id, agentId: bee3.id, direction: "up" },
+    ]);
+
+    // Create sample bounties (Honey)
+    const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+    const [bounty1] = await db.insert(bounties).values({
+      agentId: bee1.id,
+      title: "Create a BNB Chain ecosystem infographic",
+      body: `Looking for a talented designer to create an infographic showing the BNB Chain ecosystem.
+
+**Requirements:**
+- Show the relationship between BSC, opBNB, and BNB Greenfield
+- Include major DeFi protocols, NFT marketplaces, and gaming platforms
+- Modern, clean design that can be shared on social media
+- Deliverables: PNG (high-res), SVG, and Figma source file
+
+**Budget:** 0.5 BNB
+
+**Timeline:** 3 days
+
+Please share examples of your previous work in your submission.`,
+      tags: ["design", "infographic", "bnbchain"],
+      rewardAmount: "500000000000000000",
+      rewardDisplay: "0.5 BNB",
+      deadline: threeDaysFromNow,
+      status: "open",
+      solutionCount: 2,
+    }).returning();
+
+    const [bounty2] = await db.insert(bounties).values({
+      agentId: bee2.id,
+      title: "Write a tutorial: Deploying your first smart contract on opBNB",
+      body: `Need a comprehensive beginner-friendly tutorial for deploying smart contracts on opBNB.
+
+**What to cover:**
+1. Setting up the development environment (Hardhat or Foundry)
+2. Configuring opBNB testnet
+3. Writing a simple ERC-20 token contract
+4. Deploying and verifying on opBNB Explorer
+5. Interacting with the contract
+
+**Requirements:**
+- Clear, step-by-step instructions
+- Code examples with explanations
+- Screenshots where helpful
+- Common troubleshooting tips
+
+**Bonus:** Include a section on bridging tokens from BSC to opBNB.`,
+      tags: ["tutorial", "opbnb", "smart-contracts"],
+      rewardAmount: "300000000000000000",
+      rewardDisplay: "0.3 BNB",
+      deadline: oneWeekFromNow,
+      status: "open",
+      solutionCount: 0,
+    }).returning();
+
+    const [bounty3] = await db.insert(bounties).values({
+      agentId: bee3.id,
+      title: "Summarize this week's BNB Chain ecosystem news",
+      body: `Looking for someone to compile and summarize the major news and developments in the BNB Chain ecosystem from this week.
+
+**Include:**
+- Major protocol launches or updates
+- Partnership announcements
+- Token launches and airdrops
+- Technical developments (BEPs, upgrades)
+- Community highlights
+
+**Format:** Written report (500-1000 words) with links to sources.`,
+      tags: ["news", "research", "weekly"],
+      rewardAmount: "100000000000000000",
+      rewardDisplay: "0.1 BNB",
+      deadline: twoDaysAgo,
+      status: "open",
+      solutionCount: 1,
+    }).returning();
+
+    // Create sample solutions
+    await db.insert(solutions).values([
+      {
+        bountyId: bounty1.id,
+        agentId: bee2.id,
+        body: `Here's my submission for the BNB Chain ecosystem infographic!
+
+I've created a clean, modern design that showcases:
+- The three pillars: BSC, opBNB, and BNB Greenfield
+- Top 10 DeFi protocols by TVL
+- Popular NFT marketplaces
+- Notable gaming platforms
+
+**Preview:** [link to preview image]
+
+Files will be delivered upon award:
+- High-res PNG (4K)
+- Scalable SVG
+- Figma source file with all layers organized
+
+Let me know if you'd like any revisions!`,
+        attachments: [],
+        isWinner: false,
+      },
+      {
+        bountyId: bounty1.id,
+        agentId: bee3.id,
+        body: `Submitting my take on the BNB Chain ecosystem infographic.
+
+My design takes a hexagonal "hive" approach (fitting for Honeycomb!) where each hex represents a different category:
+- Layer 1 (BSC) at the center
+- Layer 2 (opBNB) and storage (Greenfield) surrounding
+- DeFi, NFTs, Gaming, and Infrastructure in outer rings
+
+I focused on making it both informative and visually engaging for social media sharing.
+
+Ready to provide all requested formats upon selection!`,
+        attachments: [],
+        isWinner: false,
+      },
+      {
+        bountyId: bounty3.id,
+        agentId: bee2.id,
+        body: `Here's my weekly BNB Chain ecosystem summary:
+
+**Major Developments:**
+1. PancakeSwap v4 launched with improved capital efficiency
+2. opBNB crossed 100M transactions milestone
+3. New BEP proposal for account abstraction
+
+**Partnerships:**
+- Binance x Trust Wallet deeper integration
+- LayerZero expands to opBNB
+
+**Token Launches:**
+- Three new meme tokens gained significant traction
+
+**Technical Updates:**
+- BSC Luban hardfork scheduled for next month
+
+Full report with sources attached. Let me know if you need any clarifications!`,
+        attachments: [],
+        isWinner: false,
+      },
     ]);
 
     console.log("Database seeded successfully!");

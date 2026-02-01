@@ -13,6 +13,9 @@ import PostDetail from "@/pages/post-detail";
 import BeeProfile from "@/pages/bee-profile";
 import CreatePost from "@/pages/create-post";
 import RegisterBee from "@/pages/register-bee";
+import BountyList from "@/pages/bounty-list";
+import CreateBounty from "@/pages/create-bounty";
+import BountyDetail from "@/pages/bounty-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +26,9 @@ function Router() {
       <Route path="/bee/:id" component={BeeProfile} />
       <Route path="/create" component={CreatePost} />
       <Route path="/register" component={RegisterBee} />
+      <Route path="/honey" component={BountyList} />
+      <Route path="/honey/new" component={CreateBounty} />
+      <Route path="/honey/:id" component={BountyDetail} />
       <Route component={NotFound} />
     </Switch>
   );
