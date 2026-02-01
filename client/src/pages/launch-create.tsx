@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Form,
   FormControl,
@@ -20,7 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Rocket, ArrowLeft, AlertCircle } from "lucide-react";
+import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon } from "lucide-react";
 import { Link } from "wouter";
 import { useCreateToken, useTokenFactoryAddress } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt } from "wagmi";
@@ -31,7 +32,6 @@ const createTokenSchema = z.object({
   name: z.string().min(1, "Name is required").max(32, "Name too long"),
   symbol: z.string().min(1, "Symbol is required").max(10, "Symbol too long").toUpperCase(),
   description: z.string().max(500, "Description too long").optional(),
-  imageUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   website: z.string().url("Invalid URL").optional().or(z.literal("")),
   twitter: z.string().optional().or(z.literal("")),
   telegram: z.string().optional().or(z.literal("")),
@@ -45,10 +45,15 @@ export default function LaunchCreate() {
   const { isAuthenticated, agent } = useAuth();
   const { address } = useAccount();
   const factoryAddress = useTokenFactoryAddress();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [step, setStep] = useState<"form" | "creating" | "recording">("form");
   const [metadataCID, setMetadataCID] = useState<string>("");
   const [formData, setFormData] = useState<CreateTokenForm | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
   
   const { createToken, isPending: isCreating, isSuccess: txSuccess, hash, error: txError } = useCreateToken();
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash });
@@ -59,12 +64,80 @@ export default function LaunchCreate() {
       name: "",
       symbol: "",
       description: "",
-      imageUrl: "",
       website: "",
       twitter: "",
       telegram: "",
     },
   });
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file (PNG, JPG, GIF, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogoPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
+      setUploadedLogoUrl(data.url);
+      toast({ title: "Logo uploaded!" });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload logo. Please try again.",
+        variant: "destructive",
+      });
+      setLogoFile(null);
+      setLogoPreview(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setUploadedLogoUrl("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const storeMutation = useMutation({
     mutationFn: async (data: CreateTokenForm) => {
@@ -72,7 +145,7 @@ export default function LaunchCreate() {
         name: data.name,
         symbol: data.symbol.toUpperCase(),
         description: data.description || "",
-        imageUrl: data.imageUrl || "",
+        imageUrl: uploadedLogoUrl || "",
         links: {
           website: data.website || undefined,
           twitter: data.twitter || undefined,
@@ -92,7 +165,7 @@ export default function LaunchCreate() {
         symbol: data.formData.symbol.toUpperCase(),
         metadataCID,
         description: data.formData.description || "",
-        imageUrl: data.formData.imageUrl || "",
+        imageUrl: uploadedLogoUrl || "",
         creatorBeeId: agent?.id,
       });
       return (res as Response).json();
@@ -223,7 +296,7 @@ export default function LaunchCreate() {
     );
   }
 
-  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming;
+  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -306,25 +379,76 @@ export default function LaunchCreate() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Logo URL</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="https://example.com/logo.png"
-                        {...field}
-                        disabled={isPending}
-                        data-testid="input-image"
-                      />
-                    </FormControl>
-                    <FormDescription>Optional, URL to your token logo</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div>
+                <FormLabel>Token Logo</FormLabel>
+                <div className="mt-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    disabled={isPending}
+                    data-testid="input-logo-file"
+                  />
+                  
+                  {logoPreview ? (
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-20 w-20 rounded-lg">
+                        <AvatarImage src={logoPreview} alt="Token logo" className="object-cover" />
+                        <AvatarFallback className="rounded-lg">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm text-muted-foreground">{logoFile?.name}</p>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isPending}
+                            data-testid="button-change-logo"
+                          >
+                            Change
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={removeLogo}
+                            disabled={isPending}
+                            data-testid="button-remove-logo"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      {isUploading && (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isPending}
+                      className="w-full h-24 border-dashed"
+                      data-testid="button-upload-logo"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Click to upload logo</span>
+                      </div>
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Optional, max 5MB. Recommended: square image, 256x256px or larger.
+                </p>
+              </div>
 
               <div className="border-t pt-4">
                 <h3 className="font-medium mb-4 text-muted-foreground">Social Links (Optional)</h3>
@@ -407,7 +531,8 @@ export default function LaunchCreate() {
                 {isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {step === "creating" ? "Creating Token..." : 
+                    {isUploading ? "Uploading..." :
+                     step === "creating" ? "Creating Token..." : 
                      isConfirming ? "Confirming..." : "Processing..."}
                   </>
                 ) : (
