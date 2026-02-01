@@ -59,10 +59,17 @@ contract HoneycombToken is ERC20 {
     }
 
     /**
-     * @notice Burn tokens (only market can call for sells)
+     * @notice Burn tokens held by the market (for sells via bonding curve)
      */
     function burn(address from, uint256 amount) external onlyMarket {
         _burn(from, amount);
+    }
+
+    /**
+     * @notice Allow token holders to burn their own tokens
+     */
+    function burnSelf(uint256 amount) external {
+        _burn(msg.sender, amount);
     }
 
     function decimals() public pure override returns (uint8) {

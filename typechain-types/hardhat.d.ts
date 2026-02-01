@@ -106,6 +106,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IBondingCurveMarket__factory>;
     getContractFactory(
+      name: "HoneycombRouter",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombRouter__factory>;
+    getContractFactory(
       name: "HoneycombToken",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombToken__factory>;
@@ -250,6 +254,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IBondingCurveMarket>;
     getContractAt(
+      name: "HoneycombRouter",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombRouter>;
+    getContractAt(
       name: "HoneycombToken",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -378,6 +387,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IBondingCurveMarket>;
     deployContract(
+      name: "HoneycombRouter",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombRouter>;
+    deployContract(
       name: "HoneycombToken",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombToken>;
@@ -521,6 +534,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IBondingCurveMarket>;
+    deployContract(
+      name: "HoneycombRouter",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombRouter>;
     deployContract(
       name: "HoneycombToken",
       args: any[],

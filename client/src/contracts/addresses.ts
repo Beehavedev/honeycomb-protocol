@@ -10,6 +10,7 @@ export interface ContractAddresses {
   tokenFactory: `0x${string}`;
   bondingCurveMarket: `0x${string}`;
   migration: `0x${string}`;
+  router: `0x${string}`;
 }
 
 export interface DexConfig {
@@ -32,17 +33,19 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     tokenFactory: ZERO_ADDRESS,
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
+    router: ZERO_ADDRESS,
   },
-  // BSC Testnet
+  // BSC Testnet - Deployed February 1, 2026 (v2 with router & no cooldown)
   97: {
-    agentRegistry: "0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651",
-    bountyEscrow: "0xdA382b1D15134E0205dBD31992AC7593A227D283",
-    postBond: "0xBBe5cC52575bC4db46a5129F60EC34ECED7CE7BB",
-    reputation: "0x009701911479048de1CF792d15e287cE470505C2",
-    feeVault: "0x5077Df490A68d4bA33208c9308739B17da6CcBb7",
-    tokenFactory: "0x61fcCc3c52F537E9E5434aA472130b8C03500e10",
-    bondingCurveMarket: "0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167",
-    migration: "0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01",
+    agentRegistry: "0x246e121A4df577046BaEdf87d5F68968bc24c52E",
+    bountyEscrow: "0x4598C15E7CD17bc5660747810e0566666e00aB08",
+    postBond: "0x8FC43B88650758a9bcf740Be9426076aA4607c40",
+    reputation: "0xD421eeC4A3be2E825561E923eaa3BEfEf33ddf9C",
+    feeVault: "0xafd910c08fC7CC810E3a6a788D3527AE3808262C",
+    tokenFactory: "0xc48C7F4d8981a972646C843F6f3Ae77924F9fAD6",
+    bondingCurveMarket: "0x8a425aBc8f023f64d875EC6CCcfd27cd7F571Bde",
+    migration: "0x96e983999c0Ab80437560C281Eb35f6dFD8301ff",
+    router: "0x0464386A91fCdd536eaDDF2fE8f621438355a5D6",
   },
   // BSC Mainnet
   56: {
@@ -54,6 +57,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     tokenFactory: ZERO_ADDRESS,
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
+    router: ZERO_ADDRESS,
   },
   // opBNB Testnet
   5611: {
@@ -65,6 +69,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     tokenFactory: ZERO_ADDRESS,
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
+    router: ZERO_ADDRESS,
   },
   // opBNB Mainnet
   204: {
@@ -76,6 +81,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     tokenFactory: ZERO_ADDRESS,
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
+    router: ZERO_ADDRESS,
   },
 };
 

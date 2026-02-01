@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./HoneycombToken.sol";
 
 interface ITokenFactory {
@@ -146,7 +147,11 @@ contract HoneycombBondingCurveMarket is Ownable, ReentrancyGuard {
         state.tokenReserve = newTokenReserve;
         lastTradeTime[token][msg.sender] = block.timestamp;
 
-        HoneycombToken(token).burn(msg.sender, tokenAmountIn);
+        // Transfer tokens from seller to market, then burn
+        // This allows routers/bots to sell on behalf of users via approve+transferFrom
+        IERC20(token).transferFrom(msg.sender, address(this), tokenAmountIn);
+        HoneycombToken(token).burn(address(this), tokenAmountIn);
+        
         _sendNative(feeVault, fee);
         _sendNative(msg.sender, nativeOut);
 

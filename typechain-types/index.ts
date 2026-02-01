@@ -50,6 +50,8 @@ export type { HoneycombMigration } from "./contracts/launchpad/HoneycombMigratio
 export { HoneycombMigration__factory } from "./factories/contracts/launchpad/HoneycombMigration.sol/HoneycombMigration__factory";
 export type { IBondingCurveMarket } from "./contracts/launchpad/HoneycombMigration.sol/IBondingCurveMarket";
 export { IBondingCurveMarket__factory } from "./factories/contracts/launchpad/HoneycombMigration.sol/IBondingCurveMarket__factory";
+export type { HoneycombRouter } from "./contracts/launchpad/HoneycombRouter";
+export { HoneycombRouter__factory } from "./factories/contracts/launchpad/HoneycombRouter__factory";
 export type { HoneycombToken } from "./contracts/launchpad/HoneycombToken";
 export { HoneycombToken__factory } from "./factories/contracts/launchpad/HoneycombToken__factory";
 export type { HoneycombTokenFactory } from "./contracts/launchpad/HoneycombTokenFactory.sol/HoneycombTokenFactory";

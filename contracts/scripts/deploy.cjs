@@ -11,7 +11,7 @@ async function main() {
 
   const config = {
     graduationThreshold: ethers.parseEther(process.env.GRADUATION_THRESHOLD || "10"),
-    cooldownSeconds: parseInt(process.env.COOLDOWN_SECONDS || "10"),
+    cooldownSeconds: parseInt(process.env.COOLDOWN_SECONDS || "0"), // 0 for bot compatibility
     maxBuyPerTx: ethers.parseEther(process.env.MAX_BUY_PER_TX || "10000000"),
     launchDelay: parseInt(process.env.LAUNCH_DELAY || "0"),
     initialVirtualNative: ethers.parseEther(process.env.INITIAL_VIRTUAL_NATIVE || "1"),
@@ -115,6 +115,19 @@ async function main() {
     console.log("\n9. Skipping HoneycombMigration (no DEX router configured for this network)");
   }
 
+  // 11. Deploy HoneycombRouter for bot compatibility
+  let routerAddress = "0x0000000000000000000000000000000000000000";
+  if (dexConfig.wbnb !== "0x0000000000000000000000000000000000000000") {
+    console.log("\n11. Deploying HoneycombRouter for bot compatibility...");
+    const Router = await ethers.getContractFactory("contracts/launchpad/HoneycombRouter.sol:HoneycombRouter");
+    const router = await Router.deploy(bondingCurveMarketAddress, dexConfig.wbnb);
+    await router.waitForDeployment();
+    routerAddress = await router.getAddress();
+    console.log("   HoneycombRouter deployed to:", routerAddress);
+  } else {
+    console.log("\n11. Skipping HoneycombRouter (no WBNB configured for this network)");
+  }
+
   const deploymentInfo = {
     chainId: Number(network.chainId),
     networkName: network.name,
@@ -129,6 +142,7 @@ async function main() {
       HoneycombTokenFactory: tokenFactoryAddress,
       HoneycombBondingCurveMarket: bondingCurveMarketAddress,
       HoneycombMigration: migrationAddress,
+      HoneycombRouter: routerAddress,
     },
     dexConfig: {
       router: dexConfig.router,
@@ -165,6 +179,7 @@ async function main() {
   console.log("HoneycombTokenFactory:", tokenFactoryAddress);
   console.log("HoneycombBondingCurveMarket:", bondingCurveMarketAddress);
   console.log("HoneycombMigration:", migrationAddress);
+  console.log("HoneycombRouter:", routerAddress);
 }
 
 main()

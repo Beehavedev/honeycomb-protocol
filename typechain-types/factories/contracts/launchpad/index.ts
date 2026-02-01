@@ -6,4 +6,5 @@ export * as honeycombMigrationSol from "./HoneycombMigration.sol";
 export * as honeycombTokenFactorySol from "./HoneycombTokenFactory.sol";
 export * as interfaces from "./interfaces";
 export { HoneycombFeeVault__factory } from "./HoneycombFeeVault__factory";
+export { HoneycombRouter__factory } from "./HoneycombRouter__factory";
 export { HoneycombToken__factory } from "./HoneycombToken__factory";

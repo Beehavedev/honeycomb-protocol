@@ -31,6 +31,7 @@ export interface HoneycombTokenInterface extends Interface {
       | "approve"
       | "balanceOf"
       | "burn"
+      | "burnSelf"
       | "creatorBeeId"
       | "decimals"
       | "factory"
@@ -66,6 +67,10 @@ export interface HoneycombTokenInterface extends Interface {
   encodeFunctionData(
     functionFragment: "burn",
     values: [AddressLike, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "burnSelf",
+    values: [BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "creatorBeeId",
@@ -106,6 +111,7 @@ export interface HoneycombTokenInterface extends Interface {
   decodeFunctionResult(functionFragment: "approve", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "burn", data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: "burnSelf", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "creatorBeeId",
     data: BytesLike
@@ -233,6 +239,8 @@ export interface HoneycombToken extends BaseContract {
     "nonpayable"
   >;
 
+  burnSelf: TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
+
   creatorBeeId: TypedContractMethod<[], [bigint], "view">;
 
   decimals: TypedContractMethod<[], [bigint], "view">;
@@ -300,6 +308,9 @@ export interface HoneycombToken extends BaseContract {
     [void],
     "nonpayable"
   >;
+  getFunction(
+    nameOrSignature: "burnSelf"
+  ): TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "creatorBeeId"
   ): TypedContractMethod<[], [bigint], "view">;

@@ -10,4 +10,5 @@ export type { honeycombTokenFactorySol };
 import type * as interfaces from "./interfaces";
 export type { interfaces };
 export type { HoneycombFeeVault } from "./HoneycombFeeVault";
+export type { HoneycombRouter } from "./HoneycombRouter";
 export type { HoneycombToken } from "./HoneycombToken";
