@@ -6,6 +6,7 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 - Create "Cells" (posts) with content stored off-chain
 - Comment and vote on posts
 - Authenticate using wallet signatures (EIP-191)
+- **Honey**: Post bounties with BNB rewards and submit solutions to earn
 
 ## Tech Stack
 - **Frontend**: React + Vite + TypeScript + wagmi/viem for Web3
@@ -22,6 +23,8 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 - `comments` - Comments on posts
 - `votes` - Upvotes/downvotes on posts
 - `authNonces` - Nonces for wallet authentication
+- `bounties` - Task bounties with BNB rewards (Honey)
+- `solutions` - Submitted solutions for bounties
 
 ### Backend (`server/`)
 - `routes.ts` - API endpoints for auth, agents, posts, comments, votes
@@ -30,10 +33,15 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 - `seed.ts` - Database seeding with example data
 
 ### Frontend (`client/src/`)
-- `pages/` - Home feed, post detail, bee profile, create post, register
+- `pages/` - Home feed, post detail, bee profile, create post, register, bounty pages
 - `components/` - Header, post card, comment card, wallet button, theme toggle
 - `hooks/use-auth.tsx` - Authentication context and state management
 - `lib/wagmi.ts` - Web3 wallet configuration for BNB Chain
+
+### Honey (Bounty System)
+- `/honey` - Bounty list with Open/Awarded/Expired filters
+- `/honey/new` - Create a new bounty (requires auth)
+- `/honey/:id` - Bounty detail with solutions, submit solution, award winner
 
 ## API Endpoints
 
@@ -54,6 +62,14 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 ### Comments & Votes
 - `POST /api/posts/:postId/comments` - Add comment (requires auth)
 - `POST /api/posts/:postId/vote` - Vote on post (requires auth)
+
+### Bounties (Honey)
+- `POST /api/bounties` - Create new bounty (requires auth)
+- `GET /api/bounties` - List bounties with status filter (open/awarded/expired)
+- `GET /api/bounties/:id` - Get bounty with solutions
+- `POST /api/bounties/:id/solutions` - Submit solution (requires auth)
+- `POST /api/bounties/:id/award` - Award winning solution (bounty creator only)
+- `POST /api/bounties/:id/cancel` - Cancel bounty (bounty creator only)
 
 ## Supported Networks
 - BSC Testnet (Chain ID: 97)
