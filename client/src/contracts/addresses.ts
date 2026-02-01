@@ -6,6 +6,9 @@ export interface ContractAddresses {
   bountyEscrow: `0x${string}`;
   postBond: `0x${string}`;
   reputation: `0x${string}`;
+  feeVault: `0x${string}`;
+  tokenFactory: `0x${string}`;
+  bondingCurveMarket: `0x${string}`;
 }
 
 // Placeholder address for undeployed contracts
@@ -18,6 +21,9 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bountyEscrow: ZERO_ADDRESS,
     postBond: ZERO_ADDRESS,
     reputation: ZERO_ADDRESS,
+    feeVault: ZERO_ADDRESS,
+    tokenFactory: ZERO_ADDRESS,
+    bondingCurveMarket: ZERO_ADDRESS,
   },
   // BSC Testnet
   97: {
@@ -25,6 +31,9 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bountyEscrow: ZERO_ADDRESS,
     postBond: ZERO_ADDRESS,
     reputation: ZERO_ADDRESS,
+    feeVault: ZERO_ADDRESS,
+    tokenFactory: ZERO_ADDRESS,
+    bondingCurveMarket: ZERO_ADDRESS,
   },
   // BSC Mainnet
   56: {
@@ -32,6 +41,9 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bountyEscrow: ZERO_ADDRESS,
     postBond: ZERO_ADDRESS,
     reputation: ZERO_ADDRESS,
+    feeVault: ZERO_ADDRESS,
+    tokenFactory: ZERO_ADDRESS,
+    bondingCurveMarket: ZERO_ADDRESS,
   },
   // opBNB Testnet
   5611: {
@@ -39,6 +51,9 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bountyEscrow: ZERO_ADDRESS,
     postBond: ZERO_ADDRESS,
     reputation: ZERO_ADDRESS,
+    feeVault: ZERO_ADDRESS,
+    tokenFactory: ZERO_ADDRESS,
+    bondingCurveMarket: ZERO_ADDRESS,
   },
   // opBNB Mainnet
   204: {
@@ -46,6 +61,9 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bountyEscrow: ZERO_ADDRESS,
     postBond: ZERO_ADDRESS,
     reputation: ZERO_ADDRESS,
+    feeVault: ZERO_ADDRESS,
+    tokenFactory: ZERO_ADDRESS,
+    bondingCurveMarket: ZERO_ADDRESS,
   },
 };
 

@@ -6,6 +6,9 @@ import {
   HoneycombBountyEscrowABI,
   HoneycombPostBondABI,
   HoneycombReputationABI,
+  HoneycombTokenFactoryABI,
+  HoneycombBondingCurveMarketABI,
+  HoneycombTokenABI,
 } from './abis';
 import { getContractAddresses } from './addresses';
 
@@ -320,6 +323,191 @@ export function useLastUpdatedAt(agentId?: bigint) {
   });
 }
 
+// ============= Token Factory Hooks (Launchpad) =============
+
+export function useTokenFactoryAddress() {
+  const chainId = useChainId();
+  return getContractAddresses(chainId)?.tokenFactory;
+}
+
+export function useBondingCurveMarketAddress() {
+  const chainId = useChainId();
+  return getContractAddresses(chainId)?.bondingCurveMarket;
+}
+
+export function useCreateToken() {
+  const address = useTokenFactoryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  
+  const createToken = (name: string, symbol: string, metadataCID: string, creatorBeeId: bigint = 0n) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneycombTokenFactoryABI,
+      functionName: 'createToken',
+      args: [name, symbol, metadataCID, creatorBeeId],
+    });
+  };
+  
+  return { createToken, isPending, isConfirming, isSuccess, hash, error };
+}
+
+export function useGetAllTokens() {
+  const address = useTokenFactoryAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombTokenFactoryABI,
+    functionName: 'getAllTokens',
+    query: { enabled: !!address },
+  });
+}
+
+export function useGetTokenCount() {
+  const address = useTokenFactoryAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombTokenFactoryABI,
+    functionName: 'getTokenCount',
+    query: { enabled: !!address },
+  });
+}
+
+export function useIsHoneycombToken(tokenAddress?: `0x${string}`) {
+  const address = useTokenFactoryAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombTokenFactoryABI,
+    functionName: 'isHoneycombToken',
+    args: tokenAddress ? [tokenAddress] : undefined,
+    query: { enabled: !!tokenAddress && !!address },
+  });
+}
+
+// ============= Bonding Curve Market Hooks (Launchpad) =============
+
+export function useGetCurve(tokenAddress?: `0x${string}`) {
+  const address = useBondingCurveMarketAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'getCurve',
+    args: tokenAddress ? [tokenAddress] : undefined,
+    query: { enabled: !!tokenAddress && !!address },
+  });
+}
+
+export function useQuoteBuy(tokenAddress?: `0x${string}`, nativeAmountIn?: bigint) {
+  const address = useBondingCurveMarketAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'quoteBuy',
+    args: tokenAddress && nativeAmountIn !== undefined ? [tokenAddress, nativeAmountIn] : undefined,
+    query: { enabled: !!tokenAddress && nativeAmountIn !== undefined && !!address },
+  });
+}
+
+export function useQuoteSell(tokenAddress?: `0x${string}`, tokenAmountIn?: bigint) {
+  const address = useBondingCurveMarketAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'quoteSell',
+    args: tokenAddress && tokenAmountIn !== undefined ? [tokenAddress, tokenAmountIn] : undefined,
+    query: { enabled: !!tokenAddress && tokenAmountIn !== undefined && !!address },
+  });
+}
+
+export function useBuyTokens() {
+  const address = useBondingCurveMarketAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  
+  const buy = (tokenAddress: `0x${string}`, minTokensOut: bigint, nativeValueWei: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneycombBondingCurveMarketABI,
+      functionName: 'buy',
+      args: [tokenAddress, minTokensOut],
+      value: nativeValueWei,
+    });
+  };
+  
+  return { buy, isPending, isConfirming, isSuccess, hash, error };
+}
+
+export function useSellTokens() {
+  const address = useBondingCurveMarketAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  
+  const sell = (tokenAddress: `0x${string}`, tokenAmountIn: bigint, minNativeOut: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneycombBondingCurveMarketABI,
+      functionName: 'sell',
+      args: [tokenAddress, tokenAmountIn, minNativeOut],
+    });
+  };
+  
+  return { sell, isPending, isConfirming, isSuccess, hash, error };
+}
+
+export function useGraduationThreshold() {
+  const address = useBondingCurveMarketAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'graduationThreshold',
+    query: { enabled: !!address },
+  });
+}
+
+// ============= Token Balance Hooks =============
+
+export function useTokenBalance(tokenAddress?: `0x${string}`, account?: `0x${string}`) {
+  return useReadContract({
+    address: tokenAddress,
+    abi: HoneycombTokenABI,
+    functionName: 'balanceOf',
+    args: account ? [account] : undefined,
+    query: { enabled: !!tokenAddress && !!account },
+  });
+}
+
+export function useTokenAllowance(tokenAddress?: `0x${string}`, owner?: `0x${string}`, spender?: `0x${string}`) {
+  return useReadContract({
+    address: tokenAddress,
+    abi: HoneycombTokenABI,
+    functionName: 'allowance',
+    args: owner && spender ? [owner, spender] : undefined,
+    query: { enabled: !!tokenAddress && !!owner && !!spender },
+  });
+}
+
+export function useApproveToken() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  
+  const approve = (tokenAddress: `0x${string}`, spender: `0x${string}`, amount: bigint) => {
+    writeContract({
+      address: tokenAddress,
+      abi: HoneycombTokenABI,
+      functionName: 'approve',
+      args: [spender, amount],
+    });
+  };
+  
+  return { approve, isPending, isConfirming, isSuccess, hash, error };
+}
+
 // ============= Utility =============
 
 export function useContractsDeployed() {
@@ -334,6 +522,19 @@ export function useContractsDeployed() {
     addresses.bountyEscrow !== ZERO &&
     addresses.postBond !== ZERO &&
     addresses.reputation !== ZERO
+  );
+}
+
+export function useLaunchpadDeployed() {
+  const chainId = useChainId();
+  const addresses = getContractAddresses(chainId);
+  
+  if (!addresses) return false;
+  
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  return (
+    addresses.tokenFactory !== ZERO &&
+    addresses.bondingCurveMarket !== ZERO
   );
 }
 
