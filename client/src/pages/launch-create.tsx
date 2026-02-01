@@ -64,7 +64,6 @@ export default function LaunchCreate() {
   const [isUploading, setIsUploading] = useState(false);
   const [miningProgress, setMiningProgress] = useState<VanityMineProgress | null>(null);
   const [minedSalt, setMinedSalt] = useState<`0x${string}` | null>(null);
-  const [pendingFormData, setPendingFormData] = useState<CreateTokenForm | null>(null);
   
   // Check if on deployed network
   const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
@@ -72,15 +71,6 @@ export default function LaunchCreate() {
   
   const { createToken, isPending: isCreating, isSuccess: txSuccess, hash, error: txError } = useCreateToken();
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash });
-  
-  // Auto-continue after network switch
-  useEffect(() => {
-    if (isOnDeployedNetwork && pendingFormData && step === "switching") {
-      // Network switched successfully, continue with token creation
-      handleSubmitAfterSwitch(pendingFormData);
-      setPendingFormData(null);
-    }
-  }, [isOnDeployedNetwork, pendingFormData, step]);
 
   const form = useForm<CreateTokenForm>({
     resolver: zodResolver(createTokenSchema),
@@ -251,8 +241,6 @@ export default function LaunchCreate() {
 
     // Check if on the correct network
     if (!isOnDeployedNetwork) {
-      // Save form data and switch network
-      setPendingFormData(data);
       setStep("switching");
       
       toast({
@@ -262,10 +250,15 @@ export default function LaunchCreate() {
       
       try {
         await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+        // Switch completed successfully - continue with token creation
+        toast({
+          title: "Network switched",
+          description: "Now creating your token...",
+        });
+        await handleSubmitAfterSwitch(data);
       } catch (error) {
         console.error("Failed to switch network:", error);
         setStep("form");
-        setPendingFormData(null);
         toast({
           title: "Network switch failed",
           description: "Please manually switch to BSC Testnet (Chain ID: 97) in your wallet.",
