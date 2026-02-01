@@ -81,9 +81,13 @@ export default function LaunchDetail() {
       await switchChain({ chainId: DEPLOYED_CHAIN_ID });
       toast({
         title: "Network switched!",
-        description: "Please try again.",
+        description: "Reloading page...",
       });
-      return false; // Return false to prevent action - user needs to click again
+      // Reload page to ensure wagmi hooks reinitialize with the new chain
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+      return false;
     } catch (error) {
       console.error("Failed to switch network:", error);
       toast({

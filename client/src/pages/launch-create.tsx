@@ -250,12 +250,15 @@ export default function LaunchCreate() {
       
       try {
         await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-        // Switch completed - wait for hooks to update then prompt user to continue
+        // Reload page to ensure wagmi hooks reinitialize with the new chain
         toast({
           title: "Network switched!",
-          description: "Please click 'Launch Token' again to continue.",
+          description: "Reloading page...",
         });
-        setStep("form");
+        // Small delay to let toast show, then reload
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } catch (error) {
         console.error("Failed to switch network:", error);
         setStep("form");
