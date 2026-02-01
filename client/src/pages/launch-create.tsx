@@ -250,12 +250,12 @@ export default function LaunchCreate() {
       
       try {
         await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-        // Switch completed successfully - continue with token creation
+        // Switch completed - wait for hooks to update then prompt user to continue
         toast({
-          title: "Network switched",
-          description: "Now creating your token...",
+          title: "Network switched!",
+          description: "Please click 'Launch Token' again to continue.",
         });
-        await handleSubmitAfterSwitch(data);
+        setStep("form");
       } catch (error) {
         console.error("Failed to switch network:", error);
         setStep("form");

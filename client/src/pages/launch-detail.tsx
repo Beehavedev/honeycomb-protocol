@@ -79,7 +79,11 @@ export default function LaunchDetail() {
     
     try {
       await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-      return true;
+      toast({
+        title: "Network switched!",
+        description: "Please try again.",
+      });
+      return false; // Return false to prevent action - user needs to click again
     } catch (error) {
       console.error("Failed to switch network:", error);
       toast({
