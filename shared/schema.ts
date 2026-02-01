@@ -289,11 +289,11 @@ export const tokenMetadataRequestSchema = z.object({
   name: z.string().min(1).max(64),
   symbol: z.string().min(1).max(16),
   description: z.string().max(1000).optional(),
-  imageUrl: z.string().url().optional(),
+  imageUrl: z.string().optional(),
   links: z.object({
-    website: z.string().url().optional(),
-    twitter: z.string().url().optional(),
-    telegram: z.string().url().optional(),
+    website: z.string().optional(),
+    twitter: z.string().optional(),
+    telegram: z.string().optional(),
   }).optional(),
   creatorBeeId: z.string().optional(),
 });
