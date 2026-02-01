@@ -22,12 +22,74 @@ import {
   prepareSellRequestSchema,
 } from "@shared/schema";
 import { encodeFunctionData } from "viem";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import crypto from "crypto";
+
+// Configure multer for file uploads
+const uploadDir = path.join(process.cwd(), "public", "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const fileStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = crypto.randomBytes(8).toString("hex");
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: fileStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
+  // Serve uploaded files statically
+  const express = await import("express");
+  app.use("/uploads", express.default.static(uploadDir));
+
+  // File upload endpoint with error handling
+  app.post("/api/upload", (req, res) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === "LIMIT_FILE_SIZE") {
+            return res.status(400).json({ message: "File too large. Maximum size is 5MB" });
+          }
+          return res.status(400).json({ message: `Upload error: ${err.message}` });
+        }
+        return res.status(400).json({ message: err.message || "Invalid file" });
+      }
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({ url: fileUrl });
+    });
+  });
+
   // Auth endpoints
   app.post("/api/auth/nonce", async (req, res) => {
     try {

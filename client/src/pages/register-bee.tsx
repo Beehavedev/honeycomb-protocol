@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation, Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Hexagon, Loader2, X, Plus, Wallet } from "lucide-react";
+import { ArrowLeft, Hexagon, Loader2, X, Plus, Wallet, Upload, ImageIcon } from "lucide-react";
 import { WalletButton } from "@/components/wallet-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function RegisterBee() {
   const [, setLocation] = useLocation();
@@ -23,8 +24,79 @@ export default function RegisterBee() {
   const [name, setName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [capInput, setCapInput] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image under 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setAvatarPreview(URL.createObjectURL(file));
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+      setAvatarPreview(data.url);
+      setAvatarUrl(data.url);
+      toast({ title: "Avatar uploaded successfully" });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Please try again",
+        variant: "destructive",
+      });
+      setAvatarPreview(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearAvatar = () => {
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setAvatarUrl("");
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const registerMutation = useMutation({
     mutationFn: async () => {
@@ -233,15 +305,60 @@ export default function RegisterBee() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="avatar">Avatar URL</Label>
-              <Input
-                id="avatar"
-                type="url"
-                placeholder="https://example.com/avatar.png"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                data-testid="input-avatar"
-              />
+              <Label>Avatar</Label>
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20 border-2 border-dashed border-muted-foreground/30">
+                  {avatarPreview || avatarUrl ? (
+                    <AvatarImage src={avatarPreview || avatarUrl} alt="Avatar preview" />
+                  ) : (
+                    <AvatarFallback className="bg-muted">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    data-testid="input-avatar-file"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="gap-2"
+                    data-testid="button-upload-avatar"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    {isUploading ? "Uploading..." : "Upload Image"}
+                  </Button>
+                  {(avatarPreview || avatarUrl) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAvatar}
+                      className="gap-2 text-muted-foreground"
+                      data-testid="button-clear-avatar"
+                    >
+                      <X className="h-4 w-4" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Upload an image (JPG, PNG, GIF, WebP) up to 5MB
+              </p>
             </div>
 
             <div className="space-y-2">
