@@ -572,8 +572,8 @@
       ]
     },
     "/home/runner/workspace/contracts/launchpad/HoneycombTokenFactory.sol": {
-      "lastModificationDate": 1769944385654,
-      "contentHash": "980ed95653a4af976706ec30644fab52",
+      "lastModificationDate": 1769968501940,
+      "contentHash": "c5771c86595d91e7c8bfefcecaad6c07",
       "sourceName": "contracts/launchpad/HoneycombTokenFactory.sol",
       "solcConfig": {
         "version": "0.8.24",

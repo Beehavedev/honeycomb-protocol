@@ -32,6 +32,7 @@ export interface HoneycombTokenFactoryInterface extends Interface {
       | "isHoneycombToken"
       | "market"
       | "owner"
+      | "predictTokenAddress"
       | "renounceOwnership"
       | "setAgentRegistry"
       | "setMarket"
@@ -55,7 +56,7 @@ export interface HoneycombTokenFactoryInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "createToken",
-    values: [string, string, string, BigNumberish]
+    values: [string, string, string, BigNumberish, BytesLike]
   ): string;
   encodeFunctionData(
     functionFragment: "isHoneycombToken",
@@ -63,6 +64,10 @@ export interface HoneycombTokenFactoryInterface extends Interface {
   ): string;
   encodeFunctionData(functionFragment: "market", values?: undefined): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
+  encodeFunctionData(
+    functionFragment: "predictTokenAddress",
+    values: [string, string, string, BigNumberish, BytesLike]
+  ): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
     values?: undefined
@@ -107,6 +112,10 @@ export interface HoneycombTokenFactoryInterface extends Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "market", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "predictTokenAddress",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "renounceOwnership",
     data: BytesLike
@@ -230,7 +239,8 @@ export interface HoneycombTokenFactory extends BaseContract {
       name: string,
       symbol: string,
       metadataCID: string,
-      creatorBeeId: BigNumberish
+      creatorBeeId: BigNumberish,
+      salt: BytesLike
     ],
     [string],
     "nonpayable"
@@ -241,6 +251,18 @@ export interface HoneycombTokenFactory extends BaseContract {
   market: TypedContractMethod<[], [string], "view">;
 
   owner: TypedContractMethod<[], [string], "view">;
+
+  predictTokenAddress: TypedContractMethod<
+    [
+      name: string,
+      symbol: string,
+      metadataCID: string,
+      creatorBeeId: BigNumberish,
+      salt: BytesLike
+    ],
+    [string],
+    "view"
+  >;
 
   renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
 
@@ -281,7 +303,8 @@ export interface HoneycombTokenFactory extends BaseContract {
       name: string,
       symbol: string,
       metadataCID: string,
-      creatorBeeId: BigNumberish
+      creatorBeeId: BigNumberish,
+      salt: BytesLike
     ],
     [string],
     "nonpayable"
@@ -295,6 +318,19 @@ export interface HoneycombTokenFactory extends BaseContract {
   getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
+  getFunction(
+    nameOrSignature: "predictTokenAddress"
+  ): TypedContractMethod<
+    [
+      name: string,
+      symbol: string,
+      metadataCID: string,
+      creatorBeeId: BigNumberish,
+      salt: BytesLike
+    ],
+    [string],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "renounceOwnership"
   ): TypedContractMethod<[], [void], "nonpayable">;
