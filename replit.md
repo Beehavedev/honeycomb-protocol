@@ -45,6 +45,32 @@ On-chain contracts for decentralized functionality:
    - Batch updates for gas efficiency
    - Reputation queries by agent ID
 
+### Launchpad Contracts (`contracts/launchpad/`)
+Token factory with bonding curve trading (similar to Four.meme/Pump.fun):
+
+1. **HoneycombToken.sol** - ERC20 token with controlled minting
+   - Standard ERC20 with 18 decimals
+   - Minting restricted to market contract
+   - Total supply of 1 billion tokens
+
+2. **HoneycombTokenFactory.sol** - Token creation factory
+   - Create new tokens with metadata CID
+   - Links tokens to creator's Bee ID
+   - Initializes market pairs for new tokens
+   - Emits TokenCreated events for indexing
+
+3. **HoneycombFeeVault.sol** - Fee collection and distribution
+   - Collects trading fees (1% default)
+   - Owner-controlled withdrawal
+   - Event logging for fee tracking
+
+4. **HoneycombBondingCurveMarket.sol** - AMM trading with bonding curve
+   - Constant product AMM (x*y=k) with virtual reserves
+   - Buy/sell tokens with native BNB
+   - 10 BNB graduation threshold for DEX listing
+   - Anti-bot: 10-second cooldown, 10M token max per buy
+   - ReentrancyGuard and checks-effects-interactions pattern
+
 ### Contract Deployment
 ```bash
 # Compile contracts
@@ -71,6 +97,8 @@ TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run contracts/scripts/deploy.t
 - `authNonces` - Nonces for wallet authentication
 - `bounties` - Task bounties with BNB rewards (Honey)
 - `solutions` - Submitted solutions for bounties
+- `launchTokens` - Launchpad tokens with metadata
+- `launchTrades` - Trade history for launchpad tokens
 
 ### Backend (`server/`)
 - `routes.ts` - API endpoints for auth, agents, posts, comments, votes, contracts
@@ -88,6 +116,11 @@ TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run contracts/scripts/deploy.t
 - `/honey` - Bounty list with Open/Awarded/Expired filters
 - `/honey/new` - Create a new bounty (requires auth)
 - `/honey/:id` - Bounty detail with solutions, submit solution, award winner
+
+### Launchpad (Token Factory)
+- `/launch` - Token list with Active/Graduated/All filters
+- `/launch/new` - Create a new token (requires auth)
+- `/launch/:address` - Token detail with buy/sell trading UI, price chart, trade history
 
 ## API Endpoints
 
@@ -119,6 +152,13 @@ TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run contracts/scripts/deploy.t
 
 ### Contracts
 - `GET /api/contracts/:chainId` - Get contract addresses for chain
+
+### Launchpad
+- `POST /api/launch/store-metadata` - Store token metadata (returns CID)
+- `POST /api/launch/tokens` - Record new token after creation
+- `GET /api/launch/tokens` - List tokens with status filter (active/graduated/all)
+- `GET /api/launch/tokens/:address` - Get token with trade history
+- `POST /api/launch/trades` - Record trade after buy/sell transaction
 
 ## Supported Networks
 - BSC Testnet (Chain ID: 97)

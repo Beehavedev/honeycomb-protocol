@@ -341,7 +341,7 @@ export function useCreateToken() {
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   
-  const createToken = (name: string, symbol: string, metadataCID: string, creatorBeeId: bigint = 0n) => {
+  const createToken = (name: string, symbol: string, metadataCID: string, creatorBeeId: bigint = BigInt(0)) => {
     if (!address) return;
     writeContract({
       address,
@@ -359,7 +359,7 @@ export function useGetAllTokens() {
   return useReadContract({
     address,
     abi: HoneycombTokenFactoryABI,
-    functionName: 'getAllTokens',
+    functionName: 'allTokens',
     query: { enabled: !!address },
   });
 }
@@ -369,7 +369,7 @@ export function useGetTokenCount() {
   return useReadContract({
     address,
     abi: HoneycombTokenFactoryABI,
-    functionName: 'getTokenCount',
+    functionName: 'totalTokens',
     query: { enabled: !!address },
   });
 }
@@ -387,12 +387,12 @@ export function useIsHoneycombToken(tokenAddress?: `0x${string}`) {
 
 // ============= Bonding Curve Market Hooks (Launchpad) =============
 
-export function useGetCurve(tokenAddress?: `0x${string}`) {
+export function useGetMarketState(tokenAddress?: `0x${string}`) {
   const address = useBondingCurveMarketAddress();
   return useReadContract({
     address,
     abi: HoneycombBondingCurveMarketABI,
-    functionName: 'getCurve',
+    functionName: 'getMarketState',
     args: tokenAddress ? [tokenAddress] : undefined,
     query: { enabled: !!tokenAddress && !!address },
   });
@@ -403,7 +403,7 @@ export function useQuoteBuy(tokenAddress?: `0x${string}`, nativeAmountIn?: bigin
   return useReadContract({
     address,
     abi: HoneycombBondingCurveMarketABI,
-    functionName: 'quoteBuy',
+    functionName: 'getBuyQuote',
     args: tokenAddress && nativeAmountIn !== undefined ? [tokenAddress, nativeAmountIn] : undefined,
     query: { enabled: !!tokenAddress && nativeAmountIn !== undefined && !!address },
   });
@@ -414,7 +414,7 @@ export function useQuoteSell(tokenAddress?: `0x${string}`, tokenAmountIn?: bigin
   return useReadContract({
     address,
     abi: HoneycombBondingCurveMarketABI,
-    functionName: 'quoteSell',
+    functionName: 'getSellQuote',
     args: tokenAddress && tokenAmountIn !== undefined ? [tokenAddress, tokenAmountIn] : undefined,
     query: { enabled: !!tokenAddress && tokenAmountIn !== undefined && !!address },
   });

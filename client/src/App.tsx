@@ -16,6 +16,9 @@ import RegisterBee from "@/pages/register-bee";
 import BountyList from "@/pages/bounty-list";
 import CreateBounty from "@/pages/create-bounty";
 import BountyDetail from "@/pages/bounty-detail";
+import LaunchList from "@/pages/launch-list";
+import LaunchCreate from "@/pages/launch-create";
+import LaunchDetail from "@/pages/launch-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,6 +32,9 @@ function Router() {
       <Route path="/honey" component={BountyList} />
       <Route path="/honey/new" component={CreateBounty} />
       <Route path="/honey/:id" component={BountyDetail} />
+      <Route path="/launch" component={LaunchList} />
+      <Route path="/launch/new" component={LaunchCreate} />
+      <Route path="/launch/:address" component={LaunchDetail} />
       <Route component={NotFound} />
     </Switch>
   );

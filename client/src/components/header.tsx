@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
-import { Hexagon, Plus, User, Coins } from "lucide-react";
+import { Hexagon, Plus, User, Coins, Rocket } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -39,6 +39,16 @@ export function Header() {
             >
               <Coins className="h-4 w-4" />
               Honey
+            </Button>
+          </Link>
+          <Link href="/launch">
+            <Button
+              variant={location.startsWith("/launch") ? "secondary" : "ghost"}
+              className="gap-2"
+              data-testid="link-launch"
+            >
+              <Rocket className="h-4 w-4" />
+              Launchpad
             </Button>
           </Link>
           {isAuthenticated && agent && (
