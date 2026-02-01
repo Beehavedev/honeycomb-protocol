@@ -253,13 +253,28 @@ export default function LaunchCreate() {
     }
   };
 
-  // Effect to handle submission after network switch
+  // Check for pending launch on mount (persisted across network switch)
   useEffect(() => {
-    console.log("Effect check - pendingSubmit:", !!pendingSubmit, "isOnDeployedNetwork:", isOnDeployedNetwork, "chainId:", chainId);
+    const pending = localStorage.getItem("pendingTokenLaunch");
+    if (pending && isOnDeployedNetwork) {
+      try {
+        const data = JSON.parse(pending) as CreateTokenForm;
+        localStorage.removeItem("pendingTokenLaunch");
+        console.log("Resuming token launch after network switch...");
+        handleSubmitAfterSwitch(data);
+      } catch (e) {
+        localStorage.removeItem("pendingTokenLaunch");
+      }
+    }
+  }, [isOnDeployedNetwork]);
+
+  // Also check when chainId changes (for cases where page doesn't reload)
+  useEffect(() => {
     if (pendingSubmit && isOnDeployedNetwork) {
       console.log("Network switch detected, continuing with token creation...");
       const data = pendingSubmit;
       setPendingSubmit(null);
+      localStorage.removeItem("pendingTokenLaunch");
       handleSubmitAfterSwitch(data);
     }
   }, [pendingSubmit, isOnDeployedNetwork, chainId]);
@@ -274,30 +289,36 @@ export default function LaunchCreate() {
       return;
     }
 
-    console.log("onSubmit - chainId:", chainId, "isOnDeployedNetwork:", isOnDeployedNetwork);
-
     // Auto-switch network if needed (like four.meme)
     if (!isOnDeployedNetwork) {
       try {
-        // Store form data and trigger switch
+        // Store form data in both state and localStorage (for page reload scenarios)
         setPendingSubmit(data);
-        console.log("Triggering network switch to BSC Testnet...");
-        toast({
-          title: "Switching to BSC Testnet",
-          description: "Please approve in your wallet...",
-        });
-        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-        console.log("switchChain completed, waiting for chain update...");
-        // The effect above will handle submission after chain updates
+        localStorage.setItem("pendingTokenLaunch", JSON.stringify(data));
+        
+        // Use the raw ethereum provider for more reliable switching
+        if (window.ethereum) {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${DEPLOYED_CHAIN_ID.toString(16)}` }],
+          });
+        } else {
+          await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+        }
+        // The effects above will handle submission after chain updates
         return;
-      } catch (e) {
+      } catch (e: any) {
         console.error("Network switch failed:", e);
         setPendingSubmit(null);
-        toast({
-          title: "Network switch cancelled",
-          description: "Please try again after switching to BSC Testnet.",
-          variant: "destructive",
-        });
+        localStorage.removeItem("pendingTokenLaunch");
+        // Don't show error for user rejection
+        if (e?.code !== 4001) {
+          toast({
+            title: "Network switch failed",
+            description: "Please switch to BSC Testnet manually.",
+            variant: "destructive",
+          });
+        }
         return;
       }
     }
