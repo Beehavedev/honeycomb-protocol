@@ -25,7 +25,9 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { formatEther, parseEther } from "viem";
-import { useAccount } from "wagmi";
+import { useAccount, useSwitchChain, useChainId } from "wagmi";
+
+const DEPLOYED_CHAIN_ID = 97; // BSC Testnet
 import { 
   useBondingCurveMarketAddress,
   useGetMarketState,
@@ -53,6 +55,8 @@ export default function LaunchDetail() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const { address: userAddress } = useAccount();
+  const chainId = useChainId();
+  const { switchChain, isPending: isSwitchingNetwork } = useSwitchChain();
   const marketAddress = useBondingCurveMarketAddress();
   
   const [tradeTab, setTradeTab] = useState<"buy" | "sell">("buy");
@@ -60,6 +64,32 @@ export default function LaunchDetail() {
   const [sellAmount, setSellAmount] = useState("");
   const [copied, setCopied] = useState(false);
   const [lastTradeInfo, setLastTradeInfo] = useState<{ isBuy: boolean; nativeAmount: string; tokenAmount: string } | null>(null);
+  
+  // Check if on deployed network
+  const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
+  
+  // Auto switch network helper
+  const ensureCorrectNetwork = async (): Promise<boolean> => {
+    if (isOnDeployedNetwork) return true;
+    
+    toast({
+      title: "Switching network",
+      description: "Please approve the network switch to BSC Testnet.",
+    });
+    
+    try {
+      await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+      return true;
+    } catch (error) {
+      console.error("Failed to switch network:", error);
+      toast({
+        title: "Network switch failed",
+        description: "Please manually switch to BSC Testnet (Chain ID: 97).",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
 
   const { data, isLoading, error, refetch } = useQuery<TokenDetailResponse>({
     queryKey: ["/api/launch/tokens", tokenAddress],
@@ -168,8 +198,11 @@ export default function LaunchDetail() {
     }
   }, [migrateError, toast]);
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
+    
+    // Ensure correct network first
+    if (!await ensureCorrectNetwork()) return;
     
     const quoteValue = buyQuote as readonly [bigint, bigint] | undefined;
     const minOut = quoteValue ? (quoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
@@ -184,8 +217,11 @@ export default function LaunchDetail() {
     buy(tokenAddress, minOut, buyAmountWei);
   };
 
-  const handleSell = () => {
+  const handleSell = async () => {
     if (!tokenAddress || sellAmountWei <= BigInt(0) || !marketAddress) return;
+    
+    // Ensure correct network first
+    if (!await ensureCorrectNetwork()) return;
     
     if (needsApproval) {
       approve(tokenAddress, marketAddress, sellAmountWei);
@@ -376,15 +412,19 @@ export default function LaunchDetail() {
                         </p>
                       </div>
                       <Button
-                        onClick={() => tokenAddress && migrate(tokenAddress)}
-                        disabled={isMigrating}
+                        onClick={async () => {
+                          if (!tokenAddress) return;
+                          if (!await ensureCorrectNetwork()) return;
+                          migrate(tokenAddress);
+                        }}
+                        disabled={isMigrating || isSwitchingNetwork}
                         className="shrink-0"
                         data-testid="button-migrate"
                       >
-                        {isMigrating ? (
+                        {isMigrating || isSwitchingNetwork ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Migrating...
+                            {isSwitchingNetwork ? "Switching..." : "Migrating..."}
                           </>
                         ) : (
                           <>
@@ -541,14 +581,14 @@ export default function LaunchDetail() {
 
                       <Button
                         onClick={handleBuy}
-                        disabled={isBuying || !buyAmount || parseFloat(buyAmount) <= 0}
+                        disabled={isBuying || isSwitchingNetwork || !buyAmount || parseFloat(buyAmount) <= 0}
                         className="w-full gap-2"
                         data-testid="button-buy"
                       >
-                        {isBuying ? (
+                        {isBuying || isSwitchingNetwork ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Buying...
+                            {isSwitchingNetwork ? "Switching Network..." : "Buying..."}
                           </>
                         ) : (
                           "Buy Tokens"
@@ -591,14 +631,14 @@ export default function LaunchDetail() {
 
                       <Button
                         onClick={handleSell}
-                        disabled={isSelling || isApproving || !sellAmount || parseFloat(sellAmount) <= 0}
+                        disabled={isSelling || isApproving || isSwitchingNetwork || !sellAmount || parseFloat(sellAmount) <= 0}
                         className="w-full gap-2"
                         data-testid="button-sell"
                       >
-                        {isSelling || isApproving ? (
+                        {isSelling || isApproving || isSwitchingNetwork ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            {isApproving ? "Approving..." : "Selling..."}
+                            {isSwitchingNetwork ? "Switching Network..." : isApproving ? "Approving..." : "Selling..."}
                           </>
                         ) : needsApproval ? (
                           "Approve & Sell"

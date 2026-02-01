@@ -25,10 +25,14 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useCreateToken, useTokenFactoryAddress } from "@/contracts/hooks";
-import { useAccount, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId } from "wagmi";
 import { decodeEventLog } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
 import { generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
+import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
+
+// BSC Testnet is currently the only deployed network
+const DEPLOYED_CHAIN_ID = 97;
 
 const createTokenSchema = z.object({
   name: z.string().min(1, "Name is required").max(32, "Name too long"),
@@ -46,10 +50,12 @@ export default function LaunchCreate() {
   const { toast } = useToast();
   const { isAuthenticated, agent } = useAuth();
   const { address } = useAccount();
+  const chainId = useChainId();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
   const factoryAddress = useTokenFactoryAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [step, setStep] = useState<"form" | "mining" | "creating" | "recording">("form");
+  const [step, setStep] = useState<"form" | "mining" | "creating" | "recording" | "switching">("form");
   const [metadataCID, setMetadataCID] = useState<string>("");
   const [formData, setFormData] = useState<CreateTokenForm | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -58,9 +64,23 @@ export default function LaunchCreate() {
   const [isUploading, setIsUploading] = useState(false);
   const [miningProgress, setMiningProgress] = useState<VanityMineProgress | null>(null);
   const [minedSalt, setMinedSalt] = useState<`0x${string}` | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<CreateTokenForm | null>(null);
+  
+  // Check if on deployed network
+  const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
+  const contractsDeployed = factoryAddress && factoryAddress !== "0x0000000000000000000000000000000000000000";
   
   const { createToken, isPending: isCreating, isSuccess: txSuccess, hash, error: txError } = useCreateToken();
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash });
+  
+  // Auto-continue after network switch
+  useEffect(() => {
+    if (isOnDeployedNetwork && pendingFormData && step === "switching") {
+      // Network switched successfully, continue with token creation
+      handleSubmitAfterSwitch(pendingFormData);
+      setPendingFormData(null);
+    }
+  }, [isOnDeployedNetwork, pendingFormData, step]);
 
   const form = useForm<CreateTokenForm>({
     resolver: zodResolver(createTokenSchema),
@@ -179,6 +199,46 @@ export default function LaunchCreate() {
     },
   });
 
+  // Helper function to continue after network switch
+  const handleSubmitAfterSwitch = async (data: CreateTokenForm) => {
+    try {
+      setFormData(data);
+      setStep("creating");
+      
+      // Store metadata first
+      const metaResult = await storeMutation.mutateAsync(data);
+      const cid = metaResult.metadataCID;
+      setMetadataCID(cid);
+      
+      // Generate salt and create token
+      setStep("mining");
+      setMiningProgress({ attempts: 0, currentAddress: "" });
+      
+      const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
+      const randomSalt = generateRandomSalt();
+      setMinedSalt(randomSalt);
+      setStep("creating");
+      
+      toast({
+        title: "Creating token",
+        description: "Token will be created with CREATE2 deployment.",
+      });
+      
+      createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
+    } catch (error) {
+      console.error("Error creating token:", error);
+      setStep("form");
+      setFormData(null);
+      setMiningProgress(null);
+      setMinedSalt(null);
+      toast({
+        title: "Error",
+        description: "Failed to create token. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const onSubmit = async (data: CreateTokenForm) => {
     if (!address) {
       toast({
@@ -189,57 +249,36 @@ export default function LaunchCreate() {
       return;
     }
 
-    const contractsDeployed = factoryAddress && factoryAddress !== "0x0000000000000000000000000000000000000000";
-
-    try {
-      setFormData(data);
+    // Check if on the correct network
+    if (!isOnDeployedNetwork) {
+      // Save form data and switch network
+      setPendingFormData(data);
+      setStep("switching");
       
-      // Step 1: Store metadata
-      setStep("creating");
-      const metaResult = await storeMutation.mutateAsync(data);
-      const cid = metaResult.metadataCID;
-      setMetadataCID(cid);
+      toast({
+        title: "Switching network",
+        description: "Please approve the network switch to BSC Testnet in your wallet.",
+      });
       
-      if (!contractsDeployed || !factoryAddress) {
+      try {
+        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+      } catch (error) {
+        console.error("Failed to switch network:", error);
+        setStep("form");
+        setPendingFormData(null);
         toast({
-          title: "Contracts not deployed",
-          description: "Please switch to BSC Testnet (Chain ID: 97) to create tokens.",
+          title: "Network switch failed",
+          description: "Please manually switch to BSC Testnet (Chain ID: 97) in your wallet.",
           variant: "destructive",
         });
-        setStep("form");
-        return;
       }
-      
-      // Mine for vanity address (8888 suffix)
-      setStep("mining");
-      setMiningProgress({ attempts: 0, currentAddress: "" });
-      
-      const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
-      
-      const randomSalt = generateRandomSalt();
-      setMinedSalt(randomSalt);
-      setStep("creating");
-      
-      toast({
-        title: "Creating token",
-        description: "Token will be created with CREATE2 deployment.",
-      });
-      
-      // On-chain token creation with salt
-      createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
-    } catch (error) {
-      console.error("Error creating token:", error);
-      setStep("form");
-      setFormData(null);
-      setMiningProgress(null);
-      setMinedSalt(null);
-      toast({
-        title: "Error",
-        description: "Failed to prepare token creation. Please try again.",
-        variant: "destructive",
-      });
+      return;
     }
+
+    // Already on correct network, proceed with token creation
+    await handleSubmitAfterSwitch(data);
   };
+
 
   useEffect(() => {
     if (txError) {
@@ -562,6 +601,18 @@ export default function LaunchCreate() {
                 </ul>
               </div>
 
+              {step === "switching" && (
+                <div className="bg-primary/10 border border-primary/30 p-4 rounded-md text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                    <span className="font-medium">Switching Network</span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Please approve the network switch to BSC Testnet in your wallet...
+                  </p>
+                </div>
+              )}
+
               {step === "mining" && (
                 <div className="bg-primary/10 border border-primary/30 p-4 rounded-md text-sm">
                   <div className="flex items-center gap-2 mb-2">
@@ -592,6 +643,7 @@ export default function LaunchCreate() {
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {isUploading ? "Uploading..." :
+                     step === "switching" ? "Switching Network..." :
                      step === "mining" ? "Mining 8888 Address..." :
                      step === "creating" ? "Creating Token..." : 
                      isConfirming ? "Confirming..." : "Processing..."}
