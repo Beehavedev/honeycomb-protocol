@@ -4,11 +4,12 @@ import {
   type Comment, type InsertComment,
   type Vote, type InsertVote,
   type AuthNonce, type InsertAuthNonce,
-  agents, posts, comments, votes, authNonces
+  type Bounty, type InsertBounty,
+  type Solution, type InsertSolution,
+  agents, posts, comments, votes, authNonces, bounties, solutions
 } from "@shared/schema";
-import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, lt, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Auth
@@ -43,6 +44,22 @@ export interface IStorage {
   getVotesByPosts(postIds: string[], agentId?: string): Promise<Vote[]>;
   getUpvoteCountByAgent(agentId: string): Promise<number>;
   countVotesForPost(postId: string): Promise<{ upvotes: number; downvotes: number }>;
+
+  // Bounties
+  createBounty(data: InsertBounty): Promise<Bounty>;
+  getBounty(id: string): Promise<Bounty | undefined>;
+  getBounties(status: "open" | "awarded" | "expired" | "all", limit: number): Promise<Bounty[]>;
+  getBountiesByAgent(agentId: string): Promise<Bounty[]>;
+  updateBountyStatus(id: string, status: string, winningSolutionId?: string): Promise<Bounty>;
+  incrementBountySolutionCount(bountyId: string): Promise<void>;
+  markExpiredBounties(): Promise<number>;
+
+  // Solutions
+  createSolution(data: InsertSolution): Promise<Solution>;
+  getSolution(id: string): Promise<Solution | undefined>;
+  getSolutionsByBounty(bountyId: string): Promise<Solution[]>;
+  getSolutionByBountyAndAgent(bountyId: string, agentId: string): Promise<Solution | undefined>;
+  markSolutionAsWinner(id: string): Promise<Solution>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -205,6 +222,123 @@ export class DatabaseStorage implements IStorage {
     const upvotes = allVotes.filter(v => v.direction === "up").length;
     const downvotes = allVotes.filter(v => v.direction === "down").length;
     return { upvotes, downvotes };
+  }
+
+  // Bounties
+  async createBounty(data: InsertBounty): Promise<Bounty> {
+    const [bounty] = await db.insert(bounties).values(data).returning();
+    return bounty;
+  }
+
+  async getBounty(id: string): Promise<Bounty | undefined> {
+    const [bounty] = await db.select().from(bounties).where(eq(bounties.id, id)).limit(1);
+    return bounty;
+  }
+
+  async getBounties(status: "open" | "awarded" | "expired" | "all", limit: number): Promise<Bounty[]> {
+    const now = new Date();
+    
+    if (status === "all") {
+      return db.select().from(bounties)
+        .orderBy(desc(bounties.createdAt))
+        .limit(limit);
+    }
+    
+    if (status === "expired") {
+      return db.select().from(bounties)
+        .where(and(
+          eq(bounties.status, "open"),
+          lt(bounties.deadline, now)
+        ))
+        .orderBy(desc(bounties.createdAt))
+        .limit(limit);
+    }
+    
+    if (status === "open") {
+      return db.select().from(bounties)
+        .where(and(
+          eq(bounties.status, "open"),
+          sql`${bounties.deadline} >= ${now}`
+        ))
+        .orderBy(desc(bounties.createdAt))
+        .limit(limit);
+    }
+    
+    return db.select().from(bounties)
+      .where(eq(bounties.status, status))
+      .orderBy(desc(bounties.createdAt))
+      .limit(limit);
+  }
+
+  async getBountiesByAgent(agentId: string): Promise<Bounty[]> {
+    return db.select().from(bounties)
+      .where(eq(bounties.agentId, agentId))
+      .orderBy(desc(bounties.createdAt));
+  }
+
+  async updateBountyStatus(id: string, status: string, winningSolutionId?: string): Promise<Bounty> {
+    const updateData: any = { status };
+    if (winningSolutionId) {
+      updateData.winningSolutionId = winningSolutionId;
+    }
+    const [bounty] = await db.update(bounties)
+      .set(updateData)
+      .where(eq(bounties.id, id))
+      .returning();
+    return bounty;
+  }
+
+  async incrementBountySolutionCount(bountyId: string): Promise<void> {
+    await db.update(bounties)
+      .set({ solutionCount: sql`${bounties.solutionCount} + 1` })
+      .where(eq(bounties.id, bountyId));
+  }
+
+  async markExpiredBounties(): Promise<number> {
+    const now = new Date();
+    const result = await db.update(bounties)
+      .set({ status: "expired" })
+      .where(and(
+        eq(bounties.status, "open"),
+        lt(bounties.deadline, now)
+      ))
+      .returning();
+    return result.length;
+  }
+
+  // Solutions
+  async createSolution(data: InsertSolution): Promise<Solution> {
+    const [solution] = await db.insert(solutions).values(data).returning();
+    return solution;
+  }
+
+  async getSolution(id: string): Promise<Solution | undefined> {
+    const [solution] = await db.select().from(solutions).where(eq(solutions.id, id)).limit(1);
+    return solution;
+  }
+
+  async getSolutionsByBounty(bountyId: string): Promise<Solution[]> {
+    return db.select().from(solutions)
+      .where(eq(solutions.bountyId, bountyId))
+      .orderBy(desc(solutions.createdAt));
+  }
+
+  async getSolutionByBountyAndAgent(bountyId: string, agentId: string): Promise<Solution | undefined> {
+    const [solution] = await db.select().from(solutions)
+      .where(and(
+        eq(solutions.bountyId, bountyId),
+        eq(solutions.agentId, agentId)
+      ))
+      .limit(1);
+    return solution;
+  }
+
+  async markSolutionAsWinner(id: string): Promise<Solution> {
+    const [solution] = await db.update(solutions)
+      .set({ isWinner: true })
+      .where(eq(solutions.id, id))
+      .returning();
+    return solution;
   }
 }
 

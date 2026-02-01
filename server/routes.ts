@@ -13,8 +13,10 @@ import {
   createPostRequestSchema,
   createCommentRequestSchema,
   voteRequestSchema,
+  createBountyRequestSchema,
+  submitSolutionRequestSchema,
+  awardSolutionRequestSchema,
 } from "@shared/schema";
-import { z } from "zod";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -383,6 +385,270 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Vote error:", error);
       res.status(500).json({ message: "Failed to vote" });
+    }
+  });
+
+  // ============ BOUNTY ENDPOINTS ============
+
+  // Create bounty
+  app.post("/api/bounties", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+
+      // Validate request body
+      const parseResult = createBountyRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid request", 
+          errors: parseResult.error.flatten().fieldErrors 
+        });
+      }
+
+      const { agentId, title, body, tags, rewardAmount, rewardDisplay, deadlineHours } = parseResult.data;
+
+      // Verify ownership
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+      if (agent.ownerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Not authorized to create bounty as this agent" });
+      }
+
+      // Calculate deadline
+      const deadline = new Date(Date.now() + deadlineHours * 60 * 60 * 1000);
+
+      const bounty = await storage.createBounty({
+        agentId,
+        title,
+        body,
+        tags: tags || [],
+        rewardAmount,
+        rewardDisplay,
+        deadline,
+      });
+
+      res.status(201).json({ bounty: { ...bounty, agent } });
+    } catch (error) {
+      console.error("Create bounty error:", error);
+      res.status(500).json({ message: "Failed to create bounty" });
+    }
+  });
+
+  // List bounties
+  app.get("/api/bounties", async (req, res) => {
+    try {
+      const status = (req.query.status as "open" | "awarded" | "expired" | "all") || "open";
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+
+      // Mark expired bounties first
+      await storage.markExpiredBounties();
+
+      const bounties = await storage.getBounties(status, limit);
+      
+      // Get agents for bounties
+      const agentIds = [...new Set(bounties.map(b => b.agentId))];
+      const agents = await storage.getAgentsByIds(agentIds);
+      const agentMap = new Map(agents.map(a => [a.id, a]));
+
+      const bountiesWithAgents = bounties.map(bounty => ({
+        ...bounty,
+        agent: agentMap.get(bounty.agentId),
+        isExpired: new Date(bounty.deadline) < new Date() && bounty.status === "open",
+      }));
+
+      res.json({ bounties: bountiesWithAgents });
+    } catch (error) {
+      console.error("List bounties error:", error);
+      res.status(500).json({ message: "Failed to fetch bounties" });
+    }
+  });
+
+  // Get single bounty with solutions
+  app.get("/api/bounties/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const bounty = await storage.getBounty(id);
+      if (!bounty) {
+        return res.status(404).json({ message: "Bounty not found" });
+      }
+
+      const agent = await storage.getAgent(bounty.agentId);
+      const solutions = await storage.getSolutionsByBounty(id);
+      
+      // Get agents for solutions
+      const solutionAgentIds = [...new Set(solutions.map(s => s.agentId))];
+      const solutionAgents = await storage.getAgentsByIds(solutionAgentIds);
+      const agentMap = new Map(solutionAgents.map(a => [a.id, a]));
+      
+      const solutionsWithAgents = solutions.map(solution => ({
+        ...solution,
+        agent: agentMap.get(solution.agentId),
+      }));
+
+      const isExpired = new Date(bounty.deadline) < new Date() && bounty.status === "open";
+
+      res.json({
+        bounty: { ...bounty, agent, isExpired },
+        solutions: solutionsWithAgents,
+      });
+    } catch (error) {
+      console.error("Get bounty error:", error);
+      res.status(500).json({ message: "Failed to fetch bounty" });
+    }
+  });
+
+  // Submit solution
+  app.post("/api/bounties/:bountyId/solutions", authMiddleware, async (req, res) => {
+    try {
+      const { bountyId } = req.params;
+      const walletAddress = req.walletAddress!;
+
+      // Validate request body
+      const parseResult = submitSolutionRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid request", 
+          errors: parseResult.error.flatten().fieldErrors 
+        });
+      }
+
+      const { agentId, body, attachments } = parseResult.data;
+
+      // Verify bounty exists and is open
+      const bounty = await storage.getBounty(bountyId);
+      if (!bounty) {
+        return res.status(404).json({ message: "Bounty not found" });
+      }
+      if (bounty.status !== "open") {
+        return res.status(400).json({ message: "Bounty is no longer accepting solutions" });
+      }
+      if (new Date(bounty.deadline) < new Date()) {
+        return res.status(400).json({ message: "Bounty deadline has passed" });
+      }
+
+      // Verify ownership
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+      if (agent.ownerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Not authorized to submit solution as this agent" });
+      }
+
+      // Check if already submitted
+      const existingSolution = await storage.getSolutionByBountyAndAgent(bountyId, agentId);
+      if (existingSolution) {
+        return res.status(400).json({ message: "You have already submitted a solution to this bounty" });
+      }
+
+      // Cannot submit to own bounty
+      if (bounty.agentId === agentId) {
+        return res.status(400).json({ message: "Cannot submit a solution to your own bounty" });
+      }
+
+      const solution = await storage.createSolution({
+        bountyId,
+        agentId,
+        body,
+        attachments: attachments || [],
+      });
+
+      await storage.incrementBountySolutionCount(bountyId);
+
+      res.status(201).json({ solution: { ...solution, agent } });
+    } catch (error) {
+      console.error("Submit solution error:", error);
+      res.status(500).json({ message: "Failed to submit solution" });
+    }
+  });
+
+  // Award solution
+  app.post("/api/bounties/:bountyId/award", authMiddleware, async (req, res) => {
+    try {
+      const { bountyId } = req.params;
+      const walletAddress = req.walletAddress!;
+
+      // Validate request body
+      const parseResult = awardSolutionRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid request", 
+          errors: parseResult.error.flatten().fieldErrors 
+        });
+      }
+
+      const { solutionId } = parseResult.data;
+
+      // Verify bounty exists
+      const bounty = await storage.getBounty(bountyId);
+      if (!bounty) {
+        return res.status(404).json({ message: "Bounty not found" });
+      }
+      if (bounty.status !== "open") {
+        return res.status(400).json({ message: "Bounty has already been awarded or cancelled" });
+      }
+
+      // Verify ownership - only bounty creator can award
+      const agent = await storage.getAgent(bounty.agentId);
+      if (!agent || agent.ownerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Only the bounty creator can award solutions" });
+      }
+
+      // Verify solution exists and belongs to this bounty
+      const solution = await storage.getSolution(solutionId);
+      if (!solution) {
+        return res.status(404).json({ message: "Solution not found" });
+      }
+      if (solution.bountyId !== bountyId) {
+        return res.status(400).json({ message: "Solution does not belong to this bounty" });
+      }
+
+      // Mark solution as winner and update bounty status
+      await storage.markSolutionAsWinner(solutionId);
+      const updatedBounty = await storage.updateBountyStatus(bountyId, "awarded", solutionId);
+
+      // Get winner agent
+      const winnerAgent = await storage.getAgent(solution.agentId);
+
+      res.json({ 
+        bounty: updatedBounty,
+        winningSolution: { ...solution, agent: winnerAgent },
+      });
+    } catch (error) {
+      console.error("Award solution error:", error);
+      res.status(500).json({ message: "Failed to award solution" });
+    }
+  });
+
+  // Cancel bounty
+  app.post("/api/bounties/:bountyId/cancel", authMiddleware, async (req, res) => {
+    try {
+      const { bountyId } = req.params;
+      const walletAddress = req.walletAddress!;
+
+      // Verify bounty exists
+      const bounty = await storage.getBounty(bountyId);
+      if (!bounty) {
+        return res.status(404).json({ message: "Bounty not found" });
+      }
+      if (bounty.status !== "open") {
+        return res.status(400).json({ message: "Bounty has already been awarded or cancelled" });
+      }
+
+      // Verify ownership - only bounty creator can cancel
+      const agent = await storage.getAgent(bounty.agentId);
+      if (!agent || agent.ownerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Only the bounty creator can cancel the bounty" });
+      }
+
+      const updatedBounty = await storage.updateBountyStatus(bountyId, "cancelled");
+
+      res.json({ bounty: updatedBounty });
+    } catch (error) {
+      console.error("Cancel bounty error:", error);
+      res.status(500).json({ message: "Failed to cancel bounty" });
     }
   });
 
