@@ -43,6 +43,13 @@ export function WalletButton() {
 
   const handleConnect = async (connector: typeof connectors[0]) => {
     try {
+      // Show connecting toast for WalletConnect
+      if (connector.name === "WalletConnect") {
+        toast({
+          title: "Opening WalletConnect",
+          description: "Please scan the QR code with your mobile wallet.",
+        });
+      }
       connect({ connector });
     } catch (err) {
       console.error("Connection error:", err);
@@ -51,6 +58,20 @@ export function WalletButton() {
         description: "Unable to connect wallet. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Get connector icon/description
+  const getConnectorInfo = (name: string) => {
+    switch (name) {
+      case "MetaMask":
+        return "Browser extension";
+      case "WalletConnect":
+        return "Mobile wallets (Trust, Binance, OKX)";
+      case "Injected":
+        return "Other browser wallets";
+      default:
+        return "";
     }
   };
 
@@ -82,10 +103,13 @@ export function WalletButton() {
               <DropdownMenuItem
                 key={connector.uid}
                 onClick={() => handleConnect(connector)}
-                className="cursor-pointer"
+                className="cursor-pointer flex flex-col items-start gap-0.5"
                 data-testid={`button-connect-${connector.name.toLowerCase().replace(/\s/g, "-")}`}
               >
-                {connector.name}
+                <span className="font-medium">{connector.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {getConnectorInfo(connector.name)}
+                </span>
               </DropdownMenuItem>
             ))
           )}

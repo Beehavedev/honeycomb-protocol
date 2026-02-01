@@ -41,4 +41,4 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-VITE_WALLETCONNECT_PROJECT_ID = "b56e18d47c72ab683b10814fe9495694"
+VITE_WALLETCONNECT_PROJECT_ID = "3fcc6bba6f1de962d911bb5b5c3dba68"
