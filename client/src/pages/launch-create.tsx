@@ -238,16 +238,26 @@ export default function LaunchCreate() {
       });
       
       createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating token:", error);
+      console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
       setStep("form");
       setFormData(null);
       setMiningProgress(null);
       setMinedSalt(null);
       setDevBuyAmountWei(null);
+      
+      // Extract meaningful error message
+      let errorMsg = "Failed to create token. Please try again.";
+      if (error?.shortMessage) {
+        errorMsg = error.shortMessage;
+      } else if (error?.message) {
+        errorMsg = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to create token. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
     }
@@ -338,10 +348,24 @@ export default function LaunchCreate() {
 
   useEffect(() => {
     if (txError) {
+      console.error("Transaction error:", txError);
+      console.error("Transaction error details:", JSON.stringify(txError, Object.getOwnPropertyNames(txError)));
       setStep("form");
+      
+      // Extract meaningful error message
+      let errorMsg = "Failed to create token on-chain.";
+      const err = txError as any;
+      if (err?.shortMessage) {
+        errorMsg = err.shortMessage;
+      } else if (err?.message) {
+        errorMsg = err.message;
+      } else if (err?.cause?.shortMessage) {
+        errorMsg = err.cause.shortMessage;
+      }
+      
       toast({
         title: "Transaction failed",
-        description: txError.message || "Failed to create token on-chain.",
+        description: errorMsg,
         variant: "destructive",
       });
     }

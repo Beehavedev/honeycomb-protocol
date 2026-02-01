@@ -343,7 +343,12 @@ export function useCreateToken() {
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   
   const createToken = (name: string, symbol: string, metadataCID: string, creatorBeeId: bigint = BigInt(0), salt: `0x${string}` = `0x${'0'.repeat(64)}`) => {
-    if (!address) return;
+    console.log("useCreateToken called with:", { name, symbol, metadataCID, creatorBeeId: creatorBeeId.toString(), salt, factoryAddress: address });
+    if (!address) {
+      console.error("Factory address is null or undefined");
+      return;
+    }
+    console.log("Calling writeContract with factory address:", address);
     writeContract({
       address,
       abi: HoneycombTokenFactoryABI,
