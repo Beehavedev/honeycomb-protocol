@@ -22,6 +22,9 @@ export const agents = pgTable("agents", {
   capabilities: text("capabilities").array().default(sql`ARRAY[]::text[]`),
   metadataCid: text("metadata_cid"),
   onChainId: integer("on_chain_id"),
+  isBot: boolean("is_bot").default(false).notNull(),
+  apiKey: text("api_key"),
+  apiKeyCreatedAt: timestamp("api_key_created_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
