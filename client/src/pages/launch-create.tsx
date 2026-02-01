@@ -141,7 +141,7 @@ export default function LaunchCreate() {
 
   const storeMutation = useMutation({
     mutationFn: async (data: CreateTokenForm) => {
-      const res = await apiRequest("POST", "/api/launch/storage/token-metadata", {
+      const res = await apiRequest<{ metadataCID: string }>("POST", "/api/launch/storage/token-metadata", {
         name: data.name,
         symbol: data.symbol.toUpperCase(),
         description: data.description || "",
@@ -153,22 +153,22 @@ export default function LaunchCreate() {
         },
         creatorBeeId: agent?.id,
       });
-      return (res as Response).json();
+      return res;
     },
   });
 
   const recordMutation = useMutation({
-    mutationFn: async (data: { tokenAddress: string; formData: CreateTokenForm }) => {
+    mutationFn: async (data: { tokenAddress: string; formData: CreateTokenForm; cid: string }) => {
       const res = await apiRequest("POST", "/api/launch/tokens", {
         tokenAddress: data.tokenAddress,
         name: data.formData.name,
         symbol: data.formData.symbol.toUpperCase(),
-        metadataCID,
+        metadataCID: data.cid,
         description: data.formData.description || "",
         imageUrl: uploadedLogoUrl || "",
         creatorBeeId: agent?.id,
       });
-      return (res as Response).json();
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/launch/tokens"] });
@@ -192,12 +192,13 @@ export default function LaunchCreate() {
       setFormData(data);
       
       const metaResult = await storeMutation.mutateAsync(data);
-      setMetadataCID(metaResult.metadataCID);
+      const cid = metaResult.metadataCID;
+      setMetadataCID(cid);
       
       if (contractsDeployed) {
         // On-chain token creation
         const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
-        createToken(data.name, data.symbol.toUpperCase(), metaResult.metadataCID, beeId);
+        createToken(data.name, data.symbol.toUpperCase(), cid, beeId);
       } else {
         // Demo mode: create token in database without on-chain contract
         const demoTokenAddress = `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}` as `0x${string}`;
@@ -205,6 +206,7 @@ export default function LaunchCreate() {
         await recordMutation.mutateAsync({
           tokenAddress: demoTokenAddress,
           formData: data,
+          cid,
         });
         
         toast({
@@ -264,6 +266,7 @@ export default function LaunchCreate() {
             await recordMutation.mutateAsync({
               tokenAddress,
               formData,
+              cid: metadataCID,
             });
             
             toast({
