@@ -49,7 +49,7 @@ export default function LaunchCreate() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated, agent } = useAuth();
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const factoryAddress = useTokenFactoryAddress();
