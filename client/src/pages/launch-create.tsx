@@ -295,25 +295,57 @@ export default function LaunchCreate() {
     // Auto-switch network if needed (like four.meme)
     if (!isOnDeployedNetwork) {
       console.log("Need to switch network. Target chain:", DEPLOYED_CHAIN_ID);
+      
+      // Store form data in both state and localStorage (for page reload scenarios)
+      setPendingSubmit(data);
+      localStorage.setItem("pendingTokenLaunch", JSON.stringify(data));
+      
+      // BSC Testnet network parameters
+      const bscTestnetParams = {
+        chainId: `0x${DEPLOYED_CHAIN_ID.toString(16)}`,
+        chainName: 'BSC Testnet',
+        nativeCurrency: {
+          name: 'tBNB',
+          symbol: 'tBNB',
+          decimals: 18
+        },
+        rpcUrls: ['https://data-seed-prebsc-1-s1.bnbchain.org:8545'],
+        blockExplorerUrls: ['https://testnet.bscscan.com']
+      };
+      
       try {
-        // Store form data in both state and localStorage (for page reload scenarios)
-        setPendingSubmit(data);
-        localStorage.setItem("pendingTokenLaunch", JSON.stringify(data));
-        
-        // Use the raw ethereum provider for more reliable switching
         if (window.ethereum) {
-          console.log("Calling wallet_switchEthereumChain...");
-          const result = await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${DEPLOYED_CHAIN_ID.toString(16)}` }],
-          });
-          console.log("Switch result:", result);
+          // First try to switch
+          console.log("Attempting wallet_switchEthereumChain...");
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: bscTestnetParams.chainId }],
+            });
+            console.log("Switch successful!");
+          } catch (switchError: any) {
+            console.log("Switch error:", switchError?.code, switchError?.message);
+            // If chain not added (4902) or unknown error, try adding the chain
+            if (switchError?.code === 4902 || !switchError?.code) {
+              console.log("Chain not found, adding BSC Testnet...");
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [bscTestnetParams],
+              });
+              console.log("Chain added successfully!");
+            } else if (switchError?.code === 4001) {
+              // User rejected
+              throw switchError;
+            } else {
+              throw switchError;
+            }
+          }
         } else {
           console.log("No window.ethereum, using wagmi switchChain");
           await switchChain({ chainId: DEPLOYED_CHAIN_ID });
         }
-        console.log("Switch call completed, waiting for chain update...");
-        // The effects above will handle submission after chain updates
+        console.log("Network switch completed, waiting for chain update effect...");
+        // The useEffect will handle submission after chain updates
         return;
       } catch (e: any) {
         console.error("Network switch failed:", e);
@@ -324,7 +356,7 @@ export default function LaunchCreate() {
         if (e?.code !== 4001) {
           toast({
             title: "Network switch failed",
-            description: e?.message || "Please switch to BSC Testnet manually.",
+            description: e?.message || "Please switch to BSC Testnet manually in your wallet.",
             variant: "destructive",
           });
         }
