@@ -16,7 +16,12 @@ import {
   createBountyRequestSchema,
   submitSolutionRequestSchema,
   awardSolutionRequestSchema,
+  tokenMetadataRequestSchema,
+  prepareCreateTokenRequestSchema,
+  prepareBuyRequestSchema,
+  prepareSellRequestSchema,
 } from "@shared/schema";
+import { encodeFunctionData } from "viem";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -652,57 +657,351 @@ export async function registerRoutes(
     }
   });
 
+  // ========================================
+  // LAUNCHPAD ENDPOINTS
+  // ========================================
+
+  // Store token metadata and return CID (simulated for now)
+  app.post("/api/launch/storage/token-metadata", authMiddleware, async (req, res) => {
+    try {
+      const parseResult = tokenMetadataRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const { name, symbol, description, imageUrl, links, creatorBeeId } = parseResult.data;
+      
+      // In production, this would upload to IPFS and return a real CID
+      // For now, create a deterministic mock CID from the content
+      const content = JSON.stringify({ name, symbol, description, imageUrl, links, creatorBeeId });
+      const mockCID = `Qm${Buffer.from(content).toString('base64').slice(0, 44).replace(/[+/=]/g, 'x')}`;
+
+      res.json({ metadataCID: mockCID });
+    } catch (error) {
+      console.error("Token metadata storage error:", error);
+      res.status(500).json({ message: "Failed to store token metadata" });
+    }
+  });
+
+  // Get all launch tokens
+  app.get("/api/launch/tokens", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const graduated = req.query.graduated === "true" ? true : req.query.graduated === "false" ? false : undefined;
+      
+      const tokens = await storage.getLaunchTokens(limit, graduated);
+      res.json({ tokens });
+    } catch (error) {
+      console.error("Get launch tokens error:", error);
+      res.status(500).json({ message: "Failed to get tokens" });
+    }
+  });
+
+  // Get single token
+  app.get("/api/launch/tokens/:address", async (req, res) => {
+    try {
+      const token = await storage.getLaunchToken(req.params.address);
+      if (!token) {
+        return res.status(404).json({ message: "Token not found" });
+      }
+
+      const trades = await storage.getLaunchTradesByToken(req.params.address, 50);
+      res.json({ token, trades });
+    } catch (error) {
+      console.error("Get token error:", error);
+      res.status(500).json({ message: "Failed to get token" });
+    }
+  });
+
+  // Record a new token (called after on-chain creation event)
+  app.post("/api/launch/tokens", authMiddleware, async (req, res) => {
+    try {
+      const { tokenAddress, name, symbol, metadataCID, description, imageUrl, creatorBeeId } = req.body;
+      const walletAddress = req.walletAddress!;
+
+      if (!tokenAddress || !name || !symbol || !metadataCID) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const token = await storage.createLaunchToken({
+        tokenAddress,
+        creatorAddress: walletAddress,
+        creatorBeeId: creatorBeeId || null,
+        name,
+        symbol,
+        metadataCID,
+        description,
+        imageUrl,
+      });
+
+      res.json({ token });
+    } catch (error) {
+      console.error("Create token error:", error);
+      res.status(500).json({ message: "Failed to record token" });
+    }
+  });
+
+  // Record a trade (called after on-chain trade event)
+  app.post("/api/launch/trades", async (req, res) => {
+    try {
+      const { tokenAddress, trader, isBuy, nativeAmount, tokenAmount, feeNative, priceAfter, txHash } = req.body;
+
+      if (!tokenAddress || !trader || isBuy === undefined || !nativeAmount || !tokenAmount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const trade = await storage.createLaunchTrade({
+        tokenAddress,
+        trader,
+        isBuy,
+        nativeAmount,
+        tokenAmount,
+        feeNative: feeNative || "0",
+        priceAfter: priceAfter || "0",
+        txHash,
+      });
+
+      // Update token stats if needed
+      if (isBuy) {
+        const token = await storage.getLaunchToken(tokenAddress);
+        if (token) {
+          const newTotalRaised = (BigInt(token.totalRaisedNative) + BigInt(nativeAmount) - BigInt(feeNative || "0")).toString();
+          await storage.updateLaunchToken(tokenAddress, { totalRaisedNative: newTotalRaised });
+        }
+      }
+
+      res.json({ trade });
+    } catch (error) {
+      console.error("Record trade error:", error);
+      res.status(500).json({ message: "Failed to record trade" });
+    }
+  });
+
+  // Mark token as graduated
+  app.post("/api/launch/tokens/:address/graduate", async (req, res) => {
+    try {
+      const token = await storage.updateLaunchToken(req.params.address, { graduated: true });
+      res.json({ token });
+    } catch (error) {
+      console.error("Graduate token error:", error);
+      res.status(500).json({ message: "Failed to graduate token" });
+    }
+  });
+
+  // TX Preparation endpoints - return unsigned transaction data
+  const TokenFactoryABI = [
+    {
+      name: "createToken",
+      type: "function",
+      inputs: [
+        { name: "name", type: "string" },
+        { name: "symbol", type: "string" },
+        { name: "metadataCID", type: "string" },
+        { name: "creatorBeeId", type: "uint256" }
+      ],
+      outputs: [{ name: "tokenAddress", type: "address" }]
+    }
+  ] as const;
+
+  const BondingCurveMarketABI = [
+    {
+      name: "buy",
+      type: "function",
+      inputs: [
+        { name: "token", type: "address" },
+        { name: "minTokensOut", type: "uint256" }
+      ],
+      outputs: [{ name: "tokensOut", type: "uint256" }]
+    },
+    {
+      name: "sell",
+      type: "function",
+      inputs: [
+        { name: "token", type: "address" },
+        { name: "tokenAmountIn", type: "uint256" },
+        { name: "minNativeOut", type: "uint256" }
+      ],
+      outputs: [{ name: "nativeOut", type: "uint256" }]
+    }
+  ] as const;
+
+  // Prepare create token transaction
+  app.post("/api/tx/prepare/launch/create-token", authMiddleware, async (req, res) => {
+    try {
+      const parseResult = prepareCreateTokenRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const { creatorBeeId, metadataCID, name, symbol } = parseResult.data;
+      const chainId = parseInt(req.query.chainId as string) || 97;
+
+      // Get factory address for chain
+      const factoryAddress = getContractAddress(chainId, "tokenFactory");
+      if (!factoryAddress) {
+        return res.status(400).json({ message: "Unsupported chain" });
+      }
+
+      const data = encodeFunctionData({
+        abi: TokenFactoryABI,
+        functionName: "createToken",
+        args: [name, symbol, metadataCID, BigInt(creatorBeeId || "0")]
+      });
+
+      res.json({
+        to: factoryAddress,
+        data,
+        value: "0",
+        chainId
+      });
+    } catch (error) {
+      console.error("Prepare create token error:", error);
+      res.status(500).json({ message: "Failed to prepare transaction" });
+    }
+  });
+
+  // Prepare buy transaction
+  app.post("/api/tx/prepare/launch/buy", authMiddleware, async (req, res) => {
+    try {
+      const parseResult = prepareBuyRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const { token, nativeValueWei, minTokensOut } = parseResult.data;
+      const chainId = parseInt(req.query.chainId as string) || 97;
+
+      const marketAddress = getContractAddress(chainId, "bondingCurveMarket");
+      if (!marketAddress) {
+        return res.status(400).json({ message: "Unsupported chain" });
+      }
+
+      const data = encodeFunctionData({
+        abi: BondingCurveMarketABI,
+        functionName: "buy",
+        args: [token as `0x${string}`, BigInt(minTokensOut)]
+      });
+
+      res.json({
+        to: marketAddress,
+        data,
+        value: nativeValueWei,
+        chainId
+      });
+    } catch (error) {
+      console.error("Prepare buy error:", error);
+      res.status(500).json({ message: "Failed to prepare transaction" });
+    }
+  });
+
+  // Prepare sell transaction
+  app.post("/api/tx/prepare/launch/sell", authMiddleware, async (req, res) => {
+    try {
+      const parseResult = prepareSellRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const { token, tokenAmountIn, minNativeOut } = parseResult.data;
+      const chainId = parseInt(req.query.chainId as string) || 97;
+
+      const marketAddress = getContractAddress(chainId, "bondingCurveMarket");
+      if (!marketAddress) {
+        return res.status(400).json({ message: "Unsupported chain" });
+      }
+
+      const data = encodeFunctionData({
+        abi: BondingCurveMarketABI,
+        functionName: "sell",
+        args: [token as `0x${string}`, BigInt(tokenAmountIn), BigInt(minNativeOut)]
+      });
+
+      res.json({
+        to: marketAddress,
+        data,
+        value: "0",
+        chainId
+      });
+    } catch (error) {
+      console.error("Prepare sell error:", error);
+      res.status(500).json({ message: "Failed to prepare transaction" });
+    }
+  });
+
+  // Helper function to get contract addresses
+  function getContractAddress(chainId: number, contract: string): string | null {
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+    
+    const addresses: Record<number, Record<string, string>> = {
+      31337: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+      },
+      97: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+      },
+      56: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+      },
+      5611: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+      },
+      204: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+      },
+    };
+
+    return addresses[chainId]?.[contract] || null;
+  }
+
   // Contract configuration endpoint
   // Returns contract addresses for the requested chain
   app.get("/api/contracts/:chainId", (req, res) => {
     const chainId = parseInt(req.params.chainId);
     
-    // Contract addresses by chain ID - update after deployment
-    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-    
-    const contractAddresses: Record<number, {
-      agentRegistry: string;
-      bountyEscrow: string;
-      postBond: string;
-      reputation: string;
-    }> = {
-      31337: { // Local Hardhat
-        agentRegistry: ZERO_ADDRESS,
-        bountyEscrow: ZERO_ADDRESS,
-        postBond: ZERO_ADDRESS,
-        reputation: ZERO_ADDRESS,
-      },
-      97: { // BSC Testnet
-        agentRegistry: ZERO_ADDRESS,
-        bountyEscrow: ZERO_ADDRESS,
-        postBond: ZERO_ADDRESS,
-        reputation: ZERO_ADDRESS,
-      },
-      56: { // BSC Mainnet
-        agentRegistry: ZERO_ADDRESS,
-        bountyEscrow: ZERO_ADDRESS,
-        postBond: ZERO_ADDRESS,
-        reputation: ZERO_ADDRESS,
-      },
-      5611: { // opBNB Testnet
-        agentRegistry: ZERO_ADDRESS,
-        bountyEscrow: ZERO_ADDRESS,
-        postBond: ZERO_ADDRESS,
-        reputation: ZERO_ADDRESS,
-      },
-      204: { // opBNB Mainnet
-        agentRegistry: ZERO_ADDRESS,
-        bountyEscrow: ZERO_ADDRESS,
-        postBond: ZERO_ADDRESS,
-        reputation: ZERO_ADDRESS,
-      },
+    const addresses = {
+      agentRegistry: getContractAddress(chainId, "agentRegistry"),
+      bountyEscrow: getContractAddress(chainId, "bountyEscrow"),
+      postBond: getContractAddress(chainId, "postBond"),
+      reputation: getContractAddress(chainId, "reputation"),
+      feeVault: getContractAddress(chainId, "feeVault"),
+      tokenFactory: getContractAddress(chainId, "tokenFactory"),
+      bondingCurveMarket: getContractAddress(chainId, "bondingCurveMarket"),
     };
 
-    const addresses = contractAddresses[chainId];
-    if (!addresses) {
+    if (!addresses.agentRegistry) {
       return res.status(404).json({ 
         message: "Unsupported chain ID", 
-        supportedChains: Object.keys(contractAddresses).map(Number) 
+        supportedChains: [31337, 97, 56, 5611, 204]
       });
     }
 

@@ -6,7 +6,10 @@ import {
   type AuthNonce, type InsertAuthNonce,
   type Bounty, type InsertBounty,
   type Solution, type InsertSolution,
-  agents, posts, comments, votes, authNonces, bounties, solutions
+  type LaunchToken, type InsertLaunchToken,
+  type LaunchTrade, type InsertLaunchTrade,
+  agents, posts, comments, votes, authNonces, bounties, solutions,
+  launchTokens, launchTrades
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte } from "drizzle-orm";
@@ -60,6 +63,16 @@ export interface IStorage {
   getSolutionsByBounty(bountyId: string): Promise<Solution[]>;
   getSolutionByBountyAndAgent(bountyId: string, agentId: string): Promise<Solution | undefined>;
   markSolutionAsWinner(id: string): Promise<Solution>;
+
+  // Launch Tokens
+  createLaunchToken(data: InsertLaunchToken): Promise<LaunchToken>;
+  getLaunchToken(tokenAddress: string): Promise<LaunchToken | undefined>;
+  getLaunchTokens(limit: number, graduated?: boolean): Promise<LaunchToken[]>;
+  updateLaunchToken(tokenAddress: string, updates: Partial<LaunchToken>): Promise<LaunchToken>;
+
+  // Launch Trades
+  createLaunchTrade(data: InsertLaunchTrade): Promise<LaunchTrade>;
+  getLaunchTradesByToken(tokenAddress: string, limit: number): Promise<LaunchTrade[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -339,6 +352,66 @@ export class DatabaseStorage implements IStorage {
       .where(eq(solutions.id, id))
       .returning();
     return solution;
+  }
+
+  // Launch Tokens
+  async createLaunchToken(data: InsertLaunchToken): Promise<LaunchToken> {
+    const [token] = await db.insert(launchTokens).values({
+      ...data,
+      tokenAddress: data.tokenAddress.toLowerCase(),
+      creatorAddress: data.creatorAddress.toLowerCase(),
+    }).returning();
+    return token;
+  }
+
+  async getLaunchToken(tokenAddress: string): Promise<LaunchToken | undefined> {
+    const [token] = await db.select().from(launchTokens)
+      .where(eq(launchTokens.tokenAddress, tokenAddress.toLowerCase()))
+      .limit(1);
+    return token;
+  }
+
+  async getLaunchTokens(limit: number, graduated?: boolean): Promise<LaunchToken[]> {
+    if (graduated !== undefined) {
+      return db.select().from(launchTokens)
+        .where(eq(launchTokens.graduated, graduated))
+        .orderBy(desc(launchTokens.createdAt))
+        .limit(limit);
+    }
+    return db.select().from(launchTokens)
+      .orderBy(desc(launchTokens.createdAt))
+      .limit(limit);
+  }
+
+  async updateLaunchToken(tokenAddress: string, updates: Partial<LaunchToken>): Promise<LaunchToken> {
+    const [token] = await db.update(launchTokens)
+      .set(updates)
+      .where(eq(launchTokens.tokenAddress, tokenAddress.toLowerCase()))
+      .returning();
+    return token;
+  }
+
+  // Launch Trades
+  async createLaunchTrade(data: InsertLaunchTrade): Promise<LaunchTrade> {
+    const [trade] = await db.insert(launchTrades).values({
+      ...data,
+      tokenAddress: data.tokenAddress.toLowerCase(),
+      trader: data.trader.toLowerCase(),
+    }).returning();
+    
+    // Update trade count for the token
+    await db.update(launchTokens)
+      .set({ tradeCount: sql`${launchTokens.tradeCount} + 1` })
+      .where(eq(launchTokens.tokenAddress, data.tokenAddress.toLowerCase()));
+    
+    return trade;
+  }
+
+  async getLaunchTradesByToken(tokenAddress: string, limit: number): Promise<LaunchTrade[]> {
+    return db.select().from(launchTrades)
+      .where(eq(launchTrades.tokenAddress, tokenAddress.toLowerCase()))
+      .orderBy(desc(launchTrades.createdAt))
+      .limit(limit);
   }
 }
 
