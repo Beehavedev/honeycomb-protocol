@@ -20,6 +20,25 @@ async function main() {
     initialVirtualToken: ethers.parseEther(process.env.INITIAL_VIRTUAL_TOKEN || "1000000000"), // 1B virtual tokens
   };
 
+  // PancakeSwap addresses by network
+  const pancakeSwapConfig: Record<number, { router: string; wbnb: string }> = {
+    56: { // BSC Mainnet
+      router: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+      wbnb: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    },
+    97: { // BSC Testnet
+      router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1",
+      wbnb: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+    },
+    31337: { // Hardhat local (use mock addresses, set after deployment)
+      router: "0x0000000000000000000000000000000000000000",
+      wbnb: "0x0000000000000000000000000000000000000000",
+    },
+  };
+
+  // LP Lock address (use deployer for now, should be replaced with a proper lock contract)
+  const lpLockAddress = process.env.LP_LOCK_ADDRESS || deployer.address;
+
   // 1. Deploy HoneycombAgentRegistry
   console.log("\n1. Deploying HoneycombAgentRegistry...");
   const AgentRegistry = await ethers.getContractFactory("HoneycombAgentRegistry");
@@ -90,8 +109,37 @@ async function main() {
   await tokenFactory.setMarket(bondingCurveMarketAddress);
   console.log("   TokenFactory market set successfully");
 
-  // Save deployment addresses
+  // Get network info for DEX config
   const network = await ethers.provider.getNetwork();
+  const networkChainId = Number(network.chainId);
+  const dexConfig = pancakeSwapConfig[networkChainId] || pancakeSwapConfig[31337];
+  
+  // 9. Deploy HoneycombMigration
+  let migrationAddress = "0x0000000000000000000000000000000000000000";
+  
+  if (dexConfig.router !== "0x0000000000000000000000000000000000000000") {
+    console.log("\n9. Deploying HoneycombMigration...");
+    const Migration = await ethers.getContractFactory("contracts/launchpad/HoneycombMigration.sol:HoneycombMigration");
+    const migration = await Migration.deploy(
+      bondingCurveMarketAddress,
+      dexConfig.router,
+      dexConfig.wbnb,
+      lpLockAddress,
+      treasury
+    );
+    await migration.waitForDeployment();
+    migrationAddress = await migration.getAddress();
+    console.log("   HoneycombMigration deployed to:", migrationAddress);
+
+    // 10. Wire up Market with Migration
+    console.log("\n10. Wiring BondingCurveMarket with Migration...");
+    await bondingCurveMarket.setMigrationContract(migrationAddress);
+    console.log("   Market migration contract set successfully");
+  } else {
+    console.log("\n9. Skipping HoneycombMigration (no DEX router configured for this network)");
+  }
+
+  // Save deployment addresses
   const deploymentInfo = {
     chainId: Number(network.chainId),
     networkName: network.name,
@@ -105,6 +153,12 @@ async function main() {
       HoneycombFeeVault: feeVaultAddress,
       HoneycombTokenFactory: tokenFactoryAddress,
       HoneycombBondingCurveMarket: bondingCurveMarketAddress,
+      HoneycombMigration: migrationAddress,
+    },
+    dexConfig: {
+      router: dexConfig.router,
+      wbnb: dexConfig.wbnb,
+      lpLockAddress: lpLockAddress,
     },
     config: {
       graduationThreshold: config.graduationThreshold.toString(),
@@ -135,6 +189,12 @@ async function main() {
   console.log("HoneycombFeeVault:", feeVaultAddress);
   console.log("HoneycombTokenFactory:", tokenFactoryAddress);
   console.log("HoneycombBondingCurveMarket:", bondingCurveMarketAddress);
+  console.log("HoneycombMigration:", migrationAddress);
+  console.log("\nDEX Configuration:");
+  console.log("==================");
+  console.log("PancakeSwap Router:", dexConfig.router);
+  console.log("WBNB:", dexConfig.wbnb);
+  console.log("LP Lock Address:", lpLockAddress);
 }
 
 main()

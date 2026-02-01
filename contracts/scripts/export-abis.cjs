@@ -10,6 +10,7 @@ const CONTRACTS = [
   { name: "HoneycombTokenFactory", dir: "launchpad" },
   { name: "HoneycombFeeVault", dir: "launchpad" },
   { name: "HoneycombBondingCurveMarket", dir: "launchpad" },
+  { name: "HoneycombMigration", dir: "launchpad" },
 ];
 
 async function main() {

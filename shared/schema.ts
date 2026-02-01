@@ -103,6 +103,12 @@ export const launchTokens = pgTable("launch_tokens", {
   graduated: boolean("graduated").default(false).notNull(),
   totalRaisedNative: text("total_raised_native").default("0").notNull(),
   tradeCount: integer("trade_count").default(0).notNull(),
+  migrated: boolean("migrated").default(false).notNull(),
+  pairAddress: text("pair_address"),
+  lpAmount: text("lp_amount"),
+  lpLockAddress: text("lp_lock_address"),
+  migrationTxHash: text("migration_tx_hash"),
+  migratedAt: timestamp("migrated_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

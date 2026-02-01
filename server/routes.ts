@@ -788,6 +788,29 @@ export async function registerRoutes(
     }
   });
 
+  // Record migration event
+  app.post("/api/launch/tokens/:address/migrate", async (req, res) => {
+    try {
+      const { address } = req.params;
+      const { pairAddress, lpAmount, lpLockAddress, txHash } = req.body;
+
+      const token = await storage.updateLaunchToken(address, { 
+        migrated: true,
+        graduated: true,
+        pairAddress: pairAddress?.toLowerCase(),
+        lpAmount: lpAmount?.toString(),
+        lpLockAddress: lpLockAddress?.toLowerCase(),
+        migrationTxHash: txHash,
+        migratedAt: new Date(),
+      });
+
+      res.json({ token });
+    } catch (error) {
+      console.error("Record migration error:", error);
+      res.status(500).json({ message: "Failed to record migration" });
+    }
+  });
+
   // TX Preparation endpoints - return unsigned transaction data
   const TokenFactoryABI = [
     {
@@ -928,6 +951,49 @@ export async function registerRoutes(
     }
   });
 
+  // Migration ABI
+  const MigrationABI = [
+    {
+      name: "migrate",
+      type: "function",
+      inputs: [{ name: "token", type: "address" }],
+      outputs: []
+    }
+  ] as const;
+
+  // Prepare migrate transaction
+  app.post("/api/tx/prepare/launch/migrate", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ message: "Token address required" });
+      }
+
+      const chainId = parseInt(req.query.chainId as string) || 97;
+
+      const migrationAddress = getContractAddress(chainId, "migration");
+      if (!migrationAddress || migrationAddress === "0x0000000000000000000000000000000000000000") {
+        return res.status(400).json({ message: "Migration not supported on this chain" });
+      }
+
+      const data = encodeFunctionData({
+        abi: MigrationABI,
+        functionName: "migrate",
+        args: [token as `0x${string}`]
+      });
+
+      res.json({
+        to: migrationAddress,
+        data,
+        value: "0",
+        chainId
+      });
+    } catch (error) {
+      console.error("Prepare migrate error:", error);
+      res.status(500).json({ message: "Failed to prepare transaction" });
+    }
+  });
+
   // Helper function to get contract addresses
   function getContractAddress(chainId: number, contract: string): string | null {
     const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -941,6 +1007,7 @@ export async function registerRoutes(
         feeVault: ZERO_ADDRESS,
         tokenFactory: ZERO_ADDRESS,
         bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
       },
       97: {
         agentRegistry: ZERO_ADDRESS,
@@ -950,6 +1017,7 @@ export async function registerRoutes(
         feeVault: ZERO_ADDRESS,
         tokenFactory: ZERO_ADDRESS,
         bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
       },
       56: {
         agentRegistry: ZERO_ADDRESS,
@@ -959,6 +1027,7 @@ export async function registerRoutes(
         feeVault: ZERO_ADDRESS,
         tokenFactory: ZERO_ADDRESS,
         bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
       },
       5611: {
         agentRegistry: ZERO_ADDRESS,
@@ -968,6 +1037,7 @@ export async function registerRoutes(
         feeVault: ZERO_ADDRESS,
         tokenFactory: ZERO_ADDRESS,
         bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
       },
       204: {
         agentRegistry: ZERO_ADDRESS,
@@ -977,6 +1047,7 @@ export async function registerRoutes(
         feeVault: ZERO_ADDRESS,
         tokenFactory: ZERO_ADDRESS,
         bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
       },
     };
 

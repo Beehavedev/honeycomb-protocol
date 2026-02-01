@@ -47,6 +47,11 @@
   },
   {
     "inputs": [],
+    "name": "AlreadyWithdrawn",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "CooldownActive",
     "type": "error"
   },
@@ -68,6 +73,16 @@
   {
     "inputs": [],
     "name": "MarketNotInitialized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotGraduated",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyMigrationContract",
     "type": "error"
   },
   {
@@ -610,6 +625,19 @@
   },
   {
     "inputs": [],
+    "name": "migrationContract",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "owner",
     "outputs": [
       {
@@ -739,12 +767,49 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "_migration",
+        "type": "address"
+      }
+    ],
+    "name": "setMigrationContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "newOwner",
         "type": "address"
       }
     ],
     "name": "transferOwnership",
     "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "withdrawForMigration",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "nativeAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenAmount",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },

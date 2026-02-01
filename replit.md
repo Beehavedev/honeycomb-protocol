@@ -71,6 +71,14 @@ Token factory with bonding curve trading (similar to Four.meme/Pump.fun):
    - Anti-bot: 10-second cooldown, 10M token max per buy
    - ReentrancyGuard and checks-effects-interactions pattern
 
+5. **HoneycombMigration.sol** - DEX migration for graduated tokens
+   - Migrates liquidity from bonding curve to PancakeSwap V2
+   - Creates LP pair (token/WBNB) and adds liquidity
+   - Locks LP tokens at configurable address
+   - Permissionless - anyone can trigger migration when eligible
+   - Sends dust (leftover tokens/BNB) to treasury
+   - Emits Migrated event for indexing
+
 ### Contract Deployment
 ```bash
 # Compile contracts
@@ -159,6 +167,8 @@ TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run contracts/scripts/deploy.t
 - `GET /api/launch/tokens` - List tokens with status filter (active/graduated/all)
 - `GET /api/launch/tokens/:address` - Get token with trade history
 - `POST /api/launch/trades` - Record trade after buy/sell transaction
+- `POST /api/launch/tokens/:address/migrate` - Record migration event
+- `POST /api/tx/prepare/launch/migrate` - Prepare migration transaction
 
 ## Supported Networks
 - BSC Testnet (Chain ID: 97)
@@ -179,6 +189,25 @@ The project uses a separate TypeScript config for Hardhat to avoid ESM conflicts
 # Use this prefix for all Hardhat commands
 TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat <command>
 ```
+
+## PancakeSwap DEX Integration
+Migration to PancakeSwap is supported on BNB Chain networks. Configure router/factory addresses for each network:
+
+### BSC Mainnet (Chain ID: 56)
+- Router: `0x10ED43C718714eb63d5aA57B78B54704E256024E`
+- Factory: `0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73`
+- WBNB: `0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c`
+
+### BSC Testnet (Chain ID: 97)
+- Router: `0xD99D1c33F9fC3444f8101754aBC46c52416550D1`
+- Factory: `0x6725F303b657a9451d8BA641348b6761A6CC7a17`
+- WBNB: `0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd`
+
+### opBNB (Chain IDs: 204, 5611)
+**Not officially supported** - PancakeSwap V2 is not deployed on opBNB. Migration functionality will be disabled on these networks.
+
+### LP Lock Configuration
+Set `LP_LOCK_ADDRESS` environment variable to specify where LP tokens should be sent after migration. Defaults to deployer address if not set. Consider using a dedicated LP lock contract for production.
 
 ## User Preferences
 - Honeycomb theme with amber/gold primary colors

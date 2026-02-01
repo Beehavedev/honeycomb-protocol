@@ -9,8 +9,9 @@ import {
   HoneycombTokenFactoryABI,
   HoneycombBondingCurveMarketABI,
   HoneycombTokenABI,
+  HoneycombMigrationABI,
 } from './abis';
-import { getContractAddresses } from './addresses';
+import { getContractAddresses, getDexConfig } from './addresses';
 
 // ============= Agent Registry Hooks =============
 
@@ -506,6 +507,81 @@ export function useApproveToken() {
   };
   
   return { approve, isPending, isConfirming, isSuccess, hash, error };
+}
+
+// ============= Migration Hooks =============
+
+export function useMigrationAddress() {
+  const chainId = useChainId();
+  return getContractAddresses(chainId)?.migration;
+}
+
+export function useDexConfig() {
+  const chainId = useChainId();
+  return getDexConfig(chainId);
+}
+
+export function useCanMigrate(tokenAddress?: `0x${string}`) {
+  const address = useMigrationAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombMigrationABI,
+    functionName: 'canMigrate',
+    args: tokenAddress ? [tokenAddress] : undefined,
+    query: { enabled: !!tokenAddress && !!address },
+  });
+}
+
+export function useIsMigrated(tokenAddress?: `0x${string}`) {
+  const address = useMigrationAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombMigrationABI,
+    functionName: 'migrated',
+    args: tokenAddress ? [tokenAddress] : undefined,
+    query: { enabled: !!tokenAddress && !!address },
+  });
+}
+
+export function useGetMigrationInfo(tokenAddress?: `0x${string}`) {
+  const address = useMigrationAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombMigrationABI,
+    functionName: 'getMigrationInfo',
+    args: tokenAddress ? [tokenAddress] : undefined,
+    query: { enabled: !!tokenAddress && !!address },
+  });
+}
+
+export function useMigrateToken() {
+  const address = useMigrationAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
+  
+  const migrate = (tokenAddress: `0x${string}`) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneycombMigrationABI,
+      functionName: 'migrate',
+      args: [tokenAddress],
+    });
+  };
+  
+  return { migrate, isPending, isConfirming, isSuccess, hash, error, receipt };
+}
+
+export function useMigrationDeployed() {
+  const chainId = useChainId();
+  const addresses = getContractAddresses(chainId);
+  const dexConfig = getDexConfig(chainId);
+  
+  if (!addresses || !dexConfig) return false;
+  
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  return addresses.migration !== ZERO && dexConfig.router !== ZERO;
 }
 
 // ============= Utility =============

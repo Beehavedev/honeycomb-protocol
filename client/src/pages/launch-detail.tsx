@@ -36,6 +36,9 @@ import {
   useTokenBalance,
   useApproveToken,
   useTokenAllowance,
+  useCanMigrate,
+  useMigrateToken,
+  useMigrationDeployed,
 } from "@/contracts/hooks";
 import type { LaunchToken, LaunchTrade } from "@shared/schema";
 
@@ -71,6 +74,10 @@ export default function LaunchDetail() {
   const { data: marketState, refetch: refetchMarket } = useGetMarketState(tokenAddress);
   const { data: tokenBalance, refetch: refetchBalance } = useTokenBalance(tokenAddress, userAddress);
   const { data: allowance } = useTokenAllowance(tokenAddress, userAddress, marketAddress);
+  
+  const { data: canMigrate } = useCanMigrate(tokenAddress);
+  const { migrate, isPending: isMigrating, isSuccess: migrateSuccess, error: migrateError } = useMigrateToken();
+  const migrationDeployed = useMigrationDeployed();
   
   const buyAmountWei = buyAmount ? parseEther(buyAmount) : BigInt(0);
   const sellAmountWei = sellAmount ? parseEther(sellAmount) : BigInt(0);
@@ -137,6 +144,29 @@ export default function LaunchDetail() {
       });
     }
   }, [approveSuccess, toast]);
+
+  useEffect(() => {
+    if (migrateSuccess && tokenAddress) {
+      toast({
+        title: "Migration successful!",
+        description: "Token has been migrated to PancakeSwap.",
+      });
+      refetch();
+      refetchMarket();
+      refetchBalance();
+      queryClient.invalidateQueries({ queryKey: ["/api/launch/tokens", tokenAddress] });
+    }
+  }, [migrateSuccess, tokenAddress, toast, refetch, refetchMarket, refetchBalance]);
+
+  useEffect(() => {
+    if (migrateError) {
+      toast({
+        title: "Migration failed",
+        description: migrateError.message || "Failed to migrate token.",
+        variant: "destructive",
+      });
+    }
+  }, [migrateError, toast]);
 
   const handleBuy = () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
@@ -266,11 +296,15 @@ export default function LaunchDetail() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h1 className="text-2xl font-bold">{token.name}</h1>
-                    {token.graduated && (
+                    {token.migrated ? (
+                      <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                        Migrated to DEX
+                      </Badge>
+                    ) : token.graduated ? (
                       <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
                         Graduated
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                   <p className="text-muted-foreground font-mono">${token.symbol}</p>
                 </div>
@@ -302,6 +336,75 @@ export default function LaunchDetail() {
                   </div>
                   <Progress value={Math.min(progress, 100)} className="h-3" />
                 </div>
+              )}
+
+              {token.migrated && token.pairAddress && (
+                <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <h3 className="font-semibold text-blue-600 mb-2">DEX Migration Complete</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">LP Pair:</span>
+                      <code className="font-mono text-xs">{token.pairAddress.slice(0, 10)}...{token.pairAddress.slice(-8)}</code>
+                    </div>
+                    {token.lpLockAddress && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">LP Lock:</span>
+                        <code className="font-mono text-xs">{token.lpLockAddress.slice(0, 10)}...{token.lpLockAddress.slice(-8)}</code>
+                      </div>
+                    )}
+                    {token.lpAmount && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">LP Amount:</span>
+                        <span>{formatEther(BigInt(token.lpAmount))} LP</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    This token is now tradable on PancakeSwap. Internal market trading is disabled.
+                  </p>
+                </div>
+              )}
+
+              {token.graduated && !token.migrated && (
+                migrationDeployed && canMigrate ? (
+                  <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h3 className="font-semibold text-amber-600">Ready for DEX Migration</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Migrate liquidity to PancakeSwap to enable DEX trading.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => tokenAddress && migrate(tokenAddress)}
+                        disabled={isMigrating}
+                        className="shrink-0"
+                        data-testid="button-migrate"
+                      >
+                        {isMigrating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Migrating...
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className="h-4 w-4 mr-2" />
+                            Migrate to DEX
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-4 p-4 bg-muted/50 border rounded-lg">
+                    <h3 className="font-semibold text-muted-foreground">Migration Not Available</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {!migrationDeployed 
+                        ? "DEX migration is not available on this network." 
+                        : "Token is not yet eligible for migration. Requirements may not be met."}
+                    </p>
+                  </div>
+                )
               )}
 
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
@@ -374,10 +477,31 @@ export default function LaunchDetail() {
                 <div className="text-center py-4">
                   <p className="text-muted-foreground mb-4">Connect wallet to trade</p>
                 </div>
+              ) : token.migrated ? (
+                <div className="text-center py-4">
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-muted-foreground">
+                      This token has been migrated to PancakeSwap.
+                    </p>
+                    {token.pairAddress && (
+                      <Button variant="outline" asChild>
+                        <a 
+                          href={`https://pancakeswap.finance/swap?outputCurrency=${tokenAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="link-trade-pancakeswap"
+                        >
+                          Trade on PancakeSwap
+                          <ExternalLink className="h-4 w-4 ml-2" />
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
               ) : token.graduated ? (
                 <div className="text-center py-4">
                   <p className="text-muted-foreground">
-                    This token has graduated to DEX trading.
+                    This token has graduated. Migration to DEX pending.
                   </p>
                 </div>
               ) : (
