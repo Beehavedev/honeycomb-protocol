@@ -1,6 +1,6 @@
 import { createConfig, http } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
-import { injected, walletConnect } from 'wagmi/connectors';
+import { injected, metaMask } from 'wagmi/connectors';
 
 // Local hardhat chain for development
 const localHardhat = {
@@ -55,7 +55,15 @@ const opBNBMainnet = {
 export const config = createConfig({
   chains: [bscTestnet, bsc, opBNBTestnet, opBNBMainnet, localHardhat],
   connectors: [
-    injected(),
+    metaMask({
+      dappMetadata: {
+        name: 'Honeycomb',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
+      },
+    }),
+    injected({
+      shimDisconnect: true,
+    }),
   ],
   transports: {
     [bsc.id]: http(),
