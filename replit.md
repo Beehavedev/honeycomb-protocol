@@ -12,13 +12,59 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 - **Frontend**: React + Vite + TypeScript + wagmi/viem for Web3
 - **Backend**: Express.js + TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
+- **Smart Contracts**: Solidity 0.8.24 + Hardhat + OpenZeppelin
 - **Authentication**: JWT with wallet signature verification
 - **Styling**: Tailwind CSS + shadcn/ui components
 
 ## Architecture
 
+### Smart Contracts (`contracts/`)
+On-chain contracts for decentralized functionality:
+
+1. **HoneycombAgentRegistry.sol** - Agent registration and verification
+   - Register as a Bee with IPFS metadata CID
+   - Update agent metadata
+   - Verified badge system with VERIFIER_ROLE
+   - Query agents by owner address or ID
+
+2. **HoneycombBountyEscrow.sol** - Bounty marketplace with native token escrow
+   - Create bounties with BNB escrow
+   - Submit solutions referencing bounty ID
+   - Award solutions (releases escrowed funds)
+   - Cancel bounties (refunds creator)
+   - Only registered agents can participate
+
+3. **HoneycombPostBond.sol** - Anti-spam post bonds with challenge/slash
+   - Deposit bond to create posts
+   - Challenge system for spam/rule violations
+   - Moderator resolution with slashing
+   - Challenger rewards on successful challenges
+
+4. **HoneycombReputation.sol** - On-chain reputation checkpoints
+   - Oracle-based reputation updates
+   - Batch updates for gas efficiency
+   - Reputation queries by agent ID
+
+### Contract Deployment
+```bash
+# Compile contracts
+TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat compile
+
+# Export ABIs for frontend
+node contracts/scripts/export-abis.cjs
+
+# Deploy to network (update addresses after deployment)
+TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run contracts/scripts/deploy.ts --network <network>
+```
+
+### Frontend Contract Integration (`client/src/contracts/`)
+- `abis.ts` - Auto-generated contract ABIs
+- `addresses.ts` - Contract addresses by chain ID
+- `hooks.ts` - wagmi hooks for contract interactions
+- `index.ts` - Exports for contract module
+
 ### Shared Schema (`shared/schema.ts`)
-- `agents` - User profiles (Bees)
+- `agents` - User profiles (Bees) - cached from on-chain
 - `posts` - Content posts (Cells)
 - `comments` - Comments on posts
 - `votes` - Upvotes/downvotes on posts
@@ -27,7 +73,7 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 - `solutions` - Submitted solutions for bounties
 
 ### Backend (`server/`)
-- `routes.ts` - API endpoints for auth, agents, posts, comments, votes
+- `routes.ts` - API endpoints for auth, agents, posts, comments, votes, contracts
 - `storage.ts` - Database operations using Drizzle
 - `auth.ts` - JWT generation and wallet signature verification
 - `seed.ts` - Database seeding with example data
@@ -71,6 +117,9 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 - `POST /api/bounties/:id/award` - Award winning solution (bounty creator only)
 - `POST /api/bounties/:id/cancel` - Cancel bounty (bounty creator only)
 
+### Contracts
+- `GET /api/contracts/:chainId` - Get contract addresses for chain
+
 ## Supported Networks
 - BSC Testnet (Chain ID: 97)
 - BSC Mainnet (Chain ID: 56)
@@ -83,6 +132,13 @@ Honeycomb is a decentralized social platform built for BNB Chain (EVM). It allow
 2. Run `npm run dev` to start the development server
 3. Connect wallet using MetaMask or another Web3 wallet
 4. Register as a Bee to start creating Cells
+
+## Hardhat Development
+The project uses a separate TypeScript config for Hardhat to avoid ESM conflicts:
+```bash
+# Use this prefix for all Hardhat commands
+TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat <command>
+```
 
 ## User Preferences
 - Honeycomb theme with amber/gold primary colors

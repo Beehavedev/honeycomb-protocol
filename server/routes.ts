@@ -652,5 +652,62 @@ export async function registerRoutes(
     }
   });
 
+  // Contract configuration endpoint
+  // Returns contract addresses for the requested chain
+  app.get("/api/contracts/:chainId", (req, res) => {
+    const chainId = parseInt(req.params.chainId);
+    
+    // Contract addresses by chain ID - update after deployment
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+    
+    const contractAddresses: Record<number, {
+      agentRegistry: string;
+      bountyEscrow: string;
+      postBond: string;
+      reputation: string;
+    }> = {
+      31337: { // Local Hardhat
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+      },
+      97: { // BSC Testnet
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+      },
+      56: { // BSC Mainnet
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+      },
+      5611: { // opBNB Testnet
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+      },
+      204: { // opBNB Mainnet
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+      },
+    };
+
+    const addresses = contractAddresses[chainId];
+    if (!addresses) {
+      return res.status(404).json({ 
+        message: "Unsupported chain ID", 
+        supportedChains: Object.keys(contractAddresses).map(Number) 
+      });
+    }
+
+    res.json({ chainId, addresses });
+  });
+
   return httpServer;
 }
