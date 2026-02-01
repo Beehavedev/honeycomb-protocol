@@ -2,7 +2,7 @@ import { createConfig, http } from 'wagmi';
 import { injected, metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
 import { type Chain } from 'viem';
 
-// Custom BSC Testnet with reliable RPC
+// Custom BSC Testnet with official RPC
 const bscTestnet: Chain = {
   id: 97,
   name: 'BNB Smart Chain Testnet',
@@ -12,7 +12,7 @@ const bscTestnet: Chain = {
     symbol: 'tBNB',
   },
   rpcUrls: {
-    default: { http: ['https://bsc-testnet.public.blastapi.io'] },
+    default: { http: ['https://bsc-testnet-rpc.publicnode.com'] },
   },
   blockExplorers: {
     default: { name: 'BscScan', url: 'https://testnet.bscscan.com' },
@@ -20,7 +20,7 @@ const bscTestnet: Chain = {
   testnet: true,
 };
 
-// Custom BSC Mainnet with reliable RPC
+// Custom BSC Mainnet with official RPC
 const bsc: Chain = {
   id: 56,
   name: 'BNB Smart Chain',
@@ -30,7 +30,7 @@ const bsc: Chain = {
     symbol: 'BNB',
   },
   rpcUrls: {
-    default: { http: ['https://bsc.public.blastapi.io'] },
+    default: { http: ['https://bsc-rpc.publicnode.com'] },
   },
   blockExplorers: {
     default: { name: 'BscScan', url: 'https://bscscan.com' },
