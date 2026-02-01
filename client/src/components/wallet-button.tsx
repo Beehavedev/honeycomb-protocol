@@ -66,6 +66,8 @@ export function WalletButton() {
     switch (name) {
       case "MetaMask":
         return "Browser extension";
+      case "Coinbase Wallet":
+        return "Coinbase app or extension";
       case "WalletConnect":
         return "Mobile wallets (Trust, Binance, OKX)";
       case "Injected":

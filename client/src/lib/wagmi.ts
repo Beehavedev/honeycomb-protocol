@@ -1,6 +1,6 @@
 import { createConfig, http } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
-import { injected, metaMask, walletConnect } from 'wagmi/connectors';
+import { injected, metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
 
 // WalletConnect project ID - get yours at https://cloud.walletconnect.com
 const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
@@ -62,6 +62,10 @@ const connectors = [
       name: 'Honeycomb',
       url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
     },
+  }),
+  coinbaseWallet({
+    appName: 'Honeycomb',
+    appLogoUrl: 'https://honeycomb.app/icon.png',
   }),
   injected({
     shimDisconnect: true,
