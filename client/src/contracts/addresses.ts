@@ -35,14 +35,14 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
   },
   // BSC Testnet
   97: {
-    agentRegistry: ZERO_ADDRESS,
-    bountyEscrow: ZERO_ADDRESS,
-    postBond: ZERO_ADDRESS,
-    reputation: ZERO_ADDRESS,
-    feeVault: ZERO_ADDRESS,
-    tokenFactory: ZERO_ADDRESS,
-    bondingCurveMarket: ZERO_ADDRESS,
-    migration: ZERO_ADDRESS,
+    agentRegistry: "0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651",
+    bountyEscrow: "0xdA382b1D15134E0205dBD31992AC7593A227D283",
+    postBond: "0xBBe5cC52575bC4db46a5129F60EC34ECED7CE7BB",
+    reputation: "0x009701911479048de1CF792d15e287cE470505C2",
+    feeVault: "0x5077Df490A68d4bA33208c9308739B17da6CcBb7",
+    tokenFactory: "0x61fcCc3c52F537E9E5434aA472130b8C03500e10",
+    bondingCurveMarket: "0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167",
+    migration: "0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01",
   },
   // BSC Mainnet
   56: {

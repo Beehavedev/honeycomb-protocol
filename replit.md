@@ -265,10 +265,18 @@ Update `client/src/contracts/addresses.ts` with the deployed contract addresses:
 },
 ```
 
-### Current Status
-- Contracts are NOT deployed (using ZERO_ADDRESS placeholders)
-- Token launchpad is in DEMO MODE until contracts are deployed
-- Once deployed and addresses updated, real on-chain token launches will work
+### Current Status - BSC Testnet Deployed!
+Contracts deployed to BSC Testnet (Chain ID: 97) on February 1, 2026:
+- **HoneycombAgentRegistry**: `0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651`
+- **HoneycombBountyEscrow**: `0xdA382b1D15134E0205dBD31992AC7593A227D283`
+- **HoneycombPostBond**: `0xBBe5cC52575bC4db46a5129F60EC34ECED7CE7BB`
+- **HoneycombReputation**: `0x009701911479048de1CF792d15e287cE470505C2`
+- **HoneycombFeeVault**: `0x5077Df490A68d4bA33208c9308739B17da6CcBb7`
+- **HoneycombTokenFactory**: `0x61fcCc3c52F537E9E5434aA472130b8C03500e10`
+- **HoneycombBondingCurveMarket**: `0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167`
+- **HoneycombMigration**: `0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01`
+
+Token launchpad is now LIVE on BSC Testnet! Connect your wallet and switch to BSC Testnet to create real tokens.
 
 ## Hardhat Development
 The project uses a separate TypeScript config for Hardhat to avoid ESM conflicts:
