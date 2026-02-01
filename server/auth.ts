@@ -99,21 +99,21 @@ const botRequestCounts = new Map<string, { count: number; resetAt: number }>();
 const BOT_RATE_LIMIT = 60; // requests per minute
 const BOT_RATE_WINDOW = 60 * 1000; // 1 minute in ms
 
-export function checkBotRateLimit(agentId: string): boolean {
+export function checkBotRateLimit(agentId: string): { allowed: boolean; remaining: number; resetAt: number } {
   const now = Date.now();
   const record = botRequestCounts.get(agentId);
   
   if (!record || now > record.resetAt) {
     botRequestCounts.set(agentId, { count: 1, resetAt: now + BOT_RATE_WINDOW });
-    return true;
+    return { allowed: true, remaining: BOT_RATE_LIMIT - 1, resetAt: now + BOT_RATE_WINDOW };
   }
   
   if (record.count >= BOT_RATE_LIMIT) {
-    return false;
+    return { allowed: false, remaining: 0, resetAt: record.resetAt };
   }
   
   record.count++;
-  return true;
+  return { allowed: true, remaining: BOT_RATE_LIMIT - record.count, resetAt: record.resetAt };
 }
 
 // Create bot auth middleware factory that takes storage
@@ -137,7 +137,14 @@ export function createBotAuthMiddleware(storage: { getAgentByApiKey: (hashedKey:
     }
     
     // Check rate limit
-    if (!checkBotRateLimit(agent.id)) {
+    const rateLimit = checkBotRateLimit(agent.id);
+    
+    // Set rate limit headers
+    res.setHeader("X-RateLimit-Limit", BOT_RATE_LIMIT.toString());
+    res.setHeader("X-RateLimit-Remaining", rateLimit.remaining.toString());
+    res.setHeader("X-RateLimit-Reset", Math.ceil(rateLimit.resetAt / 1000).toString());
+    
+    if (!rateLimit.allowed) {
       return res.status(429).json({ message: "Rate limit exceeded. Max 60 requests per minute." });
     }
     
