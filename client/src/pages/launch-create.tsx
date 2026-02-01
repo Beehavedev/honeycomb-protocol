@@ -24,9 +24,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
-import { useCreateToken, useTokenFactoryAddress } from "@/contracts/hooks";
+import { useCreateToken, useTokenFactoryAddress, useBuyTokens } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId } from "wagmi";
-import { decodeEventLog } from "viem";
+import { decodeEventLog, parseEther } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
 import { generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
 import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
@@ -41,6 +41,7 @@ const createTokenSchema = z.object({
   website: z.string().url("Invalid URL").optional().or(z.literal("")),
   twitter: z.string().optional().or(z.literal("")),
   telegram: z.string().optional().or(z.literal("")),
+  devBuyAmount: z.string().optional().or(z.literal("")),
 });
 
 type CreateTokenForm = z.infer<typeof createTokenSchema>;
@@ -65,6 +66,9 @@ export default function LaunchCreate() {
   const [isUploading, setIsUploading] = useState(false);
   const [miningProgress, setMiningProgress] = useState<VanityMineProgress | null>(null);
   const [minedSalt, setMinedSalt] = useState<`0x${string}` | null>(null);
+  const [createdTokenAddress, setCreatedTokenAddress] = useState<`0x${string}` | null>(null);
+  const [devBuyAmountWei, setDevBuyAmountWei] = useState<bigint | null>(null);
+  const [isDevBuying, setIsDevBuying] = useState(false);
   
   // Check if on deployed network
   const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
@@ -72,6 +76,9 @@ export default function LaunchCreate() {
   
   const { createToken, isPending: isCreating, isSuccess: txSuccess, hash, error: txError } = useCreateToken();
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash });
+  
+  // Dev buy hook (separate transaction after token creation)
+  const { buy: buyTokens, isPending: isBuyPending, isConfirming: isBuyConfirming, isSuccess: isBuySuccess, error: buyError } = useBuyTokens();
 
   const form = useForm<CreateTokenForm>({
     resolver: zodResolver(createTokenSchema),
@@ -82,6 +89,7 @@ export default function LaunchCreate() {
       website: "",
       twitter: "",
       telegram: "",
+      devBuyAmount: "",
     },
   });
 
@@ -196,6 +204,20 @@ export default function LaunchCreate() {
       setFormData(data);
       setStep("creating");
       
+      // Store dev buy amount if provided
+      if (data.devBuyAmount && parseFloat(data.devBuyAmount) > 0) {
+        try {
+          const amountWei = parseEther(data.devBuyAmount);
+          setDevBuyAmountWei(amountWei);
+          console.log("Dev buy amount set:", data.devBuyAmount, "BNB, wei:", amountWei.toString());
+        } catch (e) {
+          console.error("Invalid dev buy amount:", e);
+          setDevBuyAmountWei(null);
+        }
+      } else {
+        setDevBuyAmountWei(null);
+      }
+      
       // Store metadata first
       const metaResult = await storeMutation.mutateAsync(data);
       const cid = metaResult.metadataCID;
@@ -222,6 +244,7 @@ export default function LaunchCreate() {
       setFormData(null);
       setMiningProgress(null);
       setMinedSalt(null);
+      setDevBuyAmountWei(null);
       toast({
         title: "Error",
         description: "Failed to create token. Please try again.",
@@ -232,12 +255,14 @@ export default function LaunchCreate() {
 
   // Effect to handle submission after network switch
   useEffect(() => {
+    console.log("Effect check - pendingSubmit:", !!pendingSubmit, "isOnDeployedNetwork:", isOnDeployedNetwork, "chainId:", chainId);
     if (pendingSubmit && isOnDeployedNetwork) {
+      console.log("Network switch detected, continuing with token creation...");
       const data = pendingSubmit;
       setPendingSubmit(null);
       handleSubmitAfterSwitch(data);
     }
-  }, [pendingSubmit, isOnDeployedNetwork]);
+  }, [pendingSubmit, isOnDeployedNetwork, chainId]);
 
   const onSubmit = async (data: CreateTokenForm) => {
     if (!address) {
@@ -249,17 +274,30 @@ export default function LaunchCreate() {
       return;
     }
 
+    console.log("onSubmit - chainId:", chainId, "isOnDeployedNetwork:", isOnDeployedNetwork);
+
     // Auto-switch network if needed (like four.meme)
     if (!isOnDeployedNetwork) {
       try {
         // Store form data and trigger switch
         setPendingSubmit(data);
+        console.log("Triggering network switch to BSC Testnet...");
+        toast({
+          title: "Switching to BSC Testnet",
+          description: "Please approve in your wallet...",
+        });
         await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+        console.log("switchChain completed, waiting for chain update...");
         // The effect above will handle submission after chain updates
         return;
       } catch (e) {
         console.error("Network switch failed:", e);
         setPendingSubmit(null);
+        toast({
+          title: "Network switch cancelled",
+          description: "Please try again after switching to BSC Testnet.",
+          variant: "destructive",
+        });
         return;
       }
     }
@@ -282,7 +320,7 @@ export default function LaunchCreate() {
 
   useEffect(() => {
     const recordToken = async () => {
-      if (isConfirmed && hash && txReceipt && formData && metadataCID) {
+      if (isConfirmed && hash && txReceipt && formData && metadataCID && !isDevBuying) {
         try {
           setStep("recording");
           
@@ -304,18 +342,30 @@ export default function LaunchCreate() {
           }
           
           if (tokenAddress) {
+            setCreatedTokenAddress(tokenAddress as `0x${string}`);
+            
             await recordMutation.mutateAsync({
               tokenAddress,
               formData,
               cid: metadataCID,
             });
             
-            toast({
-              title: "Token launched!",
-              description: "Your token has been created and is now tradable.",
-            });
-            
-            navigate(`/launch/${tokenAddress}`);
+            // Check if dev buy is requested
+            if (devBuyAmountWei && devBuyAmountWei > 0n) {
+              setIsDevBuying(true);
+              toast({
+                title: "Token created!",
+                description: "Now executing your initial buy...",
+              });
+              console.log("Executing dev buy for token:", tokenAddress, "amount:", devBuyAmountWei.toString());
+              buyTokens(tokenAddress as `0x${string}`, 0n, devBuyAmountWei);
+            } else {
+              toast({
+                title: "Token launched!",
+                description: "Your token has been created and is now tradable.",
+              });
+              navigate(`/launch/${tokenAddress}`);
+            }
           } else {
             toast({
               title: "Token launched!",
@@ -337,7 +387,33 @@ export default function LaunchCreate() {
     };
     
     recordToken();
-  }, [isConfirmed, hash, txReceipt, formData, metadataCID, navigate, toast, recordMutation]);
+  }, [isConfirmed, hash, txReceipt, formData, metadataCID, navigate, toast, recordMutation, devBuyAmountWei, buyTokens, isDevBuying]);
+  
+  // Handle dev buy completion
+  useEffect(() => {
+    if (isBuySuccess && isDevBuying && createdTokenAddress) {
+      toast({
+        title: "Dev buy complete!",
+        description: "You've successfully purchased tokens.",
+      });
+      setIsDevBuying(false);
+      navigate(`/launch/${createdTokenAddress}`);
+    }
+  }, [isBuySuccess, isDevBuying, createdTokenAddress, navigate, toast]);
+  
+  // Handle dev buy error
+  useEffect(() => {
+    if (buyError && isDevBuying && createdTokenAddress) {
+      console.error("Dev buy failed:", buyError);
+      toast({
+        title: "Token launched!",
+        description: "Dev buy failed, but your token is ready.",
+        variant: "destructive",
+      });
+      setIsDevBuying(false);
+      navigate(`/launch/${createdTokenAddress}`);
+    }
+  }, [buyError, isDevBuying, createdTokenAddress, navigate, toast]);
 
   if (!isAuthenticated || !agent) {
     return (
@@ -360,7 +436,7 @@ export default function LaunchCreate() {
     );
   }
 
-  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching;
+  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching || isDevBuying || isBuyPending || isBuyConfirming;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -576,6 +652,31 @@ export default function LaunchCreate() {
                 </div>
               </div>
 
+              <FormField
+                control={form.control}
+                name="devBuyAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Initial Dev Buy (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.1"
+                        {...field}
+                        disabled={isPending}
+                        data-testid="input-dev-buy"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Amount of BNB to buy immediately after token creation. Leave empty for no initial buy.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="bg-muted/50 p-4 rounded-md text-sm">
                 <p className="font-medium mb-2">Token Launch Details:</p>
                 <ul className="space-y-1 text-muted-foreground">
@@ -622,7 +723,9 @@ export default function LaunchCreate() {
                     {isUploading ? "Uploading..." :
                      step === "mining" ? "Mining 8888 Address..." :
                      step === "creating" ? "Creating Token..." : 
-                     isConfirming ? "Confirming..." : "Processing..."}
+                     isConfirming ? "Confirming..." :
+                     isDevBuying || isBuyPending ? "Executing Dev Buy..." :
+                     isBuyConfirming ? "Confirming Dev Buy..." : "Processing..."}
                   </>
                 ) : (
                   <>
