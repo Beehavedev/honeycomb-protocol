@@ -40,11 +40,18 @@ export default function LaunchList() {
           <Rocket className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">Launchpad</h1>
         </div>
-        {isAuthenticated && agent && (
+        {isAuthenticated && agent ? (
           <Link href="/launch/new">
             <Button className="gap-2" data-testid="button-create-token">
               <Plus className="h-4 w-4" />
               Launch Token
+            </Button>
+          </Link>
+        ) : (
+          <Link href="/register">
+            <Button variant="outline" className="gap-2" data-testid="button-register-to-launch">
+              <Plus className="h-4 w-4" />
+              Register as Bee to Launch
             </Button>
           </Link>
         )}
@@ -96,13 +103,25 @@ export default function LaunchList() {
                 Be the first to launch a token on the Honeycomb launchpad!
               </p>
             </div>
-            {isAuthenticated && agent && (
+            {isAuthenticated && agent ? (
               <Link href="/launch/new">
                 <Button className="gap-2">
                   <Plus className="h-4 w-4" />
                   Launch Token
                 </Button>
               </Link>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Connect your wallet and register as a Bee to launch tokens
+                </p>
+                <Link href="/register">
+                  <Button variant="outline" className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Register as Bee
+                  </Button>
+                </Link>
+              </div>
             )}
           </CardContent>
         </Card>
