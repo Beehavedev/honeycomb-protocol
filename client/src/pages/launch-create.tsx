@@ -55,7 +55,7 @@ export default function LaunchCreate() {
   const factoryAddress = useTokenFactoryAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [step, setStep] = useState<"form" | "mining" | "creating" | "recording" | "switching">("form");
+  const [step, setStep] = useState<"form" | "mining" | "creating" | "recording">("form");
   const [metadataCID, setMetadataCID] = useState<string>("");
   const [formData, setFormData] = useState<CreateTokenForm | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -241,33 +241,11 @@ export default function LaunchCreate() {
 
     // Check if on the correct network
     if (!isOnDeployedNetwork) {
-      setStep("switching");
-      
       toast({
-        title: "Switching network",
-        description: "Please approve the network switch to BSC Testnet in your wallet.",
+        title: "Wrong Network",
+        description: "Please switch to BSC Testnet using the button above before launching.",
+        variant: "destructive",
       });
-      
-      try {
-        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-        // Reload page to ensure wagmi hooks reinitialize with the new chain
-        toast({
-          title: "Network switched!",
-          description: "Reloading page...",
-        });
-        // Small delay to let toast show, then reload
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      } catch (error) {
-        console.error("Failed to switch network:", error);
-        setStep("form");
-        toast({
-          title: "Network switch failed",
-          description: "Please manually switch to BSC Testnet (Chain ID: 97) in your wallet.",
-          variant: "destructive",
-        });
-      }
       return;
     }
 
@@ -377,6 +355,38 @@ export default function LaunchCreate() {
           Back to Launchpad
         </Button>
       </Link>
+
+      {/* Network Status Banner */}
+      {isConnected && !isOnDeployedNetwork && (
+        <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg flex items-center justify-between">
+          <div>
+            <p className="font-medium text-destructive">Wrong Network</p>
+            <p className="text-sm text-muted-foreground">
+              You are on {chainId === 56 ? "BSC Mainnet" : `Chain ${chainId}`}. Please switch to BSC Testnet to launch tokens.
+            </p>
+          </div>
+          <Button 
+            onClick={async () => {
+              try {
+                await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+              } catch (e) {
+                console.error("Failed to switch:", e);
+              }
+            }}
+            variant="destructive"
+            data-testid="button-switch-network"
+          >
+            Switch to BSC Testnet
+          </Button>
+        </div>
+      )}
+      
+      {isConnected && isOnDeployedNetwork && (
+        <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <p className="font-medium text-green-600 dark:text-green-400">Connected to BSC Testnet</p>
+          <p className="text-sm text-muted-foreground">You're ready to launch tokens!</p>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -597,18 +607,6 @@ export default function LaunchCreate() {
                 </ul>
               </div>
 
-              {step === "switching" && (
-                <div className="bg-primary/10 border border-primary/30 p-4 rounded-md text-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                    <span className="font-medium">Switching Network</span>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Please approve the network switch to BSC Testnet in your wallet...
-                  </p>
-                </div>
-              )}
-
               {step === "mining" && (
                 <div className="bg-primary/10 border border-primary/30 p-4 rounded-md text-sm">
                   <div className="flex items-center gap-2 mb-2">
@@ -639,7 +637,6 @@ export default function LaunchCreate() {
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {isUploading ? "Uploading..." :
-                     step === "switching" ? "Switching Network..." :
                      step === "mining" ? "Mining 8888 Address..." :
                      step === "creating" ? "Creating Token..." : 
                      isConfirming ? "Confirming..." : "Processing..."}
