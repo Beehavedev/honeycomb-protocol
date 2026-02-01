@@ -239,17 +239,7 @@ export default function LaunchCreate() {
       return;
     }
 
-    // Check if on the correct network
-    if (!isOnDeployedNetwork) {
-      toast({
-        title: "Wrong Network",
-        description: "Please switch to BSC Testnet using the button above before launching.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Already on correct network, proceed with token creation
+    // Proceed with token creation (network already validated by UI)
     await handleSubmitAfterSwitch(data);
   };
 
@@ -347,6 +337,57 @@ export default function LaunchCreate() {
 
   const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading;
 
+  // Block entire page when on wrong network - like four.meme
+  if (isConnected && !isOnDeployedNetwork) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-md">
+        <Card className="text-center">
+          <CardContent className="pt-8 pb-8 space-y-6">
+            <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+              <AlertCircle className="h-10 w-10 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Wrong Network</h2>
+              <p className="text-muted-foreground">
+                You're connected to {chainId === 56 ? "BSC Mainnet" : `Chain ${chainId}`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Honeycomb Launchpad is live on BSC Testnet
+              </p>
+            </div>
+            <Button 
+              size="lg"
+              className="w-full gap-2"
+              onClick={async () => {
+                try {
+                  await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+                } catch (e) {
+                  console.error("Failed to switch:", e);
+                  toast({
+                    title: "Switch failed",
+                    description: "Please switch to BSC Testnet manually in your wallet",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              disabled={isSwitching}
+              data-testid="button-switch-network"
+            >
+              {isSwitching ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Switching...
+                </>
+              ) : (
+                "Switch to BSC Testnet"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
       <Link href="/launch">
@@ -355,38 +396,6 @@ export default function LaunchCreate() {
           Back to Launchpad
         </Button>
       </Link>
-
-      {/* Network Status Banner */}
-      {isConnected && !isOnDeployedNetwork && (
-        <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg flex items-center justify-between">
-          <div>
-            <p className="font-medium text-destructive">Wrong Network</p>
-            <p className="text-sm text-muted-foreground">
-              You are on {chainId === 56 ? "BSC Mainnet" : `Chain ${chainId}`}. Please switch to BSC Testnet to launch tokens.
-            </p>
-          </div>
-          <Button 
-            onClick={async () => {
-              try {
-                await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-              } catch (e) {
-                console.error("Failed to switch:", e);
-              }
-            }}
-            variant="destructive"
-            data-testid="button-switch-network"
-          >
-            Switch to BSC Testnet
-          </Button>
-        </div>
-      )}
-      
-      {isConnected && isOnDeployedNetwork && (
-        <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-          <p className="font-medium text-green-600 dark:text-green-400">Connected to BSC Testnet</p>
-          <p className="text-sm text-muted-foreground">You're ready to launch tokens!</p>
-        </div>
-      )}
 
       <Card>
         <CardHeader>
