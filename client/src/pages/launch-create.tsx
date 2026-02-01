@@ -58,6 +58,7 @@ export default function LaunchCreate() {
   const [step, setStep] = useState<"form" | "mining" | "creating" | "recording">("form");
   const [metadataCID, setMetadataCID] = useState<string>("");
   const [formData, setFormData] = useState<CreateTokenForm | null>(null);
+  const [pendingSubmit, setPendingSubmit] = useState<CreateTokenForm | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string>("");
@@ -229,6 +230,15 @@ export default function LaunchCreate() {
     }
   };
 
+  // Effect to handle submission after network switch
+  useEffect(() => {
+    if (pendingSubmit && isOnDeployedNetwork) {
+      const data = pendingSubmit;
+      setPendingSubmit(null);
+      handleSubmitAfterSwitch(data);
+    }
+  }, [pendingSubmit, isOnDeployedNetwork]);
+
   const onSubmit = async (data: CreateTokenForm) => {
     if (!address) {
       toast({
@@ -242,15 +252,19 @@ export default function LaunchCreate() {
     // Auto-switch network if needed (like four.meme)
     if (!isOnDeployedNetwork) {
       try {
+        // Store form data and trigger switch
+        setPendingSubmit(data);
         await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-        // After switch, continue with token creation
+        // The effect above will handle submission after chain updates
+        return;
       } catch (e) {
         console.error("Network switch failed:", e);
+        setPendingSubmit(null);
         return;
       }
     }
 
-    // Proceed with token creation
+    // Already on correct network, proceed immediately
     await handleSubmitAfterSwitch(data);
   };
 

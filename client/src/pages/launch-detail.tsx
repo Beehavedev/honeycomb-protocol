@@ -64,6 +64,7 @@ export default function LaunchDetail() {
   const [sellAmount, setSellAmount] = useState("");
   const [copied, setCopied] = useState(false);
   const [lastTradeInfo, setLastTradeInfo] = useState<{ isBuy: boolean; nativeAmount: string; tokenAmount: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<"buy" | "sell" | null>(null);
   
   // Check if on deployed network
   const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
@@ -175,18 +176,8 @@ export default function LaunchDetail() {
     }
   }, [migrateError, toast]);
 
-  const handleBuy = async () => {
+  const executeBuy = () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
-    
-    // Auto-switch network if needed
-    if (!isOnDeployedNetwork) {
-      try {
-        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-      } catch (e) {
-        console.error("Network switch failed:", e);
-        return;
-      }
-    }
     
     const quoteValue = buyQuote as readonly [bigint, bigint] | undefined;
     const minOut = quoteValue ? (quoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
@@ -201,18 +192,8 @@ export default function LaunchDetail() {
     buy(tokenAddress, minOut, buyAmountWei);
   };
 
-  const handleSell = async () => {
+  const executeSell = () => {
     if (!tokenAddress || sellAmountWei <= BigInt(0) || !marketAddress) return;
-    
-    // Auto-switch network if needed
-    if (!isOnDeployedNetwork) {
-      try {
-        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-      } catch (e) {
-        console.error("Network switch failed:", e);
-        return;
-      }
-    }
     
     if (needsApproval) {
       approve(tokenAddress, marketAddress, sellAmountWei);
@@ -230,6 +211,57 @@ export default function LaunchDetail() {
     });
     
     sell(tokenAddress, sellAmountWei, minOut);
+  };
+
+  // Effect to execute pending action after network switch
+  useEffect(() => {
+    if (pendingAction && isOnDeployedNetwork) {
+      const action = pendingAction;
+      setPendingAction(null);
+      if (action === "buy") {
+        executeBuy();
+      } else {
+        executeSell();
+      }
+    }
+  }, [pendingAction, isOnDeployedNetwork]);
+
+  const handleBuy = async () => {
+    if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
+    
+    // Auto-switch network if needed
+    if (!isOnDeployedNetwork) {
+      try {
+        setPendingAction("buy");
+        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+        return; // Effect will handle execution after switch
+      } catch (e) {
+        console.error("Network switch failed:", e);
+        setPendingAction(null);
+        return;
+      }
+    }
+    
+    executeBuy();
+  };
+
+  const handleSell = async () => {
+    if (!tokenAddress || sellAmountWei <= BigInt(0) || !marketAddress) return;
+    
+    // Auto-switch network if needed
+    if (!isOnDeployedNetwork) {
+      try {
+        setPendingAction("sell");
+        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+        return; // Effect will handle execution after switch
+      } catch (e) {
+        console.error("Network switch failed:", e);
+        setPendingAction(null);
+        return;
+      }
+    }
+    
+    executeSell();
   };
 
   const copyAddress = () => {
