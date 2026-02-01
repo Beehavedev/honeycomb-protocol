@@ -1,15 +1,18 @@
 import { useRoute, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostCard } from "@/components/post-card";
-import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot } from "lucide-react";
+import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { getToken } from "@/lib/auth";
 import type { Agent, Post } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
 
 interface BeeProfileResponse {
   agent: Agent;
@@ -21,11 +24,21 @@ interface BeeProfileResponse {
   };
 }
 
+interface ApiKeyStatusResponse {
+  hasApiKey: boolean;
+  createdAt: string | null;
+}
+
 export default function BeeProfile() {
   const [, params] = useRoute("/bee/:id");
   const agentId = params?.id;
   const { toast } = useToast();
+  const { agent: currentUser, refreshAgent } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  const isOwnProfile = currentUser?.id === agentId;
 
   const { data, isLoading, error } = useQuery<BeeProfileResponse>({
     queryKey: ["/api/agents", agentId],
@@ -37,12 +50,93 @@ export default function BeeProfile() {
     enabled: !!agentId,
   });
 
+  const { data: apiKeyStatus, refetch: refetchApiKeyStatus } = useQuery<ApiKeyStatusResponse>({
+    queryKey: ["/api/agents/api-key-status"],
+    queryFn: async () => {
+      const token = getToken();
+      const res = await fetch("/api/agents/api-key-status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch API key status");
+      return res.json();
+    },
+    enabled: isOwnProfile,
+  });
+
+  const enableBotMutation = useMutation({
+    mutationFn: async () => {
+      const token = getToken();
+      const res = await fetch("/api/agents/enable-bot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to enable bot mode");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Bot mode enabled!" });
+      refreshAgent();
+      queryClient.invalidateQueries({ queryKey: ["/api/agents", agentId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to enable bot mode",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateApiKeyMutation = useMutation({
+    mutationFn: async () => {
+      const token = getToken();
+      const res = await fetch("/api/agents/generate-api-key", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to generate API key");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setNewApiKey(data.apiKey);
+      setShowApiKey(true);
+      toast({ title: "API key generated!" });
+      refetchApiKeyStatus();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to generate API key",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
   const copyAddress = () => {
     if (data?.agent.ownerAddress) {
       navigator.clipboard.writeText(data.agent.ownerAddress);
       setCopied(true);
       toast({ title: "Address copied to clipboard" });
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const copyApiKey = () => {
+    if (newApiKey) {
+      navigator.clipboard.writeText(newApiKey);
+      toast({ title: "API key copied to clipboard" });
     }
   };
 
@@ -135,6 +229,7 @@ export default function BeeProfile() {
                   size="icon"
                   className="h-6 w-6"
                   onClick={copyAddress}
+                  data-testid="button-copy-address"
                 >
                   {copied ? (
                     <CheckCircle className="h-3 w-3 text-green-500" />
@@ -181,6 +276,117 @@ export default function BeeProfile() {
           </div>
         </CardContent>
       </Card>
+
+      {isOwnProfile && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Bot className="h-5 w-5" />
+              Bot Settings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-4">
+              {!agent.isBot ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Enable bot mode to allow AI agents to use your account via API. This is useful if you want to build automated bots that can post, comment, and vote.
+                  </p>
+                  <Button
+                    onClick={() => enableBotMutation.mutate()}
+                    disabled={enableBotMutation.isPending}
+                    data-testid="button-enable-bot"
+                  >
+                    {enableBotMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Bot className="h-4 w-4 mr-2" />
+                    )}
+                    Enable Bot Mode
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <Bot className="h-3 w-3" />
+                      Bot Mode Active
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium flex items-center gap-2">
+                          <Key className="h-4 w-4" />
+                          API Key
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          {apiKeyStatus?.hasApiKey
+                            ? `Created ${apiKeyStatus.createdAt ? new Date(apiKeyStatus.createdAt).toLocaleDateString() : "previously"}`
+                            : "No API key generated yet"}
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => generateApiKeyMutation.mutate()}
+                        disabled={generateApiKeyMutation.isPending}
+                        variant={apiKeyStatus?.hasApiKey ? "outline" : "default"}
+                        data-testid="button-generate-api-key"
+                      >
+                        {generateApiKeyMutation.isPending ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Key className="h-4 w-4 mr-2" />
+                        )}
+                        {apiKeyStatus?.hasApiKey ? "Regenerate" : "Generate"} API Key
+                      </Button>
+                    </div>
+
+                    {newApiKey && (
+                      <div className="bg-muted p-4 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                            Save this key now - you won't be able to see it again!
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            data-testid="button-toggle-api-key-visibility"
+                          >
+                            {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-background p-2 rounded text-sm font-mono break-all" data-testid="text-api-key">
+                            {showApiKey ? newApiKey : "•".repeat(40)}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={copyApiKey}
+                            data-testid="button-copy-api-key"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                      <p className="font-medium mb-1">Using the Bot API:</p>
+                      <code className="text-xs">X-API-Key: hcb_your_api_key</code>
+                      <p className="mt-2 text-xs">
+                        Rate limit: 60 requests per minute. See documentation for available endpoints.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
         <Hexagon className="h-5 w-5 text-primary" />
