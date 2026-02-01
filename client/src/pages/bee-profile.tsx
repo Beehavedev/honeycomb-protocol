@@ -4,9 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostCard } from "@/components/post-card";
-import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff, Edit, X, Save } from "lucide-react";
+import { SiX } from "react-icons/si";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,6 +41,10 @@ export default function BeeProfile() {
   const [copied, setCopied] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editTwitter, setEditTwitter] = useState("");
 
   const isOwnProfile = currentUser?.id === agentId;
 
@@ -124,6 +132,38 @@ export default function BeeProfile() {
     },
   });
 
+  const updateProfileMutation = useMutation({
+    mutationFn: async (updates: { name?: string; bio?: string; twitterHandle?: string }) => {
+      const token = getToken();
+      const res = await fetch("/api/agents/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to update profile");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Profile updated!" });
+      setIsEditing(false);
+      refreshAgent();
+      queryClient.invalidateQueries({ queryKey: ["/api/agents", agentId] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update profile",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    },
+  });
+
   const copyAddress = () => {
     if (data?.agent.ownerAddress) {
       navigator.clipboard.writeText(data.agent.ownerAddress);
@@ -142,6 +182,28 @@ export default function BeeProfile() {
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const startEditing = () => {
+    if (data?.agent) {
+      setEditName(data.agent.name);
+      setEditBio(data.agent.bio || "");
+      setEditTwitter(data.agent.twitterHandle || "");
+      setIsEditing(true);
+    }
+  };
+
+  const saveProfile = () => {
+    const updates: { name?: string; bio?: string; twitterHandle?: string } = {};
+    if (editName !== data?.agent.name) updates.name = editName;
+    if (editBio !== (data?.agent.bio || "")) updates.bio = editBio;
+    if (editTwitter !== (data?.agent.twitterHandle || "")) updates.twitterHandle = editTwitter;
+
+    if (Object.keys(updates).length > 0) {
+      updateProfileMutation.mutate(updates);
+    } else {
+      setIsEditing(false);
+    }
   };
 
   if (isLoading) {
@@ -204,76 +266,167 @@ export default function BeeProfile() {
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
-                <Hexagon className="h-5 w-5 text-primary fill-primary/20" />
-                <h1 className="text-2xl font-bold" data-testid="text-bee-name">{agent.name}</h1>
-                {agent.isBot && (
-                  <Badge variant="outline" className="gap-1" data-testid="badge-bot">
-                    <Bot className="h-3 w-3" />
-                    Bot
-                  </Badge>
-                )}
-              </div>
-
-              {agent.bio && (
-                <p className="text-muted-foreground mb-4" data-testid="text-bee-bio">{agent.bio}</p>
-              )}
-
-              <div className="flex items-center justify-center sm:justify-start gap-2 mb-4">
-                <Badge variant="secondary" className="font-mono text-xs">
-                  {formatAddress(agent.ownerAddress)}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={copyAddress}
-                  data-testid="button-copy-address"
-                >
-                  {copied ? (
-                    <CheckCircle className="h-3 w-3 text-green-500" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                </Button>
-              </div>
-
-              {agent.capabilities && agent.capabilities.length > 0 && (
-                <div className="flex flex-wrap justify-center sm:justify-start gap-1">
-                  {agent.capabilities.map((cap) => (
-                    <Badge key={cap} variant="outline" className="text-xs">
-                      {cap}
-                    </Badge>
-                  ))}
+            <div className="flex-1 text-center sm:text-left w-full">
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-name">Name</Label>
+                    <Input
+                      id="edit-name"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      maxLength={50}
+                      data-testid="input-edit-name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-bio">Bio</Label>
+                    <Textarea
+                      id="edit-bio"
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      maxLength={500}
+                      rows={3}
+                      data-testid="input-edit-bio"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-twitter">Twitter/X Handle</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">@</span>
+                      <Input
+                        id="edit-twitter"
+                        value={editTwitter}
+                        onChange={(e) => setEditTwitter(e.target.value.replace(/^@/, ""))}
+                        placeholder="username"
+                        maxLength={15}
+                        data-testid="input-edit-twitter"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={saveProfile}
+                      disabled={updateProfileMutation.isPending}
+                      data-testid="button-save-profile"
+                    >
+                      {updateProfileMutation.isPending ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditing(false)}
+                      data-testid="button-cancel-edit"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
+                    <Hexagon className="h-5 w-5 text-primary fill-primary/20" />
+                    <h1 className="text-2xl font-bold" data-testid="text-bee-name">{agent.name}</h1>
+                    {agent.isBot && (
+                      <Badge variant="outline" className="gap-1" data-testid="badge-bot">
+                        <Bot className="h-3 w-3" />
+                        Bot
+                      </Badge>
+                    )}
+                    {isOwnProfile && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={startEditing}
+                        data-testid="button-edit-profile"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {agent.bio && (
+                    <p className="text-muted-foreground mb-4" data-testid="text-bee-bio">{agent.bio}</p>
+                  )}
+
+                  <div className="flex items-center justify-center sm:justify-start gap-3 mb-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="font-mono text-xs">
+                        {formatAddress(agent.ownerAddress)}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={copyAddress}
+                        data-testid="button-copy-address"
+                      >
+                        {copied ? (
+                          <CheckCircle className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                    {agent.twitterHandle && (
+                      <a
+                        href={`https://x.com/${agent.twitterHandle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="link-twitter"
+                      >
+                        <SiX className="h-3.5 w-3.5" />
+                        <span>@{agent.twitterHandle}</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {agent.capabilities && agent.capabilities.length > 0 && (
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-1">
+                      {agent.capabilities.map((cap) => (
+                        <Badge key={cap} variant="outline" className="text-xs">
+                          {cap}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                <FileText className="h-4 w-4" />
+          {!isEditing && (
+            <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+                  <FileText className="h-4 w-4" />
+                </div>
+                <div className="text-2xl font-bold" data-testid="stat-posts">{stats.postCount}</div>
+                <div className="text-xs text-muted-foreground">Cells</div>
               </div>
-              <div className="text-2xl font-bold" data-testid="stat-posts">{stats.postCount}</div>
-              <div className="text-xs text-muted-foreground">Cells</div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                <MessageSquare className="h-4 w-4" />
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                <div className="text-2xl font-bold" data-testid="stat-comments">{stats.commentCount}</div>
+                <div className="text-xs text-muted-foreground">Comments</div>
               </div>
-              <div className="text-2xl font-bold" data-testid="stat-comments">{stats.commentCount}</div>
-              <div className="text-xs text-muted-foreground">Comments</div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                <ThumbsUp className="h-4 w-4" />
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+                  <ThumbsUp className="h-4 w-4" />
+                </div>
+                <div className="text-2xl font-bold" data-testid="stat-upvotes">{stats.totalUpvotes}</div>
+                <div className="text-xs text-muted-foreground">Upvotes</div>
               </div>
-              <div className="text-2xl font-bold" data-testid="stat-upvotes">{stats.totalUpvotes}</div>
-              <div className="text-xs text-muted-foreground">Upvotes</div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

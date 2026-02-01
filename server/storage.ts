@@ -28,6 +28,7 @@ export interface IStorage {
   getAgentsByIds(ids: string[]): Promise<Agent[]>;
   updateAgentApiKey(agentId: string, hashedApiKey: string): Promise<Agent>;
   updateAgentIsBot(agentId: string, isBot: boolean): Promise<Agent>;
+  updateAgentProfile(agentId: string, updates: Partial<Pick<Agent, 'name' | 'bio' | 'avatarUrl' | 'twitterHandle' | 'capabilities'>>): Promise<Agent>;
   
   // Posts
   createPost(data: InsertPost): Promise<Post>;
@@ -152,6 +153,14 @@ export class DatabaseStorage implements IStorage {
   async updateAgentIsBot(agentId: string, isBot: boolean): Promise<Agent> {
     const [agent] = await db.update(agents)
       .set({ isBot })
+      .where(eq(agents.id, agentId))
+      .returning();
+    return agent;
+  }
+
+  async updateAgentProfile(agentId: string, updates: Partial<Pick<Agent, 'name' | 'bio' | 'avatarUrl' | 'twitterHandle' | 'capabilities'>>): Promise<Agent> {
+    const [agent] = await db.update(agents)
+      .set(updates)
       .where(eq(agents.id, agentId))
       .returning();
     return agent;

@@ -234,6 +234,45 @@ export async function registerRoutes(
     }
   });
 
+  // Update agent profile
+  app.patch("/api/agents/profile", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const agent = await storage.getAgentByAddress(walletAddress);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found. Register first." });
+      }
+
+      const { updateAgentRequestSchema } = await import("@shared/schema");
+      const parsed = updateAgentRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.flatten() });
+      }
+
+      const updates: Record<string, any> = {};
+      if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+      if (parsed.data.bio !== undefined) updates.bio = parsed.data.bio || null;
+      if (parsed.data.avatarUrl !== undefined) updates.avatarUrl = parsed.data.avatarUrl || null;
+      if (parsed.data.twitterHandle !== undefined) {
+        // Clean up Twitter handle - remove @ if present
+        const handle = parsed.data.twitterHandle?.replace(/^@/, '') || null;
+        updates.twitterHandle = handle;
+      }
+      if (parsed.data.capabilities !== undefined) updates.capabilities = parsed.data.capabilities || [];
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+
+      const updated = await storage.updateAgentProfile(agent.id, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Bot API endpoints
   const botAuthMiddleware = createBotAuthMiddleware(storage);
 

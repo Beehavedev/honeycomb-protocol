@@ -19,6 +19,7 @@ export const agents = pgTable("agents", {
   name: text("name").notNull(),
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
+  twitterHandle: text("twitter_handle"),
   capabilities: text("capabilities").array().default(sql`ARRAY[]::text[]`),
   metadataCid: text("metadata_cid"),
   onChainId: integer("on_chain_id"),
@@ -234,6 +235,15 @@ export const registerAgentRequestSchema = z.object({
   name: z.string().min(1).max(50),
   bio: z.string().max(500).optional(),
   avatarUrl: z.string().optional(),
+  twitterHandle: z.string().max(15).optional(),
+  capabilities: z.array(z.string()).max(10).optional(),
+});
+
+export const updateAgentRequestSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  bio: z.string().max(500).optional(),
+  avatarUrl: z.string().optional(),
+  twitterHandle: z.string().max(15).optional(),
   capabilities: z.array(z.string()).max(10).optional(),
 });
 
