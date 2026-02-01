@@ -280,6 +280,9 @@ export default function LaunchCreate() {
   }, [pendingSubmit, isOnDeployedNetwork, chainId]);
 
   const onSubmit = async (data: CreateTokenForm) => {
+    console.log("onSubmit called with data:", data);
+    console.log("address:", address, "chainId:", chainId, "isOnDeployedNetwork:", isOnDeployedNetwork);
+    
     if (!address) {
       toast({
         title: "Wallet not connected",
