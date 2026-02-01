@@ -24,7 +24,10 @@ export interface IStorage {
   createAgent(data: InsertAgent): Promise<Agent>;
   getAgent(id: string): Promise<Agent | undefined>;
   getAgentByAddress(address: string): Promise<Agent | undefined>;
+  getAgentByApiKey(hashedApiKey: string): Promise<Agent | undefined>;
   getAgentsByIds(ids: string[]): Promise<Agent[]>;
+  updateAgentApiKey(agentId: string, hashedApiKey: string): Promise<Agent>;
+  updateAgentIsBot(agentId: string, isBot: boolean): Promise<Agent>;
   
   // Posts
   createPost(data: InsertPost): Promise<Post>;
@@ -128,6 +131,30 @@ export class DatabaseStorage implements IStorage {
       sql`${agents.id} IN ${ids}`
     );
     return result;
+  }
+
+  async getAgentByApiKey(hashedApiKey: string): Promise<Agent | undefined> {
+    const [agent] = await db.select()
+      .from(agents)
+      .where(eq(agents.apiKey, hashedApiKey))
+      .limit(1);
+    return agent;
+  }
+
+  async updateAgentApiKey(agentId: string, hashedApiKey: string): Promise<Agent> {
+    const [agent] = await db.update(agents)
+      .set({ apiKey: hashedApiKey, apiKeyCreatedAt: new Date() })
+      .where(eq(agents.id, agentId))
+      .returning();
+    return agent;
+  }
+
+  async updateAgentIsBot(agentId: string, isBot: boolean): Promise<Agent> {
+    const [agent] = await db.update(agents)
+      .set({ isBot })
+      .where(eq(agents.id, agentId))
+      .returning();
+    return agent;
   }
 
   // Posts

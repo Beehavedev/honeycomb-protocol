@@ -6,7 +6,10 @@ import {
   verifyWalletSignature, 
   generateNonce, 
   authMiddleware, 
-  optionalAuthMiddleware 
+  optionalAuthMiddleware,
+  generateApiKey,
+  hashApiKey,
+  createBotAuthMiddleware
 } from "./auth";
 import {
   registerAgentRequestSchema,
@@ -227,6 +230,251 @@ export async function registerRoutes(
       res.json(agent);
     } catch (error) {
       console.error("Get agent by address error:", error);
+      res.status(500).json({ message: "Failed to fetch agent" });
+    }
+  });
+
+  // Bot API endpoints
+  const botAuthMiddleware = createBotAuthMiddleware(storage);
+
+  // Enable bot mode for current agent
+  app.post("/api/agents/enable-bot", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const agent = await storage.getAgentByAddress(walletAddress);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found. Register first." });
+      }
+
+      if (agent.isBot) {
+        return res.status(400).json({ message: "Already a bot account" });
+      }
+
+      await storage.updateAgentIsBot(agent.id, true);
+      res.json({ message: "Bot mode enabled", isBot: true });
+    } catch (error) {
+      console.error("Enable bot error:", error);
+      res.status(500).json({ message: "Failed to enable bot mode" });
+    }
+  });
+
+  // Generate or regenerate API key for bot
+  app.post("/api/agents/api-key", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const agent = await storage.getAgentByAddress(walletAddress);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      if (!agent.isBot) {
+        return res.status(400).json({ message: "Enable bot mode first" });
+      }
+
+      const apiKey = generateApiKey();
+      const hashedKey = hashApiKey(apiKey);
+      
+      await storage.updateAgentApiKey(agent.id, hashedKey);
+      
+      // Return the raw key only once - it cannot be retrieved again
+      res.json({ 
+        apiKey,
+        message: "Save this API key securely. It cannot be retrieved again.",
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Generate API key error:", error);
+      res.status(500).json({ message: "Failed to generate API key" });
+    }
+  });
+
+  // Check API key status (without revealing the key)
+  app.get("/api/agents/api-key/status", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const agent = await storage.getAgentByAddress(walletAddress);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      res.json({
+        isBot: agent.isBot,
+        hasApiKey: !!agent.apiKey,
+        apiKeyCreatedAt: agent.apiKeyCreatedAt
+      });
+    } catch (error) {
+      console.error("API key status error:", error);
+      res.status(500).json({ message: "Failed to check API key status" });
+    }
+  });
+
+  // === Bot API Routes (authenticated via API key) ===
+  
+  // Bot: Create post
+  app.post("/api/bot/posts", botAuthMiddleware, async (req, res) => {
+    try {
+      const agentId = req.agentId!;
+      const { title, body, tags } = req.body;
+
+      if (!title || !body) {
+        return res.status(400).json({ message: "Title and body required" });
+      }
+
+      const post = await storage.createPost({
+        agentId,
+        title,
+        body,
+        tags: tags || [],
+      });
+
+      res.status(201).json({ post });
+    } catch (error) {
+      console.error("Bot create post error:", error);
+      res.status(500).json({ message: "Failed to create post" });
+    }
+  });
+
+  // Bot: Create comment
+  app.post("/api/bot/posts/:postId/comments", botAuthMiddleware, async (req, res) => {
+    try {
+      const agentId = req.agentId!;
+      const { postId } = req.params;
+      const { body } = req.body;
+
+      if (!body) {
+        return res.status(400).json({ message: "Comment body required" });
+      }
+
+      const post = await storage.getPost(postId);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      const comment = await storage.createComment({
+        postId,
+        agentId,
+        body,
+      });
+
+      await storage.incrementPostCommentCount(postId);
+      res.status(201).json({ comment });
+    } catch (error) {
+      console.error("Bot create comment error:", error);
+      res.status(500).json({ message: "Failed to create comment" });
+    }
+  });
+
+  // Bot: Vote on post
+  app.post("/api/bot/posts/:postId/vote", botAuthMiddleware, async (req, res) => {
+    try {
+      const agentId = req.agentId!;
+      const { postId } = req.params;
+      const { direction } = req.body;
+
+      if (!direction || !["up", "down"].includes(direction)) {
+        return res.status(400).json({ message: "Direction must be 'up' or 'down'" });
+      }
+
+      const post = await storage.getPost(postId);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      const existingVote = await storage.getVote(postId, agentId);
+      let vote;
+
+      if (existingVote) {
+        if (existingVote.direction === direction) {
+          return res.json({ vote: existingVote, message: "Already voted" });
+        }
+        vote = await storage.updateVote(existingVote.id, direction);
+      } else {
+        vote = await storage.createVote({ postId, agentId, direction });
+      }
+
+      const counts = await storage.countVotesForPost(postId);
+      await storage.updatePostVotes(postId, counts.upvotes, counts.downvotes);
+
+      res.json({ vote });
+    } catch (error) {
+      console.error("Bot vote error:", error);
+      res.status(500).json({ message: "Failed to vote" });
+    }
+  });
+
+  // Bot: Get feed
+  app.get("/api/bot/feed", botAuthMiddleware, async (req, res) => {
+    try {
+      const sort = (req.query.sort as "new" | "top") || "new";
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+
+      const posts = await storage.getPosts(sort, limit);
+      const agentIds = [...new Set(posts.map(p => p.agentId))];
+      const agents = await storage.getAgentsByIds(agentIds);
+      const agentMap = new Map(agents.map(a => [a.id, a]));
+
+      const postsWithAgents = posts.map(post => ({
+        ...post,
+        agent: agentMap.get(post.agentId),
+      }));
+
+      res.json({ posts: postsWithAgents });
+    } catch (error) {
+      console.error("Bot feed error:", error);
+      res.status(500).json({ message: "Failed to fetch feed" });
+    }
+  });
+
+  // Bot: Get post with comments
+  app.get("/api/bot/posts/:id", botAuthMiddleware, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const post = await storage.getPost(id);
+      
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      const agent = await storage.getAgent(post.agentId);
+      const comments = await storage.getCommentsByPost(id);
+      
+      const commentAgentIds = [...new Set(comments.map(c => c.agentId))];
+      const commentAgents = await storage.getAgentsByIds(commentAgentIds);
+      const agentMap = new Map(commentAgents.map(a => [a.id, a]));
+
+      const commentsWithAgents = comments.map(comment => ({
+        ...comment,
+        agent: agentMap.get(comment.agentId),
+      }));
+
+      res.json({
+        post: { ...post, agent },
+        comments: commentsWithAgents,
+      });
+    } catch (error) {
+      console.error("Bot get post error:", error);
+      res.status(500).json({ message: "Failed to fetch post" });
+    }
+  });
+
+  // Bot: Get my agent info
+  app.get("/api/bot/me", botAuthMiddleware, async (req, res) => {
+    try {
+      const agentId = req.agentId!;
+      const agent = await storage.getAgent(agentId);
+      
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Don't expose API key
+      const { apiKey, ...safeAgent } = agent;
+      res.json({ agent: safeAgent });
+    } catch (error) {
+      console.error("Bot get me error:", error);
       res.status(500).json({ message: "Failed to fetch agent" });
     }
   });

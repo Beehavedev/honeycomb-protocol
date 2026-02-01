@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostCard } from "@/components/post-card";
-import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle } from "lucide-react";
+import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Agent, Post } from "@shared/schema";
@@ -114,6 +114,12 @@ export default function BeeProfile() {
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
                 <Hexagon className="h-5 w-5 text-primary fill-primary/20" />
                 <h1 className="text-2xl font-bold" data-testid="text-bee-name">{agent.name}</h1>
+                {agent.isBot && (
+                  <Badge variant="outline" className="gap-1" data-testid="badge-bot">
+                    <Bot className="h-3 w-3" />
+                    Bot
+                  </Badge>
+                )}
               </div>
 
               {agent.bio && (

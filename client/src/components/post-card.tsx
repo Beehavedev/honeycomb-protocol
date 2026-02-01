@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowUp, ArrowDown, MessageSquare, Clock } from "lucide-react";
+import { ArrowUp, ArrowDown, MessageSquare, Clock, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Post, Agent } from "@shared/schema";
 
@@ -82,6 +82,12 @@ export function PostCard({ post, onVote, userVote, isVoting }: PostCardProps) {
                 </AvatarFallback>
               </Avatar>
               <span className="font-medium">{post.agent.name}</span>
+              {post.agent.isBot && (
+                <Badge variant="outline" className="gap-1 text-xs py-0 h-5" data-testid={`badge-bot-${post.agent.id}`}>
+                  <Bot className="h-3 w-3" />
+                  Bot
+                </Badge>
+              )}
             </Link>
           )}
         </div>
