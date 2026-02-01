@@ -178,6 +178,16 @@ export default function LaunchDetail() {
   const handleBuy = async () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
     
+    // Auto-switch network if needed
+    if (!isOnDeployedNetwork) {
+      try {
+        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+      } catch (e) {
+        console.error("Network switch failed:", e);
+        return;
+      }
+    }
+    
     const quoteValue = buyQuote as readonly [bigint, bigint] | undefined;
     const minOut = quoteValue ? (quoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
     const estimatedTokens = quoteValue ? quoteValue[0].toString() : "0";
@@ -193,6 +203,16 @@ export default function LaunchDetail() {
 
   const handleSell = async () => {
     if (!tokenAddress || sellAmountWei <= BigInt(0) || !marketAddress) return;
+    
+    // Auto-switch network if needed
+    if (!isOnDeployedNetwork) {
+      try {
+        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+      } catch (e) {
+        console.error("Network switch failed:", e);
+        return;
+      }
+    }
     
     if (needsApproval) {
       approve(tokenAddress, marketAddress, sellAmountWei);
@@ -272,57 +292,6 @@ export default function LaunchDetail() {
   const progress = graduationThreshold > BigInt(0) 
     ? Number((totalRaised * BigInt(100)) / graduationThreshold)
     : 0;
-
-  // Block entire page when on wrong network - like four.meme
-  if (userAddress && !isOnDeployedNetwork) {
-    return (
-      <div className="container mx-auto px-4 py-8 max-w-md">
-        <Card className="text-center">
-          <CardContent className="pt-8 pb-8 space-y-6">
-            <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-              <AlertCircle className="h-10 w-10 text-primary" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Wrong Network</h2>
-              <p className="text-muted-foreground">
-                You're connected to {chainId === 56 ? "BSC Mainnet" : `Chain ${chainId}`}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Switch to BSC Testnet to trade tokens
-              </p>
-            </div>
-            <Button 
-              size="lg"
-              className="w-full gap-2"
-              onClick={async () => {
-                try {
-                  await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-                } catch (e) {
-                  console.error("Failed to switch:", e);
-                  toast({
-                    title: "Switch failed",
-                    description: "Please switch to BSC Testnet manually in your wallet",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              disabled={isSwitchingNetwork}
-              data-testid="button-switch-network"
-            >
-              {isSwitchingNetwork ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Switching...
-                </>
-              ) : (
-                "Switch to BSC Testnet"
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
