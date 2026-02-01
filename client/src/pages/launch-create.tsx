@@ -28,7 +28,7 @@ import { useCreateToken, useTokenFactoryAddress } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt } from "wagmi";
 import { decodeEventLog } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
-import { mineVanityAddressForToken, generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
+import { generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
 
 const createTokenSchema = z.object({
   name: z.string().min(1, "Name is required").max(32, "Name too long"),
@@ -179,14 +179,6 @@ export default function LaunchCreate() {
     },
   });
 
-  const generateVanityAddress = (): `0x${string}` => {
-    let addr = '';
-    for (let i = 0; i < 36; i++) {
-      addr += Math.floor(Math.random() * 16).toString(16);
-    }
-    return `0x${addr}8888` as `0x${string}`;
-  };
-
   const onSubmit = async (data: CreateTokenForm) => {
     if (!address) {
       toast({
@@ -208,45 +200,33 @@ export default function LaunchCreate() {
       const cid = metaResult.metadataCID;
       setMetadataCID(cid);
       
-      if (contractsDeployed && factoryAddress) {
-        // Step 2: Mine for vanity address (8888 suffix)
-        setStep("mining");
-        setMiningProgress({ attempts: 0, currentAddress: "" });
-        
-        const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
-        
-        // Note: For proper CREATE2 vanity mining, we need the contract's bytecode
-        // The contract's predictTokenAddress function should be called to verify
-        // For now, we generate a random salt - the contract will produce the actual address
-        // TODO: Implement proper bytecode-based mining when contracts are deployed
-        const randomSalt = generateRandomSalt();
-        setMinedSalt(randomSalt);
-        setStep("creating");
-        
+      if (!contractsDeployed || !factoryAddress) {
         toast({
-          title: "Creating token",
-          description: "Token will be created with CREATE2 deployment.",
+          title: "Contracts not deployed",
+          description: "Please switch to BSC Testnet (Chain ID: 97) to create tokens.",
+          variant: "destructive",
         });
-        
-        // On-chain token creation with salt
-        createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
-      } else {
-        // Demo mode: create token with vanity address (ending in 8888)
-        const demoTokenAddress = generateVanityAddress();
-        
-        await recordMutation.mutateAsync({
-          tokenAddress: demoTokenAddress,
-          formData: data,
-          cid,
-        });
-        
-        toast({
-          title: "Token launched (Demo Mode)",
-          description: `Token address ends with 8888! Smart contracts not deployed yet.`,
-        });
-        
-        navigate(`/launch/${demoTokenAddress}`);
+        setStep("form");
+        return;
       }
+      
+      // Mine for vanity address (8888 suffix)
+      setStep("mining");
+      setMiningProgress({ attempts: 0, currentAddress: "" });
+      
+      const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
+      
+      const randomSalt = generateRandomSalt();
+      setMinedSalt(randomSalt);
+      setStep("creating");
+      
+      toast({
+        title: "Creating token",
+        description: "Token will be created with CREATE2 deployment.",
+      });
+      
+      // On-chain token creation with salt
+      createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
     } catch (error) {
       console.error("Error creating token:", error);
       setStep("form");
@@ -567,15 +547,6 @@ export default function LaunchCreate() {
                   />
                 </div>
               </div>
-
-              {(!factoryAddress || factoryAddress === "0x0000000000000000000000000000000000000000") && (
-                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-md text-sm">
-                  <p className="font-medium mb-1 text-amber-600 dark:text-amber-400">Demo Mode Active</p>
-                  <p className="text-muted-foreground">
-                    Smart contracts are not yet deployed on this network. Tokens will be created in demo mode for testing purposes only.
-                  </p>
-                </div>
-              )}
 
               <div className="bg-muted/50 p-4 rounded-md text-sm">
                 <p className="font-medium mb-2">Token Launch Details:</p>
