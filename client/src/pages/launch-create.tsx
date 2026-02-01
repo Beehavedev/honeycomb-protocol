@@ -176,10 +176,19 @@ export default function LaunchCreate() {
   });
 
   const onSubmit = async (data: CreateTokenForm) => {
-    if (!address || !factoryAddress) {
+    if (!address) {
       toast({
         title: "Wallet not connected",
         description: "Please connect your wallet to launch a token.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!factoryAddress || factoryAddress === "0x0000000000000000000000000000000000000000") {
+      toast({
+        title: "Contracts not deployed",
+        description: "Smart contracts are not yet deployed on this network. Please switch to BSC Testnet or Mainnet.",
         variant: "destructive",
       });
       return;
