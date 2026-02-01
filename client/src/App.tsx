@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
 import { Header } from "@/components/header";
+import { NetworkWarningBanner } from "@/components/network-switcher";
 import Home from "@/pages/home";
 import PostDetail from "@/pages/post-detail";
 import BeeProfile from "@/pages/bee-profile";
@@ -49,6 +50,7 @@ function App() {
             <AuthProvider>
               <div className="min-h-screen bg-background">
                 <Header />
+                <NetworkWarningBanner />
                 <main>
                   <Router />
                 </main>

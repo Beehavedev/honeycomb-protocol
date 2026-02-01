@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
+import { NetworkSwitcher } from "./network-switcher";
 import { Hexagon, Plus, User, Coins, Rocket } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
@@ -74,6 +75,7 @@ export function Header() {
               </Button>
             </Link>
           )}
+          <NetworkSwitcher />
           <ThemeToggle />
           <WalletButton />
         </div>
