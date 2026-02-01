@@ -1,4 +1,5 @@
-import { useAccount, useSwitchChain, useChainId } from "wagmi";
+import { useState } from "react";
+import { useAccount, useChainId } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AlertTriangle, ChevronDown, Check } from "lucide-react";
+import { AlertTriangle, ChevronDown, Check, Loader2 } from "lucide-react";
 import { bsc, bscTestnet } from "@/lib/wagmi";
 
 const SUPPORTED_CHAINS = [
@@ -14,15 +15,57 @@ const SUPPORTED_CHAINS = [
   { ...bsc, label: "BSC Mainnet" },
 ];
 
+async function addAndSwitchChain(chainId: number) {
+  const chain = SUPPORTED_CHAINS.find((c) => c.id === chainId);
+  if (!chain || !window.ethereum) return;
+
+  const chainIdHex = `0x${chainId.toString(16)}`;
+
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainIdHex }],
+    });
+  } catch (switchError: any) {
+    if (switchError.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: chainIdHex,
+            chainName: chain.name,
+            nativeCurrency: chain.nativeCurrency,
+            rpcUrls: chain.rpcUrls.default.http,
+            blockExplorerUrls: [chain.blockExplorers?.default?.url],
+          },
+        ],
+      });
+    } else {
+      throw switchError;
+    }
+  }
+}
+
 export function NetworkSwitcher() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
-  const { switchChain, isPending } = useSwitchChain();
+  const [isPending, setIsPending] = useState(false);
 
   if (!isConnected) return null;
 
   const currentChain = SUPPORTED_CHAINS.find((c) => c.id === chainId);
   const isUnsupportedNetwork = !currentChain;
+
+  const handleSwitch = async (targetChainId: number) => {
+    setIsPending(true);
+    try {
+      await addAndSwitchChain(targetChainId);
+    } catch (e) {
+      console.error("Failed to switch network:", e);
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -34,7 +77,9 @@ export function NetworkSwitcher() {
           disabled={isPending}
           data-testid="button-network-switcher"
         >
-          {isUnsupportedNetwork ? (
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isUnsupportedNetwork ? (
             <>
               <AlertTriangle className="h-4 w-4" />
               Wrong Network
@@ -52,7 +97,7 @@ export function NetworkSwitcher() {
         {SUPPORTED_CHAINS.map((chain) => (
           <DropdownMenuItem
             key={chain.id}
-            onClick={() => switchChain({ chainId: chain.id })}
+            onClick={() => handleSwitch(chain.id)}
             className="gap-2 cursor-pointer"
             data-testid={`menu-item-chain-${chain.id}`}
           >
@@ -69,12 +114,23 @@ export function NetworkSwitcher() {
 export function NetworkWarningBanner() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
-  const { switchChain, isPending } = useSwitchChain();
+  const [isPending, setIsPending] = useState(false);
 
   if (!isConnected) return null;
 
   const isSupported = SUPPORTED_CHAINS.some((c) => c.id === chainId);
   if (isSupported) return null;
+
+  const handleSwitch = async (targetChainId: number) => {
+    setIsPending(true);
+    try {
+      await addAndSwitchChain(targetChainId);
+    } catch (e) {
+      console.error("Failed to switch network:", e);
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
     <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
@@ -89,18 +145,20 @@ export function NetworkWarningBanner() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => switchChain({ chainId: bscTestnet.id })}
+            onClick={() => handleSwitch(bscTestnet.id)}
             disabled={isPending}
             data-testid="button-switch-testnet"
           >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Switch to BSC Testnet
           </Button>
           <Button
             size="sm"
-            onClick={() => switchChain({ chainId: bsc.id })}
+            onClick={() => handleSwitch(bsc.id)}
             disabled={isPending}
             data-testid="button-switch-mainnet"
           >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Switch to BSC Mainnet
           </Button>
         </div>
