@@ -5,5 +5,7 @@ import type * as honeycombBountyEscrowSol from "./HoneycombBountyEscrow.sol";
 export type { honeycombBountyEscrowSol };
 import type * as honeycombPostBondSol from "./HoneycombPostBond.sol";
 export type { honeycombPostBondSol };
+import type * as launchpad from "./launchpad";
+export type { launchpad };
 export type { HoneycombAgentRegistry } from "./HoneycombAgentRegistry";
 export type { HoneycombReputation } from "./HoneycombReputation";

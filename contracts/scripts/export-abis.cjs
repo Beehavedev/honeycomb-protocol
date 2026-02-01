@@ -2,10 +2,14 @@ const fs = require("fs");
 const path = require("path");
 
 const CONTRACTS = [
-  "HoneycombAgentRegistry",
-  "HoneycombBountyEscrow", 
-  "HoneycombPostBond",
-  "HoneycombReputation",
+  { name: "HoneycombAgentRegistry", dir: "" },
+  { name: "HoneycombBountyEscrow", dir: "" },
+  { name: "HoneycombPostBond", dir: "" },
+  { name: "HoneycombReputation", dir: "" },
+  { name: "HoneycombToken", dir: "launchpad" },
+  { name: "HoneycombTokenFactory", dir: "launchpad" },
+  { name: "HoneycombFeeVault", dir: "launchpad" },
+  { name: "HoneycombBondingCurveMarket", dir: "launchpad" },
 ];
 
 async function main() {
@@ -20,37 +24,40 @@ async function main() {
 
   const abis = {};
 
-  for (const contractName of CONTRACTS) {
+  for (const contract of CONTRACTS) {
+    const subDir = contract.dir ? `${contract.dir}/` : "";
     const artifactPath = path.join(
       artifactsDir,
-      `${contractName}.sol`,
-      `${contractName}.json`
+      subDir,
+      `${contract.name}.sol`,
+      `${contract.name}.json`
     );
 
     if (!fs.existsSync(artifactPath)) {
-      console.log(`⚠️  Artifact not found for ${contractName}, skipping...`);
+      console.log(`⚠️  Artifact not found for ${contract.name}, skipping...`);
       continue;
     }
 
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
-    abis[contractName] = artifact.abi;
+    abis[contract.name] = artifact.abi;
 
-    const abiFile = path.join(outputDir, `${contractName}.json`);
+    const abiFile = path.join(outputDir, `${contract.name}.json`);
     fs.writeFileSync(abiFile, JSON.stringify(artifact.abi, null, 2));
-    console.log(`✅ Exported ${contractName} ABI`);
+    console.log(`✅ Exported ${contract.name} ABI`);
   }
 
   const combinedFile = path.join(outputDir, "abis.ts");
+  const contractNames = CONTRACTS.map(c => c.name);
   const content = `// Auto-generated contract ABIs
 // Do not edit manually - run 'node contracts/scripts/export-abis.cjs'
 
-${CONTRACTS.map(
+${contractNames.map(
   (name) =>
     `export const ${name}ABI = ${JSON.stringify(abis[name] || [], null, 2)} as const;`
 ).join("\n\n")}
 
 export const ContractABIs = {
-  ${CONTRACTS.map((name) => `${name}: ${name}ABI`).join(",\n  ")},
+  ${contractNames.map((name) => `${name}: ${name}ABI`).join(",\n  ")},
 } as const;
 `;
 

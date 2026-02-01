@@ -22,6 +22,34 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IAccessControl__factory>;
     getContractFactory(
+      name: "Ownable",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Ownable__factory>;
+    getContractFactory(
+      name: "IERC1155Errors",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC1155Errors__factory>;
+    getContractFactory(
+      name: "IERC20Errors",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC20Errors__factory>;
+    getContractFactory(
+      name: "IERC721Errors",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC721Errors__factory>;
+    getContractFactory(
+      name: "ERC20",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ERC20__factory>;
+    getContractFactory(
+      name: "IERC20Metadata",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC20Metadata__factory>;
+    getContractFactory(
+      name: "IERC20",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IERC20__factory>;
+    getContractFactory(
       name: "ERC165",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ERC165__factory>;
@@ -57,6 +85,30 @@ declare module "hardhat/types/runtime" {
       name: "HoneycombReputation",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombReputation__factory>;
+    getContractFactory(
+      name: "HoneycombBondingCurveMarket",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombBondingCurveMarket__factory>;
+    getContractFactory(
+      name: "ITokenFactory",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ITokenFactory__factory>;
+    getContractFactory(
+      name: "HoneycombFeeVault",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombFeeVault__factory>;
+    getContractFactory(
+      name: "HoneycombToken",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombToken__factory>;
+    getContractFactory(
+      name: "HoneycombTokenFactory",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombTokenFactory__factory>;
+    getContractFactory(
+      name: "IAgentRegistry",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAgentRegistry__factory>;
 
     getContractAt(
       name: "AccessControl",
@@ -68,6 +120,41 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.IAccessControl>;
+    getContractAt(
+      name: "Ownable",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Ownable>;
+    getContractAt(
+      name: "IERC1155Errors",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC1155Errors>;
+    getContractAt(
+      name: "IERC20Errors",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC20Errors>;
+    getContractAt(
+      name: "IERC721Errors",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC721Errors>;
+    getContractAt(
+      name: "ERC20",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ERC20>;
+    getContractAt(
+      name: "IERC20Metadata",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC20Metadata>;
+    getContractAt(
+      name: "IERC20",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IERC20>;
     getContractAt(
       name: "ERC165",
       address: string | ethers.Addressable,
@@ -113,6 +200,36 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.HoneycombReputation>;
+    getContractAt(
+      name: "HoneycombBondingCurveMarket",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombBondingCurveMarket>;
+    getContractAt(
+      name: "ITokenFactory",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ITokenFactory>;
+    getContractAt(
+      name: "HoneycombFeeVault",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombFeeVault>;
+    getContractAt(
+      name: "HoneycombToken",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombToken>;
+    getContractAt(
+      name: "HoneycombTokenFactory",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombTokenFactory>;
+    getContractAt(
+      name: "IAgentRegistry",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAgentRegistry>;
 
     deployContract(
       name: "AccessControl",
@@ -122,6 +239,34 @@ declare module "hardhat/types/runtime" {
       name: "IAccessControl",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IAccessControl>;
+    deployContract(
+      name: "Ownable",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Ownable>;
+    deployContract(
+      name: "IERC1155Errors",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC1155Errors>;
+    deployContract(
+      name: "IERC20Errors",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20Errors>;
+    deployContract(
+      name: "IERC721Errors",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC721Errors>;
+    deployContract(
+      name: "ERC20",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ERC20>;
+    deployContract(
+      name: "IERC20Metadata",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20Metadata>;
+    deployContract(
+      name: "IERC20",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20>;
     deployContract(
       name: "ERC165",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -158,6 +303,30 @@ declare module "hardhat/types/runtime" {
       name: "HoneycombReputation",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombReputation>;
+    deployContract(
+      name: "HoneycombBondingCurveMarket",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombBondingCurveMarket>;
+    deployContract(
+      name: "ITokenFactory",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ITokenFactory>;
+    deployContract(
+      name: "HoneycombFeeVault",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombFeeVault>;
+    deployContract(
+      name: "HoneycombToken",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombToken>;
+    deployContract(
+      name: "HoneycombTokenFactory",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombTokenFactory>;
+    deployContract(
+      name: "IAgentRegistry",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IAgentRegistry>;
 
     deployContract(
       name: "AccessControl",
@@ -169,6 +338,41 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IAccessControl>;
+    deployContract(
+      name: "Ownable",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.Ownable>;
+    deployContract(
+      name: "IERC1155Errors",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC1155Errors>;
+    deployContract(
+      name: "IERC20Errors",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20Errors>;
+    deployContract(
+      name: "IERC721Errors",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC721Errors>;
+    deployContract(
+      name: "ERC20",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ERC20>;
+    deployContract(
+      name: "IERC20Metadata",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20Metadata>;
+    deployContract(
+      name: "IERC20",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IERC20>;
     deployContract(
       name: "ERC165",
       args: any[],
@@ -214,6 +418,36 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombReputation>;
+    deployContract(
+      name: "HoneycombBondingCurveMarket",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombBondingCurveMarket>;
+    deployContract(
+      name: "ITokenFactory",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.ITokenFactory>;
+    deployContract(
+      name: "HoneycombFeeVault",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombFeeVault>;
+    deployContract(
+      name: "HoneycombToken",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombToken>;
+    deployContract(
+      name: "HoneycombTokenFactory",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombTokenFactory>;
+    deployContract(
+      name: "IAgentRegistry",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IAgentRegistry>;
 
     // default types
     getContractFactory(

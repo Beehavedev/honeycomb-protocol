@@ -3,5 +3,6 @@
 /* eslint-disable */
 export * as honeycombBountyEscrowSol from "./HoneycombBountyEscrow.sol";
 export * as honeycombPostBondSol from "./HoneycombPostBond.sol";
+export * as launchpad from "./launchpad";
 export { HoneycombAgentRegistry__factory } from "./HoneycombAgentRegistry__factory";
 export { HoneycombReputation__factory } from "./HoneycombReputation__factory";

@@ -89,6 +89,37 @@ export const solutions = pgTable("solutions", {
   uniqueSolution: unique().on(table.bountyId, table.agentId),
 }));
 
+// Launchpad tokens
+export const launchTokens = pgTable("launch_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenAddress: text("token_address").notNull().unique(),
+  creatorAddress: text("creator_address").notNull(),
+  creatorBeeId: varchar("creator_bee_id").references(() => agents.id),
+  name: text("name").notNull(),
+  symbol: text("symbol").notNull(),
+  metadataCID: text("metadata_cid").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  graduated: boolean("graduated").default(false).notNull(),
+  totalRaisedNative: text("total_raised_native").default("0").notNull(),
+  tradeCount: integer("trade_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Launchpad trades
+export const launchTrades = pgTable("launch_trades", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenAddress: text("token_address").notNull(),
+  trader: text("trader").notNull(),
+  isBuy: boolean("is_buy").notNull(),
+  nativeAmount: text("native_amount").notNull(),
+  tokenAmount: text("token_amount").notNull(),
+  feeNative: text("fee_native").notNull(),
+  priceAfter: text("price_after").notNull(),
+  txHash: text("tx_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertAuthNonceSchema = createInsertSchema(authNonces).pick({
   address: true,
@@ -139,6 +170,28 @@ export const insertSolutionSchema = createInsertSchema(solutions).pick({
   attachments: true,
 });
 
+export const insertLaunchTokenSchema = createInsertSchema(launchTokens).pick({
+  tokenAddress: true,
+  creatorAddress: true,
+  creatorBeeId: true,
+  name: true,
+  symbol: true,
+  metadataCID: true,
+  description: true,
+  imageUrl: true,
+});
+
+export const insertLaunchTradeSchema = createInsertSchema(launchTrades).pick({
+  tokenAddress: true,
+  trader: true,
+  isBuy: true,
+  nativeAmount: true,
+  tokenAmount: true,
+  feeNative: true,
+  priceAfter: true,
+  txHash: true,
+});
+
 // Types
 export type AuthNonce = typeof authNonces.$inferSelect;
 export type InsertAuthNonce = z.infer<typeof insertAuthNonceSchema>;
@@ -160,6 +213,12 @@ export type InsertBounty = z.infer<typeof insertBountySchema>;
 
 export type Solution = typeof solutions.$inferSelect;
 export type InsertSolution = z.infer<typeof insertSolutionSchema>;
+
+export type LaunchToken = typeof launchTokens.$inferSelect;
+export type InsertLaunchToken = z.infer<typeof insertLaunchTokenSchema>;
+
+export type LaunchTrade = typeof launchTrades.$inferSelect;
+export type InsertLaunchTrade = z.infer<typeof insertLaunchTradeSchema>;
 
 // API request/response types
 export const registerAgentRequestSchema = z.object({
@@ -206,6 +265,39 @@ export const awardSolutionRequestSchema = z.object({
   solutionId: z.string(),
 });
 
+// Launchpad request schemas
+export const tokenMetadataRequestSchema = z.object({
+  name: z.string().min(1).max(64),
+  symbol: z.string().min(1).max(16),
+  description: z.string().max(1000).optional(),
+  imageUrl: z.string().url().optional(),
+  links: z.object({
+    website: z.string().url().optional(),
+    twitter: z.string().url().optional(),
+    telegram: z.string().url().optional(),
+  }).optional(),
+  creatorBeeId: z.string().optional(),
+});
+
+export const prepareCreateTokenRequestSchema = z.object({
+  creatorBeeId: z.string().optional(),
+  metadataCID: z.string().min(1),
+  name: z.string().min(1).max(64),
+  symbol: z.string().min(1).max(16),
+});
+
+export const prepareBuyRequestSchema = z.object({
+  token: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  nativeValueWei: z.string().min(1),
+  minTokensOut: z.string().min(1),
+});
+
+export const prepareSellRequestSchema = z.object({
+  token: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  tokenAmountIn: z.string().min(1),
+  minNativeOut: z.string().min(1),
+});
+
 export type RegisterAgentRequest = z.infer<typeof registerAgentRequestSchema>;
 export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
 export type CreateCommentRequest = z.infer<typeof createCommentRequestSchema>;
@@ -213,3 +305,7 @@ export type VoteRequest = z.infer<typeof voteRequestSchema>;
 export type CreateBountyRequest = z.infer<typeof createBountyRequestSchema>;
 export type SubmitSolutionRequest = z.infer<typeof submitSolutionRequestSchema>;
 export type AwardSolutionRequest = z.infer<typeof awardSolutionRequestSchema>;
+export type TokenMetadataRequest = z.infer<typeof tokenMetadataRequestSchema>;
+export type PrepareCreateTokenRequest = z.infer<typeof prepareCreateTokenRequestSchema>;
+export type PrepareBuyRequest = z.infer<typeof prepareBuyRequestSchema>;
+export type PrepareSellRequest = z.infer<typeof prepareSellRequestSchema>;
