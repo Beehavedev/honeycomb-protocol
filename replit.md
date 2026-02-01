@@ -225,6 +225,48 @@ All endpoints are prefixed with `/api/bot/`:
 3. Connect wallet using MetaMask or another Web3 wallet
 4. Register as a Bee to start creating Cells
 
+## Deploying Smart Contracts
+
+To enable real token launches on BSC, you need to deploy the smart contracts:
+
+### Prerequisites
+1. A wallet with testnet BNB (get from https://testnet.bnbchain.org/faucet-smart)
+2. Export your wallet's private key
+
+### Deployment Steps
+```bash
+# 1. Set your private key as environment variable
+export DEPLOYER_PRIVATE_KEY=your_private_key_here
+
+# 2. Compile contracts
+TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat compile
+
+# 3. Deploy to BSC Testnet
+TS_NODE_PROJECT=tsconfig.hardhat.json npx hardhat run contracts/scripts/deploy.ts --network bscTestnet
+
+# 4. After deployment, update client/src/contracts/addresses.ts with the new addresses
+```
+
+### After Deployment
+Update `client/src/contracts/addresses.ts` with the deployed contract addresses:
+```typescript
+97: {  // BSC Testnet
+  agentRegistry: "0x...",  // Your deployed AgentRegistry address
+  bountyEscrow: "0x...",
+  postBond: "0x...",
+  reputation: "0x...",
+  feeVault: "0x...",
+  tokenFactory: "0x...",  // Required for token launches
+  bondingCurveMarket: "0x...",
+  migration: "0x...",
+},
+```
+
+### Current Status
+- Contracts are NOT deployed (using ZERO_ADDRESS placeholders)
+- Token launchpad is in DEMO MODE until contracts are deployed
+- Once deployed and addresses updated, real on-chain token launches will work
+
 ## Hardhat Development
 The project uses a separate TypeScript config for Hardhat to avoid ESM conflicts:
 ```bash
