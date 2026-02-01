@@ -300,66 +300,33 @@ export default function LaunchCreate() {
       setPendingSubmit(data);
       localStorage.setItem("pendingTokenLaunch", JSON.stringify(data));
       
-      // BSC Testnet network parameters
-      const bscTestnetParams = {
-        chainId: `0x${DEPLOYED_CHAIN_ID.toString(16)}`,
-        chainName: 'BSC Testnet',
-        nativeCurrency: {
-          name: 'tBNB',
-          symbol: 'tBNB',
-          decimals: 18
-        },
-        rpcUrls: ['https://data-seed-prebsc-1-s1.bnbchain.org:8545'],
-        blockExplorerUrls: ['https://testnet.bscscan.com']
-      };
-      
       try {
-        if (window.ethereum) {
-          // First try to switch
-          console.log("Attempting wallet_switchEthereumChain...");
-          try {
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: bscTestnetParams.chainId }],
-            });
-            console.log("Switch successful!");
-          } catch (switchError: any) {
-            console.log("Switch error:", switchError?.code, switchError?.message);
-            // If chain not added (4902) or unknown error, try adding the chain
-            if (switchError?.code === 4902 || !switchError?.code) {
-              console.log("Chain not found, adding BSC Testnet...");
-              await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [bscTestnetParams],
-              });
-              console.log("Chain added successfully!");
-            } else if (switchError?.code === 4001) {
-              // User rejected
-              throw switchError;
-            } else {
-              throw switchError;
-            }
-          }
-        } else {
-          console.log("No window.ethereum, using wagmi switchChain");
-          await switchChain({ chainId: DEPLOYED_CHAIN_ID });
-        }
-        console.log("Network switch completed, waiting for chain update effect...");
+        // Use wagmi's switchChain which handles different wallet providers better
+        console.log("Using wagmi switchChain...");
+        await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+        console.log("Switch call completed!");
         // The useEffect will handle submission after chain updates
         return;
       } catch (e: any) {
         console.error("Network switch failed:", e);
-        console.error("Error code:", e?.code, "Error message:", e?.message);
-        setPendingSubmit(null);
-        localStorage.removeItem("pendingTokenLaunch");
-        // Don't show error for user rejection
-        if (e?.code !== 4001) {
+        console.error("Error details:", JSON.stringify(e, null, 2));
+        
+        // Check if it's a user rejection
+        const isUserRejection = e?.code === 4001 || 
+          e?.message?.includes('rejected') || 
+          e?.message?.includes('denied');
+        
+        if (!isUserRejection) {
+          // Show helpful message with manual instructions
           toast({
-            title: "Network switch failed",
-            description: e?.message || "Please switch to BSC Testnet manually in your wallet.",
+            title: "Please switch to BSC Testnet",
+            description: "Open your wallet and switch to BSC Testnet (Chain ID: 97), then try again.",
             variant: "destructive",
           });
         }
+        
+        setPendingSubmit(null);
+        localStorage.removeItem("pendingTokenLaunch");
         return;
       }
     }
@@ -508,6 +475,51 @@ export default function LaunchCreate() {
           Back to Launchpad
         </Button>
       </Link>
+
+      {/* Network Warning Banner */}
+      {!isOnDeployedNetwork && (
+        <Card className="mb-6 border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                <div>
+                  <p className="font-medium text-amber-800 dark:text-amber-200">
+                    Wrong Network Detected
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Please switch to BSC Testnet (Chain ID: 97) in your wallet to launch tokens.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-500 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900"
+                onClick={async () => {
+                  try {
+                    await switchChain({ chainId: DEPLOYED_CHAIN_ID });
+                  } catch (e) {
+                    console.error("Switch failed:", e);
+                    toast({
+                      title: "Please switch manually",
+                      description: "Open your wallet and switch to BSC Testnet.",
+                    });
+                  }
+                }}
+                disabled={isSwitching}
+                data-testid="button-switch-network"
+              >
+                {isSwitching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Switch Network"
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
