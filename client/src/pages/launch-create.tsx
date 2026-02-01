@@ -227,7 +227,9 @@ export default function LaunchCreate() {
       setStep("mining");
       setMiningProgress({ attempts: 0, currentAddress: "" });
       
-      const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
+      // For now, use 0 as beeId since we use UUIDs in the database, not numeric IDs
+      // The on-chain beeId is optional for token creation
+      const beeId = BigInt(0);
       const randomSalt = generateRandomSalt();
       setMinedSalt(randomSalt);
       setStep("creating");
