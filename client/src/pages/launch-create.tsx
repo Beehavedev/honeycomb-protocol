@@ -185,14 +185,7 @@ export default function LaunchCreate() {
       return;
     }
 
-    if (!factoryAddress || factoryAddress === "0x0000000000000000000000000000000000000000") {
-      toast({
-        title: "Contracts not deployed",
-        description: "Smart contracts are not yet deployed on this network. Please switch to BSC Testnet or Mainnet.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const contractsDeployed = factoryAddress && factoryAddress !== "0x0000000000000000000000000000000000000000";
 
     try {
       setStep("creating");
@@ -201,8 +194,26 @@ export default function LaunchCreate() {
       const metaResult = await storeMutation.mutateAsync(data);
       setMetadataCID(metaResult.metadataCID);
       
-      const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
-      createToken(data.name, data.symbol.toUpperCase(), metaResult.metadataCID, beeId);
+      if (contractsDeployed) {
+        // On-chain token creation
+        const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
+        createToken(data.name, data.symbol.toUpperCase(), metaResult.metadataCID, beeId);
+      } else {
+        // Demo mode: create token in database without on-chain contract
+        const demoTokenAddress = `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}` as `0x${string}`;
+        
+        await recordMutation.mutateAsync({
+          tokenAddress: demoTokenAddress,
+          formData: data,
+        });
+        
+        toast({
+          title: "Token launched (Demo Mode)",
+          description: "Smart contracts are not deployed yet. Token created in demo mode for testing.",
+        });
+        
+        navigate(`/launch/${demoTokenAddress}`);
+      }
     } catch (error) {
       console.error("Error creating token:", error);
       setStep("form");
@@ -520,6 +531,15 @@ export default function LaunchCreate() {
                   />
                 </div>
               </div>
+
+              {(!factoryAddress || factoryAddress === "0x0000000000000000000000000000000000000000") && (
+                <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-md text-sm">
+                  <p className="font-medium mb-1 text-amber-600 dark:text-amber-400">Demo Mode Active</p>
+                  <p className="text-muted-foreground">
+                    Smart contracts are not yet deployed on this network. Tokens will be created in demo mode for testing purposes only.
+                  </p>
+                </div>
+              )}
 
               <div className="bg-muted/50 p-4 rounded-md text-sm">
                 <p className="font-medium mb-2">Token Launch Details:</p>
