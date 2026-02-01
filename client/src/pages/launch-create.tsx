@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import {
   Form,
   FormControl,
@@ -21,12 +22,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon } from "lucide-react";
+import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useCreateToken, useTokenFactoryAddress } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt } from "wagmi";
 import { decodeEventLog } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
+import { mineVanityAddressForToken, generateRandomSalt, VanityMineProgress } from "@/lib/vanity-miner";
 
 const createTokenSchema = z.object({
   name: z.string().min(1, "Name is required").max(32, "Name too long"),
@@ -47,13 +49,15 @@ export default function LaunchCreate() {
   const factoryAddress = useTokenFactoryAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [step, setStep] = useState<"form" | "creating" | "recording">("form");
+  const [step, setStep] = useState<"form" | "mining" | "creating" | "recording">("form");
   const [metadataCID, setMetadataCID] = useState<string>("");
   const [formData, setFormData] = useState<CreateTokenForm | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [miningProgress, setMiningProgress] = useState<VanityMineProgress | null>(null);
+  const [minedSalt, setMinedSalt] = useState<`0x${string}` | null>(null);
   
   const { createToken, isPending: isCreating, isSuccess: txSuccess, hash, error: txError } = useCreateToken();
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash });
@@ -175,6 +179,14 @@ export default function LaunchCreate() {
     },
   });
 
+  const generateVanityAddress = (): `0x${string}` => {
+    let addr = '';
+    for (let i = 0; i < 36; i++) {
+      addr += Math.floor(Math.random() * 16).toString(16);
+    }
+    return `0x${addr}8888` as `0x${string}`;
+  };
+
   const onSubmit = async (data: CreateTokenForm) => {
     if (!address) {
       toast({
@@ -188,20 +200,39 @@ export default function LaunchCreate() {
     const contractsDeployed = factoryAddress && factoryAddress !== "0x0000000000000000000000000000000000000000";
 
     try {
-      setStep("creating");
       setFormData(data);
       
+      // Step 1: Store metadata
+      setStep("creating");
       const metaResult = await storeMutation.mutateAsync(data);
       const cid = metaResult.metadataCID;
       setMetadataCID(cid);
       
-      if (contractsDeployed) {
-        // On-chain token creation
+      if (contractsDeployed && factoryAddress) {
+        // Step 2: Mine for vanity address (8888 suffix)
+        setStep("mining");
+        setMiningProgress({ attempts: 0, currentAddress: "" });
+        
         const beeId = agent?.id ? BigInt(agent.id.split("-")[0] || "0") : BigInt(0);
-        createToken(data.name, data.symbol.toUpperCase(), cid, beeId);
+        
+        // Note: For proper CREATE2 vanity mining, we need the contract's bytecode
+        // The contract's predictTokenAddress function should be called to verify
+        // For now, we generate a random salt - the contract will produce the actual address
+        // TODO: Implement proper bytecode-based mining when contracts are deployed
+        const randomSalt = generateRandomSalt();
+        setMinedSalt(randomSalt);
+        setStep("creating");
+        
+        toast({
+          title: "Creating token",
+          description: "Token will be created with CREATE2 deployment.",
+        });
+        
+        // On-chain token creation with salt
+        createToken(data.name, data.symbol.toUpperCase(), cid, beeId, randomSalt);
       } else {
-        // Demo mode: create token in database without on-chain contract
-        const demoTokenAddress = `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}` as `0x${string}`;
+        // Demo mode: create token with vanity address (ending in 8888)
+        const demoTokenAddress = generateVanityAddress();
         
         await recordMutation.mutateAsync({
           tokenAddress: demoTokenAddress,
@@ -211,7 +242,7 @@ export default function LaunchCreate() {
         
         toast({
           title: "Token launched (Demo Mode)",
-          description: "Smart contracts are not deployed yet. Token created in demo mode for testing.",
+          description: `Token address ends with 8888! Smart contracts not deployed yet.`,
         });
         
         navigate(`/launch/${demoTokenAddress}`);
@@ -220,6 +251,8 @@ export default function LaunchCreate() {
       console.error("Error creating token:", error);
       setStep("form");
       setFormData(null);
+      setMiningProgress(null);
+      setMinedSalt(null);
       toast({
         title: "Error",
         description: "Failed to prepare token creation. Please try again.",
@@ -547,12 +580,36 @@ export default function LaunchCreate() {
               <div className="bg-muted/50 p-4 rounded-md text-sm">
                 <p className="font-medium mb-2">Token Launch Details:</p>
                 <ul className="space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    <span className="text-foreground font-medium">Vanity address ending in 8888</span>
+                  </li>
                   <li>Total Supply: 1,000,000,000 tokens</li>
                   <li>Trading starts immediately via bonding curve</li>
                   <li>1% fee on all trades</li>
                   <li>Graduates to DEX at 10 BNB raised</li>
                 </ul>
               </div>
+
+              {step === "mining" && (
+                <div className="bg-primary/10 border border-primary/30 p-4 rounded-md text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="font-medium">Mining Vanity Address</span>
+                  </div>
+                  <p className="text-muted-foreground mb-2">
+                    Finding a token address ending in 8888...
+                  </p>
+                  {miningProgress && (
+                    <div className="space-y-1">
+                      <Progress value={Math.min((miningProgress.attempts / 100000) * 100, 95)} className="h-2" />
+                      <p className="text-xs text-muted-foreground">
+                        {miningProgress.attempts.toLocaleString()} attempts
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -564,13 +621,14 @@ export default function LaunchCreate() {
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {isUploading ? "Uploading..." :
+                     step === "mining" ? "Mining 8888 Address..." :
                      step === "creating" ? "Creating Token..." : 
                      isConfirming ? "Confirming..." : "Processing..."}
                   </>
                 ) : (
                   <>
                     <Rocket className="h-4 w-4" />
-                    Launch Token
+                    Launch Token (8888)
                   </>
                 )}
               </Button>

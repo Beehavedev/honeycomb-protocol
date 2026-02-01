@@ -11,8 +11,8 @@ interface IAgentRegistry {
 
 /**
  * @title HoneycombTokenFactory
- * @notice Factory for creating Honeycomb tokens for the launchpad
- * @dev Created tokens are linked to the bonding curve market
+ * @notice Factory for creating Honeycomb tokens with vanity addresses (CREATE2)
+ * @dev Uses CREATE2 to allow pre-computing token addresses for vanity patterns
  */
 contract HoneycombTokenFactory is Ownable {
     IAgentRegistry public agentRegistry;
@@ -38,6 +38,7 @@ contract HoneycombTokenFactory is Ownable {
     error InvalidName();
     error InvalidSymbol();
     error InvalidCID();
+    error TokenDeploymentFailed();
 
     constructor(address _agentRegistry) Ownable(msg.sender) {
         agentRegistry = IAgentRegistry(_agentRegistry);
@@ -51,17 +52,37 @@ contract HoneycombTokenFactory is Ownable {
     }
 
     /**
-     * @notice Create a new token
+     * @notice Predict token address for given parameters and salt
+     * @dev Used off-chain to find a salt that produces a vanity address
+     */
+    function predictTokenAddress(
+        string calldata name,
+        string calldata symbol,
+        string calldata metadataCID,
+        uint256 creatorBeeId,
+        bytes32 salt
+    ) external view returns (address) {
+        bytes memory bytecode = _getTokenBytecode(name, symbol, metadataCID, creatorBeeId);
+        bytes32 hash = keccak256(
+            abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode))
+        );
+        return address(uint160(uint256(hash)));
+    }
+
+    /**
+     * @notice Create a new token with CREATE2 for vanity addresses
      * @param name Token name
      * @param symbol Token symbol
      * @param metadataCID IPFS CID for token metadata
      * @param creatorBeeId Creator's Bee ID (0 for anonymous)
+     * @param salt Salt for CREATE2 deployment (find off-chain for vanity address)
      */
     function createToken(
         string calldata name,
         string calldata symbol,
         string calldata metadataCID,
-        uint256 creatorBeeId
+        uint256 creatorBeeId,
+        bytes32 salt
     ) external returns (address tokenAddress) {
         if (market == address(0)) revert MarketNotSet();
         if (bytes(name).length == 0 || bytes(name).length > 64) revert InvalidName();
@@ -74,18 +95,17 @@ contract HoneycombTokenFactory is Ownable {
             if (!agentRegistry.isAgentOwner(msg.sender, creatorBeeId)) revert NotAgentOwner();
         }
 
-        // Create the token
-        HoneycombToken token = new HoneycombToken(
-            name,
-            symbol,
-            metadataCID,
-            creatorBeeId
-        );
+        // Deploy token using CREATE2
+        bytes memory bytecode = _getTokenBytecode(name, symbol, metadataCID, creatorBeeId);
         
-        tokenAddress = address(token);
+        assembly {
+            tokenAddress := create2(0, add(bytecode, 0x20), mload(bytecode), salt)
+        }
+        
+        if (tokenAddress == address(0)) revert TokenDeploymentFailed();
         
         // Set the market on the token
-        token.setMarket(market);
+        HoneycombToken(tokenAddress).setMarket(market);
         
         // Register the token
         isHoneycombToken[tokenAddress] = true;
@@ -100,6 +120,21 @@ contract HoneycombTokenFactory is Ownable {
             symbol,
             metadataCID,
             block.timestamp
+        );
+    }
+
+    /**
+     * @notice Get bytecode for token deployment
+     */
+    function _getTokenBytecode(
+        string calldata name,
+        string calldata symbol,
+        string calldata metadataCID,
+        uint256 creatorBeeId
+    ) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            type(HoneycombToken).creationCode,
+            abi.encode(name, symbol, metadataCID, creatorBeeId)
         );
     }
 

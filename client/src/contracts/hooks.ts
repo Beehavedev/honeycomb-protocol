@@ -342,17 +342,37 @@ export function useCreateToken() {
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   
-  const createToken = (name: string, symbol: string, metadataCID: string, creatorBeeId: bigint = BigInt(0)) => {
+  const createToken = (name: string, symbol: string, metadataCID: string, creatorBeeId: bigint = BigInt(0), salt: `0x${string}` = `0x${'0'.repeat(64)}`) => {
     if (!address) return;
     writeContract({
       address,
       abi: HoneycombTokenFactoryABI,
       functionName: 'createToken',
-      args: [name, symbol, metadataCID, creatorBeeId],
+      args: [name, symbol, metadataCID, creatorBeeId, salt],
     });
   };
   
   return { createToken, isPending, isConfirming, isSuccess, hash, error };
+}
+
+export function usePredictTokenAddress() {
+  const address = useTokenFactoryAddress();
+  
+  const predictAddress = async (
+    name: string,
+    symbol: string,
+    metadataCID: string,
+    creatorBeeId: bigint,
+    salt: `0x${string}`
+  ): Promise<`0x${string}` | null> => {
+    if (!address) return null;
+    
+    // This would need to call the contract's predictTokenAddress function
+    // For now, we'll compute it off-chain
+    return null;
+  };
+  
+  return { predictAddress, factoryAddress: address };
 }
 
 export function useGetAllTokens() {

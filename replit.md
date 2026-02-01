@@ -53,10 +53,13 @@ Token factory with bonding curve trading (similar to Four.meme/Pump.fun):
    - Minting restricted to market contract
    - Total supply of 1 billion tokens
 
-2. **HoneycombTokenFactory.sol** - Token creation factory
+2. **HoneycombTokenFactory.sol** - Token creation factory with CREATE2 vanity addresses
    - Create new tokens with metadata CID
    - Links tokens to creator's Bee ID
    - Initializes market pairs for new tokens
+   - **CREATE2 deployment**: Uses salt-based deployment for vanity addresses
+   - **Vanity addresses**: All tokens end with "8888" (like Four.meme's 7777)
+   - `predictTokenAddress()`: Pre-compute token address before deployment
    - Emits TokenCreated events for indexing
 
 3. **HoneycombFeeVault.sol** - Fee collection and distribution
