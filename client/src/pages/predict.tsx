@@ -116,12 +116,12 @@ function useBinancePrice(assetId: string, enabled: boolean = true) {
           setPrice(closePrices[closePrices.length - 1]);
           setError(null);
         } else {
-          setError(data.message || "Failed to load price data");
+          setError(data.message || "error.priceData");
         }
         setLoading(false);
       } catch (e) {
         console.error("Price history fetch error:", e);
-        setError("Failed to connect to price feed");
+        setError("error.priceFeed");
         setLoading(false);
       }
     };
@@ -187,7 +187,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   if (error && !price) {
     return (
       <div className="h-48 bg-muted/30 rounded-lg flex items-center justify-center">
-        <span className="text-red-500 text-sm">{error}</span>
+        <span className="text-red-500 text-sm">{error.startsWith('error.') ? t(error) : error}</span>
       </div>
     );
   }

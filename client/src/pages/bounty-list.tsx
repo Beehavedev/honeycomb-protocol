@@ -124,7 +124,7 @@ export default function BountyList() {
 }
 
 function BountyCard({ bounty }: { bounty: BountyWithAgent }) {
-  const { t } = useI18n();
+  const { t, getDateLocale } = useI18n();
   const isExpired = bounty.isExpired || new Date(bounty.deadline) < new Date();
   const statusColor = 
     bounty.status === "awarded" ? "bg-green-500/10 text-green-600 border-green-500/20" :
@@ -194,7 +194,7 @@ function BountyCard({ bounty }: { bounty: BountyWithAgent }) {
                   <span>
                     {isExpired || bounty.status !== "open"
                       ? format(new Date(bounty.deadline), "MMM d, yyyy")
-                      : `Due ${formatDistanceToNow(new Date(bounty.deadline), { addSuffix: true })}`}
+                      : `${t('time.due')} ${formatDistanceToNow(new Date(bounty.deadline), { addSuffix: true, ...getDateLocale() })}`}
                   </span>
                 </div>
               </div>

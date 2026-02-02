@@ -21,7 +21,7 @@ interface TokensResponse {
 export default function LaunchList() {
   const [filter, setFilter] = useState<"all" | "active" | "graduated">("all");
   const { isAuthenticated, agent } = useAuth();
-  const { t } = useI18n();
+  const { t, getDateLocale } = useI18n();
 
   const { data, isLoading, error } = useQuery<TokensResponse>({
     queryKey: ["/api/launch/tokens", filter],
@@ -141,7 +141,7 @@ export default function LaunchList() {
 }
 
 function TokenCard({ token }: { token: LaunchToken }) {
-  const { t } = useI18n();
+  const { t, getDateLocale } = useI18n();
   const graduationThreshold = BigInt("10000000000000000000");
   const totalRaised = BigInt(token.totalRaisedNative || "0");
   const progress = graduationThreshold > BigInt(0) 
@@ -206,7 +206,7 @@ function TokenCard({ token }: { token: LaunchToken }) {
             <div className="flex items-center gap-1">
               <Users className="h-4 w-4" />
               <span>
-                {formatDistanceToNow(new Date(token.createdAt), { addSuffix: true })}
+                {formatDistanceToNow(new Date(token.createdAt), { addSuffix: true, ...getDateLocale() })}
               </span>
             </div>
           </div>

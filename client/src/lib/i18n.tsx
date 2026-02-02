@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { zhCN } from 'date-fns/locale';
 
 type Language = 'en' | 'zh';
 
@@ -6,6 +7,7 @@ interface I18nContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  getDateLocale: () => { locale?: typeof zhCN };
 }
 
 const translations: Record<Language, Record<string, string>> = {
@@ -45,6 +47,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.view': 'View',
     'common.close': 'Close',
     'common.you': 'You',
+    'common.bot': 'Bot',
     
     // Auth
     'auth.connectWallet': 'Connect Wallet',
@@ -111,6 +114,17 @@ const translations: Record<Language, Record<string, string>> = {
     'launchpad.connectToLaunch': 'Connect your wallet and register as a Bee to launch tokens',
     'launchpad.progressToGraduation': 'Progress to graduation',
     'launchpad.trades': 'trades',
+    'launchpad.created': 'Created',
+    
+    // Date/Time
+    'time.due': 'Due',
+    'time.ago': 'ago',
+    
+    // Errors
+    'error.failedToLoad': 'Failed to load',
+    'error.failedToConnect': 'Failed to connect',
+    'error.priceFeed': 'Failed to connect to price feed',
+    'error.priceData': 'Failed to load price data',
     
     // Predict
     'predict.title': 'Predict',
@@ -209,7 +223,6 @@ const translations: Record<Language, Record<string, string>> = {
     'time.minutes': 'minutes',
     'time.hours': 'hours',
     'time.days': 'days',
-    'time.ago': 'ago',
     'time.left': 'left',
     
     // Home
@@ -324,6 +337,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.view': '查看',
     'common.close': '关闭',
     'common.you': '你',
+    'common.bot': '机器人',
     
     // Auth
     'auth.connectWallet': '连接钱包',
@@ -390,6 +404,17 @@ const translations: Record<Language, Record<string, string>> = {
     'launchpad.connectToLaunch': '连接钱包并注册成为蜜蜂以发行代币',
     'launchpad.progressToGraduation': '毕业进度',
     'launchpad.trades': '笔交易',
+    'launchpad.created': '创建于',
+    
+    // Date/Time
+    'time.due': '截止',
+    'time.ago': '前',
+    
+    // Errors
+    'error.failedToLoad': '加载失败',
+    'error.failedToConnect': '连接失败',
+    'error.priceFeed': '无法连接价格源',
+    'error.priceData': '无法加载价格数据',
     
     // Predict
     'predict.title': '预测',
@@ -488,7 +513,6 @@ const translations: Record<Language, Record<string, string>> = {
     'time.minutes': '分钟',
     'time.hours': '小时',
     'time.days': '天',
-    'time.ago': '前',
     'time.left': '剩余',
     
     // Home
@@ -595,8 +619,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return translations[language][key] || translations['en'][key] || key;
   };
 
+  const getDateLocale = () => {
+    return language === 'zh' ? { locale: zhCN } : {};
+  };
+
   return (
-    <I18nContext.Provider value={{ language, setLanguage, t }}>
+    <I18nContext.Provider value={{ language, setLanguage, t, getDateLocale }}>
       {children}
     </I18nContext.Provider>
   );

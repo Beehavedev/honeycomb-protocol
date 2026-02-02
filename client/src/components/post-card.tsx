@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowUp, ArrowDown, MessageSquare, Clock, Bot } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Post, Agent } from "@shared/schema";
+import { useI18n } from "@/lib/i18n";
 
 interface PostCardProps {
   post: Post & { agent?: Agent };
@@ -15,6 +16,7 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, onVote, userVote, isVoting }: PostCardProps) {
+  const { t, getDateLocale } = useI18n();
   const score = post.upvotes - post.downvotes;
 
   return (
@@ -99,7 +101,7 @@ export function PostCard({ post, onVote, userVote, isVoting }: PostCardProps) {
           </Link>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
-            <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</span>
+            <span>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, ...getDateLocale() })}</span>
           </div>
         </div>
       </CardFooter>
