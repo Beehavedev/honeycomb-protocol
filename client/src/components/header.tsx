@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
-import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Bot, Zap, Target } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Zap, Target, Menu } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -10,77 +12,40 @@ export function Header() {
   const [location] = useLocation();
   const { isConnected } = useAccount();
   const { agent, isAuthenticated } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navItems = [
+    { href: "/", label: "The Hive", icon: null, match: (loc: string) => loc === "/" },
+    { href: "/honey", label: "Honey", icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
+    { href: "/launch", label: "Launchpad", icon: Rocket, match: (loc: string) => loc.startsWith("/launch") },
+    { href: "/agents", label: "AI Agents", icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
+    { href: "/predict", label: "Predict", icon: Target, match: (loc: string) => loc === "/predict" },
+    { href: "/how-to", label: "How To", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
-        <Link href="/" className="flex items-center gap-2 hover-elevate rounded-md px-2 py-1" data-testid="link-home">
-          <Hexagon className="h-8 w-8 text-primary fill-primary/20" />
-          <span className="text-xl font-bold bg-gradient-to-r from-amber-500 to-amber-600 bg-clip-text text-transparent">
+      <div className="container mx-auto flex h-14 md:h-16 items-center justify-between gap-2 md:gap-4 px-3 md:px-4">
+        <Link href="/" className="flex items-center gap-2 hover-elevate rounded-md px-1 md:px-2 py-1" data-testid="link-home">
+          <Hexagon className="h-6 w-6 md:h-8 md:w-8 text-primary fill-primary/20" />
+          <span className="text-lg md:text-xl font-bold bg-gradient-to-r from-amber-500 to-amber-600 bg-clip-text text-transparent">
             Honeycomb
           </span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
-          <Link href="/">
-            <Button
-              variant={location === "/" ? "secondary" : "ghost"}
-              className="gap-2"
-              data-testid="link-feed"
-            >
-              The Hive
-            </Button>
-          </Link>
-          <Link href="/honey">
-            <Button
-              variant={location.startsWith("/honey") ? "secondary" : "ghost"}
-              className="gap-2"
-              data-testid="link-honey"
-            >
-              <Coins className="h-4 w-4" />
-              Honey
-            </Button>
-          </Link>
-          <Link href="/launch">
-            <Button
-              variant={location.startsWith("/launch") ? "secondary" : "ghost"}
-              className="gap-2"
-              data-testid="link-launch"
-            >
-              <Rocket className="h-4 w-4" />
-              Launchpad
-            </Button>
-          </Link>
-          <Link href="/agents">
-            <Button
-              variant={location.startsWith("/agents") ? "secondary" : "ghost"}
-              className="gap-2"
-              data-testid="link-agents"
-            >
-              <Zap className="h-4 w-4" />
-              AI Agents
-            </Button>
-          </Link>
-          <Link href="/predict">
-            <Button
-              variant={location === "/predict" ? "secondary" : "ghost"}
-              className="gap-2"
-              data-testid="link-predict"
-            >
-              <Target className="h-4 w-4" />
-              Predict
-            </Button>
-          </Link>
-          <Link href="/how-to">
-            <Button
-              variant={location === "/how-to" ? "secondary" : "ghost"}
-              className="gap-2"
-              data-testid="link-how-to"
-            >
-              <HelpCircle className="h-4 w-4" />
-              How To
-            </Button>
-          </Link>
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href}>
+              <Button
+                variant={item.match(location) ? "secondary" : "ghost"}
+                className="gap-2"
+                data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}
+              >
+                {item.icon && <item.icon className="h-4 w-4" />}
+                {item.label}
+              </Button>
+            </Link>
+          ))}
           {isAuthenticated && agent && (
             <Link href={`/bee/${agent.id}`}>
               <Button
@@ -95,17 +60,56 @@ export function Header() {
           )}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           {isConnected && isAuthenticated && (
             <Link href="/create">
-              <Button className="gap-2" data-testid="button-create-post">
+              <Button size="sm" className="gap-1 md:gap-2 h-8 md:h-9 px-2 md:px-4" data-testid="button-create-post">
                 <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">New Cell</span>
               </Button>
             </Link>
           )}
           <ThemeToggle />
-          <WalletButton />
+          <div className="hidden sm:block">
+            <WalletButton />
+          </div>
+          
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 pt-12">
+              <nav className="flex flex-col gap-2">
+                {navItems.map((item) => (
+                  <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant={item.match(location) ? "secondary" : "ghost"}
+                      className="w-full justify-start gap-3"
+                    >
+                      {item.icon && <item.icon className="h-5 w-5" />}
+                      {item.label}
+                    </Button>
+                  </Link>
+                ))}
+                {isAuthenticated && agent && (
+                  <Link href={`/bee/${agent.id}`} onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant={location === `/bee/${agent.id}` ? "secondary" : "ghost"}
+                      className="w-full justify-start gap-3"
+                    >
+                      <User className="h-5 w-5" />
+                      My Profile
+                    </Button>
+                  </Link>
+                )}
+                <div className="pt-4 border-t mt-2">
+                  <WalletButton />
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
