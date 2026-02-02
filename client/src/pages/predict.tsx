@@ -639,14 +639,49 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const isBscMainnet = chainId === 56;
   const canUseOnChain = isContractDeployed && isBscMainnet && onChainAgentId && onChainAgentId > BigInt(0);
 
-  // Effect to handle on-chain success
+  // Mutation to sync on-chain creation with database
+  const syncCreateMutation = useMutation({
+    mutationFn: async (params: { 
+      onChainDuelId: string; 
+      txHash: string;
+      assetId: string;
+      assetName: string;
+      durationSec: string;
+      stakeWei: string;
+      stakeDisplay: string;
+      creatorOnChainAgentId: string;
+      direction: string;
+    }) => {
+      return apiRequest("POST", "/api/duels/sync-create", params);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+    },
+  });
+
+  // Effect to handle on-chain success - sync with database
   useEffect(() => {
     if (createSuccess && createHash) {
       toast({ 
         title: "Duel created on-chain!", 
-        description: `Transaction: ${createHash.slice(0, 10)}...` 
+        description: `BNB sent to escrow. Transaction: ${createHash.slice(0, 10)}...` 
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      
+      // Parse the on-chain duel ID from transaction receipt (using next ID counter)
+      // For now, we'll use the transaction hash as a unique identifier and let backend parse logs
+      const asset = assets?.find(a => a.assetId === assetId);
+      syncCreateMutation.mutate({
+        onChainDuelId: "1", // Backend will need to parse this from tx receipt or use incrementing ID
+        txHash: createHash,
+        assetId,
+        assetName: asset?.name || assetId,
+        durationSec: duration,
+        stakeWei: (parseFloat(stake) * 1e18).toString(),
+        stakeDisplay: `${stake} BNB`,
+        creatorOnChainAgentId: onChainAgentId!.toString(),
+        direction,
+      });
+      
       onSuccess();
     }
   }, [createSuccess, createHash]);
@@ -914,16 +949,40 @@ export default function Predict() {
     hash: joinHash 
   } = useJoinDuel();
 
+  // Track which duel we're joining for sync
+  const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
+
+  // Mutation to sync on-chain join with database
+  const syncJoinMutation = useMutation({
+    mutationFn: async (params: { duelId: string; txHash: string; joinerOnChainAgentId: string }) => {
+      return apiRequest("POST", `/api/duels/${params.duelId}/sync-join`, {
+        txHash: params.txHash,
+        joinerOnChainAgentId: params.joinerOnChainAgentId,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Joined duel!", description: "BNB sent to escrow. The duel is now live!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      setJoiningDuelId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to sync join", description: error.message, variant: "destructive" });
+      setJoiningDuelId(null);
+    },
+  });
+
   // Effect to handle on-chain join success
   useEffect(() => {
-    if (joinSuccess && joinHash) {
-      toast({ 
-        title: "Joined duel on-chain!", 
-        description: `Transaction: ${joinHash.slice(0, 10)}...` 
+    if (joinSuccess && joinHash && joiningDuelId) {
+      // Sync with database after successful on-chain join
+      const onChainAgentId = (window as any).__joinerOnChainAgentId;
+      syncJoinMutation.mutate({
+        duelId: joiningDuelId,
+        txHash: joinHash,
+        joinerOnChainAgentId: onChainAgentId?.toString() || "0",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
     }
-  }, [joinSuccess, joinHash]);
+  }, [joinSuccess, joinHash, joiningDuelId]);
 
   // Effect to handle on-chain join error
   useEffect(() => {
@@ -936,10 +995,11 @@ export default function Predict() {
         description: errorMsg, 
         variant: "destructive" 
       });
+      setJoiningDuelId(null);
     }
   }, [joinError]);
 
-  // Database fallback mutation
+  // Database fallback mutation (for duels without on-chain ID)
   const joinMutation = useMutation({
     mutationFn: async (duelId: string) => {
       return apiRequest("POST", `/api/duels/${duelId}/join`);
@@ -953,10 +1013,43 @@ export default function Predict() {
     },
   });
 
+  // Check if user has on-chain agent for joining
+  const { data: userOnChainAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  const joinPredictDuelAddress = usePredictDuelAddress();
+  const isJoinContractDeployed = joinPredictDuelAddress && joinPredictDuelAddress !== "0x0000000000000000000000000000000000000000";
+  const canUseOnChainJoin = isJoinContractDeployed && chainId === 56 && userOnChainAgentId && userOnChainAgentId > BigInt(0);
+
   const handleJoinDuel = async (duel: Duel) => {
-    // For now use database API for joining (on-chain join requires matching on-chain duel ID)
-    // TODO: Sync on-chain duel creation with database to enable on-chain joins
-    joinMutation.mutate(duel.id);
+    // Use on-chain if duel has on-chain ID and user has on-chain agent
+    if (duel.onChainDuelId && canUseOnChainJoin) {
+      try {
+        setJoiningDuelId(duel.id);
+        // Store the joiner's on-chain agent ID for the sync callback
+        (window as any).__joinerOnChainAgentId = userOnChainAgentId;
+        
+        // Fetch current price from Binance for start price
+        const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
+        const priceData = await priceRes.json();
+        const startPriceWei = BigInt(Math.floor(parseFloat(priceData.price) * 1e8));
+        
+        // Parse stake from display (e.g., "0.01 BNB" -> wei)
+        const stakeMatch = duel.stakeDisplay?.match(/^([\d.]+)/);
+        const stakeWei = stakeMatch ? parseEther(stakeMatch[1]) : parseEther("0.01");
+        
+        joinDuelOnChain(
+          BigInt(duel.onChainDuelId.toString()),
+          userOnChainAgentId!,
+          startPriceWei,
+          stakeWei
+        );
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+        setJoiningDuelId(null);
+      }
+    } else {
+      // Fallback to database API for duels without on-chain ID
+      joinMutation.mutate(duel.id);
+    }
   };
 
   return (

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, unique, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -529,6 +529,8 @@ export type InsertAiAgentPayment = z.infer<typeof insertAiAgentPaymentSchema>;
 // Prediction duels - 1v1 price prediction game
 export const duels = pgTable("duels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  onChainDuelId: bigint("on_chain_duel_id", { mode: "bigint" }), // On-chain contract duel ID (null if database-only)
+  createTxHash: text("create_tx_hash"), // Transaction hash for on-chain creation
   assetId: text("asset_id").notNull(), // e.g., "BNB", "BTC", "ETH"
   assetName: text("asset_name").notNull(), // e.g., "Binance Coin"
   durationSec: integer("duration_sec").notNull(), // 30, 60, or 300
@@ -536,8 +538,10 @@ export const duels = pgTable("duels", {
   stakeDisplay: text("stake_display").notNull(), // Human readable "0.01 BNB"
   creatorAddress: text("creator_address").notNull(),
   creatorAgentId: varchar("creator_agent_id").references(() => agents.id),
+  creatorOnChainAgentId: bigint("creator_on_chain_agent_id", { mode: "bigint" }), // On-chain agent ID
   joinerAddress: text("joiner_address"),
   joinerAgentId: varchar("joiner_agent_id").references(() => agents.id),
+  joinerOnChainAgentId: bigint("joiner_on_chain_agent_id", { mode: "bigint" }), // On-chain agent ID
   creatorDirection: text("creator_direction").notNull(), // "up" or "down"
   joinerDirection: text("joiner_direction"),
   startPrice: text("start_price"), // Price at duel start (8 decimals)
@@ -548,6 +552,7 @@ export const duels = pgTable("duels", {
   winnerAddress: text("winner_address"),
   payoutWei: text("payout_wei"), // 90% of pot to winner
   feeWei: text("fee_wei"), // 10% platform fee
+  joinTxHash: text("join_tx_hash"), // Transaction hash for on-chain join
   settlementTxHash: text("settlement_tx_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -573,7 +578,10 @@ export const insertDuelSchema = createInsertSchema(duels).pick({
   stakeDisplay: true,
   creatorAddress: true,
   creatorAgentId: true,
+  creatorOnChainAgentId: true,
   creatorDirection: true,
+  onChainDuelId: true,
+  createTxHash: true,
 });
 
 export const insertDuelAssetSchema = createInsertSchema(duelAssets).pick({

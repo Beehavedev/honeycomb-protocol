@@ -289,6 +289,95 @@ export function registerDuelsRoutes(app: Express) {
       payoutPercentage: 100 - FEE_PERCENTAGE
     });
   });
+
+  // Sync on-chain duel creation with database
+  app.post("/api/duels/sync-create", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const { 
+        onChainDuelId, 
+        txHash, 
+        assetId, 
+        assetName, 
+        durationSec, 
+        stakeWei, 
+        stakeDisplay, 
+        creatorOnChainAgentId, 
+        direction 
+      } = req.body;
+
+      if (!onChainDuelId || !txHash) {
+        return res.status(400).json({ message: "Missing on-chain duel ID or transaction hash" });
+      }
+
+      const agent = await storage.getAgentByAddress(walletAddress);
+
+      const duel = await storage.createDuel({
+        onChainDuelId: BigInt(onChainDuelId),
+        createTxHash: txHash,
+        assetId,
+        assetName,
+        durationSec: parseInt(durationSec),
+        stakeWei,
+        stakeDisplay,
+        creatorAddress: walletAddress,
+        creatorAgentId: agent?.id || null,
+        creatorOnChainAgentId: BigInt(creatorOnChainAgentId),
+        creatorDirection: direction,
+      });
+
+      res.status(201).json(duel);
+    } catch (error) {
+      console.error("Error syncing on-chain duel creation:", error);
+      res.status(500).json({ message: "Failed to sync on-chain duel" });
+    }
+  });
+
+  // Sync on-chain duel join with database
+  app.post("/api/duels/:id/sync-join", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const duelId = req.params.id as string;
+      const { txHash, joinerOnChainAgentId, startPrice } = req.body;
+
+      if (!txHash) {
+        return res.status(400).json({ message: "Missing transaction hash" });
+      }
+
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+
+      const agent = await storage.getAgentByAddress(walletAddress);
+      const joinerDirection = duel.creatorDirection === "up" ? "down" : "up";
+      const now = new Date();
+      const endTs = new Date(now.getTime() + duel.durationSec * 1000);
+
+      // Fetch current Binance price for accurate start price
+      let finalStartPrice = startPrice;
+      if (!startPrice) {
+        finalStartPrice = await fetchBinancePrice(duel.assetId);
+      }
+
+      const updatedDuel = await storage.updateDuel(duelId, {
+        joinerAddress: walletAddress,
+        joinerAgentId: agent?.id || null,
+        joinerOnChainAgentId: joinerOnChainAgentId ? BigInt(joinerOnChainAgentId) : null,
+        joinerDirection,
+        startPrice: finalStartPrice,
+        startTs: now,
+        endTs,
+        status: "live",
+        joinTxHash: txHash,
+      });
+
+      res.json(updatedDuel);
+    } catch (error) {
+      console.error("Error syncing on-chain duel join:", error);
+      res.status(500).json({ message: "Failed to sync on-chain join" });
+    }
+  });
 }
 
 const basePrices: Record<string, number> = {
@@ -345,4 +434,62 @@ function formatPrice(priceStr: string): string {
   if (price >= 1000) return `$${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   if (price >= 1) return `$${price.toFixed(2)}`;
   return `$${price.toFixed(4)}`;
+}
+
+// Sync on-chain duel creation with database
+export async function syncOnChainDuelCreation(
+  onChainDuelId: bigint,
+  txHash: string,
+  assetId: string,
+  assetName: string,
+  durationSec: number,
+  stakeWei: string,
+  stakeDisplay: string,
+  creatorAddress: string,
+  creatorAgentId: string | null,
+  creatorOnChainAgentId: bigint,
+  creatorDirection: string,
+) {
+  return storage.createDuel({
+    onChainDuelId,
+    createTxHash: txHash,
+    assetId,
+    assetName,
+    durationSec,
+    stakeWei,
+    stakeDisplay,
+    creatorAddress,
+    creatorAgentId,
+    creatorOnChainAgentId,
+    creatorDirection,
+  });
+}
+
+// Sync on-chain duel join with database
+export async function syncOnChainDuelJoin(
+  duelDbId: string,
+  joinerAddress: string,
+  joinerAgentId: string | null,
+  joinerOnChainAgentId: bigint,
+  startPrice: string,
+  txHash: string,
+) {
+  const duel = await storage.getDuel(duelDbId);
+  if (!duel) throw new Error("Duel not found");
+  
+  const joinerDirection = duel.creatorDirection === "up" ? "down" : "up";
+  const now = new Date();
+  const endTs = new Date(now.getTime() + duel.durationSec * 1000);
+  
+  return storage.updateDuel(duelDbId, {
+    joinerAddress,
+    joinerAgentId,
+    joinerOnChainAgentId,
+    joinerDirection,
+    startPrice,
+    startTs: now,
+    endTs,
+    status: "live",
+    joinTxHash: txHash,
+  });
 }
