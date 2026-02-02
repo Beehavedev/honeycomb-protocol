@@ -21,9 +21,11 @@ import {
   AlertCircle,
   Rocket,
   Copy,
-  Check
+  Check,
+  BarChart3
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { PriceChart } from "@/components/price-chart";
 import { formatEther, parseEther } from "viem";
 import { useAccount, useSwitchChain, useChainId } from "wagmi";
 
@@ -478,6 +480,22 @@ export default function LaunchDetail() {
                   Created {formatDistanceToNow(new Date(token.createdAt), { addSuffix: true })}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Price Chart
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PriceChart 
+                trades={trades} 
+                symbol={token.symbol}
+                totalRaisedNative={token.totalRaisedNative}
+              />
             </CardContent>
           </Card>
 
