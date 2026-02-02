@@ -166,6 +166,10 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.contractNotAvailable': 'Contract not available',
     'predict.cannotJoinOwn': 'Cannot join your own bet',
     'predict.cannotJoinOwnDesc': 'You created this bet. Wait for another user to join.',
+    'predict.settle': 'Settle & Claim',
+    'predict.settling': 'Settling...',
+    'predict.settled': 'Bet Settled!',
+    'predict.payoutSent': 'Payout sent to winner (90%), fee sent to treasury (10%)',
     
     // AI Agents
     'agents.title': 'AI Agent Marketplace',
@@ -463,6 +467,10 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.contractNotAvailable': '合约不可用',
     'predict.cannotJoinOwn': '不能加入自己的赌注',
     'predict.cannotJoinOwnDesc': '您创建了这个赌注。请等待其他用户加入。',
+    'predict.settle': '结算并领取',
+    'predict.settling': '结算中...',
+    'predict.settled': '赌注已结算！',
+    'predict.payoutSent': '已向赢家支付90%，10%已发送至金库',
     
     // AI Agents
     'agents.title': 'AI代理市场',

@@ -432,6 +432,70 @@ export function registerDuelsRoutes(app: Express) {
       res.status(500).json({ message: "Failed to sync on-chain join" });
     }
   });
+
+  // Sync on-chain settlement with database
+  app.post("/api/duels/:id/sync-settle", authMiddleware, async (req, res) => {
+    try {
+      const duelId = req.params.id as string;
+      const { txHash, endPrice, winnerAddress } = req.body;
+
+      if (!txHash) {
+        return res.status(400).json({ message: "Missing transaction hash" });
+      }
+
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+
+      if (duel.status !== "live") {
+        return res.status(400).json({ message: "Duel is not live" });
+      }
+
+      // Fetch current price for end price if not provided
+      let finalEndPrice = endPrice;
+      if (!endPrice) {
+        finalEndPrice = await fetchPrice(duel.assetId);
+      }
+
+      // Calculate winner based on price movement
+      const startPriceNum = parseFloat(duel.startPrice || "0");
+      const endPriceNum = parseFloat(finalEndPrice);
+      const priceWentUp = endPriceNum > startPriceNum;
+      
+      let calculatedWinner: string | null = null;
+      if (startPriceNum === endPriceNum) {
+        // Draw - no winner (refund handled by contract)
+        calculatedWinner = null;
+      } else if (priceWentUp) {
+        // Price went up - whoever bet "up" wins
+        calculatedWinner = duel.creatorDirection === "up" ? duel.creatorAddress : duel.joinerAddress;
+      } else {
+        // Price went down - whoever bet "down" wins
+        calculatedWinner = duel.creatorDirection === "down" ? duel.creatorAddress : duel.joinerAddress;
+      }
+
+      // Calculate payout (90% of total pot)
+      const stakeWei = BigInt(duel.stakeWei);
+      const totalPot = stakeWei * BigInt(2);
+      const feeWei = (totalPot * BigInt(FEE_PERCENTAGE)) / BigInt(100);
+      const payoutWei = totalPot - feeWei;
+
+      const updatedDuel = await storage.updateDuel(duelId, {
+        endPrice: finalEndPrice,
+        status: "settled",
+        winnerAddress: winnerAddress || calculatedWinner,
+        payoutWei: payoutWei.toString(),
+        feeWei: feeWei.toString(),
+        settlementTxHash: txHash,
+      });
+
+      res.json(serializeDuel(updatedDuel));
+    } catch (error) {
+      console.error("Error syncing on-chain settlement:", error);
+      res.status(500).json({ message: "Failed to sync settlement" });
+    }
+  });
 }
 
 const basePrices: Record<string, number> = {

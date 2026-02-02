@@ -883,4 +883,22 @@ export function useCancelDuel() {
   return { cancelDuel, hash, isPending, isConfirming, isSuccess, error };
 }
 
+export function useSettleDuel() {
+  const address = usePredictDuelAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const settleDuel = (duelId: bigint, endPrice: bigint) => {
+    if (!address) throw new Error("Contract not deployed on this network");
+    writeContract({
+      address,
+      abi: HoneycombPredictDuelABI,
+      functionName: 'settleDuel',
+      args: [duelId, endPrice],
+    });
+  };
+
+  return { settleDuel, hash, isPending, isConfirming, isSuccess, error };
+}
+
 export { parseEther, formatEther };

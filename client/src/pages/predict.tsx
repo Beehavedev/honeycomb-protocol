@@ -16,6 +16,7 @@ import { useI18n } from "@/lib/i18n";
 import { 
   useCreateDuel, 
   useJoinDuel, 
+  useSettleDuel,
   usePredictDuelAddress,
   useGetAgentByOwner,
   useRegisterAgent,
@@ -30,7 +31,8 @@ import {
   Plus,
   Target,
   Users,
-  Wallet
+  Wallet,
+  Loader2
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -334,12 +336,29 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   );
 }
 
-function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void; isJoining?: boolean }) {
+function DuelCard({ duel, onJoin, onSettle, isJoining, isSettling }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; isJoining?: boolean; isSettling?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
   const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
   const isJoiner = duel.joinerAddress && address?.toLowerCase() === duel.joinerAddress.toLowerCase();
   const canJoin = duel.status === "open" && !isCreator && address;
+  
+  // Check if duel has expired (can be settled)
+  const [canSettle, setCanSettle] = useState(false);
+  useEffect(() => {
+    if (duel.status !== "live" || !duel.endTs) {
+      setCanSettle(false);
+      return;
+    }
+    const checkExpired = () => {
+      const now = Date.now();
+      const endTime = new Date(duel.endTs!).getTime();
+      setCanSettle(now >= endTime);
+    };
+    checkExpired();
+    const interval = setInterval(checkExpired, 1000);
+    return () => clearInterval(interval);
+  }, [duel.status, duel.endTs]);
 
   const creatorShort = `${duel.creatorAddress.slice(0, 6)}...${duel.creatorAddress.slice(-4)}`;
   const joinerShort = duel.joinerAddress ? `${duel.joinerAddress.slice(0, 6)}...${duel.joinerAddress.slice(-4)}` : null;
@@ -544,6 +563,27 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
               <Clock className="h-3 w-3 mr-1" />
               {t('predict.waiting')}
             </Badge>
+          )}
+          {/* Settle button for expired live duels */}
+          {duel.status === "live" && canSettle && onSettle && (
+            <Button 
+              onClick={onSettle} 
+              disabled={isSettling}
+              className="gap-2"
+              data-testid={`button-settle-${duel.id}`}
+            >
+              {isSettling ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('predict.settling') || 'Settling...'}
+                </>
+              ) : (
+                <>
+                  <Trophy className="h-4 w-4" />
+                  {t('predict.settle') || 'Settle & Claim'}
+                </>
+              )}
+            </Button>
           )}
           {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress?.toLowerCase() === address?.toLowerCase() && (
             <Badge className="bg-primary text-primary-foreground py-2 px-4">
@@ -948,6 +988,18 @@ export default function Predict() {
     hash: joinHash 
   } = useJoinDuel();
 
+  // On-chain settle hook
+  const { 
+    settleDuel: settleDuelOnChain, 
+    isPending: isSettlingOnChain, 
+    isSuccess: settleSuccess, 
+    error: settleError, 
+    hash: settleHash 
+  } = useSettleDuel();
+
+  // Track which duel we're settling
+  const [settlingDuelId, setSettlingDuelId] = useState<string | null>(null);
+
   // Track which duel we're joining for sync
   const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
 
@@ -1014,6 +1066,55 @@ export default function Predict() {
       setJoiningDuelId(null);
     }
   }, [joinError]);
+
+  // Mutation to sync settlement with database
+  const syncSettleMutation = useMutation({
+    mutationFn: async (params: { duelId: string; txHash: string }) => {
+      return apiRequest("POST", `/api/duels/${params.duelId}/sync-settle`, {
+        txHash: params.txHash,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t('predict.settled') || "Bet Settled!", description: t('predict.payoutSent') || "Payout sent to winner (90%), fee sent to treasury (10%)" });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      setSettlingDuelId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to sync settlement", description: error.message, variant: "destructive" });
+      setSettlingDuelId(null);
+    },
+  });
+
+  // Effect to handle settlement success
+  useEffect(() => {
+    if (settleSuccess && settleHash && settlingDuelId) {
+      syncSettleMutation.mutate({
+        duelId: settlingDuelId,
+        txHash: settleHash,
+      });
+    }
+  }, [settleSuccess, settleHash, settlingDuelId]);
+
+  // Effect to handle settlement error
+  useEffect(() => {
+    if (settleError) {
+      const msg = settleError.message || "";
+      let errorMsg = "Failed to settle bet";
+      
+      if (msg.includes("user rejected")) {
+        errorMsg = "Transaction rejected by user";
+      } else if (msg.includes("DuelNotLive") || msg.includes("NotLive")) {
+        errorMsg = "Bet is not live or already settled";
+      } else if (msg.includes("TooEarly") || msg.includes("DurationNotExpired")) {
+        errorMsg = "Bet duration has not expired yet";
+      } else {
+        errorMsg = msg.slice(0, 100) || "Unknown error";
+      }
+      
+      toast({ title: "Settlement failed", description: errorMsg, variant: "destructive" });
+      setSettlingDuelId(null);
+    }
+  }, [settleError]);
 
   // Database fallback mutation (for duels without on-chain ID)
   const joinMutation = useMutation({
@@ -1092,6 +1193,48 @@ export default function Predict() {
       setJoiningDuelId(null);
     }
   }, [joinerRegisterError]);
+
+  // Handle settling a duel
+  const handleSettle = async (duel: Duel) => {
+    if (!canUseOnChainJoin) {
+      toast({ 
+        title: t('common.connectWallet'), 
+        description: t('predict.switchToBsc'),
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (!duel.onChainDuelId) {
+      toast({ title: "Error", description: "This bet cannot be settled on-chain", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      setSettlingDuelId(duel.id);
+      
+      // Fetch current price for end price
+      const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
+      const priceData = await priceRes.json();
+      const price = priceData?.price;
+      
+      if (!price || isNaN(price)) {
+        toast({ title: "Price fetch failed", description: "Could not get current price for settlement", variant: "destructive" });
+        setSettlingDuelId(null);
+        return;
+      }
+      
+      const endPriceWei = BigInt(Math.floor(price * 1e8));
+      
+      settleDuelOnChain(
+        BigInt(duel.onChainDuelId.toString()),
+        endPriceWei
+      );
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setSettlingDuelId(null);
+    }
+  };
 
   const handleJoinDuel = async (duel: Duel) => {
     // Require wallet + BSC mainnet
@@ -1235,7 +1378,9 @@ export default function Predict() {
                   key={duel.id}
                   duel={duel}
                   onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
+                  onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
                   isJoining={joinMutation.isPending || isJoiningOnChain}
+                  isSettling={isSettlingOnChain || syncSettleMutation.isPending}
                 />
               ))}
             </div>
