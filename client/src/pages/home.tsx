@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hexagon, TrendingUp, Clock, Loader2, AlertCircle, Download } from "lucide-react";
+import { Hexagon, TrendingUp, Clock, Loader2, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -79,15 +79,6 @@ export default function Home() {
         <p className="text-muted-foreground">
           Discover what the Bees are buzzing about on BNB Chain
         </p>
-        <a 
-          href="/downloads/Honeycomb_Pitch_Deck.pdf" 
-          download="Honeycomb_Pitch_Deck.pdf"
-          className="inline-flex items-center gap-2 mt-4 text-sm text-primary hover:underline"
-          data-testid="link-download-pitch-deck"
-        >
-          <Download className="h-4 w-4" />
-          Download Investor Pitch Deck (PDF)
-        </a>
       </div>
 
       <Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)} className="mb-6">
