@@ -47,6 +47,7 @@ import {
   useCooldownSeconds,
   useLastTradeTime,
   useMarketNativeBalance,
+  useSimulateSell,
   parseContractError,
 } from "@/contracts/hooks";
 import type { LaunchToken, LaunchTrade } from "@shared/schema";
@@ -145,6 +146,16 @@ export default function LaunchDetail() {
   const expectedNativeOut = sellQuoteValue ? sellQuoteValue[0] : BigInt(0);
   const actualMarketBalance = marketBalance?.value ?? BigInt(0);
   const hasInsufficientLiquidity = sellAmountWei > BigInt(0) && expectedNativeOut > BigInt(0) && expectedNativeOut > actualMarketBalance;
+
+  // Simulate sell transaction to catch errors before executing
+  const minOutForSimulation = sellQuoteValue ? (sellQuoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
+  const { error: sellSimulationError } = useSimulateSell(
+    tokenAddress,
+    !needsApproval && sellAmountWei > BigInt(0) ? sellAmountWei : undefined,
+    minOutForSimulation,
+    userAddress
+  );
+  const simulationErrorMessage = sellSimulationError ? parseContractError(sellSimulationError) : null;
 
   useEffect(() => {
     const recordAndRefresh = async () => {
@@ -793,16 +804,23 @@ export default function LaunchDetail() {
                         </div>
                       )}
 
-                      {hasInsufficientLiquidity && !isCooldownActive && (
+                      {hasInsufficientLiquidity && !isCooldownActive && !simulationErrorMessage && (
                         <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
                           <AlertCircle className="h-4 w-4 flex-shrink-0" />
                           <span>Insufficient liquidity. Try selling a smaller amount.</span>
                         </div>
                       )}
 
+                      {simulationErrorMessage && !isCooldownActive && !needsApproval && (
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          <span>{simulationErrorMessage}</span>
+                        </div>
+                      )}
+
                       <Button
                         onClick={handleSell}
-                        disabled={isSelling || isApproving || isSwitchingNetwork || !sellAmount || parseFloat(sellAmount) <= 0 || isCooldownActive || hasInsufficientLiquidity}
+                        disabled={isSelling || isApproving || isSwitchingNetwork || !sellAmount || parseFloat(sellAmount) <= 0 || isCooldownActive || hasInsufficientLiquidity || (simulationErrorMessage !== null && !needsApproval)}
                         className="w-full gap-2"
                         data-testid="button-sell"
                       >
@@ -813,6 +831,8 @@ export default function LaunchDetail() {
                           </>
                         ) : isCooldownActive ? (
                           `Wait ${cooldownRemaining}s`
+                        ) : (simulationErrorMessage && !needsApproval) ? (
+                          "Sell Blocked"
                         ) : hasInsufficientLiquidity ? (
                           "Insufficient Liquidity"
                         ) : needsApproval ? (

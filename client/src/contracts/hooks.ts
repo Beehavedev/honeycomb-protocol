@@ -1,5 +1,5 @@
 // Contract interaction hooks using wagmi
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance, useSimulateContract } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { 
   HoneycombAgentRegistryABI,
@@ -502,6 +502,7 @@ export function useSellTokens() {
   
   const sell = (tokenAddress: `0x${string}`, tokenAmountIn: bigint, minNativeOut: bigint) => {
     if (!address) return;
+    console.log("Sell params:", { tokenAddress, tokenAmountIn: tokenAmountIn.toString(), minNativeOut: minNativeOut.toString(), marketAddress: address });
     writeContract({
       address,
       abi: HoneycombBondingCurveMarketABI,
@@ -511,6 +512,21 @@ export function useSellTokens() {
   };
   
   return { sell, isPending, isConfirming, isSuccess, hash, error };
+}
+
+// Simulate sell to check for errors before executing
+export function useSimulateSell(tokenAddress?: `0x${string}`, tokenAmountIn?: bigint, minNativeOut?: bigint, account?: `0x${string}`) {
+  const address = useBondingCurveMarketAddress();
+  return useSimulateContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'sell',
+    args: tokenAddress && tokenAmountIn !== undefined && minNativeOut !== undefined ? [tokenAddress, tokenAmountIn, minNativeOut] : undefined,
+    account,
+    query: { 
+      enabled: !!address && !!tokenAddress && tokenAmountIn !== undefined && tokenAmountIn > BigInt(0) && minNativeOut !== undefined && !!account,
+    },
+  });
 }
 
 export function useGraduationThreshold() {
