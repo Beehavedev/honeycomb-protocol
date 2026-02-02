@@ -360,6 +360,29 @@ export function useCreateToken() {
   return { createToken, isPending, isConfirming, isSuccess, hash, error };
 }
 
+export function useInitializeMarket() {
+  const address = useBondingCurveMarketAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  
+  const initializeMarket = (tokenAddress: `0x${string}`) => {
+    console.log("useInitializeMarket called with:", { tokenAddress, marketAddress: address });
+    if (!address) {
+      console.error("Market address is null or undefined");
+      return;
+    }
+    writeContract({
+      address,
+      abi: HoneycombBondingCurveMarketABI,
+      functionName: 'initializeMarket',
+      args: [tokenAddress],
+    });
+  };
+  
+  return { initializeMarket, isPending, isConfirming, isSuccess, hash, error };
+}
+
 export function usePredictTokenAddressSingle(
   name?: string,
   symbol?: string,
