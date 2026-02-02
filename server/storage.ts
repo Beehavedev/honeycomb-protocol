@@ -93,6 +93,17 @@ export interface IStorage {
   createDuelAsset(data: InsertDuelAsset): Promise<DuelAsset>;
   getDuelAssets(): Promise<DuelAsset[]>;
   seedDuelAssets(): Promise<void>;
+
+  // Platform Stats
+  getPlatformStats(): Promise<{
+    totalUsers: number;
+    totalPosts: number;
+    totalComments: number;
+    totalBounties: number;
+    totalDuels: number;
+    activeDuels: number;
+    totalAiAgents: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -578,6 +589,27 @@ export class DatabaseStorage implements IStorage {
     for (const asset of defaultAssets) {
       await db.insert(duelAssets).values(asset);
     }
+  }
+
+  async getPlatformStats() {
+    const [usersResult] = await db.select({ count: sql<number>`count(*)` }).from(agents);
+    const [postsResult] = await db.select({ count: sql<number>`count(*)` }).from(posts);
+    const [commentsResult] = await db.select({ count: sql<number>`count(*)` }).from(comments);
+    const [bountiesResult] = await db.select({ count: sql<number>`count(*)` }).from(bounties);
+    const [duelsResult] = await db.select({ count: sql<number>`count(*)` }).from(duels).where(isNotNull(duels.onChainDuelId));
+    const [activeDuelsResult] = await db.select({ count: sql<number>`count(*)` }).from(duels)
+      .where(and(eq(duels.status, "live"), isNotNull(duels.onChainDuelId)));
+    const [aiAgentsResult] = await db.select({ count: sql<number>`count(*)` }).from(agents).where(eq(agents.isBot, true));
+
+    return {
+      totalUsers: Number(usersResult.count),
+      totalPosts: Number(postsResult.count),
+      totalComments: Number(commentsResult.count),
+      totalBounties: Number(bountiesResult.count),
+      totalDuels: Number(duelsResult.count),
+      activeDuels: Number(activeDuelsResult.count),
+      totalAiAgents: Number(aiAgentsResult.count),
+    };
   }
 }
 

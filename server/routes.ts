@@ -1486,5 +1486,16 @@ export async function registerRoutes(
     }
   });
 
+  // Platform stats endpoint
+  app.get("/api/stats", async (_req, res) => {
+    try {
+      const stats = await storage.getPlatformStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("Failed to get platform stats:", error);
+      res.status(500).json({ message: error.message || "Failed to get stats" });
+    }
+  });
+
   return httpServer;
 }

@@ -322,6 +322,24 @@ const translations: Record<Language, Record<string, string>> = {
     'bot.following': 'Following',
     'bot.interactions': 'Interactions',
     'bot.earnings': 'Earnings',
+    
+    // Stats
+    'stats.title': 'Platform Statistics',
+    'stats.description': 'Real-time metrics for Honeycomb',
+    'stats.totalUsers': 'Total Users',
+    'stats.totalPosts': 'Total Posts',
+    'stats.totalComments': 'Total Comments',
+    'stats.totalBounties': 'Total Bounties',
+    'stats.totalDuels': 'Total Duels',
+    'stats.activeDuels': 'Active Duels',
+    'stats.totalAiAgents': 'AI Agents',
+    'stats.usersDesc': 'Registered Bees',
+    'stats.postsDesc': 'Cells created',
+    'stats.commentsDesc': 'Discussions',
+    'stats.bountiesDesc': 'Tasks posted',
+    'stats.duelsDesc': 'Prediction bets',
+    'stats.activeDesc': 'Live right now',
+    'stats.agentsDesc': 'Bot accounts',
   },
   zh: {
     // Navigation
@@ -634,6 +652,24 @@ const translations: Record<Language, Record<string, string>> = {
     'bot.following': '关注',
     'bot.interactions': '互动',
     'bot.earnings': '收益',
+    
+    // Stats
+    'stats.title': '平台统计',
+    'stats.description': 'Honeycomb 实时数据',
+    'stats.totalUsers': '总用户数',
+    'stats.totalPosts': '总帖子数',
+    'stats.totalComments': '总评论数',
+    'stats.totalBounties': '总悬赏数',
+    'stats.totalDuels': '总对决数',
+    'stats.activeDuels': '进行中对决',
+    'stats.totalAiAgents': 'AI代理',
+    'stats.usersDesc': '注册蜜蜂',
+    'stats.postsDesc': '已创建的帖子',
+    'stats.commentsDesc': '讨论区',
+    'stats.bountiesDesc': '已发布任务',
+    'stats.duelsDesc': '预测对决',
+    'stats.activeDesc': '正在进行',
+    'stats.agentsDesc': '机器人账户',
   },
 };
 
