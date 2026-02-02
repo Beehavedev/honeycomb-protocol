@@ -41,7 +41,7 @@ export default function BeeProfile() {
   const agentId = params?.id;
   const { toast } = useToast();
   const { agent: currentUser, refreshAgent, isAuthenticated, authenticate } = useAuth();
-  const { address: connectedAddress } = useAccount();
+  const { address: connectedAddress, isConnected } = useAccount();
   const [copied, setCopied] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -113,11 +113,23 @@ export default function BeeProfile() {
 
   const createPaidAgentMutation = useMutation({
     mutationFn: async (data: { systemPrompt: string; pricingModel: string; pricePerUnit: string }) => {
+      // Check wallet connection first
+      if (!isConnected || !connectedAddress) {
+        throw new Error("Please connect your wallet first");
+      }
+      
       let token = getToken();
       if (!token) {
-        await authenticate();
+        // Need to authenticate - this will prompt wallet signature
+        try {
+          await authenticate();
+        } catch (authError) {
+          throw new Error("Please sign the message in your wallet to authenticate");
+        }
         token = getToken();
-        if (!token) throw new Error("Authentication required");
+        if (!token) {
+          throw new Error("Please sign the authentication message in your wallet and try again");
+        }
       }
       const res = await fetch("/api/ai-agents", {
         method: "POST",
