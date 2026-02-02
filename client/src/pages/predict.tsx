@@ -70,105 +70,311 @@ function CountdownTimer({ endTs }: { endTs: Date }) {
   );
 }
 
+// Map asset IDs to CoinGecko IDs
+const COINGECKO_IDS: Record<string, string> = {
+  "BNB": "binancecoin",
+  "BTC": "bitcoin",
+  "ETH": "ethereum",
+  "SOL": "solana",
+  "DOGE": "dogecoin",
+  "PEPE": "pepe",
+  "SHIB": "shiba-inu",
+};
+
+function useLivePrice(assetId: string, enabled: boolean = true) {
+  const [price, setPrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!enabled) return;
+    
+    const coinId = COINGECKO_IDS[assetId] || assetId.toLowerCase();
+    let intervalId: NodeJS.Timeout;
+
+    const fetchPrice = async () => {
+      try {
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true`
+        );
+        const data = await res.json();
+        if (data[coinId]) {
+          setPrice(data[coinId].usd);
+          setPriceChange(data[coinId].usd_24h_change || 0);
+        }
+        setLoading(false);
+      } catch (e) {
+        console.error("Price fetch error:", e);
+        setLoading(false);
+      }
+    };
+
+    fetchPrice();
+    intervalId = setInterval(fetchPrice, 10000); // Update every 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [assetId, enabled]);
+
+  return { price, priceChange, loading };
+}
+
+function LivePriceChart({ duel }: { duel: Duel }) {
+  const { price, priceChange, loading } = useLivePrice(duel.assetId, duel.status === "live");
+  const startPrice = duel.startPrice ? parseFloat(duel.startPrice) / 1e8 : null;
+  
+  if (loading || !price || !startPrice) {
+    return (
+      <div className="h-24 bg-muted/30 rounded flex items-center justify-center">
+        <span className="text-muted-foreground text-sm">Loading price...</span>
+      </div>
+    );
+  }
+
+  const priceChangeFromStart = ((price - startPrice) / startPrice) * 100;
+  const isUp = price > startPrice;
+  const creatorWinning = (duel.creatorDirection === "up" && isUp) || (duel.creatorDirection === "down" && !isUp);
+
+  return (
+    <div className="p-3 bg-muted/30 rounded-lg space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-bold">${price.toLocaleString(undefined, { maximumFractionDigits: price < 1 ? 6 : 2 })}</span>
+          <Badge className={isUp ? "bg-green-500" : "bg-red-500"}>
+            {isUp ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+            {priceChangeFromStart >= 0 ? "+" : ""}{priceChangeFromStart.toFixed(2)}%
+          </Badge>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">Started at: ${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
+        <div className={`font-bold ${creatorWinning ? "text-green-500" : "text-red-500"}`}>
+          {creatorWinning ? "Creator winning" : "Opponent winning"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void; isJoining?: boolean }) {
   const { address } = useAccount();
   const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
   const isJoiner = duel.joinerAddress && address?.toLowerCase() === duel.joinerAddress.toLowerCase();
   const canJoin = duel.status === "open" && !isCreator && address;
 
+  const creatorShort = `${duel.creatorAddress.slice(0, 6)}...${duel.creatorAddress.slice(-4)}`;
+  const joinerShort = duel.joinerAddress ? `${duel.joinerAddress.slice(0, 6)}...${duel.joinerAddress.slice(-4)}` : null;
+  
+  // Calculate total pot
+  const stakeValue = parseFloat(duel.stakeWei) / 1e18;
+  const totalPot = duel.joinerAddress ? stakeValue * 2 : stakeValue;
+  const winnerTakes = totalPot * 0.9;
+
   return (
-    <Card className="hover-elevate" data-testid={`duel-card-${duel.id}`}>
+    <Card className="hover-elevate overflow-visible" data-testid={`duel-card-${duel.id}`}>
       <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="font-mono">
+            <Badge variant="outline" className="font-mono text-lg px-3 py-1">
               {duel.assetId}
             </Badge>
             <Badge 
               variant={duel.status === "open" ? "default" : duel.status === "live" ? "secondary" : "outline"}
+              className="uppercase"
             >
-              {duel.status.toUpperCase()}
+              {duel.status === "open" ? "Waiting for Opponent" : duel.status === "live" ? "LIVE" : "Settled"}
             </Badge>
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground text-sm">
-            <Clock className="h-3 w-3" />
-            {formatDuration(duel.durationSec)}
+          <div className="text-right">
+            <div className="text-xl font-bold text-primary">{totalPot.toFixed(4)} BNB</div>
+            <div className="text-xs text-muted-foreground">Total Pot • Winner gets {winnerTakes.toFixed(4)} BNB</div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1 px-2 py-1 rounded ${
-              duel.creatorDirection === "up" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
-            }`}>
-              {duel.creatorDirection === "up" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-              <span className="text-sm font-medium">Creator</span>
+        {/* VS Battle Display */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          {/* Creator Side */}
+          <div className={`p-3 rounded-lg text-center ${
+            duel.creatorDirection === "up" 
+              ? "bg-green-500/10 border border-green-500/30" 
+              : "bg-red-500/10 border border-red-500/30"
+          }`}>
+            <div className="text-xs text-muted-foreground mb-1">
+              {isCreator ? "You" : "Creator"}
             </div>
-            {duel.joinerAddress && (
-              <div className={`flex items-center gap-1 px-2 py-1 rounded ${
-                duel.joinerDirection === "up" ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
-              }`}>
-                {duel.joinerDirection === "up" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                <span className="text-sm font-medium">Joiner</span>
-              </div>
+            <div className="font-mono text-xs mb-2">{creatorShort}</div>
+            <div className={`flex items-center justify-center gap-1 font-bold text-lg ${
+              duel.creatorDirection === "up" ? "text-green-500" : "text-red-500"
+            }`}>
+              {duel.creatorDirection === "up" ? (
+                <>
+                  <TrendingUp className="h-5 w-5" />
+                  UP
+                </>
+              ) : (
+                <>
+                  <TrendingDown className="h-5 w-5" />
+                  DOWN
+                </>
+              )}
+            </div>
+            <div className="text-xs mt-1 text-muted-foreground">
+              Betting {duel.assetId} goes {duel.creatorDirection}
+            </div>
+          </div>
+
+          {/* VS */}
+          <div className="flex items-center justify-center">
+            <div className="text-2xl font-black text-muted-foreground">VS</div>
+          </div>
+
+          {/* Opponent Side */}
+          <div className={`p-3 rounded-lg text-center ${
+            duel.joinerAddress
+              ? duel.joinerDirection === "up" 
+                ? "bg-green-500/10 border border-green-500/30" 
+                : "bg-red-500/10 border border-red-500/30"
+              : "bg-muted/50 border border-dashed border-muted-foreground/30"
+          }`}>
+            {duel.joinerAddress ? (
+              <>
+                <div className="text-xs text-muted-foreground mb-1">
+                  {isJoiner ? "You" : "Opponent"}
+                </div>
+                <div className="font-mono text-xs mb-2">{joinerShort}</div>
+                <div className={`flex items-center justify-center gap-1 font-bold text-lg ${
+                  duel.joinerDirection === "up" ? "text-green-500" : "text-red-500"
+                }`}>
+                  {duel.joinerDirection === "up" ? (
+                    <>
+                      <TrendingUp className="h-5 w-5" />
+                      UP
+                    </>
+                  ) : (
+                    <>
+                      <TrendingDown className="h-5 w-5" />
+                      DOWN
+                    </>
+                  )}
+                </div>
+                <div className="text-xs mt-1 text-muted-foreground">
+                  Betting {duel.assetId} goes {duel.joinerDirection}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-xs text-muted-foreground mb-1">Opponent</div>
+                <div className="font-mono text-xs mb-2 text-muted-foreground">Waiting...</div>
+                <div className={`flex items-center justify-center gap-1 font-bold text-lg ${
+                  duel.joinerDirection === "up" ? "text-green-500" : "text-red-500"
+                }`}>
+                  {duel.joinerDirection === "up" ? (
+                    <>
+                      <TrendingUp className="h-5 w-5" />
+                      UP
+                    </>
+                  ) : (
+                    <>
+                      <TrendingDown className="h-5 w-5" />
+                      DOWN
+                    </>
+                  )}
+                </div>
+                <div className="text-xs mt-1 text-muted-foreground">
+                  Must bet {duel.assetId} goes {duel.joinerDirection}
+                </div>
+              </>
             )}
           </div>
-          <div className="text-right">
-            <div className="text-lg font-bold text-primary">{duel.stakeDisplay}</div>
-            <div className="text-xs text-muted-foreground">per player</div>
-          </div>
         </div>
 
-        {duel.status === "live" && duel.endTs && (
-          <div className="flex items-center justify-between mb-3 p-2 bg-muted/50 rounded">
-            <span className="text-sm text-muted-foreground">Time remaining:</span>
-            <CountdownTimer endTs={new Date(duel.endTs)} />
+        {/* Timer & Duration */}
+        <div className="flex items-center justify-between mb-3 text-sm">
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            Duration: {formatDuration(duel.durationSec)}
+          </div>
+          {duel.status === "live" && duel.endTs && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Ends in:</span>
+              <CountdownTimer endTs={new Date(duel.endTs)} />
+            </div>
+          )}
+        </div>
+
+        {/* Live Price Chart for active duels */}
+        {duel.status === "live" && (
+          <div className="mb-3">
+            <LivePriceChart duel={duel} />
           </div>
         )}
 
+        {/* Settled Results */}
         {duel.status === "settled" && (
-          <div className="p-2 bg-muted/50 rounded mb-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Start:</span>
-              <span className="font-mono">{duel.startPrice ? formatPrice(duel.startPrice) : "-"}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">End:</span>
-              <span className="font-mono">{duel.endPrice ? formatPrice(duel.endPrice) : "-"}</span>
+          <div className="p-3 bg-muted/50 rounded-lg mb-3">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Start Price:</span>
+                <span className="font-mono ml-2">{duel.startPrice ? formatPrice(duel.startPrice) : "-"}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">End Price:</span>
+                <span className="font-mono ml-2">{duel.endPrice ? formatPrice(duel.endPrice) : "-"}</span>
+              </div>
             </div>
             {duel.winnerAddress && (
-              <div className="flex items-center gap-1 mt-2 text-primary">
-                <Trophy className="h-4 w-4" />
-                <span className="text-sm font-medium">
+              <div className="flex items-center gap-2 mt-3 p-2 bg-primary/10 rounded">
+                <Trophy className="h-5 w-5 text-primary" />
+                <span className="font-bold text-primary">
                   Winner: {duel.winnerAddress.slice(0, 6)}...{duel.winnerAddress.slice(-4)}
+                </span>
+                <span className="text-sm text-muted-foreground ml-auto">
+                  Won {winnerTakes.toFixed(4)} BNB
                 </span>
               </div>
             )}
             {!duel.winnerAddress && (
-              <div className="text-sm text-muted-foreground mt-2">Draw - Stakes refunded</div>
+              <div className="text-sm text-muted-foreground mt-3 text-center">
+                Draw - Stakes refunded to both players
+              </div>
             )}
           </div>
         )}
 
+        {/* Action Buttons */}
         <div className="flex items-center gap-2">
           {canJoin && onJoin && (
             <Button 
               onClick={onJoin} 
               disabled={isJoining}
               className="flex-1"
+              size="lg"
               data-testid={`join-duel-${duel.id}`}
             >
               <Zap className="h-4 w-4 mr-2" />
-              {isJoining ? "Confirm in Wallet..." : `Join (Bet ${duel.joinerDirection === "up" ? "UP" : "DOWN"})`}
+              {isJoining ? "Confirm in Wallet..." : (
+                <>
+                  Join & Bet {duel.joinerDirection?.toUpperCase()} ({duel.stakeDisplay})
+                </>
+              )}
             </Button>
           )}
           {isCreator && duel.status === "open" && (
-            <Badge variant="outline">Your Duel</Badge>
+            <Badge variant="outline" className="py-2 px-4">
+              <Clock className="h-3 w-3 mr-1" />
+              Waiting for opponent...
+            </Badge>
           )}
           {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress?.toLowerCase() === address?.toLowerCase() && (
-            <Badge className="bg-primary text-primary-foreground">
-              <Trophy className="h-3 w-3 mr-1" />
-              You Won!
+            <Badge className="bg-primary text-primary-foreground py-2 px-4">
+              <Trophy className="h-4 w-4 mr-1" />
+              You Won {winnerTakes.toFixed(4)} BNB!
+            </Badge>
+          )}
+          {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress && duel.winnerAddress?.toLowerCase() !== address?.toLowerCase() && (
+            <Badge variant="outline" className="py-2 px-4">
+              You Lost
             </Badge>
           )}
         </div>
