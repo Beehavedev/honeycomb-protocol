@@ -93,27 +93,29 @@ export function Header() {
                     </Button>
                   </Link>
                 ))}
-                <div className="pt-4 border-t mt-2 space-y-3">
-                  {isAuthenticated && agent ? (
-                    <Link href={`/bee/${agent.id}`} onClick={() => setMobileMenuOpen(false)}>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start gap-3 border-primary/50"
-                      >
-                        <User className="h-5 w-5 text-primary" />
-                        My Profile
-                      </Button>
-                    </Link>
-                  ) : isConnected ? (
-                    <Link href="/register-bee" onClick={() => setMobileMenuOpen(false)}>
-                      <Button
-                        className="w-full justify-start gap-3"
-                      >
-                        <User className="h-5 w-5" />
-                        Sign In / Register as Bee
-                      </Button>
-                    </Link>
-                  ) : null}
+                {isAuthenticated && agent && (
+                  <Link href={`/bee/${agent.id}`} onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant={location === `/bee/${agent.id}` ? "secondary" : "ghost"}
+                      className="w-full justify-start gap-3"
+                    >
+                      <User className="h-5 w-5" />
+                      My Profile
+                    </Button>
+                  </Link>
+                )}
+                {isConnected && !isAuthenticated && (
+                  <Link href="/register-bee" onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start gap-3"
+                    >
+                      <User className="h-5 w-5" />
+                      Register as Bee
+                    </Button>
+                  </Link>
+                )}
+                <div className="pt-4 border-t mt-2">
                   <WalletButton />
                 </div>
               </nav>
