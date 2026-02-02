@@ -816,8 +816,22 @@ const basePrices: Record<string, number> = {
 };
 
 async function fetchPrice(assetId: string): Promise<string> {
+  // Primary: Use Binance API (more reliable and no rate limits for basic queries)
+  const binanceSymbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
+  try {
+    const binanceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`);
+    const binanceData = await binanceRes.json();
+    if (binanceData?.price) {
+      const price = parseFloat(binanceData.price);
+      console.log(`[fetchPrice] ${assetId} from Binance: $${price}`);
+      return Math.floor(price * 1e8).toString();
+    }
+  } catch (error) {
+    console.error(`[fetchPrice] Binance API failed for ${assetId}:`, error);
+  }
+
+  // Fallback: Use CoinGecko
   const coinId = COINGECKO_IDS[assetId];
-  
   if (coinId) {
     try {
       const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
@@ -825,15 +839,17 @@ async function fetchPrice(assetId: string): Promise<string> {
       
       if (data[coinId]?.usd) {
         const price = data[coinId].usd;
+        console.log(`[fetchPrice] ${assetId} from CoinGecko: $${price}`);
         return Math.floor(price * 1e8).toString();
       }
     } catch (error) {
-      console.error(`Failed to fetch CoinGecko price for ${assetId}:`, error);
+      console.error(`[fetchPrice] CoinGecko API failed for ${assetId}:`, error);
     }
   }
   
-  // Fallback to base prices if CoinGecko API fails
+  // Last resort: Fallback to base prices
   const basePrice = basePrices[assetId] || 100;
+  console.log(`[fetchPrice] ${assetId} using fallback: $${basePrice}`);
   return Math.floor(basePrice * 1e8).toString();
 }
 
