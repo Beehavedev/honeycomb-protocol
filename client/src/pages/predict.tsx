@@ -543,8 +543,8 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
           )}
         </div>
 
-        {/* Live Price Chart for active duels */}
-        {duel.status === "live" && (
+        {/* Live Price Chart for active and open duels */}
+        {(duel.status === "live" || duel.status === "open") && (
           <div className="mb-3">
             <LivePriceChart duel={duel} />
           </div>
