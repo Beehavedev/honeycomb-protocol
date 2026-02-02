@@ -617,8 +617,8 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
               {t('predict.youLost')}
             </Badge>
           )}
-          {/* Reclaim stake button for cancelled duels */}
-          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && onReclaim && (
+          {/* Reclaim stake button for cancelled duels - hide for old duels with invalid onChainDuelId */}
+          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && onReclaim && duel.onChainDuelId && duel.onChainDuelId !== "1" && (
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="py-2 px-4">
                 {t('duel.stakeReclaimable')}
@@ -633,6 +633,12 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
                 {isReclaiming ? t('duel.reclaimingStake') : t('duel.reclaimStake')}
               </Button>
             </div>
+          )}
+          {/* Old cancelled duels with invalid ID - written off */}
+          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && (!duel.onChainDuelId || duel.onChainDuelId === "1") && (
+            <Badge variant="outline" className="py-2 px-4 text-muted-foreground">
+              {t('duel.cancelled')}
+            </Badge>
           )}
           {/* Already reclaimed */}
           {isCreator && duel.status === "cancelled" && duel.settlementTxHash && (
