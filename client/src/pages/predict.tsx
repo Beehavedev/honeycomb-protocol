@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useCreateDuel, useJoinDuel, usePredictDuelAddress, parseEther } from "@/contracts/hooks";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -21,7 +22,8 @@ import {
   AlertTriangle,
   Plus,
   Target,
-  Users
+  Users,
+  Wallet
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -68,7 +70,7 @@ function CountdownTimer({ endTs }: { endTs: Date }) {
   );
 }
 
-function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: (id: string) => void; isJoining?: boolean }) {
+function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void; isJoining?: boolean }) {
   const { address } = useAccount();
   const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
   const isJoiner = duel.joinerAddress && address?.toLowerCase() === duel.joinerAddress.toLowerCase();
@@ -151,13 +153,13 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: (id: strin
         <div className="flex items-center gap-2">
           {canJoin && onJoin && (
             <Button 
-              onClick={() => onJoin(duel.id)} 
+              onClick={onJoin} 
               disabled={isJoining}
               className="flex-1"
               data-testid={`join-duel-${duel.id}`}
             >
               <Zap className="h-4 w-4 mr-2" />
-              {isJoining ? "Joining..." : `Join (Bet ${duel.joinerDirection === "up" ? "UP" : "DOWN"})`}
+              {isJoining ? "Confirm in Wallet..." : `Join (Bet ${duel.joinerDirection === "up" ? "UP" : "DOWN"})`}
             </Button>
           )}
           {isCreator && duel.status === "open" && (
@@ -177,8 +179,10 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: (id: strin
 
 function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
+  const predictDuelAddress = usePredictDuelAddress();
 
   const [assetId, setAssetId] = useState("BNB");
   const [duration, setDuration] = useState("60");
@@ -190,6 +194,36 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     queryKey: ["/api/duels/assets"],
   });
 
+  // On-chain contract hook
+  const { createDuel, isPending: isCreatingOnChain, isSuccess: createSuccess, error: createError, hash: createHash } = useCreateDuel();
+
+  // Effect to handle on-chain success
+  useEffect(() => {
+    if (createSuccess && createHash) {
+      toast({ 
+        title: "Duel created on-chain!", 
+        description: `Transaction: ${createHash.slice(0, 10)}...` 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      onSuccess();
+    }
+  }, [createSuccess, createHash]);
+
+  // Effect to handle on-chain error
+  useEffect(() => {
+    if (createError) {
+      toast({ 
+        title: "Transaction failed", 
+        description: createError.message?.slice(0, 100) || "Failed to create duel", 
+        variant: "destructive" 
+      });
+    }
+  }, [createError]);
+
+  // Check if we're on a supported chain with the contract deployed
+  const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
+
+  // Database fallback mutation (for unsupported chains)
   const createMutation = useMutation({
     mutationFn: async () => {
       const stakeWei = (parseFloat(stake) * 1e18).toString();
@@ -213,6 +247,26 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       toast({ title: "Failed to create duel", description: error.message, variant: "destructive" });
     },
   });
+
+  const handleCreateDuel = () => {
+    if (isContractDeployed) {
+      // Use on-chain contract - requires wallet authorization
+      const stakeWei = parseEther(stake);
+      const durationSeconds = BigInt(parseInt(duration));
+      const directionValue = direction === "up" ? 0 : 1;
+      
+      createDuel(
+        BigInt(0), // agentId - 0 for now since we use wallet address
+        assetId,
+        directionValue as 0 | 1,
+        durationSeconds,
+        stakeWei
+      );
+    } else {
+      // Fallback to database API
+      createMutation.mutate();
+    }
+  };
 
   const handleSignIn = async () => {
     try {
@@ -352,13 +406,20 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
         </div>
 
+        {isContractDeployed && (
+          <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-md text-sm">
+            <Wallet className="h-4 w-4 text-primary" />
+            <span>On-chain mode: Your BNB will be sent to the smart contract</span>
+          </div>
+        )}
+
         <Button
-          onClick={() => createMutation.mutate()}
-          disabled={createMutation.isPending || !stake || parseFloat(stake) <= 0}
+          onClick={handleCreateDuel}
+          disabled={isCreatingOnChain || createMutation.isPending || !stake || parseFloat(stake) <= 0}
           className="w-full"
           data-testid="btn-create-duel"
         >
-          {createMutation.isPending ? "Creating..." : "Create Duel"}
+          {isCreatingOnChain ? "Confirm in Wallet..." : createMutation.isPending ? "Creating..." : "Create Duel"}
         </Button>
       </CardContent>
     </Card>
@@ -370,6 +431,7 @@ export default function Predict() {
   const [activeTab, setActiveTab] = useState("open");
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const predictDuelAddress = usePredictDuelAddress();
 
   const { data: duels, isLoading } = useQuery<Duel[]>({
     queryKey: ["/api/duels", activeTab],
@@ -380,6 +442,35 @@ export default function Predict() {
     refetchInterval: 5000,
   });
 
+  // On-chain join hook
+  const { joinDuel, isPending: isJoiningOnChain, isSuccess: joinSuccess, error: joinError, hash: joinHash } = useJoinDuel();
+
+  // Check if contract is deployed
+  const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
+
+  // Effect to handle on-chain join success
+  useEffect(() => {
+    if (joinSuccess && joinHash) {
+      toast({ 
+        title: "Joined duel on-chain!", 
+        description: `Transaction: ${joinHash.slice(0, 10)}...` 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+    }
+  }, [joinSuccess, joinHash]);
+
+  // Effect to handle on-chain join error
+  useEffect(() => {
+    if (joinError) {
+      toast({ 
+        title: "Transaction failed", 
+        description: joinError.message?.slice(0, 100) || "Failed to join duel", 
+        variant: "destructive" 
+      });
+    }
+  }, [joinError]);
+
+  // Database fallback mutation
   const joinMutation = useMutation({
     mutationFn: async (duelId: string) => {
       return apiRequest("POST", `/api/duels/${duelId}/join`);
@@ -392,6 +483,12 @@ export default function Predict() {
       toast({ title: "Failed to join", description: error.message, variant: "destructive" });
     },
   });
+
+  const handleJoinDuel = (duel: Duel) => {
+    // For now, use database API for joins since we need to track on-chain IDs
+    // On-chain join will be available once duels are created on-chain first
+    joinMutation.mutate(duel.id);
+  };
 
   return (
     <div className="container max-w-4xl py-6">
@@ -464,8 +561,8 @@ export default function Predict() {
                 <DuelCard
                   key={duel.id}
                   duel={duel}
-                  onJoin={activeTab === "open" ? (id) => joinMutation.mutate(id) : undefined}
-                  isJoining={joinMutation.isPending}
+                  onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
+                  isJoining={joinMutation.isPending || isJoiningOnChain}
                 />
               ))}
             </div>
