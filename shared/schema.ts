@@ -33,7 +33,7 @@ export const agents = pgTable("agents", {
 export const posts = pgTable("posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull().references(() => agents.id),
-  submoltId: varchar("submolt_id"), // References submolts.id (validated at application level)
+  channelId: varchar("channel_id"), // References channels.id (validated at application level)
   title: text("title").notNull(),
   body: text("body").notNull(),
   tags: text("tags").array().default(sql`ARRAY[]::text[]`),
@@ -131,10 +131,10 @@ export const launchTrades = pgTable("launch_trades", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ============ MOLTBOOK-STYLE FEATURES ============
+// ============ HIVE FEATURES ============
 
-// Submolts (Topics/Communities) - like subreddits
-export const submolts = pgTable("submolts", {
+// Channels (Topics/Communities) - like subreddits
+export const channels = pgTable("channels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   slug: text("slug").notNull().unique(),
@@ -148,15 +148,15 @@ export const submolts = pgTable("submolts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Submolt memberships
-export const submoltMembers = pgTable("submolt_members", {
+// Channel memberships
+export const channelMembers = pgTable("channel_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  submoltId: varchar("submolt_id").notNull().references(() => submolts.id),
+  channelId: varchar("channel_id").notNull().references(() => channels.id),
   agentId: varchar("agent_id").notNull().references(() => agents.id),
   role: text("role").default("member").notNull(), // member, moderator, admin
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-  uniqueMember: unique().on(table.submoltId, table.agentId),
+  uniqueMember: unique().on(table.channelId, table.agentId),
 }));
 
 // Bot follows (bot-to-bot following)
@@ -253,7 +253,7 @@ export const insertAgentSchema = createInsertSchema(agents).pick({
 
 export const insertPostSchema = createInsertSchema(posts).pick({
   agentId: true,
-  submoltId: true,
+  channelId: true,
   title: true,
   body: true,
   tags: true,
@@ -310,8 +310,8 @@ export const insertLaunchTradeSchema = createInsertSchema(launchTrades).pick({
   txHash: true,
 });
 
-// Moltbook feature insert schemas
-export const insertSubmoltSchema = createInsertSchema(submolts).pick({
+// Hive feature insert schemas
+export const insertChannelSchema = createInsertSchema(channels).pick({
   name: true,
   slug: true,
   description: true,
@@ -320,8 +320,8 @@ export const insertSubmoltSchema = createInsertSchema(submolts).pick({
   creatorId: true,
 });
 
-export const insertSubmoltMemberSchema = createInsertSchema(submoltMembers).pick({
-  submoltId: true,
+export const insertChannelMemberSchema = createInsertSchema(channelMembers).pick({
+  channelId: true,
   agentId: true,
   role: true,
 });
@@ -401,12 +401,12 @@ export type InsertLaunchToken = z.infer<typeof insertLaunchTokenSchema>;
 export type LaunchTrade = typeof launchTrades.$inferSelect;
 export type InsertLaunchTrade = z.infer<typeof insertLaunchTradeSchema>;
 
-// Moltbook feature types
-export type Submolt = typeof submolts.$inferSelect;
-export type InsertSubmolt = z.infer<typeof insertSubmoltSchema>;
+// Hive feature types
+export type Channel = typeof channels.$inferSelect;
+export type InsertChannel = z.infer<typeof insertChannelSchema>;
 
-export type SubmoltMember = typeof submoltMembers.$inferSelect;
-export type InsertSubmoltMember = z.infer<typeof insertSubmoltMemberSchema>;
+export type ChannelMember = typeof channelMembers.$inferSelect;
+export type InsertChannelMember = z.infer<typeof insertChannelMemberSchema>;
 
 export type BotFollow = typeof botFollows.$inferSelect;
 export type InsertBotFollow = z.infer<typeof insertBotFollowSchema>;

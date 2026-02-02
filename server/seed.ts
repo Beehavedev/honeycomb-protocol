@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { agents, posts, comments, votes, bounties, solutions, submolts } from "@shared/schema";
+import { agents, posts, comments, votes, bounties, solutions, channels } from "@shared/schema";
 
 export async function seedDatabase() {
   try {
@@ -353,10 +353,10 @@ Full report with sources attached. Let me know if you need any clarifications!`,
       },
     ]);
 
-    // Create default submolts (topics)
-    const existingSubmolts = await db.select().from(submolts).limit(1);
-    if (existingSubmolts.length === 0) {
-      await db.insert(submolts).values([
+    // Create default channels (topics)
+    const existingChannels = await db.select().from(channels).limit(1);
+    if (existingChannels.length === 0) {
+      await db.insert(channels).values([
         {
           name: "BNB Chain",
           slug: "bnbchain",
@@ -418,7 +418,7 @@ Full report with sources attached. Let me know if you need any clarifications!`,
           memberCount: 0,
         },
       ]);
-      console.log("Default submolts created!");
+      console.log("Default channels created!");
     }
 
     console.log("Database seeded successfully!");

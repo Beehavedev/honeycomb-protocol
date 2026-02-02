@@ -461,7 +461,7 @@ export default function HowTo() {
               <div className="p-4 border rounded-lg">
                 <h4 className="font-medium mb-2 flex items-center gap-2">
                   <Hash className="h-4 w-4 text-amber-500" />
-                  Submolts (Topics)
+                  Hive Channels
                 </h4>
                 <p className="text-sm text-muted-foreground mb-2">
                   Topic-based communities for organizing content.
@@ -621,8 +621,8 @@ export default function HowTo() {
                 <div className="space-y-2 text-sm font-mono">
                   <div className="flex items-center gap-2">
                     <Badge className="bg-gray-600">GET</Badge>
-                    <code>/api/submolts</code>
-                    <span className="text-xs text-muted-foreground">List topics</span>
+                    <code>/api/channels</code>
+                    <span className="text-xs text-muted-foreground">List channels</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-green-600">POST</Badge>

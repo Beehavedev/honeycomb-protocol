@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { 
-  submolts, submoltMembers, botFollows, botMemory, 
+  channels, channelMembers, botFollows, botMemory, 
   botWebhooks, botSkills, agentVerifications, agents, posts,
   comments
 } from "@shared/schema";
@@ -16,35 +16,35 @@ const openai = new OpenAI({
 });
 
 export function registerHiveRoutes(app: Express): void {
-  // ============ SUBMOLTS (TOPICS) API ============
+  // ============ CHANNELS (TOPICS) API ============
   
-  // Get all submolts
-  app.get("/api/submolts", async (req: Request, res: Response) => {
+  // Get all channels
+  app.get("/api/channels", async (req: Request, res: Response) => {
     try {
-      const allSubmolts = await db.select().from(submolts).orderBy(desc(submolts.memberCount));
-      res.json(allSubmolts);
+      const allChannels = await db.select().from(channels).orderBy(desc(channels.memberCount));
+      res.json(allChannels);
     } catch (error) {
-      console.error("Error fetching submolts:", error);
-      res.status(500).json({ error: "Failed to fetch submolts" });
+      console.error("Error fetching channels:", error);
+      res.status(500).json({ error: "Failed to fetch channels" });
     }
   });
 
-  // Get submolt by slug
-  app.get("/api/submolts/:slug", async (req: Request, res: Response) => {
+  // Get channel by slug
+  app.get("/api/channels/:slug", async (req: Request, res: Response) => {
     try {
-      const [submolt] = await db.select().from(submolts).where(eq(submolts.slug, req.params.slug));
-      if (!submolt) {
-        return res.status(404).json({ error: "Submolt not found" });
+      const [channel] = await db.select().from(channels).where(eq(channels.slug, req.params.slug));
+      if (!channel) {
+        return res.status(404).json({ error: "Channel not found" });
       }
-      res.json(submolt);
+      res.json(channel);
     } catch (error) {
-      console.error("Error fetching submolt:", error);
-      res.status(500).json({ error: "Failed to fetch submolt" });
+      console.error("Error fetching channel:", error);
+      res.status(500).json({ error: "Failed to fetch channel" });
     }
   });
 
-  // Create submolt (requires auth)
-  app.post("/api/submolts", authMiddleware, async (req: Request, res: Response) => {
+  // Create channel (requires auth)
+  app.post("/api/channels", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { name, description, iconUrl, bannerUrl } = req.body;
       const creatorId = (req as any).agentId;
@@ -55,7 +55,7 @@ export function registerHiveRoutes(app: Express): void {
       
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
       
-      const [submolt] = await db.insert(submolts).values({
+      const [channel] = await db.insert(channels).values({
         name,
         slug,
         description,
@@ -65,111 +65,111 @@ export function registerHiveRoutes(app: Express): void {
       }).returning();
       
       // Auto-join creator as admin
-      await db.insert(submoltMembers).values({
-        submoltId: submolt.id,
+      await db.insert(channelMembers).values({
+        channelId: channel.id,
         agentId: creatorId,
         role: "admin",
       });
-      await db.update(submolts).set({ memberCount: 1 }).where(eq(submolts.id, submolt.id));
+      await db.update(channels).set({ memberCount: 1 }).where(eq(channels.id, channel.id));
       
-      res.status(201).json(submolt);
+      res.status(201).json(channel);
     } catch (error: any) {
       if (error.code === "23505") {
-        return res.status(400).json({ error: "Submolt with this name already exists" });
+        return res.status(400).json({ error: "Channel with this name already exists" });
       }
-      console.error("Error creating submolt:", error);
-      res.status(500).json({ error: "Failed to create submolt" });
+      console.error("Error creating channel:", error);
+      res.status(500).json({ error: "Failed to create channel" });
     }
   });
 
-  // Join submolt (requires auth)
-  app.post("/api/submolts/:slug/join", authMiddleware, async (req: Request, res: Response) => {
+  // Join channel (requires auth)
+  app.post("/api/channels/:slug/join", authMiddleware, async (req: Request, res: Response) => {
     try {
       const agentId = (req as any).agentId;
       if (!agentId) {
         return res.status(401).json({ error: "Authentication required" });
       }
       
-      const [submolt] = await db.select().from(submolts).where(eq(submolts.slug, req.params.slug));
-      if (!submolt) {
-        return res.status(404).json({ error: "Submolt not found" });
+      const [channel] = await db.select().from(channels).where(eq(channels.slug, req.params.slug));
+      if (!channel) {
+        return res.status(404).json({ error: "Channel not found" });
       }
       
-      await db.insert(submoltMembers).values({
-        submoltId: submolt.id,
+      await db.insert(channelMembers).values({
+        channelId: channel.id,
         agentId,
         role: "member",
       });
       
-      await db.update(submolts)
-        .set({ memberCount: sql`${submolts.memberCount} + 1` })
-        .where(eq(submolts.id, submolt.id));
+      await db.update(channels)
+        .set({ memberCount: sql`${channels.memberCount} + 1` })
+        .where(eq(channels.id, channel.id));
       
       res.json({ success: true });
     } catch (error: any) {
       if (error.code === "23505") {
         return res.status(400).json({ error: "Already a member" });
       }
-      console.error("Error joining submolt:", error);
-      res.status(500).json({ error: "Failed to join submolt" });
+      console.error("Error joining channel:", error);
+      res.status(500).json({ error: "Failed to join channel" });
     }
   });
 
-  // Leave submolt (requires auth)
-  app.post("/api/submolts/:slug/leave", authMiddleware, async (req: Request, res: Response) => {
+  // Leave channel (requires auth)
+  app.post("/api/channels/:slug/leave", authMiddleware, async (req: Request, res: Response) => {
     try {
       const agentId = (req as any).agentId;
       if (!agentId) {
         return res.status(401).json({ error: "Authentication required" });
       }
       
-      const [submolt] = await db.select().from(submolts).where(eq(submolts.slug, req.params.slug));
-      if (!submolt) {
-        return res.status(404).json({ error: "Submolt not found" });
+      const [channel] = await db.select().from(channels).where(eq(channels.slug, req.params.slug));
+      if (!channel) {
+        return res.status(404).json({ error: "Channel not found" });
       }
       
-      await db.delete(submoltMembers)
+      await db.delete(channelMembers)
         .where(and(
-          eq(submoltMembers.submoltId, submolt.id),
-          eq(submoltMembers.agentId, agentId)
+          eq(channelMembers.channelId, channel.id),
+          eq(channelMembers.agentId, agentId)
         ));
       
-      await db.update(submolts)
-        .set({ memberCount: sql`GREATEST(${submolts.memberCount} - 1, 0)` })
-        .where(eq(submolts.id, submolt.id));
+      await db.update(channels)
+        .set({ memberCount: sql`GREATEST(${channels.memberCount} - 1, 0)` })
+        .where(eq(channels.id, channel.id));
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error leaving submolt:", error);
-      res.status(500).json({ error: "Failed to leave submolt" });
+      console.error("Error leaving channel:", error);
+      res.status(500).json({ error: "Failed to leave channel" });
     }
   });
 
-  // Get posts in submolt
-  app.get("/api/submolts/:slug/posts", async (req: Request, res: Response) => {
+  // Get posts in channel
+  app.get("/api/channels/:slug/posts", async (req: Request, res: Response) => {
     try {
-      const [submolt] = await db.select().from(submolts).where(eq(submolts.slug, req.params.slug));
-      if (!submolt) {
-        return res.status(404).json({ error: "Submolt not found" });
+      const [channel] = await db.select().from(channels).where(eq(channels.slug, req.params.slug));
+      if (!channel) {
+        return res.status(404).json({ error: "Channel not found" });
       }
       
-      const submoltPosts = await db.select({
+      const channelPosts = await db.select({
         post: posts,
         agent: agents,
       })
         .from(posts)
         .leftJoin(agents, eq(posts.agentId, agents.id))
-        .where(eq(posts.submoltId, submolt.id))
+        .where(eq(posts.channelId, channel.id))
         .orderBy(desc(posts.createdAt));
       
-      res.json(submoltPosts.map(p => ({ ...p.post, agent: p.agent })));
+      res.json(channelPosts.map(p => ({ ...p.post, agent: p.agent })));
     } catch (error) {
-      console.error("Error fetching submolt posts:", error);
+      console.error("Error fetching channel posts:", error);
       res.status(500).json({ error: "Failed to fetch posts" });
     }
   });
 
-  // Bot auth middleware for Moltbook routes
+  // Bot auth middleware for Hive routes
   const botAuth = createBotAuthMiddleware(db, agents);
 
   // ============ BOT FOLLOWS API ============

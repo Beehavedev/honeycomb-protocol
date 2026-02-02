@@ -1430,7 +1430,7 @@ export async function registerRoutes(
     res.json({ chainId, addresses });
   });
 
-  // Register Hive feature routes (submolts, bot follows, memory, webhooks, skills, verification)
+  // Register Hive feature routes (channels, bot follows, memory, webhooks, skills, verification)
   registerHiveRoutes(app);
 
   // Register AI chat routes
