@@ -347,6 +347,8 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
   
   // Check if duel has expired (can be settled)
   const [canSettle, setCanSettle] = useState(false);
+  const [autoSettleTriggered, setAutoSettleTriggered] = useState(false);
+  
   useEffect(() => {
     if (duel.status !== "live" || !duel.endTs) {
       setCanSettle(false);
@@ -361,6 +363,18 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
     const interval = setInterval(checkExpired, 1000);
     return () => clearInterval(interval);
   }, [duel.status, duel.endTs]);
+
+  // Auto-settle when timer expires - triggers once per duel
+  useEffect(() => {
+    if (canSettle && !autoSettleTriggered && !isSettling && onSettle && duel.status === "live") {
+      setAutoSettleTriggered(true);
+      // Small delay to ensure UI updates first
+      const timeout = setTimeout(() => {
+        onSettle();
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [canSettle, autoSettleTriggered, isSettling, onSettle, duel.status]);
 
   const creatorShort = `${duel.creatorAddress.slice(0, 6)}...${duel.creatorAddress.slice(-4)}`;
   const joinerShort = duel.joinerAddress ? `${duel.joinerAddress.slice(0, 6)}...${duel.joinerAddress.slice(-4)}` : null;

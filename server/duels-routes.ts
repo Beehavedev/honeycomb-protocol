@@ -19,6 +19,10 @@ const SETTLE_DUEL_ABI = [{
   outputs: [],
   stateMutability: "nonpayable",
 }] as const;
+
+// Mutex lock to prevent concurrent settlement of the same duel
+const settlingLocks = new Set<string>();
+
 const FEE_PERCENTAGE = 10;
 const DUEL_EXPIRY_MINUTES = 5; // Auto-cancel open duels after 5 minutes
 
@@ -625,18 +629,36 @@ export function registerDuelsRoutes(app: Express) {
   });
 
   // Oracle settlement endpoint - settles duel on-chain using backend oracle role
+  // This endpoint is idempotent and protected against concurrent calls
   app.post("/api/duels/:id/oracle-settle", async (req, res) => {
+    const duelId = req.params.id as string;
+    
     try {
-      const duelId = req.params.id as string;
+      // Check if this duel is already being settled (mutex lock)
+      if (settlingLocks.has(duelId)) {
+        return res.status(409).json({ message: "Settlement already in progress" });
+      }
       
       const duel = await storage.getDuel(duelId);
       if (!duel) {
         return res.status(404).json({ message: "Duel not found" });
       }
 
+      // If already settled, return success with existing data (idempotent)
+      if (duel.status === "settled") {
+        return res.json({
+          success: true,
+          message: "Already settled",
+          winner: duel.winnerAddress,
+          endPrice: duel.endPrice,
+          txHash: duel.settlementTxHash,
+          duel: serializeDuel(duel),
+        });
+      }
+
       // Verify duel is live
       if (duel.status !== "live") {
-        return res.status(400).json({ message: "Duel is not live" });
+        return res.status(400).json({ message: "Duel is not live (status: " + duel.status + ")" });
       }
 
       // Verify duel has on-chain ID
@@ -651,12 +673,18 @@ export function registerDuelsRoutes(app: Express) {
       const now = Date.now();
       const endTime = new Date(duel.endTs).getTime();
       if (now < endTime) {
-        return res.status(400).json({ message: "Duel has not expired yet" });
+        const remainingSec = Math.ceil((endTime - now) / 1000);
+        return res.status(400).json({ message: `Duel has not expired yet (${remainingSec}s remaining)` });
       }
+
+      // Acquire lock before proceeding
+      settlingLocks.add(duelId);
+      console.log(`[Oracle Settlement] Lock acquired for duel ${duelId}`);
 
       // Get deployer private key
       const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
       if (!privateKey) {
+        settlingLocks.delete(duelId);
         console.error("DEPLOYER_PRIVATE_KEY not configured");
         return res.status(500).json({ message: "Oracle not configured" });
       }
@@ -729,6 +757,10 @@ export function registerDuelsRoutes(app: Express) {
         settlementTxHash: hash,
       });
 
+      // Release lock after successful settlement
+      settlingLocks.delete(duelId);
+      console.log(`[Oracle Settlement] Lock released for duel ${duelId}`);
+
       res.json({
         success: true,
         txHash: hash,
@@ -738,7 +770,10 @@ export function registerDuelsRoutes(app: Express) {
         duel: serializeDuel(updatedDuel),
       });
     } catch (error: any) {
-      console.error("Error in oracle settlement:", error);
+      // Always release lock on error
+      settlingLocks.delete(duelId);
+      console.error(`[Oracle Settlement] Error for duel ${duelId}, lock released:`, error);
+      
       const msg = error.message || "Unknown error";
       
       // Parse common contract errors
@@ -747,6 +782,19 @@ export function registerDuelsRoutes(app: Express) {
       }
       if (msg.includes("DuelNotEnded") || msg.includes("TooEarly")) {
         return res.status(400).json({ message: "Duel has not ended yet on-chain" });
+      }
+      if (msg.includes("execution reverted")) {
+        // Already settled on-chain - try to sync state
+        try {
+          const duel = await storage.getDuel(duelId);
+          if (duel && duel.status === "live") {
+            // Mark as settled in database even if we don't know the winner
+            await storage.updateDuel(duelId, { status: "settled" });
+          }
+        } catch (syncError) {
+          console.error("Failed to sync after on-chain revert:", syncError);
+        }
+        return res.status(400).json({ message: "Settlement may have already occurred on-chain" });
       }
       
       res.status(500).json({ message: msg.slice(0, 200) });
