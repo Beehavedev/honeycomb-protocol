@@ -10,6 +10,7 @@ import {
   HoneycombBondingCurveMarketABI,
   HoneycombTokenABI,
   HoneycombMigrationABI,
+  HoneycombPredictDuelABI,
 } from './abis';
 import { getContractAddresses, getDexConfig } from './addresses';
 
@@ -768,6 +769,118 @@ export function parseContractError(error: Error | null): string {
   
   // Return truncated message
   return message.length > 100 ? message.substring(0, 100) + "..." : message;
+}
+
+// ============= Predict Duel Hooks =============
+
+export function usePredictDuelAddress() {
+  const chainId = useChainId();
+  return getContractAddresses(chainId)?.predictDuel;
+}
+
+export function useGetDuel(duelId?: bigint) {
+  const address = usePredictDuelAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombPredictDuelABI,
+    functionName: 'getDuel',
+    args: duelId !== undefined ? [duelId] : undefined,
+    query: { enabled: duelId !== undefined && !!address },
+  });
+}
+
+export function useTotalDuels() {
+  const address = usePredictDuelAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombPredictDuelABI,
+    functionName: 'totalDuels',
+    query: { enabled: !!address },
+  });
+}
+
+export function useDuelFeeConfig() {
+  const address = usePredictDuelAddress();
+  const { data: feePercentage } = useReadContract({
+    address,
+    abi: HoneycombPredictDuelABI,
+    functionName: 'feePercentage',
+    query: { enabled: !!address },
+  });
+  const { data: feeTreasury } = useReadContract({
+    address,
+    abi: HoneycombPredictDuelABI,
+    functionName: 'feeTreasury',
+    query: { enabled: !!address },
+  });
+  return { feePercentage, feeTreasury };
+}
+
+export function useCreateDuel() {
+  const address = usePredictDuelAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const createDuel = (
+    agentId: bigint,
+    assetId: string,
+    direction: 0 | 1,
+    durationSeconds: bigint,
+    stakeWei: bigint
+  ) => {
+    if (!address) throw new Error("Contract not deployed on this network");
+    writeContract({
+      address,
+      abi: HoneycombPredictDuelABI,
+      functionName: 'createDuel',
+      args: [agentId, assetId, direction, durationSeconds],
+      value: stakeWei,
+    });
+  };
+
+  return { createDuel, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useJoinDuel() {
+  const address = usePredictDuelAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const joinDuel = (
+    duelId: bigint,
+    agentId: bigint,
+    startPrice: bigint,
+    stakeWei: bigint
+  ) => {
+    if (!address) throw new Error("Contract not deployed on this network");
+    writeContract({
+      address,
+      abi: HoneycombPredictDuelABI,
+      functionName: 'joinDuel',
+      args: [duelId, agentId, startPrice],
+      value: stakeWei,
+    });
+  };
+
+  return { joinDuel, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useCancelDuel() {
+  const address = usePredictDuelAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const cancelDuel = (duelId: bigint) => {
+    if (!address) throw new Error("Contract not deployed on this network");
+    writeContract({
+      address,
+      abi: HoneycombPredictDuelABI,
+      functionName: 'cancelDuel',
+      args: [duelId],
+    });
+  };
+
+  return { cancelDuel, hash, isPending, isConfirming, isSuccess, error };
 }
 
 export { parseEther, formatEther };

@@ -6,6 +6,7 @@ const CONTRACTS = [
   "HoneycombBountyEscrow", 
   "HoneycombPostBond",
   "HoneycombReputation",
+  "HoneycombPredictDuel",
 ];
 
 async function main() {

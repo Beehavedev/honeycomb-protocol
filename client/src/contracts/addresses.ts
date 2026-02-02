@@ -11,6 +11,7 @@ export interface ContractAddresses {
   bondingCurveMarket: `0x${string}`;
   migration: `0x${string}`;
   router: `0x${string}`;
+  predictDuel: `0x${string}`;
 }
 
 export interface DexConfig {
@@ -34,6 +35,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
     router: ZERO_ADDRESS,
+    predictDuel: ZERO_ADDRESS,
   },
   // BSC Testnet - Deployed February 1, 2026 (v2 with router & no cooldown)
   97: {
@@ -46,6 +48,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bondingCurveMarket: "0x8a425aBc8f023f64d875EC6CCcfd27cd7F571Bde",
     migration: "0x96e983999c0Ab80437560C281Eb35f6dFD8301ff",
     router: "0x0464386A91fCdd536eaDDF2fE8f621438355a5D6",
+    predictDuel: ZERO_ADDRESS, // TODO: Deploy and update
   },
   // BSC Mainnet - Deployed February 1, 2026
   56: {
@@ -58,6 +61,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bondingCurveMarket: "0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167",
     migration: "0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01",
     router: "0x246e121A4df577046BaEdf87d5F68968bc24c52E",
+    predictDuel: ZERO_ADDRESS, // TODO: Deploy and update
   },
   // opBNB Testnet
   5611: {
@@ -70,6 +74,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
     router: ZERO_ADDRESS,
+    predictDuel: ZERO_ADDRESS,
   },
   // opBNB Mainnet
   204: {
@@ -82,6 +87,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bondingCurveMarket: ZERO_ADDRESS,
     migration: ZERO_ADDRESS,
     router: ZERO_ADDRESS,
+    predictDuel: ZERO_ADDRESS,
   },
 };
 

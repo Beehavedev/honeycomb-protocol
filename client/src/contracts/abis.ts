@@ -5532,6 +5532,9 @@ export const HoneycombMigrationABI = [
   }
 ] as const;
 
+import HoneycombPredictDuelABIJson from './HoneycombPredictDuel.json';
+export const HoneycombPredictDuelABI = HoneycombPredictDuelABIJson as typeof HoneycombPredictDuelABIJson;
+
 export const ContractABIs = {
   HoneycombAgentRegistry: HoneycombAgentRegistryABI,
   HoneycombBountyEscrow: HoneycombBountyEscrowABI,
@@ -5542,4 +5545,5 @@ export const ContractABIs = {
   HoneycombFeeVault: HoneycombFeeVaultABI,
   HoneycombBondingCurveMarket: HoneycombBondingCurveMarketABI,
   HoneycombMigration: HoneycombMigrationABI,
+  HoneycombPredictDuel: HoneycombPredictDuelABI,
 } as const;
