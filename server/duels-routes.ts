@@ -6,7 +6,23 @@ import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
 const FEE_PERCENTAGE = 10;
 
-// Binance symbol mapping - must be defined before routes use it
+// CoinGecko ID mapping for price data (Binance is geo-blocked from server)
+const COINGECKO_IDS: Record<string, string> = {
+  "BNB": "binancecoin",
+  "BTC": "bitcoin",
+  "ETH": "ethereum",
+  "SOL": "solana",
+  "DOGE": "dogecoin",
+  "PEPE": "pepe",
+  "SHIB": "shiba-inu",
+  "XRP": "ripple",
+  "ADA": "cardano",
+  "AVAX": "avalanche-2",
+  "MATIC": "matic-network",
+  "LINK": "chainlink",
+};
+
+// Binance symbol mapping (for reference, but API is geo-blocked)
 const BINANCE_SYMBOLS: Record<string, string> = {
   "BNB": "BNBUSDT",
   "BTC": "BTCUSDT",
@@ -137,7 +153,7 @@ export function registerDuelsRoutes(app: Express) {
         return res.status(400).json({ message: "Duel has not ended yet" });
       }
 
-      const endPrice = await fetchBinancePrice(duel.assetId);
+      const endPrice = await fetchPrice(duel.assetId);
       const startPrice = BigInt(duel.startPrice || "0");
       const endPriceBigInt = BigInt(endPrice);
 
@@ -171,7 +187,7 @@ export function registerDuelsRoutes(app: Express) {
 
   app.get("/api/duels/price/:assetId", async (req, res) => {
     try {
-      const price = await fetchBinancePrice(req.params.assetId);
+      const price = await fetchPrice(req.params.assetId);
       res.json({ 
         assetId: req.params.assetId, 
         price, 
@@ -184,72 +200,90 @@ export function registerDuelsRoutes(app: Express) {
     }
   });
 
-  // Binance klines proxy to avoid CORS issues
+  // Price history using CoinGecko (Binance is geo-blocked from server)
   app.get("/api/duels/binance/klines/:assetId", async (req, res) => {
     try {
       const assetId = req.params.assetId;
+      const coinId = COINGECKO_IDS[assetId];
       const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
-      const interval = (req.query.interval as string) || "1m";
-      const limit = parseInt(req.query.limit as string) || 30;
       
+      if (!coinId) {
+        return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
+      }
+      
+      // CoinGecko market chart - get last 1 day with 5 min intervals
       const response = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1`
       );
       
       if (!response.ok) {
-        return res.status(400).json({ message: `Invalid symbol: ${symbol}` });
+        return res.status(400).json({ message: `Failed to fetch history for ${assetId}` });
       }
       
       const data = await response.json();
       
-      if (Array.isArray(data)) {
-        // Return simplified kline data: [timestamp, close price]
-        const klines = data.map((k: any[]) => ({
-          timestamp: k[0],
-          open: parseFloat(k[1]),
-          high: parseFloat(k[2]),
-          low: parseFloat(k[3]),
-          close: parseFloat(k[4]),
-          volume: parseFloat(k[5])
-        }));
-        res.json({ symbol, klines });
+      if (data.prices && Array.isArray(data.prices)) {
+        // CoinGecko returns [timestamp, price] pairs
+        // Sample every 5th point to reduce data and simulate OHLC
+        const sampled = data.prices.filter((_: any, i: number) => i % 5 === 0);
+        const klines = sampled.map((p: [number, number], i: number) => {
+          const price = p[1];
+          const prevPrice = i > 0 ? sampled[i - 1][1] : price;
+          // Simulate OHLC with small variation
+          const variation = price * 0.001;
+          return {
+            timestamp: p[0],
+            open: prevPrice,
+            high: Math.max(price, prevPrice) + variation,
+            low: Math.min(price, prevPrice) - variation,
+            close: price,
+            volume: 0
+          };
+        });
+        res.json({ symbol, klines: klines.slice(-60) }); // Last 60 points
       } else {
-        res.status(400).json({ message: data.msg || "Failed to fetch klines" });
+        res.status(400).json({ message: "Failed to fetch price history" });
       }
     } catch (error) {
-      console.error("Error fetching Binance klines:", error);
+      console.error("Error fetching price history:", error);
       res.status(500).json({ message: "Failed to fetch price history" });
     }
   });
 
-  // Binance ticker proxy
+  // Price ticker using CoinGecko (Binance is geo-blocked from server)
   app.get("/api/duels/binance/ticker/:assetId", async (req, res) => {
     try {
       const assetId = req.params.assetId;
+      const coinId = COINGECKO_IDS[assetId];
       const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
+      if (!coinId) {
+        return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
+      }
+      
       const response = await fetch(
-        `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`
+        `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
       );
       
       if (!response.ok) {
-        return res.status(400).json({ message: `Invalid symbol: ${symbol}` });
+        return res.status(400).json({ message: `Failed to fetch price for ${assetId}` });
       }
       
       const data = await response.json();
       
-      if (data.price) {
+      if (data[coinId]?.usd) {
+        const price = data[coinId].usd;
         res.json({ 
           symbol, 
-          price: parseFloat(data.price),
-          priceScaled: Math.floor(parseFloat(data.price) * 1e8).toString(),
+          price,
+          priceScaled: Math.floor(price * 1e8).toString(),
           timestamp: Date.now() 
         });
       } else {
-        res.status(400).json({ message: data.msg || "Failed to fetch price" });
+        res.status(400).json({ message: "Failed to fetch price from CoinGecko" });
       }
     } catch (error) {
-      console.error("Error fetching Binance ticker:", error);
+      console.error("Error fetching price:", error);
       res.status(500).json({ message: "Failed to fetch price" });
     }
   });
@@ -329,7 +363,7 @@ export function registerDuelsRoutes(app: Express) {
       // Fetch current Binance price for accurate start price
       let finalStartPrice = startPrice;
       if (!startPrice) {
-        finalStartPrice = await fetchBinancePrice(duel.assetId);
+        finalStartPrice = await fetchPrice(duel.assetId);
       }
 
       const updatedDuel = await storage.updateDuel(duelId, {
@@ -365,22 +399,24 @@ const basePrices: Record<string, number> = {
   MATIC: 0.45,
 };
 
-async function fetchBinancePrice(assetId: string): Promise<string> {
-  const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
+async function fetchPrice(assetId: string): Promise<string> {
+  const coinId = COINGECKO_IDS[assetId];
   
-  try {
-    const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-    const data = await response.json();
-    
-    if (data.price) {
-      const price = parseFloat(data.price);
-      return Math.floor(price * 1e8).toString();
+  if (coinId) {
+    try {
+      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
+      const data = await response.json();
+      
+      if (data[coinId]?.usd) {
+        const price = data[coinId].usd;
+        return Math.floor(price * 1e8).toString();
+      }
+    } catch (error) {
+      console.error(`Failed to fetch CoinGecko price for ${assetId}:`, error);
     }
-  } catch (error) {
-    console.error(`Failed to fetch Binance price for ${symbol}:`, error);
   }
   
-  // Fallback to base prices if Binance API fails
+  // Fallback to base prices if CoinGecko API fails
   const basePrice = basePrices[assetId] || 100;
   return Math.floor(basePrice * 1e8).toString();
 }
