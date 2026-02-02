@@ -1086,6 +1086,16 @@ export default function Predict() {
       return;
     }
     
+    // Prevent joining own duel
+    if (address && duel.creatorAddress?.toLowerCase() === address.toLowerCase()) {
+      toast({ 
+        title: t('predict.cannotJoinOwn') || "Cannot join your own bet", 
+        description: t('predict.cannotJoinOwnDesc') || "You created this bet. Wait for another user to join.",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     // Use on-chain if duel has on-chain ID
     if (duel.onChainDuelId) {
       try {

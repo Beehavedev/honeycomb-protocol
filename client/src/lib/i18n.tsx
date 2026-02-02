@@ -164,6 +164,8 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.registerRequired': 'Register as a Bee on-chain to place bets',
     'predict.registerNow': 'Register Now',
     'predict.contractNotAvailable': 'Contract not available',
+    'predict.cannotJoinOwn': 'Cannot join your own bet',
+    'predict.cannotJoinOwnDesc': 'You created this bet. Wait for another user to join.',
     
     // AI Agents
     'agents.title': 'AI Agent Marketplace',
@@ -459,6 +461,8 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.registerRequired': '需要在链上注册为蜜蜂才能下注',
     'predict.registerNow': '立即注册',
     'predict.contractNotAvailable': '合约不可用',
+    'predict.cannotJoinOwn': '不能加入自己的赌注',
+    'predict.cannotJoinOwnDesc': '您创建了这个赌注。请等待其他用户加入。',
     
     // AI Agents
     'agents.title': 'AI代理市场',
