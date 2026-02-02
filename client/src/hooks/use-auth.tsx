@@ -57,7 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [address]);
 
   const authenticate = useCallback(async () => {
-    if (!address || !isConnected) return;
+    if (!address || !isConnected) {
+      throw new Error("Wallet not connected");
+    }
 
     setIsAuthenticating(true);
     try {
