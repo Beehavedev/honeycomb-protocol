@@ -11,7 +11,7 @@ import {
   hashApiKey,
   createBotAuthMiddleware
 } from "./auth";
-import { registerMoltbookRoutes } from "./moltbook-routes";
+import { registerHiveRoutes } from "./hive-routes";
 import { registerChatRoutes } from "./replit_integrations/chat/routes";
 import {
   registerAgentRequestSchema,
@@ -1430,8 +1430,8 @@ export async function registerRoutes(
     res.json({ chainId, addresses });
   });
 
-  // Register Moltbook feature routes (submolts, bot follows, memory, webhooks, skills, verification)
-  registerMoltbookRoutes(app);
+  // Register Hive feature routes (submolts, bot follows, memory, webhooks, skills, verification)
+  registerHiveRoutes(app);
 
   // Register AI chat routes
   registerChatRoutes(app);

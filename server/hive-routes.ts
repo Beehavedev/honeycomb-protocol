@@ -15,7 +15,7 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-export function registerMoltbookRoutes(app: Express): void {
+export function registerHiveRoutes(app: Express): void {
   // ============ SUBMOLTS (TOPICS) API ============
   
   // Get all submolts
