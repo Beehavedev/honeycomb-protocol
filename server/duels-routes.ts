@@ -496,6 +496,43 @@ export function registerDuelsRoutes(app: Express) {
       res.status(500).json({ message: "Failed to sync settlement" });
     }
   });
+
+  // Sync on-chain cancellation with database
+  app.post("/api/duels/:id/sync-cancel", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const duelId = req.params.id as string;
+      const { txHash } = req.body;
+
+      if (!txHash) {
+        return res.status(400).json({ message: "Missing transaction hash" });
+      }
+
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+
+      // Verify caller is the creator
+      if (duel.creatorAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Only the creator can cancel this duel" });
+      }
+
+      if (duel.status !== "open") {
+        return res.status(400).json({ message: "Only open duels can be cancelled" });
+      }
+
+      const updatedDuel = await storage.updateDuel(duelId, {
+        status: "cancelled",
+        settlementTxHash: txHash, // Store cancel tx hash in settlement field
+      });
+
+      res.json(serializeDuel(updatedDuel));
+    } catch (error) {
+      console.error("Error syncing on-chain cancellation:", error);
+      res.status(500).json({ message: "Failed to sync cancellation" });
+    }
+  });
 }
 
 const basePrices: Record<string, number> = {

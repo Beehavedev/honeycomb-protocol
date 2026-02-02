@@ -17,6 +17,7 @@ import {
   useCreateDuel, 
   useJoinDuel, 
   useSettleDuel,
+  useCancelDuel,
   usePredictDuelAddress,
   useGetAgentByOwner,
   useRegisterAgent,
@@ -336,7 +337,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   );
 }
 
-function DuelCard({ duel, onJoin, onSettle, isJoining, isSettling }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; isJoining?: boolean; isSettling?: boolean }) {
+function DuelCard({ duel, onJoin, onSettle, onCancel, isJoining, isSettling, isCancelling }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
   const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
@@ -499,6 +500,12 @@ function DuelCard({ duel, onJoin, onSettle, isJoining, isSettling }: { duel: Due
               <CountdownTimer endTs={new Date(duel.endTs)} />
             </div>
           )}
+          {duel.status === "open" && (
+            <div className="flex items-center gap-1 text-amber-500">
+              <Clock className="h-4 w-4 animate-pulse" />
+              <span className="text-xs">{t('predict.timerStartsOnJoin')}</span>
+            </div>
+          )}
         </div>
 
         {/* Live Price Chart for active duels */}
@@ -559,10 +566,23 @@ function DuelCard({ duel, onJoin, onSettle, isJoining, isSettling }: { duel: Due
             </Button>
           )}
           {isCreator && duel.status === "open" && (
-            <Badge variant="outline" className="py-2 px-4">
-              <Clock className="h-3 w-3 mr-1" />
-              {t('predict.waiting')}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="py-2 px-4">
+                <Clock className="h-3 w-3 mr-1" />
+                {t('predict.waitingForOpponent')}
+              </Badge>
+              {onCancel && (
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={onCancel}
+                  disabled={isCancelling}
+                  data-testid={`cancel-duel-${duel.id}`}
+                >
+                  {isCancelling ? t('predict.cancelling') : t('predict.cancelBet')}
+                </Button>
+              )}
+            </div>
           )}
           {/* Settle button for expired live duels */}
           {duel.status === "live" && canSettle && onSettle && (
@@ -1004,8 +1024,20 @@ export default function Predict() {
     hash: settleHash 
   } = useSettleDuel();
 
+  // On-chain cancel hook
+  const { 
+    cancelDuel: cancelDuelOnChain, 
+    isPending: isCancellingOnChain, 
+    isSuccess: cancelSuccess, 
+    error: cancelError, 
+    hash: cancelHash 
+  } = useCancelDuel();
+
   // Track which duel we're settling
   const [settlingDuelId, setSettlingDuelId] = useState<string | null>(null);
+
+  // Track which duel we're cancelling
+  const [cancellingDuelId, setCancellingDuelId] = useState<string | null>(null);
 
   // Track which duel we're joining for sync
   const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
@@ -1122,6 +1154,55 @@ export default function Predict() {
       setSettlingDuelId(null);
     }
   }, [settleError]);
+
+  // Mutation to sync cancel with database
+  const syncCancelMutation = useMutation({
+    mutationFn: async (params: { duelId: string; txHash: string }) => {
+      return apiRequest("POST", `/api/duels/${params.duelId}/sync-cancel`, {
+        txHash: params.txHash,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t('predict.cancelled'), description: t('predict.cancelledDesc') });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      setCancellingDuelId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to sync cancellation", description: error.message, variant: "destructive" });
+      setCancellingDuelId(null);
+    },
+  });
+
+  // Effect to handle cancel success
+  useEffect(() => {
+    if (cancelSuccess && cancelHash && cancellingDuelId) {
+      syncCancelMutation.mutate({
+        duelId: cancellingDuelId,
+        txHash: cancelHash,
+      });
+    }
+  }, [cancelSuccess, cancelHash, cancellingDuelId]);
+
+  // Effect to handle cancel error
+  useEffect(() => {
+    if (cancelError) {
+      const msg = cancelError.message || "";
+      let errorMsg = "Failed to cancel bet";
+      
+      if (msg.includes("user rejected")) {
+        errorMsg = "Transaction rejected by user";
+      } else if (msg.includes("NotOpen") || msg.includes("DuelNotOpen")) {
+        errorMsg = "Bet can only be cancelled when open (before opponent joins)";
+      } else if (msg.includes("NotCreator")) {
+        errorMsg = "Only the creator can cancel this bet";
+      } else {
+        errorMsg = msg.slice(0, 100) || "Unknown error";
+      }
+      
+      toast({ title: "Cancel failed", description: errorMsg, variant: "destructive" });
+      setCancellingDuelId(null);
+    }
+  }, [cancelError]);
 
   // Database fallback mutation (for duels without on-chain ID)
   const joinMutation = useMutation({
@@ -1259,6 +1340,36 @@ export default function Predict() {
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setSettlingDuelId(null);
+    }
+  };
+
+  // Handle cancelling a duel (only for open duels by creator)
+  const handleCancelDuel = async (duel: Duel) => {
+    if (!canUseOnChainJoin) {
+      toast({ 
+        title: t('common.connectWallet'), 
+        description: t('predict.switchToBsc'),
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (!duel.onChainDuelId) {
+      toast({ title: "Error", description: "This bet cannot be cancelled on-chain", variant: "destructive" });
+      return;
+    }
+    
+    if (duel.status !== "open") {
+      toast({ title: "Error", description: "Only open bets can be cancelled", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      setCancellingDuelId(duel.id);
+      cancelDuelOnChain(BigInt(duel.onChainDuelId.toString()));
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setCancellingDuelId(null);
     }
   };
 
@@ -1405,8 +1516,10 @@ export default function Predict() {
                   duel={duel}
                   onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
                   onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
+                  onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}
                   isJoining={joinMutation.isPending || isJoiningOnChain}
                   isSettling={isSettlingOnChain || syncSettleMutation.isPending}
+                  isCancelling={isCancellingOnChain || syncCancelMutation.isPending}
                 />
               ))}
             </div>
