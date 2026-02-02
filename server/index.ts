@@ -3,8 +3,12 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import path from "path";
 
 const app = express();
+
+// Serve static files from public folder (for PDFs etc)
+app.use("/downloads", express.static(path.join(process.cwd(), "public")));
 const httpServer = createServer(app);
 
 declare module "http" {
