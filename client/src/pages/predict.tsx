@@ -17,7 +17,6 @@ import {
   useCreateDuel, 
   useJoinDuel, 
   usePredictDuelAddress, 
-  useGetAgentByOwner,
   parseEther 
 } from "@/contracts/hooks";
 import { 
@@ -579,9 +578,6 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     queryKey: ["/api/duels/assets"],
   });
 
-  // Check if user has on-chain agent
-  const { data: onChainAgentId } = useGetAgentByOwner(address as `0x${string}`);
-  
   // On-chain contract hook
   const { 
     createDuel: createDuelOnChain, 
@@ -592,9 +588,10 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   } = useCreateDuel();
 
   // Check if contract is deployed on current chain and we're on BSC mainnet
+  // Simplified: only require wallet + BSC + contract, no agent registration needed
   const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
   const isBscMainnet = chainId === 56;
-  const canUseOnChain = isContractDeployed && isBscMainnet && onChainAgentId && onChainAgentId > BigInt(0);
+  const canUseOnChain = isContractDeployed && isBscMainnet && address;
 
   // Mutation to sync on-chain creation with database
   const syncCreateMutation = useMutation({
@@ -635,7 +632,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
         durationSec: duration,
         stakeWei: (parseFloat(stake) * 1e18).toString(),
         stakeDisplay: `${stake} BNB`,
-        creatorOnChainAgentId: onChainAgentId!.toString(),
+        creatorOnChainAgentId: "0",
         direction,
       });
       
@@ -689,7 +686,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
         const stakeWei = parseEther(stake);
         const directionNum = direction === "up" ? 0 : 1;
         createDuelOnChain(
-          onChainAgentId!,
+          BigInt(0), // No agent registration required
           assetId,
           directionNum as 0 | 1,
           BigInt(parseInt(duration)),
@@ -698,9 +695,6 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       } catch (err: any) {
         toast({ title: "Error", description: err.message, variant: "destructive" });
       }
-    } else {
-      // Fallback to database API
-      createMutation.mutate();
     }
   };
   
@@ -855,8 +849,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
               <Wallet className="h-4 w-4 mr-2" />
               {isPending ? t('predict.confirmInWallet') : `${t('predict.createDuel')} (${stake} BNB)`}
             </Button>
-            <p className="text-xs text-center text-green-600">
-              <Wallet className="h-3 w-3 inline mr-1" />
+            <p className="text-xs text-center text-muted-foreground">
               {t('predict.onChainTransaction')}
             </p>
           </>
@@ -870,29 +863,14 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
               {t('predict.switchToBsc')}
             </p>
           </div>
-        ) : !onChainAgentId || onChainAgentId === BigInt(0) ? (
-          <div className="space-y-2">
-            <Button disabled className="w-full opacity-50">
-              <Wallet className="h-4 w-4 mr-2" />
-              {t('predict.createDuel')} ({stake} BNB)
-            </Button>
-            <p className="text-sm text-center text-amber-500 font-medium">
-              {t('predict.registerRequired')}
-            </p>
-            <Link href="/register-bee">
-              <Button variant="outline" className="w-full">
-                {t('predict.registerNow')}
-              </Button>
-            </Link>
-          </div>
         ) : (
           <div className="space-y-2">
             <Button disabled className="w-full opacity-50">
               <Wallet className="h-4 w-4 mr-2" />
               {t('predict.createDuel')} ({stake} BNB)
             </Button>
-            <p className="text-sm text-center text-red-500 font-medium">
-              {t('predict.contractNotAvailable')}
+            <p className="text-sm text-center text-muted-foreground">
+              {t('common.connectWallet')}
             </p>
           </div>
         )}
@@ -909,9 +887,6 @@ export default function Predict() {
   const { toast } = useToast();
   const { t } = useI18n();
   const predictDuelAddress = usePredictDuelAddress();
-
-  // Check if user has on-chain agent
-  const { data: onChainAgentId } = useGetAgentByOwner(address as `0x${string}`);
   
   // Check if contract is deployed
   const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
@@ -960,11 +935,10 @@ export default function Predict() {
   useEffect(() => {
     if (joinSuccess && joinHash && joiningDuelId) {
       // Sync with database after successful on-chain join
-      const onChainAgentId = (window as any).__joinerOnChainAgentId;
       syncJoinMutation.mutate({
         duelId: joiningDuelId,
         txHash: joinHash,
-        joinerOnChainAgentId: onChainAgentId?.toString() || "0",
+        joinerOnChainAgentId: "0",
       });
     }
   }, [joinSuccess, joinHash, joiningDuelId]);
@@ -998,17 +972,16 @@ export default function Predict() {
     },
   });
 
-  // Check if user has on-chain agent for joining
-  const { data: userOnChainAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  // Simplified: only require wallet + BSC + contract for joining
   const joinPredictDuelAddress = usePredictDuelAddress();
   const isJoinContractDeployed = joinPredictDuelAddress && joinPredictDuelAddress !== "0x0000000000000000000000000000000000000000";
-  const canUseOnChainJoin = isJoinContractDeployed && chainId === 56 && userOnChainAgentId && userOnChainAgentId > BigInt(0);
+  const canUseOnChainJoin = isJoinContractDeployed && chainId === 56 && address;
 
   const handleJoinDuel = async (duel: Duel) => {
-    // Require on-chain registration
+    // Require wallet + BSC mainnet
     if (!canUseOnChainJoin) {
       toast({ 
-        title: t('predict.registerRequired'), 
+        title: t('common.connectWallet'), 
         description: t('predict.switchToBsc'),
         variant: "destructive" 
       });
@@ -1019,8 +992,6 @@ export default function Predict() {
     if (duel.onChainDuelId) {
       try {
         setJoiningDuelId(duel.id);
-        // Store the joiner's on-chain agent ID for the sync callback
-        (window as any).__joinerOnChainAgentId = userOnChainAgentId;
         
         // Fetch current price from Binance for start price
         const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
@@ -1033,7 +1004,7 @@ export default function Predict() {
         
         joinDuelOnChain(
           BigInt(duel.onChainDuelId.toString()),
-          userOnChainAgentId!,
+          BigInt(0), // No agent registration required
           startPriceWei,
           stakeWei
         );
