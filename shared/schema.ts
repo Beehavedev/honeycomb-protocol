@@ -524,6 +524,73 @@ export type InsertAiAgentMessage = z.infer<typeof insertAiAgentMessageSchema>;
 export type AiAgentPayment = typeof aiAgentPayments.$inferSelect;
 export type InsertAiAgentPayment = z.infer<typeof insertAiAgentPaymentSchema>;
 
+// ============ PREDICTION DUELS ============
+
+// Prediction duels - 1v1 price prediction game
+export const duels = pgTable("duels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assetId: text("asset_id").notNull(), // e.g., "BNB", "BTC", "ETH"
+  assetName: text("asset_name").notNull(), // e.g., "Binance Coin"
+  durationSec: integer("duration_sec").notNull(), // 30, 60, or 300
+  stakeWei: text("stake_wei").notNull(), // Equal stake amount in wei
+  stakeDisplay: text("stake_display").notNull(), // Human readable "0.01 BNB"
+  creatorAddress: text("creator_address").notNull(),
+  creatorAgentId: varchar("creator_agent_id").references(() => agents.id),
+  joinerAddress: text("joiner_address"),
+  joinerAgentId: varchar("joiner_agent_id").references(() => agents.id),
+  creatorDirection: text("creator_direction").notNull(), // "up" or "down"
+  joinerDirection: text("joiner_direction"),
+  startPrice: text("start_price"), // Price at duel start (8 decimals)
+  endPrice: text("end_price"), // Price at duel end
+  startTs: timestamp("start_ts"), // When duel became LIVE
+  endTs: timestamp("end_ts"), // When duel ends
+  status: text("status").notNull().default("open"), // open, live, settled, cancelled, expired
+  winnerAddress: text("winner_address"),
+  payoutWei: text("payout_wei"), // 90% of pot to winner
+  feeWei: text("fee_wei"), // 10% platform fee
+  settlementTxHash: text("settlement_tx_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Duel assets - supported assets for prediction
+export const duelAssets = pgTable("duel_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assetId: text("asset_id").notNull().unique(), // "BNB", "BTC", etc.
+  name: text("name").notNull(),
+  symbol: text("symbol").notNull(),
+  iconUrl: text("icon_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert schemas for duels
+export const insertDuelSchema = createInsertSchema(duels).pick({
+  assetId: true,
+  assetName: true,
+  durationSec: true,
+  stakeWei: true,
+  stakeDisplay: true,
+  creatorAddress: true,
+  creatorAgentId: true,
+  creatorDirection: true,
+});
+
+export const insertDuelAssetSchema = createInsertSchema(duelAssets).pick({
+  assetId: true,
+  name: true,
+  symbol: true,
+  iconUrl: true,
+  sortOrder: true,
+});
+
+// Duel types
+export type Duel = typeof duels.$inferSelect;
+export type InsertDuel = z.infer<typeof insertDuelSchema>;
+
+export type DuelAsset = typeof duelAssets.$inferSelect;
+export type InsertDuelAsset = z.infer<typeof insertDuelAssetSchema>;
+
 // API request/response types
 export const registerAgentRequestSchema = z.object({
   name: z.string().min(1).max(50),
@@ -645,6 +712,29 @@ export type CreateAiAgentRequest = z.infer<typeof createAiAgentRequestSchema>;
 export type AiAgentQuoteRequest = z.infer<typeof aiAgentQuoteRequestSchema>;
 export type AiAgentExecuteRequest = z.infer<typeof aiAgentExecuteRequestSchema>;
 export type VerifyPaymentRequest = z.infer<typeof verifyPaymentRequestSchema>;
+
+// Duel request schemas
+export const createDuelRequestSchema = z.object({
+  assetId: z.string().min(1).max(20),
+  assetName: z.string().min(1).max(50),
+  durationSec: z.number().refine(v => [30, 60, 300].includes(v), "Duration must be 30, 60, or 300 seconds"),
+  stakeWei: z.string().min(1),
+  stakeDisplay: z.string().min(1),
+  direction: z.enum(["up", "down"]),
+});
+
+export const joinDuelRequestSchema = z.object({
+  duelId: z.string(),
+});
+
+export const settleDuelRequestSchema = z.object({
+  duelId: z.string(),
+  endPrice: z.string().min(1),
+});
+
+export type CreateDuelRequest = z.infer<typeof createDuelRequestSchema>;
+export type JoinDuelRequest = z.infer<typeof joinDuelRequestSchema>;
+export type SettleDuelRequest = z.infer<typeof settleDuelRequestSchema>;
 
 export type RegisterAgentRequest = z.infer<typeof registerAgentRequestSchema>;
 export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;

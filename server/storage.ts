@@ -8,8 +8,10 @@ import {
   type Solution, type InsertSolution,
   type LaunchToken, type InsertLaunchToken,
   type LaunchTrade, type InsertLaunchTrade,
+  type Duel, type InsertDuel,
+  type DuelAsset, type InsertDuelAsset,
   agents, posts, comments, votes, authNonces, bounties, solutions,
-  launchTokens, launchTrades
+  launchTokens, launchTrades, duels, duelAssets
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte } from "drizzle-orm";
@@ -77,6 +79,20 @@ export interface IStorage {
   // Launch Trades
   createLaunchTrade(data: InsertLaunchTrade): Promise<LaunchTrade>;
   getLaunchTradesByToken(tokenAddress: string, limit: number): Promise<LaunchTrade[]>;
+
+  // Duels
+  createDuel(data: InsertDuel): Promise<Duel>;
+  getDuel(id: string): Promise<Duel | undefined>;
+  getDuels(status: "open" | "live" | "settled" | "cancelled" | "all", limit: number): Promise<Duel[]>;
+  getDuelsByCreator(creatorAddress: string): Promise<Duel[]>;
+  updateDuel(id: string, updates: Partial<Duel>): Promise<Duel>;
+  joinDuel(id: string, joinerAddress: string, joinerAgentId: string | null, joinerDirection: string, startPrice: string): Promise<Duel>;
+  settleDuel(id: string, endPrice: string, winnerAddress: string | null, payoutWei: string, feeWei: string): Promise<Duel>;
+  
+  // Duel Assets
+  createDuelAsset(data: InsertDuelAsset): Promise<DuelAsset>;
+  getDuelAssets(): Promise<DuelAsset[]>;
+  seedDuelAssets(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -448,6 +464,118 @@ export class DatabaseStorage implements IStorage {
       .where(eq(launchTrades.tokenAddress, tokenAddress.toLowerCase()))
       .orderBy(desc(launchTrades.createdAt))
       .limit(limit);
+  }
+
+  // Duels
+  async createDuel(data: InsertDuel): Promise<Duel> {
+    const [duel] = await db.insert(duels).values({
+      ...data,
+      creatorAddress: data.creatorAddress.toLowerCase(),
+    }).returning();
+    return duel;
+  }
+
+  async getDuel(id: string): Promise<Duel | undefined> {
+    const [duel] = await db.select().from(duels)
+      .where(eq(duels.id, id))
+      .limit(1);
+    return duel;
+  }
+
+  async getDuels(status: "open" | "live" | "settled" | "cancelled" | "all", limit: number): Promise<Duel[]> {
+    if (status === "all") {
+      return db.select().from(duels)
+        .orderBy(desc(duels.createdAt))
+        .limit(limit);
+    }
+    return db.select().from(duels)
+      .where(eq(duels.status, status))
+      .orderBy(desc(duels.createdAt))
+      .limit(limit);
+  }
+
+  async getDuelsByCreator(creatorAddress: string): Promise<Duel[]> {
+    return db.select().from(duels)
+      .where(eq(duels.creatorAddress, creatorAddress.toLowerCase()))
+      .orderBy(desc(duels.createdAt));
+  }
+
+  async updateDuel(id: string, updates: Partial<Duel>): Promise<Duel> {
+    const [duel] = await db.update(duels)
+      .set(updates)
+      .where(eq(duels.id, id))
+      .returning();
+    return duel;
+  }
+
+  async joinDuel(id: string, joinerAddress: string, joinerAgentId: string | null, joinerDirection: string, startPrice: string): Promise<Duel> {
+    const now = new Date();
+    const duel = await this.getDuel(id);
+    if (!duel) throw new Error("Duel not found");
+    
+    const endTs = new Date(now.getTime() + duel.durationSec * 1000);
+    
+    const [updatedDuel] = await db.update(duels)
+      .set({
+        joinerAddress: joinerAddress.toLowerCase(),
+        joinerAgentId,
+        joinerDirection,
+        startPrice,
+        startTs: now,
+        endTs,
+        status: "live",
+      })
+      .where(eq(duels.id, id))
+      .returning();
+    return updatedDuel;
+  }
+
+  async settleDuel(id: string, endPrice: string, winnerAddress: string | null, payoutWei: string, feeWei: string): Promise<Duel> {
+    const [duel] = await db.update(duels)
+      .set({
+        endPrice,
+        winnerAddress: winnerAddress?.toLowerCase() || null,
+        payoutWei,
+        feeWei,
+        status: "settled",
+      })
+      .where(eq(duels.id, id))
+      .returning();
+    return duel;
+  }
+
+  // Duel Assets
+  async createDuelAsset(data: InsertDuelAsset): Promise<DuelAsset> {
+    const [asset] = await db.insert(duelAssets).values(data).returning();
+    return asset;
+  }
+
+  async getDuelAssets(): Promise<DuelAsset[]> {
+    return db.select().from(duelAssets)
+      .where(eq(duelAssets.isActive, true))
+      .orderBy(duelAssets.sortOrder);
+  }
+
+  async seedDuelAssets(): Promise<void> {
+    const existing = await db.select().from(duelAssets).limit(1);
+    if (existing.length > 0) return;
+
+    const defaultAssets = [
+      { assetId: "BNB", name: "BNB", symbol: "BNB", sortOrder: 1 },
+      { assetId: "BTC", name: "Bitcoin", symbol: "BTC", sortOrder: 2 },
+      { assetId: "ETH", name: "Ethereum", symbol: "ETH", sortOrder: 3 },
+      { assetId: "SOL", name: "Solana", symbol: "SOL", sortOrder: 4 },
+      { assetId: "DOGE", name: "Dogecoin", symbol: "DOGE", sortOrder: 5 },
+      { assetId: "XRP", name: "XRP", symbol: "XRP", sortOrder: 6 },
+      { assetId: "ADA", name: "Cardano", symbol: "ADA", sortOrder: 7 },
+      { assetId: "AVAX", name: "Avalanche", symbol: "AVAX", sortOrder: 8 },
+      { assetId: "LINK", name: "Chainlink", symbol: "LINK", sortOrder: 9 },
+      { assetId: "MATIC", name: "Polygon", symbol: "MATIC", sortOrder: 10 },
+    ];
+
+    for (const asset of defaultAssets) {
+      await db.insert(duelAssets).values(asset);
+    }
   }
 }
 

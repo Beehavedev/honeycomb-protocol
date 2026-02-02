@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
 import { NetworkSwitcher } from "./network-switcher";
-import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Bot, Zap } from "lucide-react";
+import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Bot, Zap, Target } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -60,6 +60,16 @@ export function Header() {
             >
               <Zap className="h-4 w-4" />
               AI Agents
+            </Button>
+          </Link>
+          <Link href="/predict">
+            <Button
+              variant={location === "/predict" ? "secondary" : "ghost"}
+              className="gap-2"
+              data-testid="link-predict"
+            >
+              <Target className="h-4 w-4" />
+              Predict
             </Button>
           </Link>
           <Link href="/how-to">
