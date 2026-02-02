@@ -5,6 +5,7 @@ import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 
 const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
 const FEE_PERCENTAGE = 10;
+const DUEL_EXPIRY_MINUTES = 5; // Auto-cancel open duels after 5 minutes
 
 // Price cache to avoid CoinGecko rate limits (free tier: 10-30 req/min)
 const priceCache: Record<string, { price: number; timestamp: number }> = {};
@@ -53,7 +54,24 @@ function serializeDuel(duel: any) {
   };
 }
 
+// Background job to auto-cancel expired open duels
+function startDuelExpiryChecker() {
+  setInterval(async () => {
+    try {
+      const cancelledCount = await storage.autoCancelExpiredDuels(DUEL_EXPIRY_MINUTES);
+      if (cancelledCount > 0) {
+        console.log(`Auto-cancelled ${cancelledCount} expired duel(s) after ${DUEL_EXPIRY_MINUTES} minutes`);
+      }
+    } catch (error) {
+      console.error("Error in duel expiry checker:", error);
+    }
+  }, 60000); // Check every minute
+}
+
 export function registerDuelsRoutes(app: Express) {
+  // Start the background job for auto-cancelling expired duels
+  startDuelExpiryChecker();
+  
   app.get("/api/duels/assets", async (_req, res) => {
     try {
       await storage.seedDuelAssets();
@@ -541,6 +559,53 @@ export function registerDuelsRoutes(app: Express) {
     } catch (error) {
       console.error("Error syncing on-chain cancellation:", error);
       res.status(500).json({ message: "Failed to sync cancellation" });
+    }
+  });
+
+  // Sync stake reclaim for auto-cancelled duels
+  app.post("/api/duels/:id/sync-reclaim", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const duelId = req.params.id as string;
+      const { txHash } = req.body;
+
+      if (!txHash) {
+        return res.status(400).json({ message: "Missing transaction hash" });
+      }
+
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+
+      // Verify duel has on-chain ID
+      if (!duel.onChainDuelId) {
+        return res.status(400).json({ message: "Duel has no on-chain ID" });
+      }
+
+      // Verify caller is the creator
+      if (duel.creatorAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Only the creator can reclaim stake" });
+      }
+
+      // Only cancelled duels can have stake reclaimed
+      if (duel.status !== "cancelled") {
+        return res.status(400).json({ message: "Only cancelled duels can have stake reclaimed" });
+      }
+
+      // Don't allow double reclaim
+      if (duel.settlementTxHash) {
+        return res.status(400).json({ message: "Stake has already been reclaimed" });
+      }
+
+      const updatedDuel = await storage.updateDuel(duelId, {
+        settlementTxHash: txHash, // Store reclaim tx hash
+      });
+
+      res.json(serializeDuel(updatedDuel));
+    } catch (error) {
+      console.error("Error syncing stake reclaim:", error);
+      res.status(500).json({ message: "Failed to sync stake reclaim" });
     }
   });
 }

@@ -33,7 +33,8 @@ import {
   Target,
   Users,
   Wallet,
-  Loader2
+  Loader2,
+  XCircle
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -337,7 +338,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   );
 }
 
-function DuelCard({ duel, onJoin, onSettle, onCancel, isJoining, isSettling, isCancelling }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean }) {
+function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSettling, isCancelling, isReclaiming }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; onReclaim?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean; isReclaiming?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
   const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
@@ -379,10 +380,10 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, isJoining, isSettling, isC
               {duel.assetId}
             </Badge>
             <Badge 
-              variant={duel.status === "open" ? "default" : duel.status === "live" ? "secondary" : "outline"}
+              variant={duel.status === "open" ? "default" : duel.status === "live" ? "secondary" : duel.status === "cancelled" ? "destructive" : "outline"}
               className="uppercase"
             >
-              {duel.status === "open" ? t('duel.waitingOpponent') : duel.status === "live" ? t('duel.liveNow') : t('duel.settled')}
+              {duel.status === "open" ? t('duel.waitingOpponent') : duel.status === "live" ? t('duel.liveNow') : duel.status === "cancelled" ? t('duel.cancelled') : t('duel.settled')}
             </Badge>
           </div>
           <div className="text-right">
@@ -614,6 +615,29 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, isJoining, isSettling, isC
           {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress && duel.winnerAddress?.toLowerCase() !== address?.toLowerCase() && (
             <Badge variant="outline" className="py-2 px-4">
               {t('predict.youLost')}
+            </Badge>
+          )}
+          {/* Reclaim stake button for cancelled duels */}
+          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && onReclaim && (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="py-2 px-4">
+                {t('duel.stakeReclaimable')}
+              </Badge>
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={onReclaim}
+                disabled={isReclaiming}
+                data-testid={`reclaim-stake-${duel.id}`}
+              >
+                {isReclaiming ? t('duel.reclaimingStake') : t('duel.reclaimStake')}
+              </Button>
+            </div>
+          )}
+          {/* Already reclaimed */}
+          {isCreator && duel.status === "cancelled" && duel.settlementTxHash && (
+            <Badge variant="outline" className="py-2 px-4 text-muted-foreground">
+              {t('duel.stakeReclaimed')}
             </Badge>
           )}
         </div>
@@ -1173,15 +1197,45 @@ export default function Predict() {
     },
   });
 
-  // Effect to handle cancel success
-  useEffect(() => {
-    if (cancelSuccess && cancelHash && cancellingDuelId) {
-      syncCancelMutation.mutate({
-        duelId: cancellingDuelId,
-        txHash: cancelHash,
+  // Mutation to sync stake reclaim with database
+  const syncReclaimMutation = useMutation({
+    mutationFn: async (params: { duelId: string; txHash: string }) => {
+      return apiRequest("POST", `/api/duels/${params.duelId}/sync-reclaim`, {
+        txHash: params.txHash,
       });
+    },
+    onSuccess: () => {
+      toast({ title: t('duel.reclaimStake'), description: t('duel.stakeReclaimed') });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      setReclaimingDuelId(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to sync reclaim", description: error.message, variant: "destructive" });
+      setReclaimingDuelId(null);
+    },
+  });
+
+  // Effect to handle cancel/reclaim success
+  // Priority: reclaim takes precedence since we clear state on initiation
+  useEffect(() => {
+    if (cancelSuccess && cancelHash) {
+      // Check if this is a reclaim (already cancelled) or a normal cancel (was open)
+      // Only one of these should be set at a time due to mutual exclusion
+      if (reclaimingDuelId) {
+        syncReclaimMutation.mutate({
+          duelId: reclaimingDuelId,
+          txHash: cancelHash,
+        });
+        // Mutation onSuccess will clear reclaimingDuelId
+      } else if (cancellingDuelId) {
+        syncCancelMutation.mutate({
+          duelId: cancellingDuelId,
+          txHash: cancelHash,
+        });
+        // Mutation onSuccess will clear cancellingDuelId
+      }
     }
-  }, [cancelSuccess, cancelHash, cancellingDuelId]);
+  }, [cancelSuccess, cancelHash, cancellingDuelId, reclaimingDuelId]);
 
   // Effect to handle cancel error
   useEffect(() => {
@@ -1201,6 +1255,7 @@ export default function Predict() {
       
       toast({ title: "Cancel failed", description: errorMsg, variant: "destructive" });
       setCancellingDuelId(null);
+      setReclaimingDuelId(null);
     }
   }, [cancelError]);
 
@@ -1366,10 +1421,45 @@ export default function Predict() {
     
     try {
       setCancellingDuelId(duel.id);
+      setReclaimingDuelId(null); // Clear reclaim state to ensure mutual exclusion
       cancelDuelOnChain(BigInt(duel.onChainDuelId.toString()));
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setCancellingDuelId(null);
+    }
+  };
+
+  // Handle reclaiming stake from cancelled duels
+  const [reclaimingDuelId, setReclaimingDuelId] = useState<string | null>(null);
+  
+  const handleReclaimStake = async (duel: Duel) => {
+    if (!canUseOnChainJoin) {
+      toast({ 
+        title: t('common.connectWallet'), 
+        description: t('predict.switchToBsc'),
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    if (!duel.onChainDuelId) {
+      toast({ title: "Error", description: "This bet cannot be reclaimed on-chain", variant: "destructive" });
+      return;
+    }
+    
+    if (duel.status !== "cancelled") {
+      toast({ title: "Error", description: "Only cancelled bets can be reclaimed", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      setReclaimingDuelId(duel.id);
+      setCancellingDuelId(null); // Clear cancel state to ensure mutual exclusion
+      // Use the cancel function on-chain to reclaim the stake
+      cancelDuelOnChain(BigInt(duel.onChainDuelId.toString()));
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setReclaimingDuelId(null);
     }
   };
 
@@ -1472,7 +1562,7 @@ export default function Predict() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
           <TabsTrigger value="open" data-testid="tab-open">
             <Users className="h-4 w-4 mr-2" />
             {t('predict.openDuels')}
@@ -1484,6 +1574,10 @@ export default function Predict() {
           <TabsTrigger value="settled" data-testid="tab-settled">
             <Trophy className="h-4 w-4 mr-2" />
             {t('predict.settledDuels')}
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" data-testid="tab-cancelled">
+            <XCircle className="h-4 w-4 mr-2" />
+            {t('duel.cancelled')}
           </TabsTrigger>
         </TabsList>
 
@@ -1517,9 +1611,11 @@ export default function Predict() {
                   onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
                   onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
                   onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}
+                  onReclaim={activeTab === "cancelled" ? () => handleReclaimStake(duel) : undefined}
                   isJoining={joinMutation.isPending || isJoiningOnChain}
                   isSettling={isSettlingOnChain || syncSettleMutation.isPending}
                   isCancelling={isCancellingOnChain || syncCancelMutation.isPending}
+                  isReclaiming={reclaimingDuelId === duel.id && (isCancellingOnChain || syncReclaimMutation.isPending)}
                 />
               ))}
             </div>

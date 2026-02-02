@@ -304,6 +304,11 @@ const translations: Record<Language, Record<string, string>> = {
     'duel.startPriceLocked': 'Start price will be locked when opponent joins',
     'duel.settled': 'Settled',
     'duel.cancelled': 'Cancelled',
+    'duel.autoCancelled': 'Auto-cancelled (5 min timeout)',
+    'duel.reclaimStake': 'Reclaim Stake',
+    'duel.reclaimingStake': 'Reclaiming...',
+    'duel.stakeReclaimable': 'Your stake can be reclaimed',
+    'duel.stakeReclaimed': 'Your stake has been reclaimed successfully',
     
     // Create Duel Form
     'createDuel.title': 'Create New Duel',
@@ -634,6 +639,11 @@ const translations: Record<Language, Record<string, string>> = {
     'duel.startPriceLocked': '对手加入后将锁定起始价格',
     'duel.settled': '已结算',
     'duel.cancelled': '已取消',
+    'duel.autoCancelled': '已自动取消（5分钟超时）',
+    'duel.reclaimStake': '领回押金',
+    'duel.reclaimingStake': '领取中...',
+    'duel.stakeReclaimable': '您的押金可以领回',
+    'duel.stakeReclaimed': '您的押金已成功领回',
     
     // Create Duel Form
     'createDuel.title': '创建新对决',

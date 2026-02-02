@@ -513,6 +513,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(duels.createdAt));
   }
 
+  async getExpiredOpenDuels(expiryMinutes: number = 5): Promise<Duel[]> {
+    const expiryTime = new Date(Date.now() - expiryMinutes * 60 * 1000);
+    return db.select().from(duels)
+      .where(and(
+        eq(duels.status, "open"),
+        isNotNull(duels.onChainDuelId),
+        lt(duels.createdAt, expiryTime)
+      ));
+  }
+
+  async autoCancelExpiredDuels(expiryMinutes: number = 5): Promise<number> {
+    const expiredDuels = await this.getExpiredOpenDuels(expiryMinutes);
+    let cancelledCount = 0;
+    for (const duel of expiredDuels) {
+      await this.updateDuel(duel.id, { status: "cancelled" });
+      cancelledCount++;
+    }
+    return cancelledCount;
+  }
+
   async updateDuel(id: string, updates: Partial<Duel>): Promise<Duel> {
     const [duel] = await db.update(duels)
       .set(updates)
