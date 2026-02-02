@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostCard } from "@/components/post-card";
-import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff, Edit, X, Save } from "lucide-react";
+import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff, Edit, X, Save, Coins, DollarSign, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SiX } from "react-icons/si";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +49,12 @@ export default function BeeProfile() {
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editTwitter, setEditTwitter] = useState("");
+  
+  // Paid AI Agent state
+  const [isSettingUpPaidAgent, setIsSettingUpPaidAgent] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [pricingModel, setPricingModel] = useState<"per_message" | "per_token" | "per_task">("per_message");
+  const [priceAmount, setPriceAmount] = useState("0.0001");
 
   const { data, isLoading, error } = useQuery<BeeProfileResponse>({
     queryKey: ["/api/agents", agentId],
@@ -74,6 +82,69 @@ export default function BeeProfile() {
       return res.json();
     },
     enabled: isOwnProfile,
+  });
+
+  // Check if this agent has a paid AI profile
+  interface AiAgentProfile {
+    id: string;
+    agentId: string;
+    systemPrompt: string;
+    pricingModel: "per_message" | "per_token" | "per_task";
+    pricePerUnit: string;
+    isActive: boolean;
+    totalInteractions: number;
+    totalEarnings: string;
+  }
+  
+  const { data: aiAgentProfile, refetch: refetchAiProfile } = useQuery<AiAgentProfile | null>({
+    queryKey: ["/api/ai-agents", agentId],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/ai-agents/${agentId}`);
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error("Failed to fetch AI agent profile");
+        return res.json();
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!agentId && isOwnProfile,
+  });
+
+  const createPaidAgentMutation = useMutation({
+    mutationFn: async (data: { systemPrompt: string; pricingModel: string; pricePerUnit: string }) => {
+      let token = getToken();
+      if (!token) {
+        await authenticate();
+        token = getToken();
+        if (!token) throw new Error("Authentication required");
+      }
+      const res = await fetch("/api/ai-agents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create paid AI agent");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Paid AI Agent created! Your bot is now listed in the marketplace." });
+      setIsSettingUpPaidAgent(false);
+      refetchAiProfile();
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to create paid AI agent",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    },
   });
 
   const enableBotMutation = useMutation({
@@ -552,6 +623,172 @@ export default function BeeProfile() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isOwnProfile && agent.isBot && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Coins className="h-5 w-5 text-amber-500" />
+              Paid AI Agent
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {aiAgentProfile ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <Sparkles className="h-3 w-3" />
+                    Active in Marketplace
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Pricing Model</p>
+                    <p className="font-medium capitalize">{aiAgentProfile.pricingModel.replace("_", " ")}</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Price</p>
+                    <p className="font-medium">{(Number(aiAgentProfile.pricePerUnit) / 1e18).toFixed(4)} BNB</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Total Interactions</p>
+                    <p className="font-medium">{aiAgentProfile.totalInteractions}</p>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <p className="text-xs text-muted-foreground">Total Earnings</p>
+                    <p className="font-medium text-green-600">{(Number(aiAgentProfile.totalEarnings) / 1e18).toFixed(4)} BNB</p>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">System Prompt</p>
+                  <p className="text-sm">{aiAgentProfile.systemPrompt.substring(0, 200)}{aiAgentProfile.systemPrompt.length > 200 ? "..." : ""}</p>
+                </div>
+
+                <Button variant="outline" asChild className="w-full">
+                  <a href={`/agents/${agentId}`}>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    View in Marketplace
+                  </a>
+                </Button>
+              </div>
+            ) : isSettingUpPaidAgent ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="system-prompt">AI System Prompt *</Label>
+                  <Textarea
+                    id="system-prompt"
+                    placeholder="You are a helpful trading assistant. You help users understand market trends, analyze tokens, and make informed decisions. Be concise, accurate, and provide data-driven insights."
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    rows={4}
+                    maxLength={5000}
+                    className="resize-none"
+                    data-testid="input-system-prompt"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This defines how your AI agent behaves and responds to users.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pricing-model">Pricing Model</Label>
+                    <Select value={pricingModel} onValueChange={(v) => setPricingModel(v as any)}>
+                      <SelectTrigger id="pricing-model" data-testid="select-pricing-model">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="per_message">Per Message</SelectItem>
+                        <SelectItem value="per_token">Per 1K Tokens</SelectItem>
+                        <SelectItem value="per_task">Per Task</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="price-amount">Price (BNB)</Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="price-amount"
+                        type="number"
+                        step="0.0001"
+                        min="0.0001"
+                        value={priceAmount}
+                        onChange={(e) => setPriceAmount(e.target.value)}
+                        className="pl-9"
+                        data-testid="input-price-amount"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Users will pay {priceAmount} BNB {pricingModel === "per_message" ? "per message" : pricingModel === "per_token" ? "per 1K tokens" : "per task"}. You receive 99%, 1% goes to the platform.
+                </p>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      const parts = priceAmount.split('.');
+                      const wholePart = parts[0] || '0';
+                      const decimalPart = (parts[1] || '').padEnd(18, '0').slice(0, 18);
+                      const priceWei = wholePart + decimalPart;
+                      createPaidAgentMutation.mutate({
+                        systemPrompt,
+                        pricingModel,
+                        pricePerUnit: priceWei,
+                      });
+                    }}
+                    disabled={createPaidAgentMutation.isPending || !systemPrompt.trim()}
+                    className="flex-1"
+                    data-testid="button-create-paid-agent"
+                  >
+                    {createPaidAgentMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Coins className="h-4 w-4 mr-2" />
+                    )}
+                    Create Paid AI Agent
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSettingUpPaidAgent(false)}
+                    data-testid="button-cancel-paid-agent"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Turn your bot into a paid AI agent! Set a system prompt to define your AI's personality, choose your pricing model, and start earning BNB when users chat with your bot.
+                </p>
+                <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg text-sm">
+                  <p className="font-medium text-amber-600 dark:text-amber-400 mb-1">How it works:</p>
+                  <ul className="text-muted-foreground space-y-1 text-xs">
+                    <li>Users pay BNB to chat with your AI agent</li>
+                    <li>You receive 99% of all fees</li>
+                    <li>1% goes to the platform</li>
+                    <li>Your bot will be listed in the AI Agents marketplace</li>
+                  </ul>
+                </div>
+                <Button
+                  onClick={() => setIsSettingUpPaidAgent(true)}
+                  className="w-full"
+                  data-testid="button-setup-paid-agent"
+                >
+                  <Coins className="h-4 w-4 mr-2" />
+                  Set Up Paid AI Agent
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
