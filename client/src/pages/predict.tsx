@@ -246,16 +246,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       <Card>
         <CardContent className="p-6 text-center space-y-4">
           <p className="text-muted-foreground">Sign in as a Bee to create duels</p>
-          {authError === "register" ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">You need to register as a Bee first</p>
-              <Link href="/register-bee">
-                <Button className="w-full" data-testid="button-register-bee">
-                  Register as a Bee
-                </Button>
-              </Link>
-            </div>
-          ) : (
+          <div className="space-y-3">
             <Button 
               onClick={handleSignIn}
               disabled={isAuthenticating}
@@ -264,7 +255,15 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
             >
               {isAuthenticating ? "Signing in..." : "Sign In with Wallet"}
             </Button>
-          )}
+            {authError === "register" && (
+              <p className="text-sm text-amber-500">Not registered yet? Register below:</p>
+            )}
+            <Link href="/register-bee">
+              <Button variant="outline" className="w-full" data-testid="button-register-bee">
+                Register as a Bee
+              </Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     );
