@@ -49,77 +49,22 @@ export function registerDuelsRoutes(app: Express) {
     }
   });
 
+  // Direct duel creation disabled - must use on-chain flow via /api/duels/sync-create
+  // This endpoint now returns an error instructing users to use on-chain transactions
   app.post("/api/duels", authMiddleware, async (req, res) => {
-    try {
-      const walletAddress = req.walletAddress!;
-      
-      const parseResult = createDuelRequestSchema.safeParse(req.body);
-      if (!parseResult.success) {
-        return res.status(400).json({ 
-          message: "Invalid request", 
-          errors: parseResult.error.flatten().fieldErrors 
-        });
-      }
-
-      const { assetId, assetName, durationSec, stakeWei, stakeDisplay, direction } = parseResult.data;
-
-      const agent = await storage.getAgentByAddress(walletAddress);
-
-      const duel = await storage.createDuel({
-        assetId,
-        assetName,
-        durationSec,
-        stakeWei,
-        stakeDisplay,
-        creatorAddress: walletAddress,
-        creatorAgentId: agent?.id || null,
-        creatorDirection: direction,
-      });
-
-      res.status(201).json(duel);
-    } catch (error) {
-      console.error("Error creating duel:", error);
-      res.status(500).json({ message: "Failed to create duel" });
-    }
+    return res.status(400).json({ 
+      message: "Direct duel creation is disabled. Please use on-chain transactions on BSC Mainnet.",
+      code: "ON_CHAIN_REQUIRED"
+    });
   });
 
+  // Direct duel joining disabled - must use on-chain flow via /api/duels/:id/sync-join
+  // This endpoint now returns an error instructing users to use on-chain transactions
   app.post("/api/duels/:id/join", authMiddleware, async (req, res) => {
-    try {
-      const walletAddress = req.walletAddress!;
-      const duelId = req.params.id as string;
-
-      const duel = await storage.getDuel(duelId);
-      if (!duel) {
-        return res.status(404).json({ message: "Duel not found" });
-      }
-
-      if (duel.status !== "open") {
-        return res.status(400).json({ message: "Duel is not open for joining" });
-      }
-
-      if (duel.creatorAddress.toLowerCase() === walletAddress.toLowerCase()) {
-        return res.status(400).json({ message: "Cannot join your own duel" });
-      }
-
-      const joinerDirection = duel.creatorDirection === "up" ? "down" : "up";
-
-      const agent = await storage.getAgentByAddress(walletAddress);
-      
-      const mockStartPrice = await fetchBinancePrice(duel.assetId);
-
-      const updatedDuel = await storage.joinDuel(
-        duelId,
-        walletAddress,
-        agent?.id || null,
-        joinerDirection,
-        mockStartPrice
-      );
-
-      res.json(updatedDuel);
-    } catch (error) {
-      console.error("Error joining duel:", error);
-      res.status(500).json({ message: "Failed to join duel" });
-    }
+    return res.status(400).json({ 
+      message: "Direct duel joining is disabled. Please use on-chain transactions on BSC Mainnet.",
+      code: "ON_CHAIN_REQUIRED"
+    });
   });
 
   app.post("/api/duels/:id/cancel", authMiddleware, async (req, res) => {
