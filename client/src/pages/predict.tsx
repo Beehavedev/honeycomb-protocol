@@ -16,7 +16,9 @@ import { useI18n } from "@/lib/i18n";
 import { 
   useCreateDuel, 
   useJoinDuel, 
-  usePredictDuelAddress, 
+  usePredictDuelAddress,
+  useGetAgentByOwner,
+  useRegisterAgent,
   parseEther 
 } from "@/contracts/hooks";
 import { 
@@ -578,6 +580,19 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     queryKey: ["/api/duels/assets"],
   });
 
+  // Check if user has on-chain agent (for auto-registration)
+  const { data: onChainAgentId, refetch: refetchAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  const hasAgent = onChainAgentId && onChainAgentId > BigInt(0);
+  
+  // Auto-registration hook
+  const {
+    registerAgent,
+    isPending: isRegistering,
+    isSuccess: registerSuccess,
+    error: registerError,
+    hash: registerHash
+  } = useRegisterAgent();
+
   // On-chain contract hook
   const { 
     createDuel: createDuelOnChain, 
@@ -587,8 +602,10 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     hash: createHash 
   } = useCreateDuel();
 
+  // Track if we're waiting to create duel after registration
+  const [pendingDuelAfterRegister, setPendingDuelAfterRegister] = useState(false);
+
   // Check if contract is deployed on current chain and we're on BSC mainnet
-  // Simplified: only require wallet + BSC + contract, no agent registration needed
   const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
   const isBscMainnet = chainId === 56;
   const canUseOnChain = isContractDeployed && isBscMainnet && address;
@@ -632,7 +649,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
         durationSec: duration,
         stakeWei: (parseFloat(stake) * 1e18).toString(),
         stakeDisplay: `${stake} BNB`,
-        creatorOnChainAgentId: "0",
+        creatorOnChainAgentId: onChainAgentId?.toString() || "0",
         direction,
       });
       
@@ -654,51 +671,72 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     }
   }, [createError]);
 
-  // Database fallback mutation (for when no on-chain agent)
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const stakeWei = (parseFloat(stake) * 1e18).toString();
-      const asset = assets?.find(a => a.assetId === assetId);
-      
-      return apiRequest("POST", "/api/duels", {
-        assetId,
-        assetName: asset?.name || assetId,
-        durationSec: parseInt(duration),
-        stakeWei,
-        stakeDisplay: `${stake} BNB`,
-        direction,
+  // Effect to handle registration success - then create duel
+  useEffect(() => {
+    if (registerSuccess && pendingDuelAfterRegister) {
+      toast({ title: "Registered!", description: "Now creating your duel..." });
+      // Refetch agent ID then create duel
+      refetchAgentId().then((result) => {
+        if (result.data && result.data > BigInt(0)) {
+          const stakeWei = parseEther(stake);
+          const directionNum = direction === "up" ? 0 : 1;
+          createDuelOnChain(
+            result.data,
+            assetId,
+            directionNum as 0 | 1,
+            BigInt(parseInt(duration)),
+            stakeWei
+          );
+        }
+        setPendingDuelAfterRegister(false);
       });
-    },
-    onSuccess: () => {
-      toast({ title: "Duel created!", description: "Waiting for opponent..." });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-      onSuccess();
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to create duel", description: error.message, variant: "destructive" });
-    },
-  });
+    }
+  }, [registerSuccess, pendingDuelAfterRegister]);
+
+  // Effect to handle registration error
+  useEffect(() => {
+    if (registerError) {
+      const errorMsg = registerError.message?.includes("user rejected") 
+        ? "Registration cancelled"
+        : registerError.message?.slice(0, 100) || "Failed to register";
+      toast({ 
+        title: "Registration failed", 
+        description: errorMsg, 
+        variant: "destructive" 
+      });
+      setPendingDuelAfterRegister(false);
+    }
+  }, [registerError]);
 
   const handleCreateDuel = () => {
-    // Use on-chain if on BSC mainnet, contract deployed, and user has on-chain agent
-    if (canUseOnChain) {
-      try {
-        const stakeWei = parseEther(stake);
-        const directionNum = direction === "up" ? 0 : 1;
-        createDuelOnChain(
-          BigInt(0), // No agent registration required
-          assetId,
-          directionNum as 0 | 1,
-          BigInt(parseInt(duration)),
-          stakeWei
-        );
-      } catch (err: any) {
-        toast({ title: "Error", description: err.message, variant: "destructive" });
+    if (!canUseOnChain) return;
+    
+    try {
+      // If user doesn't have an agent, auto-register first
+      if (!hasAgent) {
+        toast({ title: "Registering...", description: "First time betting - registering your wallet..." });
+        setPendingDuelAfterRegister(true);
+        // Register with empty metadata (simplified)
+        registerAgent("");
+        return;
       }
+      
+      // User has agent, create duel directly
+      const stakeWei = parseEther(stake);
+      const directionNum = direction === "up" ? 0 : 1;
+      createDuelOnChain(
+        onChainAgentId!,
+        assetId,
+        directionNum as 0 | 1,
+        BigInt(parseInt(duration)),
+        stakeWei
+      );
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
   
-  const isPending = isCreatingOnChain || createMutation.isPending;
+  const isPending = isCreatingOnChain || isRegistering;
 
   const handleSignIn = async () => {
     try {
@@ -938,7 +976,7 @@ export default function Predict() {
       syncJoinMutation.mutate({
         duelId: joiningDuelId,
         txHash: joinHash,
-        joinerOnChainAgentId: "0",
+        joinerOnChainAgentId: userOnChainAgentId?.toString() || "0",
       });
     }
   }, [joinSuccess, joinHash, joiningDuelId]);
@@ -972,10 +1010,62 @@ export default function Predict() {
     },
   });
 
+  // Check if user has on-chain agent for joining
+  const { data: userOnChainAgentId, refetch: refetchJoinerAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  const joinerHasAgent = userOnChainAgentId && userOnChainAgentId > BigInt(0);
+  
+  // Auto-registration hook for joining
+  const {
+    registerAgent: registerJoinerAgent,
+    isPending: isRegisteringJoiner,
+    isSuccess: joinerRegisterSuccess,
+    error: joinerRegisterError
+  } = useRegisterAgent();
+
+  // Track pending join after registration
+  const [pendingJoinDuel, setPendingJoinDuel] = useState<Duel | null>(null);
+
   // Simplified: only require wallet + BSC + contract for joining
   const joinPredictDuelAddress = usePredictDuelAddress();
   const isJoinContractDeployed = joinPredictDuelAddress && joinPredictDuelAddress !== "0x0000000000000000000000000000000000000000";
   const canUseOnChainJoin = isJoinContractDeployed && chainId === 56 && address;
+
+  // Effect to handle joiner registration success
+  useEffect(() => {
+    if (joinerRegisterSuccess && pendingJoinDuel) {
+      toast({ title: "Registered!", description: "Now joining the duel..." });
+      refetchJoinerAgentId().then(async (result) => {
+        if (result.data && result.data > BigInt(0) && pendingJoinDuel.onChainDuelId) {
+          const priceRes = await fetch(`/api/duels/binance/ticker/${pendingJoinDuel.assetId}`);
+          const priceData = await priceRes.json();
+          const startPriceWei = BigInt(Math.floor(parseFloat(priceData.price) * 1e8));
+          const stakeMatch = pendingJoinDuel.stakeDisplay?.match(/^([\d.]+)/);
+          const stakeWei = stakeMatch ? parseEther(stakeMatch[1]) : parseEther("0.01");
+          
+          joinDuelOnChain(
+            BigInt(pendingJoinDuel.onChainDuelId.toString()),
+            result.data,
+            startPriceWei,
+            stakeWei
+          );
+        }
+        setPendingJoinDuel(null);
+      });
+    }
+  }, [joinerRegisterSuccess, pendingJoinDuel]);
+
+  // Effect to handle joiner registration error
+  useEffect(() => {
+    if (joinerRegisterError) {
+      toast({ 
+        title: "Registration failed", 
+        description: joinerRegisterError.message?.slice(0, 100) || "Failed to register",
+        variant: "destructive" 
+      });
+      setPendingJoinDuel(null);
+      setJoiningDuelId(null);
+    }
+  }, [joinerRegisterError]);
 
   const handleJoinDuel = async (duel: Duel) => {
     // Require wallet + BSC mainnet
@@ -993,6 +1083,14 @@ export default function Predict() {
       try {
         setJoiningDuelId(duel.id);
         
+        // If user doesn't have an agent, auto-register first
+        if (!joinerHasAgent) {
+          toast({ title: "Registering...", description: "First time betting - registering your wallet..." });
+          setPendingJoinDuel(duel);
+          registerJoinerAgent("");
+          return;
+        }
+        
         // Fetch current price from Binance for start price
         const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
         const priceData = await priceRes.json();
@@ -1004,7 +1102,7 @@ export default function Predict() {
         
         joinDuelOnChain(
           BigInt(duel.onChainDuelId.toString()),
-          BigInt(0), // No agent registration required
+          userOnChainAgentId!,
           startPriceWei,
           stakeWei
         );
