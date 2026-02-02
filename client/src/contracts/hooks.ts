@@ -718,6 +718,9 @@ export function parseContractError(error: Error | null): string {
   
   const message = error.message || String(error);
   
+  // Log full error for debugging
+  console.log("Contract error:", message);
+  
   // Check for specific contract errors
   if (message.includes("CooldownActive")) {
     return "Please wait a few seconds between trades (cooldown active)";
@@ -745,6 +748,18 @@ export function parseContractError(error: Error | null): string {
   }
   if (message.includes("insufficient funds")) {
     return "Insufficient BNB for this transaction.";
+  }
+  if (message.includes("ERC20InsufficientAllowance") || message.includes("allowance")) {
+    return "Token approval needed. Please approve first.";
+  }
+  if (message.includes("ERC20InsufficientBalance") || message.includes("transfer amount exceeds balance")) {
+    return "You don't have enough tokens to sell this amount.";
+  }
+  if (message.includes("reverted") || message.includes("revert")) {
+    // Try to extract the specific reason
+    const reasonMatch = message.match(/reason:\s*([^,\n]+)/i);
+    if (reasonMatch) return reasonMatch[1].trim();
+    return "Transaction would fail. Check token balance and approval.";
   }
   
   // Try to extract a readable message
