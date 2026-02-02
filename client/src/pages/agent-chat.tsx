@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAccount, useWalletClient, usePublicClient } from "wagmi";
@@ -19,12 +19,84 @@ import {
   CheckCircle,
   MessageSquare,
   Wallet,
-  ExternalLink
+  ExternalLink,
+  Download
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { WalletButton } from "@/components/wallet-button";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+
+// Helper to render message content with embedded images
+function MessageContent({ content }: { content: string }) {
+  // Parse markdown-style images: ![alt](url)
+  const parts = useMemo(() => {
+    const regex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    const result: Array<{ type: "text" | "image"; value: string; alt?: string }> = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      // Add text before the image
+      if (match.index > lastIndex) {
+        result.push({ type: "text", value: content.slice(lastIndex, match.index) });
+      }
+      // Add the image
+      result.push({ type: "image", value: match[2], alt: match[1] });
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text after the last image
+    if (lastIndex < content.length) {
+      result.push({ type: "text", value: content.slice(lastIndex) });
+    }
+
+    return result.length > 0 ? result : [{ type: "text" as const, value: content }];
+  }, [content]);
+
+  const handleDownload = (imageUrl: string, alt: string) => {
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = `${alt || "generated-image"}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="space-y-2">
+      {parts.map((part, index) => {
+        if (part.type === "image") {
+          return (
+            <div key={index} className="relative group">
+              <img 
+                src={part.value} 
+                alt={part.alt || "Generated image"} 
+                className="max-w-full rounded-lg border shadow-sm"
+                style={{ maxHeight: "400px" }}
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleDownload(part.value, part.alt || "generated-image")}
+                data-testid="button-download-image"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </Button>
+            </div>
+          );
+        }
+        return (
+          <p key={index} className="whitespace-pre-wrap">
+            {part.value}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 interface AiAgentProfile {
   id: string;
@@ -364,7 +436,7 @@ export default function AgentChat() {
                           : "bg-muted"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      <MessageContent content={msg.content} />
                       {msg.role === "assistant" && msg.tokenCount && (
                         <p className="text-xs mt-1 opacity-70">
                           {msg.tokenCount} tokens

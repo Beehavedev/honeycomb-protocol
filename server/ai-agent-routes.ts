@@ -23,6 +23,85 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+// Helper function to detect if user wants image generation
+function isImageGenerationRequest(message: string, systemPrompt: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  const lowerPrompt = systemPrompt.toLowerCase();
+  
+  // Check if the system prompt indicates this is an image-generating agent
+  const isImageAgent = lowerPrompt.includes("image") || 
+                       lowerPrompt.includes("logo") || 
+                       lowerPrompt.includes("banner") ||
+                       lowerPrompt.includes("visual") ||
+                       lowerPrompt.includes("artwork") ||
+                       lowerPrompt.includes("design");
+  
+  // Check if the user message requests an image
+  const imageKeywords = [
+    "generate", "create", "make", "draw", "design", "produce",
+    "image", "logo", "banner", "picture", "artwork", "illustration",
+    "icon", "graphic", "visual"
+  ];
+  
+  const hasImageKeyword = imageKeywords.some(keyword => lowerMessage.includes(keyword));
+  
+  // Only trigger image generation if this is an image-focused agent AND user is asking for an image
+  return isImageAgent && hasImageKeyword;
+}
+
+// Helper function to generate an image using OpenAI
+async function generateImage(prompt: string, size: "1024x1024" | "512x512" | "256x256" = "1024x1024"): Promise<string | null> {
+  try {
+    const response = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      n: 1,
+      size,
+    });
+    
+    // Response is in base64 format
+    const imageData = response.data[0];
+    if (imageData && 'b64_json' in imageData && imageData.b64_json) {
+      return `data:image/png;base64,${imageData.b64_json}`;
+    }
+    return null;
+  } catch (error) {
+    console.error("Image generation error:", error);
+    return null;
+  }
+}
+
+// Helper to get AI to create an optimized image prompt
+async function getOptimizedImagePrompt(userMessage: string, systemPrompt: string, conversationHistory: Array<{role: string; content: string}>): Promise<string> {
+  try {
+    const promptGeneratorMessages = [
+      {
+        role: "system" as const,
+        content: `You are an expert at creating image generation prompts. Based on the conversation context and the user's request, create a detailed, high-quality image generation prompt. The original system context is: "${systemPrompt.substring(0, 500)}". Output ONLY the image generation prompt, nothing else. Be specific about style, composition, colors, and details.`
+      },
+      ...conversationHistory.slice(-4).map(m => ({
+        role: m.role as "user" | "assistant",
+        content: m.content
+      })),
+      {
+        role: "user" as const,
+        content: `Create an optimized image generation prompt for: "${userMessage}"`
+      }
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5-mini",
+      messages: promptGeneratorMessages,
+      max_completion_tokens: 300,
+    });
+
+    return completion.choices[0]?.message?.content || userMessage;
+  } catch (error) {
+    console.error("Error generating optimized prompt:", error);
+    return userMessage;
+  }
+}
+
 export function registerAiAgentRoutes(app: Express) {
   
   // Get all paid AI agents (marketplace)
@@ -345,15 +424,51 @@ export function registerAiAgentRoutes(app: Express) {
         content: message,
       };
 
-      // Call OpenAI
-      const completion = await openai.chat.completions.create({
-        model: "gpt-5.2",
-        messages: [systemMessage, ...historyMessages, userMessage],
-        max_completion_tokens: 2048,
-      });
+      let assistantResponse: string;
+      let tokenCount = 0;
+      let generatedImageUrl: string | null = null;
 
-      const assistantResponse = completion.choices[0]?.message?.content || "I apologize, I couldn't generate a response.";
-      const tokenCount = completion.usage?.total_tokens || 0;
+      // Check if this is an image generation request
+      const shouldGenerateImage = isImageGenerationRequest(message, profile.profile.systemPrompt);
+
+      if (shouldGenerateImage) {
+        // Get an optimized image prompt from the AI
+        const optimizedPrompt = await getOptimizedImagePrompt(
+          message, 
+          profile.profile.systemPrompt,
+          historyMessages
+        );
+        
+        console.log("Generating image with prompt:", optimizedPrompt);
+        
+        // Generate the actual image
+        generatedImageUrl = await generateImage(optimizedPrompt);
+        
+        if (generatedImageUrl) {
+          // Create a response with the image
+          assistantResponse = `Here's the image I created for you:\n\n![Generated Image](${generatedImageUrl})\n\n*Prompt used: "${optimizedPrompt.substring(0, 100)}..."*`;
+          tokenCount = 100; // Approximate token count for image generation
+        } else {
+          // Image generation failed, fall back to text response
+          const completion = await openai.chat.completions.create({
+            model: "gpt-5.2",
+            messages: [systemMessage, ...historyMessages, userMessage],
+            max_completion_tokens: 2048,
+          });
+          assistantResponse = (completion.choices[0]?.message?.content || "I apologize, I couldn't generate an image at this time. Please try again later.");
+          tokenCount = completion.usage?.total_tokens || 0;
+        }
+      } else {
+        // Regular text chat - Call OpenAI
+        const completion = await openai.chat.completions.create({
+          model: "gpt-5.2",
+          messages: [systemMessage, ...historyMessages, userMessage],
+          max_completion_tokens: 2048,
+        });
+
+        assistantResponse = completion.choices[0]?.message?.content || "I apologize, I couldn't generate a response.";
+        tokenCount = completion.usage?.total_tokens || 0;
+      }
 
       // Save user message
       await db.insert(aiAgentMessages).values({
@@ -393,6 +508,7 @@ export function registerAiAgentRoutes(app: Express) {
         response: assistantResponse,
         tokenCount,
         pricePaid: profile.profile.pricePerUnit,
+        ...(generatedImageUrl && { imageUrl: generatedImageUrl }),
       });
     } catch (error) {
       console.error("Error executing AI agent:", error);
