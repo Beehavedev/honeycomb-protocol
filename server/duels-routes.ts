@@ -816,25 +816,60 @@ const basePrices: Record<string, number> = {
 };
 
 async function fetchPrice(assetId: string): Promise<string> {
-  // Primary: Use Binance API (more reliable and no rate limits for basic queries)
   const binanceSymbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
-  try {
-    const binanceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`);
-    const binanceData = await binanceRes.json();
-    if (binanceData?.price) {
-      const price = parseFloat(binanceData.price);
-      console.log(`[fetchPrice] ${assetId} from Binance: $${price}`);
-      return Math.floor(price * 1e8).toString();
+  
+  // Try multiple Binance endpoints with retry
+  const binanceEndpoints = [
+    `https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`,
+    `https://api1.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`,
+    `https://api2.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`,
+    `https://api3.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`,
+  ];
+  
+  for (const endpoint of binanceEndpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const binanceRes = await fetch(endpoint, { 
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
+      clearTimeout(timeoutId);
+      
+      if (!binanceRes.ok) {
+        console.log(`[fetchPrice] Binance endpoint returned ${binanceRes.status}: ${endpoint}`);
+        continue;
+      }
+      
+      const binanceData = await binanceRes.json();
+      if (binanceData?.price) {
+        const price = parseFloat(binanceData.price);
+        console.log(`[fetchPrice] ${assetId} from Binance: $${price}`);
+        return Math.floor(price * 1e8).toString();
+      } else if (binanceData?.msg) {
+        console.log(`[fetchPrice] Binance error: ${binanceData.msg}`);
+      }
+    } catch (error: any) {
+      const errMsg = error?.name === 'AbortError' ? 'timeout' : error?.message || 'unknown';
+      console.log(`[fetchPrice] Binance endpoint failed (${errMsg}): ${endpoint}`);
     }
-  } catch (error) {
-    console.error(`[fetchPrice] Binance API failed for ${assetId}:`, error);
   }
+  
+  console.log(`[fetchPrice] All Binance endpoints failed for ${assetId}, trying CoinGecko...`);
 
   // Fallback: Use CoinGecko
   const coinId = COINGECKO_IDS[assetId];
   if (coinId) {
     try {
-      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
       
       if (data[coinId]?.usd) {
@@ -842,14 +877,14 @@ async function fetchPrice(assetId: string): Promise<string> {
         console.log(`[fetchPrice] ${assetId} from CoinGecko: $${price}`);
         return Math.floor(price * 1e8).toString();
       }
-    } catch (error) {
-      console.error(`[fetchPrice] CoinGecko API failed for ${assetId}:`, error);
+    } catch (error: any) {
+      console.error(`[fetchPrice] CoinGecko API failed for ${assetId}:`, error?.message || error);
     }
   }
   
-  // Last resort: Fallback to base prices
+  // Last resort: Fallback to base prices (should rarely happen now)
   const basePrice = basePrices[assetId] || 100;
-  console.log(`[fetchPrice] ${assetId} using fallback: $${basePrice}`);
+  console.error(`[fetchPrice] WARNING: Using fallback price for ${assetId}: $${basePrice} - this should not happen!`);
   return Math.floor(basePrice * 1e8).toString();
 }
 
