@@ -614,6 +614,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const chainId = useChainId();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
+  const { t } = useI18n();
   const predictDuelAddress = usePredictDuelAddress();
 
   const [assetId, setAssetId] = useState("BNB");
@@ -891,31 +892,57 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
         </div>
 
-        <Button
-          onClick={handleCreateDuel}
-          disabled={isPending || !stake || parseFloat(stake) <= 0}
-          className="w-full"
-          data-testid="btn-create-duel"
-        >
-          <Wallet className="h-4 w-4 mr-2" />
-          {isPending ? "Creating..." : `Create Duel (${stake} BNB)`}
-        </Button>
-        
         {canUseOnChain ? (
-          <p className="text-xs text-center text-green-600">
-            <Wallet className="h-3 w-3 inline mr-1" />
-            On-chain transaction (BSC Mainnet)
-          </p>
+          <>
+            <Button
+              onClick={handleCreateDuel}
+              disabled={isPending || !stake || parseFloat(stake) <= 0}
+              className="w-full"
+              data-testid="btn-create-duel"
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              {isPending ? t('predict.confirmInWallet') : `${t('predict.createDuel')} (${stake} BNB)`}
+            </Button>
+            <p className="text-xs text-center text-green-600">
+              <Wallet className="h-3 w-3 inline mr-1" />
+              {t('predict.onChainTransaction')}
+            </p>
+          </>
         ) : !isBscMainnet ? (
-          <p className="text-xs text-center text-amber-500">
-            Switch to BSC Mainnet for wallet transactions
-          </p>
-        ) : !onChainAgentId ? (
-          <p className="text-xs text-center text-muted-foreground">
-            Register on-chain for wallet transactions
-          </p>
+          <div className="space-y-2">
+            <Button disabled className="w-full opacity-50">
+              <Wallet className="h-4 w-4 mr-2" />
+              {t('predict.createDuel')} ({stake} BNB)
+            </Button>
+            <p className="text-sm text-center text-amber-500 font-medium">
+              {t('predict.switchToBsc')}
+            </p>
+          </div>
+        ) : !onChainAgentId || onChainAgentId === BigInt(0) ? (
+          <div className="space-y-2">
+            <Button disabled className="w-full opacity-50">
+              <Wallet className="h-4 w-4 mr-2" />
+              {t('predict.createDuel')} ({stake} BNB)
+            </Button>
+            <p className="text-sm text-center text-amber-500 font-medium">
+              {t('predict.registerRequired')}
+            </p>
+            <Link href="/register-bee">
+              <Button variant="outline" className="w-full">
+                {t('predict.registerNow')}
+              </Button>
+            </Link>
+          </div>
         ) : (
-          <p className="text-xs text-center text-muted-foreground">Database mode</p>
+          <div className="space-y-2">
+            <Button disabled className="w-full opacity-50">
+              <Wallet className="h-4 w-4 mr-2" />
+              {t('predict.createDuel')} ({stake} BNB)
+            </Button>
+            <p className="text-sm text-center text-red-500 font-medium">
+              {t('predict.contractNotAvailable')}
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -1026,8 +1053,18 @@ export default function Predict() {
   const canUseOnChainJoin = isJoinContractDeployed && chainId === 56 && userOnChainAgentId && userOnChainAgentId > BigInt(0);
 
   const handleJoinDuel = async (duel: Duel) => {
-    // Use on-chain if duel has on-chain ID and user has on-chain agent
-    if (duel.onChainDuelId && canUseOnChainJoin) {
+    // Require on-chain registration
+    if (!canUseOnChainJoin) {
+      toast({ 
+        title: t('predict.registerRequired'), 
+        description: t('predict.switchToBsc'),
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    // Use on-chain if duel has on-chain ID
+    if (duel.onChainDuelId) {
       try {
         setJoiningDuelId(duel.id);
         // Store the joiner's on-chain agent ID for the sync callback
@@ -1053,8 +1090,12 @@ export default function Predict() {
         setJoiningDuelId(null);
       }
     } else {
-      // Fallback to database API for duels without on-chain ID
-      joinMutation.mutate(duel.id);
+      // Duel doesn't have on-chain ID - shouldn't happen for real duels
+      toast({ 
+        title: t('common.error'), 
+        description: "This duel is not available for on-chain betting",
+        variant: "destructive" 
+      });
     }
   };
 

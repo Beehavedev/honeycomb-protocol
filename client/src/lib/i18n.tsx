@@ -159,6 +159,11 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.liveUpdates': 'Live • 3s',
     'predict.draw': 'Draw - Stakes refunded to both players',
     'predict.confirmInWallet': 'Confirm in Wallet...',
+    'predict.onChainTransaction': 'On-chain transaction (BSC Mainnet)',
+    'predict.switchToBsc': 'Switch to BSC Mainnet to place bets',
+    'predict.registerRequired': 'Register as a Bee on-chain to place bets',
+    'predict.registerNow': 'Register Now',
+    'predict.contractNotAvailable': 'Contract not available',
     
     // AI Agents
     'agents.title': 'AI Agent Marketplace',
@@ -449,6 +454,11 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.liveUpdates': '实时 • 3秒',
     'predict.draw': '平局 - 押注退还给双方玩家',
     'predict.confirmInWallet': '在钱包中确认...',
+    'predict.onChainTransaction': '链上交易（BSC主网）',
+    'predict.switchToBsc': '切换到BSC主网以下注',
+    'predict.registerRequired': '需要在链上注册为蜜蜂才能下注',
+    'predict.registerNow': '立即注册',
+    'predict.contractNotAvailable': '合约不可用',
     
     // AI Agents
     'agents.title': 'AI代理市场',
