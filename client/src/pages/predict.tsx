@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-// On-chain hooks available but using DB API for now (contract requires on-chain agent registration)
-// import { useCreateDuel, useJoinDuel, usePredictDuelAddress, parseEther } from "@/contracts/hooks";
+import { 
+  useCreateDuel, 
+  useJoinDuel, 
+  usePredictDuelAddress, 
+  useGetAgentByOwner,
+  parseEther 
+} from "@/contracts/hooks";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -22,7 +27,8 @@ import {
   Trophy,
   Plus,
   Target,
-  Users
+  Users,
+  Wallet
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -475,8 +481,10 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
 
 function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
+  const predictDuelAddress = usePredictDuelAddress();
 
   const [assetId, setAssetId] = useState("BNB");
   const [duration, setDuration] = useState("60");
@@ -488,7 +496,50 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     queryKey: ["/api/duels/assets"],
   });
 
-  // Database API mutation
+  // Check if user has on-chain agent
+  const { data: onChainAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  
+  // On-chain contract hook
+  const { 
+    createDuel: createDuelOnChain, 
+    isPending: isCreatingOnChain, 
+    isSuccess: createSuccess, 
+    error: createError, 
+    hash: createHash 
+  } = useCreateDuel();
+
+  // Check if contract is deployed on current chain and we're on BSC mainnet
+  const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
+  const isBscMainnet = chainId === 56;
+  const canUseOnChain = isContractDeployed && isBscMainnet && onChainAgentId && onChainAgentId > BigInt(0);
+
+  // Effect to handle on-chain success
+  useEffect(() => {
+    if (createSuccess && createHash) {
+      toast({ 
+        title: "Duel created on-chain!", 
+        description: `Transaction: ${createHash.slice(0, 10)}...` 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      onSuccess();
+    }
+  }, [createSuccess, createHash]);
+
+  // Effect to handle on-chain error
+  useEffect(() => {
+    if (createError) {
+      const errorMsg = createError.message?.includes("user rejected") 
+        ? "Transaction rejected by user"
+        : createError.message?.slice(0, 100) || "Failed to create duel";
+      toast({ 
+        title: "Transaction failed", 
+        description: errorMsg, 
+        variant: "destructive" 
+      });
+    }
+  }, [createError]);
+
+  // Database fallback mutation (for when no on-chain agent)
   const createMutation = useMutation({
     mutationFn: async () => {
       const stakeWei = (parseFloat(stake) * 1e18).toString();
@@ -514,10 +565,28 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const handleCreateDuel = () => {
-    // Use database API for now - on-chain requires registered agent ID
-    // TODO: Query user's on-chain agent ID and use contract if available
-    createMutation.mutate();
+    // Use on-chain if on BSC mainnet, contract deployed, and user has on-chain agent
+    if (canUseOnChain) {
+      try {
+        const stakeWei = parseEther(stake);
+        const directionNum = direction === "up" ? 0 : 1;
+        createDuelOnChain(
+          onChainAgentId!,
+          assetId,
+          directionNum as 0 | 1,
+          BigInt(parseInt(duration)),
+          stakeWei
+        );
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+    } else {
+      // Fallback to database API
+      createMutation.mutate();
+    }
   };
+  
+  const isPending = isCreatingOnChain || createMutation.isPending;
 
   const handleSignIn = async () => {
     try {
@@ -659,12 +728,30 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
 
         <Button
           onClick={handleCreateDuel}
-          disabled={createMutation.isPending || !stake || parseFloat(stake) <= 0}
+          disabled={isPending || !stake || parseFloat(stake) <= 0}
           className="w-full"
           data-testid="btn-create-duel"
         >
-          {createMutation.isPending ? "Creating..." : "Create Duel"}
+          <Wallet className="h-4 w-4 mr-2" />
+          {isPending ? "Creating..." : `Create Duel (${stake} BNB)`}
         </Button>
+        
+        {canUseOnChain ? (
+          <p className="text-xs text-center text-green-600">
+            <Wallet className="h-3 w-3 inline mr-1" />
+            On-chain transaction (BSC Mainnet)
+          </p>
+        ) : !isBscMainnet ? (
+          <p className="text-xs text-center text-amber-500">
+            Switch to BSC Mainnet for wallet transactions
+          </p>
+        ) : !onChainAgentId ? (
+          <p className="text-xs text-center text-muted-foreground">
+            Register on-chain for wallet transactions
+          </p>
+        ) : (
+          <p className="text-xs text-center text-muted-foreground">Database mode</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -673,7 +760,15 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
 export default function Predict() {
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState("open");
+  const { address } = useAccount();
   const { toast } = useToast();
+  const predictDuelAddress = usePredictDuelAddress();
+
+  // Check if user has on-chain agent
+  const { data: onChainAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  
+  // Check if contract is deployed
+  const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
 
   const { data: duels, isLoading } = useQuery<Duel[]>({
     queryKey: ["/api/duels", activeTab],
@@ -684,7 +779,41 @@ export default function Predict() {
     refetchInterval: 5000,
   });
 
-  // Database API mutation for joining duels
+  // On-chain join hook
+  const { 
+    joinDuel: joinDuelOnChain, 
+    isPending: isJoiningOnChain, 
+    isSuccess: joinSuccess, 
+    error: joinError, 
+    hash: joinHash 
+  } = useJoinDuel();
+
+  // Effect to handle on-chain join success
+  useEffect(() => {
+    if (joinSuccess && joinHash) {
+      toast({ 
+        title: "Joined duel on-chain!", 
+        description: `Transaction: ${joinHash.slice(0, 10)}...` 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+    }
+  }, [joinSuccess, joinHash]);
+
+  // Effect to handle on-chain join error
+  useEffect(() => {
+    if (joinError) {
+      const errorMsg = joinError.message?.includes("user rejected") 
+        ? "Transaction rejected by user"
+        : joinError.message?.slice(0, 100) || "Failed to join duel";
+      toast({ 
+        title: "Transaction failed", 
+        description: errorMsg, 
+        variant: "destructive" 
+      });
+    }
+  }, [joinError]);
+
+  // Database fallback mutation
   const joinMutation = useMutation({
     mutationFn: async (duelId: string) => {
       return apiRequest("POST", `/api/duels/${duelId}/join`);
@@ -698,7 +827,9 @@ export default function Predict() {
     },
   });
 
-  const handleJoinDuel = (duel: Duel) => {
+  const handleJoinDuel = async (duel: Duel) => {
+    // For now use database API for joining (on-chain join requires matching on-chain duel ID)
+    // TODO: Sync on-chain duel creation with database to enable on-chain joins
     joinMutation.mutate(duel.id);
   };
 
@@ -774,7 +905,7 @@ export default function Predict() {
                   key={duel.id}
                   duel={duel}
                   onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
-                  isJoining={joinMutation.isPending}
+                  isJoining={joinMutation.isPending || isJoiningOnChain}
                 />
               ))}
             </div>
