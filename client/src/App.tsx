@@ -21,6 +21,7 @@ import LaunchList from "@/pages/launch-list";
 import LaunchCreate from "@/pages/launch-create";
 import LaunchDetail from "@/pages/launch-detail";
 import HowTo from "@/pages/how-to";
+import CreateAgent from "@/pages/create-agent";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/launch/new" component={LaunchCreate} />
       <Route path="/launch/:address" component={LaunchDetail} />
       <Route path="/how-to" component={HowTo} />
+      <Route path="/create-agent" component={CreateAgent} />
       <Route component={NotFound} />
     </Switch>
   );
