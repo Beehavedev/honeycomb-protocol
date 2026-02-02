@@ -796,12 +796,17 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       // The second topic (topic[1]) is the indexed duelId
       let onChainDuelId = "1"; // fallback
       
+      console.log("[Create] Transaction receipt logs:", createReceipt?.logs?.length || 0, "logs");
+      
       try {
         // Find the DuelCreated event in the logs
-        // Event signature hash for DuelCreated(uint256,uint256,address,string,uint8,uint256,uint256,uint256)
-        const duelCreatedEventSignature = "0x"; // We'll match by checking logs from contract
-        
         for (const log of createReceipt.logs) {
+          console.log("[Create] Log:", { 
+            address: log.address, 
+            topicsCount: log.topics?.length || 0,
+            topics: log.topics?.slice(0, 4).map(t => t?.slice(0, 20) + "...")
+          });
+          
           // The log should have at least 4 topics for indexed params
           if (log.topics && log.topics.length >= 2) {
             // The duelId is the second topic (first indexed param)
@@ -810,6 +815,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
             if (duelIdHex) {
               // Parse the hex value to get the duel ID
               const parsedId = BigInt(duelIdHex).toString();
+              console.log("[Create] Parsed duelId from topic:", parsedId);
               if (parsedId !== "0") {
                 onChainDuelId = parsedId;
                 break;
@@ -817,6 +823,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
             }
           }
         }
+        console.log("[Create] Final onChainDuelId:", onChainDuelId);
       } catch (e) {
         console.error("Error parsing DuelCreated event:", e);
       }
@@ -1229,6 +1236,7 @@ export default function Predict() {
   // Effect to handle on-chain join error
   useEffect(() => {
     if (joinError) {
+      console.error("[Join] On-chain error:", joinError);
       let errorMsg = "Failed to join duel";
       const msg = joinError.message || "";
       
@@ -1245,11 +1253,14 @@ export default function Predict() {
       } else if (msg.includes("InvalidDuelId")) {
         errorMsg = "This bet does not exist on-chain";
       } else if (msg.includes("execution reverted")) {
-        errorMsg = "Transaction failed - bet may no longer be available";
+        // Try to extract the revert reason
+        const revertMatch = msg.match(/reverted[:\s]*([^"]+)/i);
+        errorMsg = revertMatch ? `Contract reverted: ${revertMatch[1].slice(0, 80)}` : "Transaction failed - bet may no longer be available";
       } else {
         errorMsg = msg.slice(0, 100) || "Unknown error occurred";
       }
       
+      console.log("[Join] Error message shown:", errorMsg);
       toast({ 
         title: "Transaction failed", 
         description: errorMsg, 
@@ -1569,8 +1580,11 @@ export default function Predict() {
   };
 
   const handleJoinDuel = async (duel: Duel) => {
+    console.log("[Join] Starting join flow", { duelId: duel.id, onChainDuelId: duel.onChainDuelId, address, chainId, joinerHasAgent, userOnChainAgentId: userOnChainAgentId?.toString() });
+    
     // Require wallet + BSC mainnet
     if (!canUseOnChainJoin) {
+      console.log("[Join] Failed: canUseOnChainJoin is false", { isJoinContractDeployed, chainId, address });
       toast({ 
         title: t('common.connectWallet'), 
         description: t('predict.switchToBsc'),
@@ -1581,6 +1595,7 @@ export default function Predict() {
     
     // Prevent joining own duel
     if (address && duel.creatorAddress?.toLowerCase() === address.toLowerCase()) {
+      console.log("[Join] Failed: User is creator");
       toast({ 
         title: t('predict.cannotJoinOwn') || "Cannot join your own bet", 
         description: t('predict.cannotJoinOwnDesc') || "You created this bet. Wait for another user to join.",
@@ -1596,6 +1611,7 @@ export default function Predict() {
         
         // If user doesn't have an agent, auto-register first
         if (!joinerHasAgent) {
+          console.log("[Join] User needs registration first");
           toast({ title: "Registering...", description: "First time betting - registering your wallet..." });
           setPendingJoinDuel(duel);
           // Register with minimal valid CID (empty JSON object stored on IPFS)
@@ -1604,9 +1620,11 @@ export default function Predict() {
         }
         
         // Fetch current price for start price
+        console.log("[Join] Fetching price for", duel.assetId);
         const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
         const priceData = await priceRes.json();
         const price = priceData?.price;
+        console.log("[Join] Price fetched:", price);
         if (!price || isNaN(price)) {
           toast({ title: "Price fetch failed", description: "Could not get current price. Please try again.", variant: "destructive" });
           setJoiningDuelId(null);
@@ -1618,6 +1636,13 @@ export default function Predict() {
         const stakeMatch = duel.stakeDisplay?.match(/^([\d.]+)/);
         const stakeWei = stakeMatch ? parseEther(stakeMatch[1]) : parseEther("0.01");
         
+        console.log("[Join] Calling joinDuelOnChain", { 
+          duelId: duel.onChainDuelId.toString(), 
+          agentId: userOnChainAgentId?.toString(),
+          startPriceWei: startPriceWei.toString(),
+          stakeWei: stakeWei.toString()
+        });
+        
         joinDuelOnChain(
           BigInt(duel.onChainDuelId.toString()),
           userOnChainAgentId!,
@@ -1625,11 +1650,13 @@ export default function Predict() {
           stakeWei
         );
       } catch (err: any) {
+        console.error("[Join] Error:", err);
         toast({ title: "Error", description: err.message, variant: "destructive" });
         setJoiningDuelId(null);
       }
     } else {
       // Duel doesn't have on-chain ID - shouldn't happen for real duels
+      console.log("[Join] Failed: No onChainDuelId");
       toast({ 
         title: t('common.error'), 
         description: "This duel is not available for on-chain betting",
