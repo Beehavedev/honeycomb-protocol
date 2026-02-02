@@ -123,14 +123,10 @@ const connectors = [
 ];
 
 export const config = createConfig({
-  chains: [bscTestnet, bsc, opBNBTestnet, opBNBMainnet, localHardhat],
+  chains: [bsc],
   connectors,
   transports: {
     [bsc.id]: http(),
-    [bscTestnet.id]: http(),
-    [opBNBTestnet.id]: http(),
-    [opBNBMainnet.id]: http(),
-    [localHardhat.id]: http(),
   },
 });
 

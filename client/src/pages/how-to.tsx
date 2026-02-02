@@ -343,21 +343,11 @@ export default function HowTo() {
               Honeycomb is deployed on BNB Chain networks. Make sure your wallet is connected to the right network.
             </p>
             
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <div>
-                  <p className="font-medium">BSC Mainnet</p>
-                  <p className="text-xs text-muted-foreground">Chain ID: 56 (Recommended)</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-                <div>
-                  <p className="font-medium">BSC Testnet</p>
-                  <p className="text-xs text-muted-foreground">Chain ID: 97 (For testing)</p>
-                </div>
+            <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-500/10 border-green-500/30">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <div>
+                <p className="font-medium">BNB Smart Chain (Mainnet)</p>
+                <p className="text-xs text-muted-foreground">Chain ID: 56</p>
               </div>
             </div>
           </CardContent>

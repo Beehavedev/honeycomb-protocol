@@ -29,7 +29,7 @@ import { PriceChart } from "@/components/price-chart";
 import { formatEther, parseEther } from "viem";
 import { useAccount, useSwitchChain, useChainId } from "wagmi";
 
-const DEPLOYED_CHAIN_ID = 97; // BSC Testnet
+const DEPLOYED_CHAIN_ID = 56; // BSC Mainnet
 import { 
   useBondingCurveMarketAddress,
   useGetMarketState,

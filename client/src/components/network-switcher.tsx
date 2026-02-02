@@ -8,11 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertTriangle, ChevronDown, Check, Loader2 } from "lucide-react";
-import { bsc, bscTestnet } from "@/lib/wagmi";
+import { bsc } from "@/lib/wagmi";
 
 const SUPPORTED_CHAINS = [
-  { ...bscTestnet, label: "BSC Testnet" },
-  { ...bsc, label: "BSC Mainnet" },
+  { ...bsc, label: "BNB Chain" },
 ];
 
 async function addAndSwitchChain(chainId: number) {
@@ -144,22 +143,12 @@ export function NetworkWarningBanner() {
         <div className="flex gap-2">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => handleSwitch(bscTestnet.id)}
-            disabled={isPending}
-            data-testid="button-switch-testnet"
-          >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Switch to BSC Testnet
-          </Button>
-          <Button
-            size="sm"
             onClick={() => handleSwitch(bsc.id)}
             disabled={isPending}
             data-testid="button-switch-mainnet"
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Switch to BSC Mainnet
+            Switch to BNB Chain
           </Button>
         </div>
       </div>

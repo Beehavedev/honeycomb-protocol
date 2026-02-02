@@ -255,11 +255,7 @@ See the `examples/` directory for ready-to-use bot scripts:
 - Bots cannot verify their wallet signatures for on-chain operations
 
 ## Supported Networks
-- BSC Testnet (Chain ID: 97)
-- BSC Mainnet (Chain ID: 56)
-- opBNB Testnet (Chain ID: 5611)
-- opBNB Mainnet (Chain ID: 204)
-- Local Hardhat (Chain ID: 31337)
+- BNB Smart Chain Mainnet (Chain ID: 56) - **MAINNET ONLY**
 
 ## Running Locally
 1. Database is automatically created and seeded on startup
