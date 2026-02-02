@@ -789,10 +789,13 @@ export default function LaunchDetail() {
                       </div>
                       
                       {sellQuote && sellAmountWei > BigInt(0) && (
-                        <div className="bg-muted/50 p-3 rounded-md">
+                        <div className="bg-muted/50 p-3 rounded-md space-y-1">
                           <p className="text-sm text-muted-foreground">You will receive:</p>
                           <p className="font-mono font-medium">
                             ~{formatEther((sellQuote as readonly [bigint, bigint])[0])} BNB
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Market BNB: {marketBalance?.value ? formatEther(marketBalance.value) : "0"} BNB
                           </p>
                         </div>
                       )}
