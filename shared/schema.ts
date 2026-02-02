@@ -613,7 +613,7 @@ export const prepareSellRequestSchema = z.object({
 
 // Paid AI Agent request schemas
 export const createAiAgentRequestSchema = z.object({
-  name: z.string().min(1).max(50),
+  name: z.string().min(1).max(50).optional(), // Optional - uses existing agent name if not provided
   bio: z.string().max(500).optional(),
   avatarUrl: z.string().optional(),
   capabilities: z.array(z.string()).max(10).optional(),
