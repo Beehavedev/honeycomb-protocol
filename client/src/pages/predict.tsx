@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useI18n } from "@/lib/i18n";
+import { playBetSound, playWinSound, playLoseSound, preloadAllSounds } from "@/lib/sounds";
 import { 
   useCreateDuel, 
   useJoinDuel, 
@@ -348,6 +349,7 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
   // Check if duel has expired (can be settled)
   const [canSettle, setCanSettle] = useState(false);
   const [autoSettleTriggered, setAutoSettleTriggered] = useState(false);
+  const soundPlayedRef = useRef(false);
   
   useEffect(() => {
     if (duel.status !== "live" || !duel.endTs) {
@@ -387,6 +389,20 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
   // Check if current user is winner or loser
   const isWinner = Boolean(duel.status === "settled" && duel.winnerAddress && address && duel.winnerAddress.toLowerCase() === address.toLowerCase());
   const isLoser = Boolean(duel.status === "settled" && duel.winnerAddress && (isCreator || isJoiner) && !isWinner);
+
+  // Play sound effects when duel settles
+  useEffect(() => {
+    if (soundPlayedRef.current) return;
+    if (duel.status === "settled" && duel.winnerAddress) {
+      if (isWinner) {
+        soundPlayedRef.current = true;
+        playWinSound();
+      } else if (isLoser) {
+        soundPlayedRef.current = true;
+        playLoseSound();
+      }
+    }
+  }, [duel.status, duel.winnerAddress, isWinner, isLoser]);
 
   return (
     <Card className="hover-elevate overflow-visible" data-testid={`duel-card-${duel.id}`}>
@@ -805,6 +821,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
         console.error("Error parsing DuelCreated event:", e);
       }
       
+      playBetSound();
       toast({ 
         title: "Duel created on-chain!", 
         description: `BNB sent to escrow. Transaction: ${createHash.slice(0, 10)}...` 
@@ -1121,6 +1138,11 @@ export default function Predict() {
   const { t } = useI18n();
   const predictDuelAddress = usePredictDuelAddress();
   
+  // Preload sound effects on mount
+  useEffect(() => {
+    preloadAllSounds();
+  }, []);
+  
   // Check if contract is deployed
   const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
 
@@ -1194,6 +1216,7 @@ export default function Predict() {
   // Effect to handle on-chain join success
   useEffect(() => {
     if (joinSuccess && joinHash && joiningDuelId) {
+      playBetSound();
       // Sync with database after successful on-chain join
       syncJoinMutation.mutate({
         duelId: joiningDuelId,
