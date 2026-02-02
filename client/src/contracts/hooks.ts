@@ -819,7 +819,7 @@ export function useDuelFeeConfig() {
 export function useCreateDuel() {
   const address = usePredictDuelAddress();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
 
   const createDuel = (
     agentId: bigint,
@@ -838,7 +838,7 @@ export function useCreateDuel() {
     });
   };
 
-  return { createDuel, hash, isPending, isConfirming, isSuccess, error };
+  return { createDuel, hash, isPending, isConfirming, isSuccess, error, receipt };
 }
 
 export function useJoinDuel() {

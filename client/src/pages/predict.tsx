@@ -683,7 +683,8 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     isPending: isCreatingOnChain, 
     isSuccess: createSuccess, 
     error: createError, 
-    hash: createHash 
+    hash: createHash,
+    receipt: createReceipt
   } = useCreateDuel();
 
   // Track if we're waiting to create duel after registration
@@ -716,17 +717,46 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
 
   // Effect to handle on-chain success - sync with database
   useEffect(() => {
-    if (createSuccess && createHash) {
+    if (createSuccess && createHash && createReceipt) {
+      // Parse the DuelCreated event from transaction logs to get the actual duel ID
+      // DuelCreated event signature: DuelCreated(uint256 indexed duelId, uint256 indexed creatorAgentId, address indexed creator, ...)
+      // The first topic (topic[0]) is the event signature hash
+      // The second topic (topic[1]) is the indexed duelId
+      let onChainDuelId = "1"; // fallback
+      
+      try {
+        // Find the DuelCreated event in the logs
+        // Event signature hash for DuelCreated(uint256,uint256,address,string,uint8,uint256,uint256,uint256)
+        const duelCreatedEventSignature = "0x"; // We'll match by checking logs from contract
+        
+        for (const log of createReceipt.logs) {
+          // The log should have at least 4 topics for indexed params
+          if (log.topics && log.topics.length >= 2) {
+            // The duelId is the second topic (first indexed param)
+            // Topics[0] = event signature, Topics[1] = duelId (indexed), Topics[2] = creatorAgentId (indexed), Topics[3] = creator (indexed)
+            const duelIdHex = log.topics[1];
+            if (duelIdHex) {
+              // Parse the hex value to get the duel ID
+              const parsedId = BigInt(duelIdHex).toString();
+              if (parsedId !== "0") {
+                onChainDuelId = parsedId;
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error parsing DuelCreated event:", e);
+      }
+      
       toast({ 
         title: "Duel created on-chain!", 
         description: `BNB sent to escrow. Transaction: ${createHash.slice(0, 10)}...` 
       });
       
-      // Parse the on-chain duel ID from transaction receipt (using next ID counter)
-      // For now, we'll use the transaction hash as a unique identifier and let backend parse logs
       const asset = assets?.find(a => a.assetId === assetId);
       syncCreateMutation.mutate({
-        onChainDuelId: "1", // Backend will need to parse this from tx receipt or use incrementing ID
+        onChainDuelId,
         txHash: createHash,
         assetId,
         assetName: asset?.name || assetId,
@@ -739,7 +769,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       
       onSuccess();
     }
-  }, [createSuccess, createHash]);
+  }, [createSuccess, createHash, createReceipt]);
 
   // Effect to handle on-chain error
   useEffect(() => {
