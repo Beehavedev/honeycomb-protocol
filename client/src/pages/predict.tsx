@@ -985,9 +985,27 @@ export default function Predict() {
   // Effect to handle on-chain join error
   useEffect(() => {
     if (joinError) {
-      const errorMsg = joinError.message?.includes("user rejected") 
-        ? "Transaction rejected by user"
-        : joinError.message?.slice(0, 100) || "Failed to join duel";
+      let errorMsg = "Failed to join duel";
+      const msg = joinError.message || "";
+      
+      if (msg.includes("user rejected") || msg.includes("User denied")) {
+        errorMsg = "Transaction rejected by user";
+      } else if (msg.includes("CannotjoinOwnDuel") || msg.includes("CannotJoinOwnDuel")) {
+        errorMsg = "You cannot join your own bet";
+      } else if (msg.includes("DuelNotOpen") || msg.includes("NotOpen")) {
+        errorMsg = "This bet is no longer available (already joined or cancelled)";
+      } else if (msg.includes("insufficient funds") || msg.includes("InsufficientFunds")) {
+        errorMsg = "Insufficient BNB balance for stake + gas fees";
+      } else if (msg.includes("InvalidAgent") || msg.includes("AgentNotRegistered")) {
+        errorMsg = "You need to register first - please try again";
+      } else if (msg.includes("InvalidDuelId")) {
+        errorMsg = "This bet does not exist on-chain";
+      } else if (msg.includes("execution reverted")) {
+        errorMsg = "Transaction failed - bet may no longer be available";
+      } else {
+        errorMsg = msg.slice(0, 100) || "Unknown error occurred";
+      }
+      
       toast({ 
         title: "Transaction failed", 
         description: errorMsg, 
