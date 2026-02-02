@@ -1,5 +1,5 @@
 // Contract interaction hooks using wagmi
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { 
   HoneycombAgentRegistryABI,
@@ -665,6 +665,78 @@ export function useLaunchpadDeployed() {
     addresses.tokenFactory !== ZERO &&
     addresses.bondingCurveMarket !== ZERO
   );
+}
+
+// ============= Cooldown Hooks =============
+
+export function useCooldownSeconds() {
+  const address = useBondingCurveMarketAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'cooldownSeconds',
+    query: { enabled: !!address },
+  });
+}
+
+export function useLastTradeTime(tokenAddress?: `0x${string}`, trader?: `0x${string}`) {
+  const address = useBondingCurveMarketAddress();
+  return useReadContract({
+    address,
+    abi: HoneycombBondingCurveMarketABI,
+    functionName: 'lastTradeTime',
+    args: tokenAddress && trader ? [tokenAddress, trader] : undefined,
+    query: { enabled: !!address && !!tokenAddress && !!trader },
+  });
+}
+
+export function useMarketNativeBalance() {
+  const address = useBondingCurveMarketAddress();
+  return useBalance({ address });
+}
+
+// ============= Error Helpers =============
+
+export function parseContractError(error: Error | null): string {
+  if (!error) return "Transaction failed";
+  
+  const message = error.message || String(error);
+  
+  // Check for specific contract errors
+  if (message.includes("CooldownActive")) {
+    return "Please wait a few seconds between trades (cooldown active)";
+  }
+  if (message.includes("InsufficientNative")) {
+    return "Insufficient liquidity in the pool. Try selling a smaller amount.";
+  }
+  if (message.includes("SlippageExceeded")) {
+    return "Price moved too much. Try again or increase slippage tolerance.";
+  }
+  if (message.includes("MarketNotInitialized")) {
+    return "Market not initialized. Initialize the market first.";
+  }
+  if (message.includes("TokenGraduated")) {
+    return "Token has graduated. Trade on PancakeSwap instead.";
+  }
+  if (message.includes("TradingNotStarted")) {
+    return "Trading hasn't started yet. Please wait.";
+  }
+  if (message.includes("ZeroAmount")) {
+    return "Amount must be greater than zero.";
+  }
+  if (message.includes("User rejected") || message.includes("user rejected")) {
+    return "Transaction was cancelled.";
+  }
+  if (message.includes("insufficient funds")) {
+    return "Insufficient BNB for this transaction.";
+  }
+  
+  // Try to extract a readable message
+  const match = message.match(/reason="([^"]+)"/);
+  if (match) return match[1];
+  
+  // Return truncated message
+  return message.length > 100 ? message.substring(0, 100) + "..." : message;
 }
 
 export { parseEther, formatEther };

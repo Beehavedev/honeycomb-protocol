@@ -44,6 +44,10 @@ import {
   useMigrateToken,
   useMigrationDeployed,
   useInitializeMarket,
+  useCooldownSeconds,
+  useLastTradeTime,
+  useMarketNativeBalance,
+  parseContractError,
 } from "@/contracts/hooks";
 import type { LaunchToken, LaunchTrade } from "@shared/schema";
 
@@ -93,6 +97,34 @@ export default function LaunchDetail() {
   // Market initialization for tokens that weren't properly initialized
   const { initializeMarket, isPending: isInitializing, isSuccess: initSuccess, error: initError } = useInitializeMarket();
   
+  // Cooldown checking
+  const { data: cooldownSeconds } = useCooldownSeconds();
+  const { data: lastTradeTimeData, refetch: refetchLastTrade } = useLastTradeTime(tokenAddress, userAddress);
+  
+  // Market liquidity checking
+  const { data: marketBalance } = useMarketNativeBalance();
+  
+  // Cooldown timer state
+  const [cooldownTick, setCooldownTick] = useState(0);
+  
+  // Calculate if cooldown is active
+  const now = Math.floor(Date.now() / 1000);
+  const lastTrade = lastTradeTimeData ? Number(lastTradeTimeData) : 0;
+  const cooldown = cooldownSeconds ? Number(cooldownSeconds) : 10;
+  const cooldownEndsAt = lastTrade + cooldown;
+  const isCooldownActive = lastTrade > 0 && now < cooldownEndsAt;
+  const cooldownRemaining = isCooldownActive ? cooldownEndsAt - now : 0;
+  
+  // Auto-update cooldown timer
+  useEffect(() => {
+    if (isCooldownActive && cooldownRemaining > 0) {
+      const timer = setTimeout(() => {
+        setCooldownTick(t => t + 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isCooldownActive, cooldownRemaining, cooldownTick]);
+  
   // Check if market is initialized - marketState returns an object with named fields
   const isMarketInitialized = (marketState as { initialized?: boolean } | undefined)?.initialized === true;
   
@@ -107,6 +139,12 @@ export default function LaunchDetail() {
   const { approve, isPending: isApproving, isSuccess: approveSuccess } = useApproveToken();
 
   const needsApproval = tradeTab === "sell" && sellAmountWei > BigInt(0) && allowance !== undefined && sellAmountWei > allowance;
+
+  // Preflight liquidity check - compare sell quote against actual market balance
+  const sellQuoteValue = sellQuote as readonly [bigint, bigint] | undefined;
+  const expectedNativeOut = sellQuoteValue ? sellQuoteValue[0] : BigInt(0);
+  const actualMarketBalance = marketBalance?.value ?? BigInt(0);
+  const hasInsufficientLiquidity = sellAmountWei > BigInt(0) && expectedNativeOut > BigInt(0) && expectedNativeOut > actualMarketBalance;
 
   useEffect(() => {
     const recordAndRefresh = async () => {
@@ -136,18 +174,20 @@ export default function LaunchDetail() {
         refetch();
         refetchMarket();
         refetchBalance();
+        refetchLastTrade();
         queryClient.invalidateQueries({ queryKey: ["/api/launch/tokens", tokenAddress] });
       }
     };
     
     recordAndRefresh();
-  }, [buySuccess, sellSuccess, buyHash, sellHash, tokenAddress, userAddress, lastTradeInfo, toast, refetch, refetchMarket, refetchBalance]);
+  }, [buySuccess, sellSuccess, buyHash, sellHash, tokenAddress, userAddress, lastTradeInfo, toast, refetch, refetchMarket, refetchBalance, refetchLastTrade]);
 
   useEffect(() => {
     if (buyError || sellError) {
+      const error = buyError || sellError;
       toast({
         title: "Trade failed",
-        description: (buyError || sellError)?.message || "Transaction failed.",
+        description: parseContractError(error),
         variant: "destructive",
       });
     }
@@ -687,9 +727,16 @@ export default function LaunchDetail() {
                         </div>
                       )}
 
+                      {isCooldownActive && (
+                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          <span>Please wait {cooldownRemaining}s before trading again</span>
+                        </div>
+                      )}
+
                       <Button
                         onClick={handleBuy}
-                        disabled={isBuying || isSwitchingNetwork || !buyAmount || parseFloat(buyAmount) <= 0}
+                        disabled={isBuying || isSwitchingNetwork || !buyAmount || parseFloat(buyAmount) <= 0 || isCooldownActive}
                         className="w-full gap-2"
                         data-testid="button-buy"
                       >
@@ -698,6 +745,8 @@ export default function LaunchDetail() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                             {isSwitchingNetwork ? "Switching Network..." : "Buying..."}
                           </>
+                        ) : isCooldownActive ? (
+                          `Wait ${cooldownRemaining}s`
                         ) : (
                           "Buy Tokens"
                         )}
@@ -737,9 +786,23 @@ export default function LaunchDetail() {
                         </div>
                       )}
 
+                      {isCooldownActive && (
+                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm bg-amber-50 dark:bg-amber-900/20 p-3 rounded-md">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          <span>Please wait {cooldownRemaining}s before trading again</span>
+                        </div>
+                      )}
+
+                      {hasInsufficientLiquidity && !isCooldownActive && (
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          <span>Insufficient liquidity. Try selling a smaller amount.</span>
+                        </div>
+                      )}
+
                       <Button
                         onClick={handleSell}
-                        disabled={isSelling || isApproving || isSwitchingNetwork || !sellAmount || parseFloat(sellAmount) <= 0}
+                        disabled={isSelling || isApproving || isSwitchingNetwork || !sellAmount || parseFloat(sellAmount) <= 0 || isCooldownActive || hasInsufficientLiquidity}
                         className="w-full gap-2"
                         data-testid="button-sell"
                       >
@@ -748,6 +811,10 @@ export default function LaunchDetail() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                             {isSwitchingNetwork ? "Switching Network..." : isApproving ? "Approving..." : "Selling..."}
                           </>
+                        ) : isCooldownActive ? (
+                          `Wait ${cooldownRemaining}s`
+                        ) : hasInsufficientLiquidity ? (
+                          "Insufficient Liquidity"
                         ) : needsApproval ? (
                           "Approve & Sell"
                         ) : (
