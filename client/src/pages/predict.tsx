@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount } from "wagmi";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,18 +12,17 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { useCreateDuel, useJoinDuel, usePredictDuelAddress, parseEther } from "@/contracts/hooks";
+// On-chain hooks available but using DB API for now (contract requires on-chain agent registration)
+// import { useCreateDuel, useJoinDuel, usePredictDuelAddress, parseEther } from "@/contracts/hooks";
 import { 
   TrendingUp, 
   TrendingDown, 
   Clock, 
   Zap, 
   Trophy,
-  AlertTriangle,
   Plus,
   Target,
-  Users,
-  Wallet
+  Users
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -83,24 +82,48 @@ const COINGECKO_IDS: Record<string, string> = {
 
 function useLivePrice(assetId: string, enabled: boolean = true) {
   const [price, setPrice] = useState<number | null>(null);
-  const [priceChange, setPriceChange] = useState<number>(0);
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!enabled) return;
     
     const coinId = COINGECKO_IDS[assetId] || assetId.toLowerCase();
-    let intervalId: NodeJS.Timeout;
+    let intervalId: ReturnType<typeof setInterval>;
 
-    const fetchPrice = async () => {
+    // Fetch initial market chart data (last 1 hour)
+    const fetchHistory = async () => {
       try {
         const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd&include_24hr_change=true`
+          `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=0.04&precision=2`
+        );
+        const data = await res.json();
+        if (data.prices && data.prices.length > 0) {
+          const prices = data.prices.map((p: [number, number]) => p[1]);
+          setPriceHistory(prices.slice(-20)); // Last 20 data points
+          setPrice(prices[prices.length - 1]);
+        }
+        setLoading(false);
+      } catch (e) {
+        console.error("Price history fetch error:", e);
+        // Fallback to simple price
+        fetchCurrentPrice();
+      }
+    };
+
+    const fetchCurrentPrice = async () => {
+      try {
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
         );
         const data = await res.json();
         if (data[coinId]) {
-          setPrice(data[coinId].usd);
-          setPriceChange(data[coinId].usd_24h_change || 0);
+          const newPrice = data[coinId].usd;
+          setPrice(newPrice);
+          setPriceHistory(prev => {
+            const updated = [...prev, newPrice];
+            return updated.slice(-20);
+          });
         }
         setLoading(false);
       } catch (e) {
@@ -109,48 +132,115 @@ function useLivePrice(assetId: string, enabled: boolean = true) {
       }
     };
 
-    fetchPrice();
-    intervalId = setInterval(fetchPrice, 10000); // Update every 10 seconds
+    fetchHistory();
+    intervalId = setInterval(fetchCurrentPrice, 10000); // Update every 10 seconds
 
     return () => clearInterval(intervalId);
   }, [assetId, enabled]);
 
-  return { price, priceChange, loading };
+  return { price, priceHistory, loading };
 }
 
 function LivePriceChart({ duel }: { duel: Duel }) {
-  const { price, priceChange, loading } = useLivePrice(duel.assetId, duel.status === "live");
+  const { price, priceHistory, loading } = useLivePrice(duel.assetId, duel.status === "live");
   const startPrice = duel.startPrice ? parseFloat(duel.startPrice) / 1e8 : null;
   
-  if (loading || !price || !startPrice) {
+  if (loading && !price) {
     return (
-      <div className="h-24 bg-muted/30 rounded flex items-center justify-center">
-        <span className="text-muted-foreground text-sm">Loading price...</span>
+      <div className="h-28 bg-muted/30 rounded-lg flex items-center justify-center">
+        <span className="text-muted-foreground text-sm">Loading live price...</span>
       </div>
     );
   }
 
-  const priceChangeFromStart = ((price - startPrice) / startPrice) * 100;
-  const isUp = price > startPrice;
+  // Use current price for display, fallback to first history price or 0
+  const currentPrice = price || (priceHistory.length > 0 ? priceHistory[priceHistory.length - 1] : 0);
+  
+  // If no start price from oracle, show price-only mode
+  if (!startPrice) {
+    const chartData = priceHistory.length > 1 ? priceHistory : [currentPrice];
+    const minPrice = Math.min(...chartData);
+    const maxPrice = Math.max(...chartData);
+    const range = maxPrice - minPrice || 1;
+    
+    return (
+      <div className="p-3 bg-muted/30 rounded-lg space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: currentPrice < 1 ? 6 : 2 })}</span>
+            <Badge variant="outline">Live</Badge>
+          </div>
+          <div className="text-sm text-muted-foreground">Awaiting oracle start price...</div>
+        </div>
+
+        {/* Mini sparkline chart */}
+        {chartData.length > 1 && (
+          <div className="h-12 flex items-end gap-0.5">
+            {chartData.map((p, i) => {
+              const height = ((p - minPrice) / range) * 100;
+              return (
+                <div
+                  key={i}
+                  className="flex-1 bg-primary rounded-t opacity-70"
+                  style={{ height: `${Math.max(5, height)}%` }}
+                />
+              );
+            })}
+          </div>
+        )}
+        
+        <div className="text-xs text-muted-foreground text-center">
+          Price history • Updates every 10s
+        </div>
+      </div>
+    );
+  }
+
+  const priceChangeFromStart = ((currentPrice - startPrice) / startPrice) * 100;
+  const isUp = currentPrice > startPrice;
   const creatorWinning = (duel.creatorDirection === "up" && isUp) || (duel.creatorDirection === "down" && !isUp);
 
+  // Calculate mini chart bars
+  const chartData = priceHistory.length > 1 ? priceHistory : [startPrice, currentPrice];
+  const minPrice = Math.min(...chartData);
+  const maxPrice = Math.max(...chartData);
+  const range = maxPrice - minPrice || 1;
+
   return (
-    <div className="p-3 bg-muted/30 rounded-lg space-y-2">
+    <div className="p-3 bg-muted/30 rounded-lg space-y-3">
+      {/* Price and change */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold">${price.toLocaleString(undefined, { maximumFractionDigits: price < 1 ? 6 : 2 })}</span>
+          <span className="text-2xl font-bold">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: currentPrice < 1 ? 6 : 2 })}</span>
           <Badge className={isUp ? "bg-green-500" : "bg-red-500"}>
             {isUp ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
             {priceChangeFromStart >= 0 ? "+" : ""}{priceChangeFromStart.toFixed(2)}%
           </Badge>
         </div>
+        <div className={`text-lg font-bold ${creatorWinning ? "text-green-500" : "text-red-500"}`}>
+          {creatorWinning ? "Creator Winning" : "Opponent Winning"}
+        </div>
+      </div>
+
+      {/* Mini sparkline chart */}
+      <div className="h-12 flex items-end gap-0.5">
+        {chartData.map((p, i) => {
+          const height = ((p - minPrice) / range) * 100;
+          const barColor = p >= startPrice ? "bg-green-500" : "bg-red-500";
+          return (
+            <div
+              key={i}
+              className={`flex-1 ${barColor} rounded-t opacity-70`}
+              style={{ height: `${Math.max(5, height)}%` }}
+            />
+          );
+        })}
       </div>
       
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted-foreground">Started at: ${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
-        <div className={`font-bold ${creatorWinning ? "text-green-500" : "text-red-500"}`}>
-          {creatorWinning ? "Creator winning" : "Opponent winning"}
-        </div>
+      {/* Start vs Current */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Start: ${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
+        <span>Updates every 10s</span>
       </div>
     </div>
   );
@@ -385,10 +475,8 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
 
 function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const { address } = useAccount();
-  const chainId = useChainId();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
-  const predictDuelAddress = usePredictDuelAddress();
 
   const [assetId, setAssetId] = useState("BNB");
   const [duration, setDuration] = useState("60");
@@ -400,36 +488,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     queryKey: ["/api/duels/assets"],
   });
 
-  // On-chain contract hook
-  const { createDuel, isPending: isCreatingOnChain, isSuccess: createSuccess, error: createError, hash: createHash } = useCreateDuel();
-
-  // Effect to handle on-chain success
-  useEffect(() => {
-    if (createSuccess && createHash) {
-      toast({ 
-        title: "Duel created on-chain!", 
-        description: `Transaction: ${createHash.slice(0, 10)}...` 
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-      onSuccess();
-    }
-  }, [createSuccess, createHash]);
-
-  // Effect to handle on-chain error
-  useEffect(() => {
-    if (createError) {
-      toast({ 
-        title: "Transaction failed", 
-        description: createError.message?.slice(0, 100) || "Failed to create duel", 
-        variant: "destructive" 
-      });
-    }
-  }, [createError]);
-
-  // Check if we're on a supported chain with the contract deployed
-  const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
-
-  // Database fallback mutation (for unsupported chains)
+  // Database API mutation
   const createMutation = useMutation({
     mutationFn: async () => {
       const stakeWei = (parseFloat(stake) * 1e18).toString();
@@ -455,23 +514,9 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const handleCreateDuel = () => {
-    if (isContractDeployed) {
-      // Use on-chain contract - requires wallet authorization
-      const stakeWei = parseEther(stake);
-      const durationSeconds = BigInt(parseInt(duration));
-      const directionValue = direction === "up" ? 0 : 1;
-      
-      createDuel(
-        BigInt(0), // agentId - 0 for now since we use wallet address
-        assetId,
-        directionValue as 0 | 1,
-        durationSeconds,
-        stakeWei
-      );
-    } else {
-      // Fallback to database API
-      createMutation.mutate();
-    }
+    // Use database API for now - on-chain requires registered agent ID
+    // TODO: Query user's on-chain agent ID and use contract if available
+    createMutation.mutate();
   };
 
   const handleSignIn = async () => {
@@ -612,20 +657,13 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
         </div>
 
-        {isContractDeployed && (
-          <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-md text-sm">
-            <Wallet className="h-4 w-4 text-primary" />
-            <span>On-chain mode: Your BNB will be sent to the smart contract</span>
-          </div>
-        )}
-
         <Button
           onClick={handleCreateDuel}
-          disabled={isCreatingOnChain || createMutation.isPending || !stake || parseFloat(stake) <= 0}
+          disabled={createMutation.isPending || !stake || parseFloat(stake) <= 0}
           className="w-full"
           data-testid="btn-create-duel"
         >
-          {isCreatingOnChain ? "Confirm in Wallet..." : createMutation.isPending ? "Creating..." : "Create Duel"}
+          {createMutation.isPending ? "Creating..." : "Create Duel"}
         </Button>
       </CardContent>
     </Card>
@@ -635,9 +673,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
 export default function Predict() {
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState("open");
-  const { isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const predictDuelAddress = usePredictDuelAddress();
 
   const { data: duels, isLoading } = useQuery<Duel[]>({
     queryKey: ["/api/duels", activeTab],
@@ -648,35 +684,7 @@ export default function Predict() {
     refetchInterval: 5000,
   });
 
-  // On-chain join hook
-  const { joinDuel, isPending: isJoiningOnChain, isSuccess: joinSuccess, error: joinError, hash: joinHash } = useJoinDuel();
-
-  // Check if contract is deployed
-  const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
-
-  // Effect to handle on-chain join success
-  useEffect(() => {
-    if (joinSuccess && joinHash) {
-      toast({ 
-        title: "Joined duel on-chain!", 
-        description: `Transaction: ${joinHash.slice(0, 10)}...` 
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-    }
-  }, [joinSuccess, joinHash]);
-
-  // Effect to handle on-chain join error
-  useEffect(() => {
-    if (joinError) {
-      toast({ 
-        title: "Transaction failed", 
-        description: joinError.message?.slice(0, 100) || "Failed to join duel", 
-        variant: "destructive" 
-      });
-    }
-  }, [joinError]);
-
-  // Database fallback mutation
+  // Database API mutation for joining duels
   const joinMutation = useMutation({
     mutationFn: async (duelId: string) => {
       return apiRequest("POST", `/api/duels/${duelId}/join`);
@@ -691,8 +699,6 @@ export default function Predict() {
   });
 
   const handleJoinDuel = (duel: Duel) => {
-    // For now, use database API for joins since we need to track on-chain IDs
-    // On-chain join will be available once duels are created on-chain first
     joinMutation.mutate(duel.id);
   };
 
@@ -768,7 +774,7 @@ export default function Predict() {
                   key={duel.id}
                   duel={duel}
                   onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
-                  isJoining={joinMutation.isPending || isJoiningOnChain}
+                  isJoining={joinMutation.isPending}
                 />
               ))}
             </div>
