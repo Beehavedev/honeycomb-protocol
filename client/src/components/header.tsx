@@ -16,13 +16,16 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { t } = useI18n();
 
+  const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+  const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
+
   const navItems = [
     { href: "/", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/" },
     { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
     { href: "/launch", label: t('nav.launchpad'), icon: Rocket, match: (loc: string) => loc.startsWith("/launch") },
     { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
-    { href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" },
+    ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),
     { href: "/how-to", label: "How To", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
   ];
 

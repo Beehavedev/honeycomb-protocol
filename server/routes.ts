@@ -1486,9 +1486,14 @@ export async function registerRoutes(
     }
   });
 
-  // Platform stats endpoint
-  app.get("/api/stats", async (_req, res) => {
+  // Platform stats endpoint (admin only)
+  const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+  app.get("/api/stats", authMiddleware, async (req, res) => {
     try {
+      const userAddress = (req as any).user?.address?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
       const stats = await storage.getPlatformStats();
       res.json(stats);
     } catch (error: any) {

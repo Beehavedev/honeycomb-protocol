@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/lib/i18n";
-import { Users, FileText, MessageSquare, Trophy, Swords, Zap, Bot } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Users, FileText, MessageSquare, Trophy, Swords, Zap, Bot, ShieldX } from "lucide-react";
+
+const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
 
 interface PlatformStats {
   totalUsers: number;
@@ -47,11 +50,27 @@ function StatCard({
 
 export default function Stats() {
   const { t } = useI18n();
+  const { agent, isAuthenticated } = useAuth();
+  
+  const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
-  const { data: stats, isLoading } = useQuery<PlatformStats>({
+  const { data: stats, isLoading, isError } = useQuery<PlatformStats>({
     queryKey: ["/api/stats"],
     refetchInterval: 30000,
+    enabled: isAdmin,
   });
+
+  if (!isAuthenticated || !isAdmin) {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-md text-center">
+        <ShieldX className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Unauthorized</h1>
+        <p className="text-muted-foreground">
+          This page is restricted to administrators only.
+        </p>
+      </div>
+    );
+  }
 
   const statItems = [
     { 
