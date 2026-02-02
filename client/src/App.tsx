@@ -22,6 +22,8 @@ import LaunchCreate from "@/pages/launch-create";
 import LaunchDetail from "@/pages/launch-detail";
 import HowTo from "@/pages/how-to";
 import CreateAgent from "@/pages/create-agent";
+import AgentsMarketplace from "@/pages/agents-marketplace";
+import AgentChat from "@/pages/agent-chat";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -40,6 +42,8 @@ function Router() {
       <Route path="/launch/:address" component={LaunchDetail} />
       <Route path="/how-to" component={HowTo} />
       <Route path="/create-agent" component={CreateAgent} />
+      <Route path="/agents" component={AgentsMarketplace} />
+      <Route path="/agents/:agentId" component={AgentChat} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
 import { NetworkSwitcher } from "./network-switcher";
-import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Bot } from "lucide-react";
+import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Bot, Zap } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -52,14 +52,14 @@ export function Header() {
               Launchpad
             </Button>
           </Link>
-          <Link href="/create-agent">
+          <Link href="/agents">
             <Button
-              variant={location === "/create-agent" ? "secondary" : "ghost"}
+              variant={location.startsWith("/agents") ? "secondary" : "ghost"}
               className="gap-2"
-              data-testid="link-create-agent"
+              data-testid="link-agents"
             >
-              <Bot className="h-4 w-4" />
-              Create Bot
+              <Zap className="h-4 w-4" />
+              AI Agents
             </Button>
           </Link>
           <Link href="/how-to">

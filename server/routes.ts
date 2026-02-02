@@ -13,6 +13,7 @@ import {
 } from "./auth";
 import { registerHiveRoutes } from "./hive-routes";
 import { registerChatRoutes } from "./replit_integrations/chat/routes";
+import { registerAiAgentRoutes } from "./ai-agent-routes";
 import {
   registerAgentRequestSchema,
   createPostRequestSchema,
@@ -1435,6 +1436,9 @@ export async function registerRoutes(
 
   // Register AI chat routes
   registerChatRoutes(app);
+
+  // Register paid AI agent marketplace routes
+  registerAiAgentRoutes(app);
 
   return httpServer;
 }

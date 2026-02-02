@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Bot, Loader2, X, Plus, Wallet, Upload, ImageIcon, Key, Copy, CheckCircle, Sparkles, AlertCircle } from "lucide-react";
+import { ArrowLeft, Bot, Loader2, X, Plus, Wallet, Upload, ImageIcon, Key, Copy, CheckCircle, Sparkles, AlertCircle, Coins, DollarSign } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WalletButton } from "@/components/wallet-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +31,10 @@ export default function CreateAgent() {
   const [isUploading, setIsUploading] = useState(false);
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
+  const [enableMonetization, setEnableMonetization] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [pricingModel, setPricingModel] = useState<"per_message" | "per_token" | "per_task">("per_message");
+  const [priceAmount, setPriceAmount] = useState("0.0001");
   const [step, setStep] = useState<"create" | "success">("create");
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -156,12 +162,41 @@ export default function CreateAgent() {
         }
       }
 
+      // If monetization is enabled, create the AI agent profile
+      let paidAgentCreated = false;
+      let paidAgentError: string | null = null;
+      
+      if (enableMonetization && systemPrompt) {
+        try {
+          // Use string-based conversion to avoid floating point precision issues
+          const parts = priceAmount.split('.');
+          const wholePart = parts[0] || '0';
+          const decimalPart = (parts[1] || '').padEnd(18, '0').slice(0, 18);
+          const priceWei = wholePart + decimalPart;
+          await apiRequest("POST", "/api/ai-agents", {
+            name,
+            bio: personality || undefined,
+            avatarUrl: avatarUrl || undefined,
+            capabilities: skills.length > 0 ? skills : undefined,
+            systemPrompt,
+            pricingModel,
+            pricePerUnit: priceWei,
+          });
+          paidAgentCreated = true;
+        } catch (error) {
+          paidAgentError = error instanceof Error ? error.message : "Failed to create paid agent profile";
+          console.warn("Paid agent creation failed:", paidAgentError);
+        }
+      }
+
       return {
         ...registerData,
         apiKey: generatedApiKey,
         botEnabled,
         enableBotError,
         apiKeyError,
+        paidAgentCreated,
+        paidAgentError,
       };
     },
     onSuccess: async (data) => {
@@ -180,15 +215,15 @@ export default function CreateAgent() {
         apiKeyGenerated: !!data.apiKey,
       });
       
-      if (data.enableBotError || data.apiKeyError) {
-        const errors = [data.enableBotError, data.apiKeyError].filter(Boolean);
+      const allErrors = [data.enableBotError, data.apiKeyError, data.paidAgentError].filter(Boolean);
+      if (allErrors.length > 0) {
         toast({
           title: "Agent created with warnings",
-          description: `Some features may need manual setup: ${errors.join(", ")}`,
+          description: `Some features may need manual setup: ${allErrors.join(", ")}`,
           variant: "default",
         });
       } else {
-        toast({ title: "AI Agent created successfully!" });
+        toast({ title: data.paidAgentCreated ? "Paid AI Agent created and listed in marketplace!" : "AI Agent created successfully!" });
       }
       
       setStep("success");
@@ -658,6 +693,84 @@ export default function CreateAgent() {
                   </div>
                 )}
               </div>
+
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="monetization" className="flex items-center gap-2">
+                      <Coins className="h-4 w-4 text-amber-500" />
+                      Enable Monetization
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Earn 99% of all usage fees when users interact with your agent
+                    </p>
+                  </div>
+                  <Switch
+                    id="monetization"
+                    checked={enableMonetization}
+                    onCheckedChange={setEnableMonetization}
+                    data-testid="switch-monetization"
+                  />
+                </div>
+
+                {enableMonetization && (
+                  <div className="space-y-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                    <div className="space-y-2">
+                      <Label htmlFor="system-prompt">AI System Prompt *</Label>
+                      <Textarea
+                        id="system-prompt"
+                        placeholder="You are a helpful trading assistant. You help users understand market trends, analyze tokens, and make informed decisions. Be concise, accurate, and provide data-driven insights."
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        rows={4}
+                        maxLength={5000}
+                        className="resize-none"
+                        data-testid="input-system-prompt"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This defines how your AI agent behaves and responds to users.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="pricing-model">Pricing Model</Label>
+                        <Select value={pricingModel} onValueChange={(v) => setPricingModel(v as any)}>
+                          <SelectTrigger id="pricing-model" data-testid="select-pricing-model">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="per_message">Per Message</SelectItem>
+                            <SelectItem value="per_token">Per 1K Tokens</SelectItem>
+                            <SelectItem value="per_task">Per Task</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="price-amount">Price (BNB)</Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="price-amount"
+                            type="number"
+                            step="0.0001"
+                            min="0.0001"
+                            value={priceAmount}
+                            onChange={(e) => setPriceAmount(e.target.value)}
+                            className="pl-9"
+                            data-testid="input-price-amount"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Users will pay {priceAmount} BNB {pricingModel === "per_message" ? "per message" : pricingModel === "per_token" ? "per 1K tokens" : "per task"}. You receive 99%, 1% goes to the platform.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="bg-muted/50 rounded-lg p-4 space-y-2">
@@ -669,19 +782,27 @@ export default function CreateAgent() {
                 <li>Your agent will be created with bot mode enabled</li>
                 <li>You'll receive an API key to authenticate your bot</li>
                 <li>You can start making API calls immediately</li>
+                {enableMonetization && (
+                  <li className="text-amber-600 dark:text-amber-400">Your paid AI agent will be listed in the marketplace</li>
+                )}
               </ul>
             </div>
 
             <Button
               type="submit"
               className="w-full"
-              disabled={createAgentMutation.isPending || !name.trim()}
+              disabled={createAgentMutation.isPending || !name.trim() || (enableMonetization && !systemPrompt.trim())}
               data-testid="button-create-agent"
             >
               {createAgentMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating Agent...
+                </>
+              ) : enableMonetization ? (
+                <>
+                  <Coins className="mr-2 h-4 w-4" />
+                  Create Paid AI Agent
                 </>
               ) : (
                 <>
