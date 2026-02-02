@@ -1063,6 +1063,9 @@ export default function Predict() {
   // Track which duel we're cancelling
   const [cancellingDuelId, setCancellingDuelId] = useState<string | null>(null);
 
+  // Track which duel we're reclaiming stake from (cancelled duels)
+  const [reclaimingDuelId, setReclaimingDuelId] = useState<string | null>(null);
+
   // Track which duel we're joining for sync
   const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
 
@@ -1430,8 +1433,6 @@ export default function Predict() {
   };
 
   // Handle reclaiming stake from cancelled duels
-  const [reclaimingDuelId, setReclaimingDuelId] = useState<string | null>(null);
-  
   const handleReclaimStake = async (duel: Duel) => {
     if (!canUseOnChainJoin) {
       toast({ 
