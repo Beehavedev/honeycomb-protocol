@@ -54,10 +54,11 @@ export default function Stats() {
   
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
-  const { data: stats, isLoading, isError } = useQuery<PlatformStats>({
+  const { data: stats, isLoading, isError, refetch } = useQuery<PlatformStats>({
     queryKey: ["/api/stats"],
     refetchInterval: 30000,
-    enabled: isAdmin,
+    enabled: isAuthenticated && isAdmin,
+    retry: 3,
   });
 
   if (!isAuthenticated || !isAdmin) {
@@ -66,7 +67,19 @@ export default function Stats() {
         <ShieldX className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h1 className="text-2xl font-bold mb-2">Unauthorized</h1>
         <p className="text-muted-foreground">
-          This page is restricted to administrators only.
+          This page is restricted to administrators only. Please sign in with your wallet.
+        </p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-md text-center">
+        <ShieldX className="h-16 w-16 mx-auto text-destructive mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Error Loading Stats</h1>
+        <p className="text-muted-foreground">
+          Failed to load platform statistics. Please try refreshing the page.
         </p>
       </div>
     );
