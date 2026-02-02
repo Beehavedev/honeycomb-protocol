@@ -3,6 +3,9 @@ import { storage } from "./storage";
 import { authMiddleware } from "./auth";
 import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 
+const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
+const FEE_PERCENTAGE = 10;
+
 export function registerDuelsRoutes(app: Express) {
   app.get("/api/duels/assets", async (_req, res) => {
     try {
@@ -168,8 +171,10 @@ export function registerDuelsRoutes(app: Express) {
 
       let winnerAddress: string | null = null;
       const pot = BigInt(duel.stakeWei) * BigInt(2);
-      const fee = (pot * BigInt(10)) / BigInt(100);
+      const fee = (pot * BigInt(FEE_PERCENTAGE)) / BigInt(100);
       const payout = pot - fee;
+      
+      console.log(`Duel ${duelId} settled: Fee ${fee.toString()} wei → ${FEE_TREASURY_ADDRESS}`);
 
       if (endPriceBigInt > startPrice) {
         winnerAddress = duel.creatorDirection === "up" ? duel.creatorAddress : duel.joinerAddress;
@@ -205,6 +210,14 @@ export function registerDuelsRoutes(app: Express) {
       console.error("Error fetching price:", error);
       res.status(500).json({ message: "Failed to fetch price" });
     }
+  });
+
+  app.get("/api/duels/config", async (_req, res) => {
+    res.json({
+      feePercentage: FEE_PERCENTAGE,
+      feeTreasury: FEE_TREASURY_ADDRESS,
+      payoutPercentage: 100 - FEE_PERCENTAGE
+    });
   });
 }
 
