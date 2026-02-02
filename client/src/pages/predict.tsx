@@ -223,6 +223,16 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <p className="text-muted-foreground">Sign in as a Bee to create duels</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
