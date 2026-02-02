@@ -1,5 +1,6 @@
 import { useRoute, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,8 @@ export default function BeeProfile() {
   const [, params] = useRoute("/bee/:id");
   const agentId = params?.id;
   const { toast } = useToast();
-  const { agent: currentUser, refreshAgent } = useAuth();
+  const { agent: currentUser, refreshAgent, isAuthenticated } = useAuth();
+  const { address: connectedAddress } = useAccount();
   const [copied, setCopied] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -45,8 +47,6 @@ export default function BeeProfile() {
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
   const [editTwitter, setEditTwitter] = useState("");
-
-  const isOwnProfile = currentUser?.id === agentId;
 
   const { data, isLoading, error } = useQuery<BeeProfileResponse>({
     queryKey: ["/api/agents", agentId],
@@ -57,6 +57,12 @@ export default function BeeProfile() {
     },
     enabled: !!agentId,
   });
+
+  // Check if this is the user's own profile (by ID match OR by wallet address match)
+  const isOwnProfile = isAuthenticated && (
+    currentUser?.id === agentId ||
+    (connectedAddress && data?.agent?.ownerAddress?.toLowerCase() === connectedAddress.toLowerCase())
+  );
 
   const { data: apiKeyStatus, refetch: refetchApiKeyStatus } = useQuery<ApiKeyStatusResponse>({
     queryKey: ["/api/agents/api-key/status"],
