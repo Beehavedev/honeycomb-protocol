@@ -237,6 +237,56 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Paid AI Agent Profiles - extends agents with monetization capabilities
+export const aiAgentProfiles = pgTable("ai_agent_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  systemPrompt: text("system_prompt").notNull(),
+  pricingModel: text("pricing_model").notNull(), // per_message, per_token, per_task
+  pricePerUnit: text("price_per_unit").notNull(), // Wei amount as string
+  creatorAddress: text("creator_address").notNull(),
+  onChainRegistryId: integer("on_chain_registry_id"),
+  isActive: boolean("is_active").default(true).notNull(),
+  totalInteractions: integer("total_interactions").default(0).notNull(),
+  totalEarnings: text("total_earnings").default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Agent user conversations - tracks user chats with paid agents
+export const aiAgentConversations = pgTable("ai_agent_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  aiAgentProfileId: varchar("ai_agent_profile_id").notNull().references(() => aiAgentProfiles.id),
+  userAddress: text("user_address").notNull(),
+  title: text("title"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI Agent conversation messages
+export const aiAgentMessages = pgTable("ai_agent_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => aiAgentConversations.id),
+  role: text("role").notNull(), // user, assistant
+  content: text("content").notNull(),
+  tokenCount: integer("token_count").default(0).notNull(),
+  paymentTxHash: text("payment_tx_hash"), // Payment transaction hash for this message
+  pricePaid: text("price_paid"), // Wei amount paid for this message
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Agent payment verifications - tracks on-chain payment verification
+export const aiAgentPayments = pgTable("ai_agent_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  aiAgentProfileId: varchar("ai_agent_profile_id").notNull().references(() => aiAgentProfiles.id),
+  userAddress: text("user_address").notNull(),
+  txHash: text("tx_hash").notNull().unique(),
+  amountPaid: text("amount_paid").notNull(), // Wei amount
+  pricingModel: text("pricing_model").notNull(),
+  unitsUsed: integer("units_used").default(0).notNull(), // messages, tokens, or tasks
+  isUsed: boolean("is_used").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertAuthNonceSchema = createInsertSchema(authNonces).pick({
   address: true,
@@ -373,6 +423,38 @@ export const insertMessageSchema = createInsertSchema(messages).pick({
   content: true,
 });
 
+// Paid AI Agent insert schemas
+export const insertAiAgentProfileSchema = createInsertSchema(aiAgentProfiles).pick({
+  agentId: true,
+  systemPrompt: true,
+  pricingModel: true,
+  pricePerUnit: true,
+  creatorAddress: true,
+});
+
+export const insertAiAgentConversationSchema = createInsertSchema(aiAgentConversations).pick({
+  aiAgentProfileId: true,
+  userAddress: true,
+  title: true,
+});
+
+export const insertAiAgentMessageSchema = createInsertSchema(aiAgentMessages).pick({
+  conversationId: true,
+  role: true,
+  content: true,
+  tokenCount: true,
+  paymentTxHash: true,
+  pricePaid: true,
+});
+
+export const insertAiAgentPaymentSchema = createInsertSchema(aiAgentPayments).pick({
+  aiAgentProfileId: true,
+  userAddress: true,
+  txHash: true,
+  amountPaid: true,
+  pricingModel: true,
+});
+
 // Types
 export type AuthNonce = typeof authNonces.$inferSelect;
 export type InsertAuthNonce = z.infer<typeof insertAuthNonceSchema>;
@@ -428,6 +510,19 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+// Paid AI Agent types
+export type AiAgentProfile = typeof aiAgentProfiles.$inferSelect;
+export type InsertAiAgentProfile = z.infer<typeof insertAiAgentProfileSchema>;
+
+export type AiAgentConversation = typeof aiAgentConversations.$inferSelect;
+export type InsertAiAgentConversation = z.infer<typeof insertAiAgentConversationSchema>;
+
+export type AiAgentMessage = typeof aiAgentMessages.$inferSelect;
+export type InsertAiAgentMessage = z.infer<typeof insertAiAgentMessageSchema>;
+
+export type AiAgentPayment = typeof aiAgentPayments.$inferSelect;
+export type InsertAiAgentPayment = z.infer<typeof insertAiAgentPaymentSchema>;
 
 // API request/response types
 export const registerAgentRequestSchema = z.object({
@@ -515,6 +610,41 @@ export const prepareSellRequestSchema = z.object({
   tokenAmountIn: z.string().min(1),
   minNativeOut: z.string().min(1),
 });
+
+// Paid AI Agent request schemas
+export const createAiAgentRequestSchema = z.object({
+  name: z.string().min(1).max(50),
+  bio: z.string().max(500).optional(),
+  avatarUrl: z.string().optional(),
+  capabilities: z.array(z.string()).max(10).optional(),
+  systemPrompt: z.string().min(10).max(5000),
+  pricingModel: z.enum(["per_message", "per_token", "per_task"]),
+  pricePerUnit: z.string().min(1), // Wei amount as string
+});
+
+export const aiAgentQuoteRequestSchema = z.object({
+  agentId: z.string(),
+  pricingModel: z.enum(["per_message", "per_token", "per_task"]),
+  estimatedUnits: z.number().optional(), // For token/task pricing
+});
+
+export const aiAgentExecuteRequestSchema = z.object({
+  agentId: z.string(),
+  message: z.string().min(1).max(10000),
+  conversationId: z.string().optional(),
+  paymentTxHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+});
+
+export const verifyPaymentRequestSchema = z.object({
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  agentId: z.string(),
+  userAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+});
+
+export type CreateAiAgentRequest = z.infer<typeof createAiAgentRequestSchema>;
+export type AiAgentQuoteRequest = z.infer<typeof aiAgentQuoteRequestSchema>;
+export type AiAgentExecuteRequest = z.infer<typeof aiAgentExecuteRequestSchema>;
+export type VerifyPaymentRequest = z.infer<typeof verifyPaymentRequestSchema>;
 
 export type RegisterAgentRequest = z.infer<typeof registerAgentRequestSchema>;
 export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
