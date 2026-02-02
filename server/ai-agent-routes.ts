@@ -24,7 +24,11 @@ const openai = new OpenAI({
 });
 
 // Helper function to detect if user wants image generation
-function isImageGenerationRequest(message: string, systemPrompt: string): boolean {
+function isImageGenerationRequest(
+  message: string, 
+  systemPrompt: string, 
+  conversationHistory: Array<{role: string; content: string}> = []
+): boolean {
   const lowerMessage = message.toLowerCase();
   const lowerPrompt = systemPrompt.toLowerCase();
   
@@ -44,6 +48,21 @@ function isImageGenerationRequest(message: string, systemPrompt: string): boolea
   ];
   
   const hasImageKeyword = imageKeywords.some(keyword => lowerMessage.includes(keyword));
+  
+  // Check if this is a follow-up to an image request (e.g., user selecting an option)
+  // Look at recent conversation history
+  if (isImageAgent && conversationHistory.length > 0) {
+    const recentHistory = conversationHistory.slice(-4).map(m => m.content.toLowerCase()).join(" ");
+    const historyHasImageContext = imageKeywords.some(keyword => recentHistory.includes(keyword));
+    
+    // Check for option selection patterns (A, B, 1, 2, yes, etc.)
+    const isOptionSelection = /^[ab12]$/i.test(message.trim()) || 
+                              /^(yes|yeah|yep|sure|ok|okay|go|proceed)$/i.test(message.trim());
+    
+    if (historyHasImageContext && isOptionSelection) {
+      return true;
+    }
+  }
   
   // Only trigger image generation if this is an image-focused agent AND user is asking for an image
   return isImageAgent && hasImageKeyword;
@@ -429,7 +448,7 @@ export function registerAiAgentRoutes(app: Express) {
       let generatedImageUrl: string | null = null;
 
       // Check if this is an image generation request
-      const shouldGenerateImage = isImageGenerationRequest(message, profile.profile.systemPrompt);
+      const shouldGenerateImage = isImageGenerationRequest(message, profile.profile.systemPrompt, historyMessages);
 
       if (shouldGenerateImage) {
         // Get an optimized image prompt from the AI
