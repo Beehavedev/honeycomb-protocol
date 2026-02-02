@@ -1491,8 +1491,9 @@ export async function registerRoutes(
   app.get("/api/stats", authMiddleware, async (req, res) => {
     try {
       const userAddress = (req as any).user?.address?.toLowerCase();
+      console.log("Stats request from:", userAddress, "Admin:", ADMIN_ADDRESS, "Match:", userAddress === ADMIN_ADDRESS);
       if (userAddress !== ADMIN_ADDRESS) {
-        return res.status(403).json({ message: "Unauthorized" });
+        return res.status(403).json({ message: "Unauthorized", yourAddress: userAddress });
       }
       const stats = await storage.getPlatformStats();
       res.json(stats);
