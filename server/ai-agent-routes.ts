@@ -87,9 +87,15 @@ export function registerAiAgentRoutes(app: Express) {
   // Create a paid AI agent (requires auth)
   app.post("/api/ai-agents", authMiddleware, async (req: Request, res: Response) => {
     try {
-      const agent = (req as any).agent;
-      if (!agent) {
+      const walletAddress = req.walletAddress;
+      if (!walletAddress) {
         return res.status(401).json({ error: "Authentication required" });
+      }
+      
+      // Get the agent by wallet address
+      const agent = await storage.getAgentByAddress(walletAddress);
+      if (!agent) {
+        return res.status(404).json({ error: "You need to register as a Bee first" });
       }
 
       const parsed = createAiAgentRequestSchema.safeParse(req.body);
