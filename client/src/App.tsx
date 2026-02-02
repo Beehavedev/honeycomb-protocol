@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
+import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/header";
 import { NetworkWarningBanner } from "@/components/network-switcher";
 import Home from "@/pages/home";
@@ -56,18 +57,20 @@ function App() {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <TooltipProvider>
-            <AuthProvider>
-              <div className="min-h-screen bg-background">
-                <Header />
-                <NetworkWarningBanner />
-                <main>
-                  <Router />
-                </main>
-              </div>
-              <Toaster />
-            </AuthProvider>
-          </TooltipProvider>
+          <I18nProvider>
+            <TooltipProvider>
+              <AuthProvider>
+                <div className="min-h-screen bg-background">
+                  <Header />
+                  <NetworkWarningBanner />
+                  <main>
+                    <Router />
+                  </main>
+                </div>
+                <Toaster />
+              </AuthProvider>
+            </TooltipProvider>
+          </I18nProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </WagmiProvider>

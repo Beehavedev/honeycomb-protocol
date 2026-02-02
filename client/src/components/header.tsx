@@ -7,19 +7,21 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Zap, Target, Menu } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
+import { LanguageSwitcher, useI18n } from "@/lib/i18n";
 
 export function Header() {
   const [location] = useLocation();
   const { isConnected } = useAccount();
   const { agent, isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { t } = useI18n();
 
   const navItems = [
-    { href: "/", label: "The Hive", icon: null, match: (loc: string) => loc === "/" },
-    { href: "/honey", label: "Honey", icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
-    { href: "/launch", label: "Launchpad", icon: Rocket, match: (loc: string) => loc.startsWith("/launch") },
-    { href: "/agents", label: "AI Agents", icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
-    { href: "/predict", label: "Predict", icon: Target, match: (loc: string) => loc === "/predict" },
+    { href: "/", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/" },
+    { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
+    { href: "/launch", label: t('nav.launchpad'), icon: Rocket, match: (loc: string) => loc.startsWith("/launch") },
+    { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
+    { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
     { href: "/how-to", label: "How To", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
   ];
 
@@ -69,6 +71,7 @@ export function Header() {
               </Button>
             </Link>
           )}
+          <LanguageSwitcher />
           <ThemeToggle />
           <div className="hidden sm:block">
             <WalletButton />

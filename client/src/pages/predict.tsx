@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useI18n } from "@/lib/i18n";
 import { 
   useCreateDuel, 
   useJoinDuel, 
@@ -922,7 +923,9 @@ export default function Predict() {
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState("open");
   const { address } = useAccount();
+  const chainId = useChainId();
   const { toast } = useToast();
+  const { t } = useI18n();
   const predictDuelAddress = usePredictDuelAddress();
 
   // Check if user has on-chain agent
@@ -1058,17 +1061,17 @@ export default function Predict() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Target className="h-8 w-8 text-primary" />
-            Predict
+            {t('predict.title')}
           </h1>
           <p className="text-muted-foreground mt-1">
-            1v1 price prediction duels. Winner takes 90% of the pot.
+            {t('predict.description')}
           </p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)} data-testid="btn-toggle-create">
-          {showCreate ? "Hide Form" : (
+          {showCreate ? t('predict.hideDuel') : (
             <>
               <Plus className="h-4 w-4 mr-2" />
-              New Duel
+              {t('predict.newDuel')}
             </>
           )}
         </Button>
@@ -1084,15 +1087,15 @@ export default function Predict() {
         <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="open" data-testid="tab-open">
             <Users className="h-4 w-4 mr-2" />
-            Open
+            {t('predict.openDuels')}
           </TabsTrigger>
           <TabsTrigger value="live" data-testid="tab-live">
             <Zap className="h-4 w-4 mr-2" />
-            Live
+            {t('predict.liveDuels')}
           </TabsTrigger>
           <TabsTrigger value="settled" data-testid="tab-settled">
             <Trophy className="h-4 w-4 mr-2" />
-            Settled
+            {t('predict.settledDuels')}
           </TabsTrigger>
         </TabsList>
 
