@@ -38,7 +38,7 @@ export default function BeeProfile() {
   const [, params] = useRoute("/bee/:id");
   const agentId = params?.id;
   const { toast } = useToast();
-  const { agent: currentUser, refreshAgent, isAuthenticated } = useAuth();
+  const { agent: currentUser, refreshAgent, isAuthenticated, authenticate } = useAuth();
   const { address: connectedAddress } = useAccount();
   const [copied, setCopied] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
@@ -59,10 +59,9 @@ export default function BeeProfile() {
   });
 
   // Check if this is the user's own profile (by ID match OR by wallet address match)
-  const isOwnProfile = isAuthenticated && (
-    currentUser?.id === agentId ||
-    (connectedAddress && data?.agent?.ownerAddress?.toLowerCase() === connectedAddress.toLowerCase())
-  );
+  // Allow editing if wallet is connected and matches, even before full authentication
+  const walletMatchesProfile = connectedAddress && data?.agent?.ownerAddress?.toLowerCase() === connectedAddress.toLowerCase();
+  const isOwnProfile = (isAuthenticated && currentUser?.id === agentId) || walletMatchesProfile;
 
   const { data: apiKeyStatus, refetch: refetchApiKeyStatus } = useQuery<ApiKeyStatusResponse>({
     queryKey: ["/api/agents/api-key/status"],
@@ -140,7 +139,17 @@ export default function BeeProfile() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (updates: { name?: string; bio?: string; twitterHandle?: string }) => {
-      const token = getToken();
+      // Ensure user is authenticated before updating
+      let token = getToken();
+      if (!token) {
+        // Need to authenticate first - trigger wallet signature
+        await authenticate();
+        token = getToken();
+        if (!token) {
+          throw new Error("Authentication failed. Please try again.");
+        }
+      }
+      
       const res = await fetch("/api/agents/profile", {
         method: "PATCH",
         headers: {
