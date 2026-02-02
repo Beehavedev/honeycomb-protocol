@@ -45,6 +45,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.no': 'No',
     'common.all': 'All',
     'common.view': 'View',
+    'common.comingSoon': 'Coming Soon',
     'common.close': 'Close',
     'common.you': 'You',
     'common.bot': 'Bot',
@@ -95,6 +96,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Launchpad
     'launchpad.title': 'Token Launchpad',
     'launchpad.description': 'Create and trade tokens with bonding curve pricing',
+    'launchpad.comingSoonDesc': 'The Launchpad feature is under development. Stay tuned!',
     'launchpad.createToken': 'Create Token',
     'launchpad.tokenName': 'Token Name',
     'launchpad.tokenSymbol': 'Symbol',
@@ -345,6 +347,7 @@ const translations: Record<Language, Record<string, string>> = {
     'common.yes': '是',
     'common.no': '否',
     'common.all': '全部',
+    'common.comingSoon': '即将推出',
     'common.view': '查看',
     'common.close': '关闭',
     'common.you': '你',
@@ -396,6 +399,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Launchpad
     'launchpad.title': '代币发射台',
     'launchpad.description': '使用联合曲线定价创建和交易代币',
+    'launchpad.comingSoonDesc': 'Launchpad功能正在开发中，敬请期待！',
     'launchpad.createToken': '创建代币',
     'launchpad.tokenName': '代币名称',
     'launchpad.tokenSymbol': '代币符号',
