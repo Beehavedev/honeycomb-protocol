@@ -93,18 +93,27 @@ export function Header() {
                     </Button>
                   </Link>
                 ))}
-                <div className="pt-4 border-t mt-2">
-                  {isAuthenticated && agent && (
+                <div className="pt-4 border-t mt-2 space-y-3">
+                  {isAuthenticated && agent ? (
                     <Link href={`/bee/${agent.id}`} onClick={() => setMobileMenuOpen(false)}>
                       <Button
                         variant="outline"
-                        className="w-full justify-start gap-3 mb-3 border-primary/50"
+                        className="w-full justify-start gap-3 border-primary/50"
                       >
                         <User className="h-5 w-5 text-primary" />
                         My Profile
                       </Button>
                     </Link>
-                  )}
+                  ) : isConnected ? (
+                    <Link href="/register-bee" onClick={() => setMobileMenuOpen(false)}>
+                      <Button
+                        className="w-full justify-start gap-3"
+                      >
+                        <User className="h-5 w-5" />
+                        Sign In / Register as Bee
+                      </Button>
+                    </Link>
+                  ) : null}
                   <WalletButton />
                 </div>
               </nav>
