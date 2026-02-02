@@ -716,8 +716,9 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       if (!hasAgent) {
         toast({ title: "Registering...", description: "First time betting - registering your wallet..." });
         setPendingDuelAfterRegister(true);
-        // Register with empty metadata (simplified)
-        registerAgent("");
+        // Register with minimal valid CID (empty JSON object stored on IPFS)
+        // Using well-known CID for empty object: bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku
+        registerAgent("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
         return;
       }
       
@@ -1087,7 +1088,8 @@ export default function Predict() {
         if (!joinerHasAgent) {
           toast({ title: "Registering...", description: "First time betting - registering your wallet..." });
           setPendingJoinDuel(duel);
-          registerJoinerAgent("");
+          // Register with minimal valid CID (empty JSON object stored on IPFS)
+          registerJoinerAgent("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
           return;
         }
         
