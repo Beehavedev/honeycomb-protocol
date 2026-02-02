@@ -61,7 +61,7 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     bondingCurveMarket: "0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167",
     migration: "0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01",
     router: "0x246e121A4df577046BaEdf87d5F68968bc24c52E",
-    predictDuel: ZERO_ADDRESS, // TODO: Deploy and update
+    predictDuel: "0x8A3698513850b6dEFA68dD59f4D7DC5E8c2e2650", // Deployed February 2, 2026
   },
   // opBNB Testnet
   5611: {

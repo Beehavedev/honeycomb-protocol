@@ -3,3 +3,4 @@
 /* eslint-disable */
 export type { HoneycombTokenFactory } from "./HoneycombTokenFactory";
 export type { IAgentRegistry } from "./IAgentRegistry";
+export type { IBondingCurveMarket } from "./IBondingCurveMarket";

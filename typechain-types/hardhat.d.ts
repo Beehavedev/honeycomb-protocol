@@ -66,6 +66,18 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombAgentRegistry__factory>;
     getContractFactory(
+      name: "HoneycombAIAgentEscrow",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombAIAgentEscrow__factory>;
+    getContractFactory(
+      name: "IAIAgentRegistry",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAIAgentRegistry__factory>;
+    getContractFactory(
+      name: "HoneycombAIAgentRegistry",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombAIAgentRegistry__factory>;
+    getContractFactory(
       name: "HoneycombBountyEscrow",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombBountyEscrow__factory>;
@@ -77,6 +89,14 @@ declare module "hardhat/types/runtime" {
       name: "HoneycombPostBond",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.HoneycombPostBond__factory>;
+    getContractFactory(
+      name: "IAgentRegistry",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IAgentRegistry__factory>;
+    getContractFactory(
+      name: "HoneycombPredictDuel",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.HoneycombPredictDuel__factory>;
     getContractFactory(
       name: "IAgentRegistry",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -121,6 +141,10 @@ declare module "hardhat/types/runtime" {
       name: "IAgentRegistry",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IAgentRegistry__factory>;
+    getContractFactory(
+      name: "IBondingCurveMarket",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IBondingCurveMarket__factory>;
     getContractFactory(
       name: "IPancakeFactory",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -204,6 +228,21 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.HoneycombAgentRegistry>;
     getContractAt(
+      name: "HoneycombAIAgentEscrow",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombAIAgentEscrow>;
+    getContractAt(
+      name: "IAIAgentRegistry",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAIAgentRegistry>;
+    getContractAt(
+      name: "HoneycombAIAgentRegistry",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombAIAgentRegistry>;
+    getContractAt(
       name: "HoneycombBountyEscrow",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -218,6 +257,16 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.HoneycombPostBond>;
+    getContractAt(
+      name: "IAgentRegistry",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IAgentRegistry>;
+    getContractAt(
+      name: "HoneycombPredictDuel",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.HoneycombPredictDuel>;
     getContractAt(
       name: "IAgentRegistry",
       address: string | ethers.Addressable,
@@ -273,6 +322,11 @@ declare module "hardhat/types/runtime" {
       address: string | ethers.Addressable,
       signer?: ethers.Signer
     ): Promise<Contracts.IAgentRegistry>;
+    getContractAt(
+      name: "IBondingCurveMarket",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IBondingCurveMarket>;
     getContractAt(
       name: "IPancakeFactory",
       address: string | ethers.Addressable,
@@ -347,6 +401,18 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombAgentRegistry>;
     deployContract(
+      name: "HoneycombAIAgentEscrow",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombAIAgentEscrow>;
+    deployContract(
+      name: "IAIAgentRegistry",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IAIAgentRegistry>;
+    deployContract(
+      name: "HoneycombAIAgentRegistry",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombAIAgentRegistry>;
+    deployContract(
       name: "HoneycombBountyEscrow",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombBountyEscrow>;
@@ -358,6 +424,14 @@ declare module "hardhat/types/runtime" {
       name: "HoneycombPostBond",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombPostBond>;
+    deployContract(
+      name: "IAgentRegistry",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IAgentRegistry>;
+    deployContract(
+      name: "HoneycombPredictDuel",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombPredictDuel>;
     deployContract(
       name: "IAgentRegistry",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -402,6 +476,10 @@ declare module "hardhat/types/runtime" {
       name: "IAgentRegistry",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IAgentRegistry>;
+    deployContract(
+      name: "IBondingCurveMarket",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IBondingCurveMarket>;
     deployContract(
       name: "IPancakeFactory",
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -485,6 +563,21 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombAgentRegistry>;
     deployContract(
+      name: "HoneycombAIAgentEscrow",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombAIAgentEscrow>;
+    deployContract(
+      name: "IAIAgentRegistry",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IAIAgentRegistry>;
+    deployContract(
+      name: "HoneycombAIAgentRegistry",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombAIAgentRegistry>;
+    deployContract(
       name: "HoneycombBountyEscrow",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
@@ -499,6 +592,16 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.HoneycombPostBond>;
+    deployContract(
+      name: "IAgentRegistry",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IAgentRegistry>;
+    deployContract(
+      name: "HoneycombPredictDuel",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.HoneycombPredictDuel>;
     deployContract(
       name: "IAgentRegistry",
       args: any[],
@@ -554,6 +657,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.IAgentRegistry>;
+    deployContract(
+      name: "IBondingCurveMarket",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.IBondingCurveMarket>;
     deployContract(
       name: "IPancakeFactory",
       args: any[],
