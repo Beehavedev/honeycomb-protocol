@@ -2,8 +2,23 @@ import type { Express } from "express";
 import { storage } from "./storage";
 import { authMiddleware } from "./auth";
 import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
+import { createWalletClient, createPublicClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { bsc } from "viem/chains";
 
 const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
+const PREDICT_DUEL_ADDRESS = "0x8A3698513850b6dEFA68dD59f4D7DC5E8c2e2650" as `0x${string}`;
+
+const SETTLE_DUEL_ABI = [{
+  type: "function",
+  name: "settleDuel",
+  inputs: [
+    { name: "duelId", type: "uint256" },
+    { name: "endPrice", type: "uint256" }
+  ],
+  outputs: [],
+  stateMutability: "nonpayable",
+}] as const;
 const FEE_PERCENTAGE = 10;
 const DUEL_EXPIRY_MINUTES = 5; // Auto-cancel open duels after 5 minutes
 
@@ -606,6 +621,136 @@ export function registerDuelsRoutes(app: Express) {
     } catch (error) {
       console.error("Error syncing stake reclaim:", error);
       res.status(500).json({ message: "Failed to sync stake reclaim" });
+    }
+  });
+
+  // Oracle settlement endpoint - settles duel on-chain using backend oracle role
+  app.post("/api/duels/:id/oracle-settle", async (req, res) => {
+    try {
+      const duelId = req.params.id as string;
+      
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+
+      // Verify duel is live
+      if (duel.status !== "live") {
+        return res.status(400).json({ message: "Duel is not live" });
+      }
+
+      // Verify duel has on-chain ID
+      if (!duel.onChainDuelId || duel.onChainDuelId <= BigInt(1)) {
+        return res.status(400).json({ message: "Invalid on-chain duel ID" });
+      }
+
+      // Verify duel has expired
+      if (!duel.endTs) {
+        return res.status(400).json({ message: "Duel has no end time" });
+      }
+      const now = Date.now();
+      const endTime = new Date(duel.endTs).getTime();
+      if (now < endTime) {
+        return res.status(400).json({ message: "Duel has not expired yet" });
+      }
+
+      // Get deployer private key
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+      if (!privateKey) {
+        console.error("DEPLOYER_PRIVATE_KEY not configured");
+        return res.status(500).json({ message: "Oracle not configured" });
+      }
+
+      // Fetch end price
+      const endPriceStr = await fetchPrice(duel.assetId);
+      const endPrice = BigInt(endPriceStr);
+      const startPrice = BigInt(duel.startPrice || "0");
+
+      console.log(`[Oracle Settlement] Duel ${duelId} (on-chain: ${duel.onChainDuelId})`);
+      console.log(`  Asset: ${duel.assetId}, Start: ${startPrice}, End: ${endPrice}`);
+
+      // Create wallet client with oracle role
+      const account = privateKeyToAccount(privateKey.startsWith("0x") ? privateKey as `0x${string}` : `0x${privateKey}`);
+      const walletClient = createWalletClient({
+        account,
+        chain: bsc,
+        transport: http("https://bsc-dataseed1.binance.org"),
+      });
+
+      // Call settleDuel on-chain
+      const hash = await walletClient.writeContract({
+        address: PREDICT_DUEL_ADDRESS,
+        abi: SETTLE_DUEL_ABI,
+        functionName: "settleDuel",
+        args: [duel.onChainDuelId, endPrice],
+      });
+
+      console.log(`[Oracle Settlement] Tx submitted: ${hash}`);
+
+      // Wait for confirmation
+      const publicClient = createPublicClient({
+        chain: bsc,
+        transport: http("https://bsc-dataseed1.binance.org"),
+      });
+      
+      const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60000 });
+      
+      if (receipt.status !== "success") {
+        console.error(`[Oracle Settlement] Tx failed: ${hash}`);
+        return res.status(500).json({ message: "Settlement transaction failed on-chain" });
+      }
+
+      console.log(`[Oracle Settlement] Tx confirmed: ${hash}`);
+
+      // Determine winner based on price movement
+      let winnerAddress: string | null = null;
+      const stakeValue = parseFloat(duel.stakeWei) / 1e18;
+      const totalPot = stakeValue * 2;
+      const winnings = (totalPot * 0.9).toFixed(6);
+
+      if (endPrice > startPrice) {
+        // Price went UP
+        winnerAddress = duel.creatorDirection === "up" ? duel.creatorAddress : duel.joinerAddress;
+      } else if (endPrice < startPrice) {
+        // Price went DOWN
+        winnerAddress = duel.creatorDirection === "down" ? duel.creatorAddress : duel.joinerAddress;
+      } else {
+        // Tie - refund both (no winner)
+        winnerAddress = null;
+      }
+
+      console.log(`[Oracle Settlement] Winner: ${winnerAddress || 'TIE'}, Winnings: ${winnings} BNB`);
+
+      // Update database
+      const updatedDuel = await storage.updateDuel(duelId, {
+        status: "settled",
+        endPrice: endPriceStr,
+        winnerAddress,
+        winnings,
+        settlementTxHash: hash,
+      });
+
+      res.json({
+        success: true,
+        txHash: hash,
+        winner: winnerAddress,
+        endPrice: endPriceStr,
+        winnings,
+        duel: serializeDuel(updatedDuel),
+      });
+    } catch (error: any) {
+      console.error("Error in oracle settlement:", error);
+      const msg = error.message || "Unknown error";
+      
+      // Parse common contract errors
+      if (msg.includes("DuelNotLive")) {
+        return res.status(400).json({ message: "Duel is not live on-chain" });
+      }
+      if (msg.includes("DuelNotEnded") || msg.includes("TooEarly")) {
+        return res.status(400).json({ message: "Duel has not ended yet on-chain" });
+      }
+      
+      res.status(500).json({ message: msg.slice(0, 200) });
     }
   });
 }
