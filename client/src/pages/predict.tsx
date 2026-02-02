@@ -1039,7 +1039,14 @@ export default function Predict() {
         if (result.data && result.data > BigInt(0) && pendingJoinDuel.onChainDuelId) {
           const priceRes = await fetch(`/api/duels/binance/ticker/${pendingJoinDuel.assetId}`);
           const priceData = await priceRes.json();
-          const startPriceWei = BigInt(Math.floor(parseFloat(priceData.price) * 1e8));
+          const price = priceData?.price;
+          if (!price || isNaN(price)) {
+            toast({ title: "Price fetch failed", description: "Could not get current price", variant: "destructive" });
+            setPendingJoinDuel(null);
+            setJoiningDuelId(null);
+            return;
+          }
+          const startPriceWei = BigInt(Math.floor(price * 1e8));
           const stakeMatch = pendingJoinDuel.stakeDisplay?.match(/^([\d.]+)/);
           const stakeWei = stakeMatch ? parseEther(stakeMatch[1]) : parseEther("0.01");
           
@@ -1093,10 +1100,16 @@ export default function Predict() {
           return;
         }
         
-        // Fetch current price from Binance for start price
+        // Fetch current price for start price
         const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
         const priceData = await priceRes.json();
-        const startPriceWei = BigInt(Math.floor(parseFloat(priceData.price) * 1e8));
+        const price = priceData?.price;
+        if (!price || isNaN(price)) {
+          toast({ title: "Price fetch failed", description: "Could not get current price. Please try again.", variant: "destructive" });
+          setJoiningDuelId(null);
+          return;
+        }
+        const startPriceWei = BigInt(Math.floor(price * 1e8));
         
         // Parse stake from display (e.g., "0.01 BNB" -> wei)
         const stakeMatch = duel.stakeDisplay?.match(/^([\d.]+)/);
