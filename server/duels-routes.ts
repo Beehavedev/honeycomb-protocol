@@ -6,6 +6,22 @@ import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
 const FEE_PERCENTAGE = 10;
 
+// Binance symbol mapping - must be defined before routes use it
+const BINANCE_SYMBOLS: Record<string, string> = {
+  "BNB": "BNBUSDT",
+  "BTC": "BTCUSDT",
+  "ETH": "ETHUSDT",
+  "SOL": "SOLUSDT",
+  "DOGE": "DOGEUSDT",
+  "PEPE": "PEPEUSDT",
+  "SHIB": "SHIBUSDT",
+  "XRP": "XRPUSDT",
+  "ADA": "ADAUSDT",
+  "AVAX": "AVAXUSDT",
+  "MATIC": "MATICUSDT",
+  "LINK": "LINKUSDT",
+};
+
 // Helper to convert BigInt fields to strings for JSON serialization
 function serializeDuel(duel: any) {
   if (!duel) return duel;
@@ -347,22 +363,6 @@ const basePrices: Record<string, number> = {
   AVAX: 35,
   LINK: 25,
   MATIC: 0.45,
-};
-
-// Map asset IDs to Binance trading pairs
-const BINANCE_SYMBOLS: Record<string, string> = {
-  "BNB": "BNBUSDT",
-  "BTC": "BTCUSDT",
-  "ETH": "ETHUSDT",
-  "SOL": "SOLUSDT",
-  "DOGE": "DOGEUSDT",
-  "PEPE": "PEPEUSDT",
-  "SHIB": "SHIBUSDT",
-  "XRP": "XRPUSDT",
-  "ADA": "ADAUSDT",
-  "AVAX": "AVAXUSDT",
-  "MATIC": "MATICUSDT",
-  "LINK": "LINKUSDT",
 };
 
 async function fetchBinancePrice(assetId: string): Promise<string> {
