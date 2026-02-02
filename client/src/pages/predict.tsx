@@ -75,86 +75,100 @@ function CountdownTimer({ endTs }: { endTs: Date }) {
   );
 }
 
-// Map asset IDs to CoinGecko IDs
-const COINGECKO_IDS: Record<string, string> = {
-  "BNB": "binancecoin",
-  "BTC": "bitcoin",
-  "ETH": "ethereum",
-  "SOL": "solana",
-  "DOGE": "dogecoin",
-  "PEPE": "pepe",
-  "SHIB": "shiba-inu",
+// Map asset IDs to Binance trading pairs (USDT pairs)
+const BINANCE_SYMBOLS: Record<string, string> = {
+  "BNB": "BNBUSDT",
+  "BTC": "BTCUSDT",
+  "ETH": "ETHUSDT",
+  "SOL": "SOLUSDT",
+  "DOGE": "DOGEUSDT",
+  "PEPE": "PEPEUSDT",
+  "SHIB": "SHIBUSDT",
+  "XRP": "XRPUSDT",
+  "ADA": "ADAUSDT",
+  "AVAX": "AVAXUSDT",
+  "MATIC": "MATICUSDT",
+  "LINK": "LINKUSDT",
 };
 
-function useLivePrice(assetId: string, enabled: boolean = true) {
+function useBinancePrice(assetId: string, enabled: boolean = true) {
   const [price, setPrice] = useState<number | null>(null);
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     
-    const coinId = COINGECKO_IDS[assetId] || assetId.toLowerCase();
     let intervalId: ReturnType<typeof setInterval>;
 
-    // Fetch initial market chart data (last 1 hour)
-    const fetchHistory = async () => {
+    // Fetch kline data via backend proxy (avoids CORS issues)
+    const fetchKlines = async () => {
       try {
-        const res = await fetch(
-          `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=0.04&precision=2`
-        );
+        const res = await fetch(`/api/duels/binance/klines/${assetId}?interval=1m&limit=30`);
         const data = await res.json();
-        if (data.prices && data.prices.length > 0) {
-          const prices = data.prices.map((p: [number, number]) => p[1]);
-          setPriceHistory(prices.slice(-20)); // Last 20 data points
-          setPrice(prices[prices.length - 1]);
+        
+        if (res.ok && data.klines && data.klines.length > 0) {
+          const closePrices = data.klines.map((k: any) => k.close);
+          setPriceHistory(closePrices);
+          setPrice(closePrices[closePrices.length - 1]);
+          setError(null);
+        } else {
+          setError(data.message || "Failed to load price data");
         }
         setLoading(false);
       } catch (e) {
         console.error("Price history fetch error:", e);
-        // Fallback to simple price
-        fetchCurrentPrice();
+        setError("Failed to connect to price feed");
+        setLoading(false);
       }
     };
 
+    // Fetch current price via backend proxy
     const fetchCurrentPrice = async () => {
       try {
-        const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
-        );
+        const res = await fetch(`/api/duels/binance/ticker/${assetId}`);
         const data = await res.json();
-        if (data[coinId]) {
-          const newPrice = data[coinId].usd;
+        
+        if (res.ok && data.price) {
+          const newPrice = data.price;
           setPrice(newPrice);
           setPriceHistory(prev => {
             const updated = [...prev, newPrice];
-            return updated.slice(-20);
+            return updated.slice(-30);
           });
+          setError(null);
         }
-        setLoading(false);
       } catch (e) {
         console.error("Price fetch error:", e);
-        setLoading(false);
       }
     };
 
-    fetchHistory();
-    intervalId = setInterval(fetchCurrentPrice, 10000); // Update every 10 seconds
+    fetchKlines();
+    intervalId = setInterval(fetchCurrentPrice, 3000); // Update every 3 seconds
 
     return () => clearInterval(intervalId);
   }, [assetId, enabled]);
 
-  return { price, priceHistory, loading };
+  return { price, priceHistory, loading, error };
 }
 
 function LivePriceChart({ duel }: { duel: Duel }) {
-  const { price, priceHistory, loading } = useLivePrice(duel.assetId, duel.status === "live");
+  const { price, priceHistory, loading, error } = useBinancePrice(duel.assetId, duel.status === "live");
   const startPrice = duel.startPrice ? parseFloat(duel.startPrice) / 1e8 : null;
   
   if (loading && !price) {
     return (
       <div className="h-28 bg-muted/30 rounded-lg flex items-center justify-center">
-        <span className="text-muted-foreground text-sm">Loading live price...</span>
+        <span className="text-muted-foreground text-sm">Loading Binance price feed...</span>
+      </div>
+    );
+  }
+  
+  if (error && !price) {
+    return (
+      <div className="h-28 bg-muted/30 rounded-lg flex items-center justify-center">
+        <span className="text-red-500 text-sm">{error}</span>
       </div>
     );
   }
@@ -176,7 +190,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
             <span className="text-2xl font-bold">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: currentPrice < 1 ? 6 : 2 })}</span>
             <Badge variant="outline">Live</Badge>
           </div>
-          <div className="text-sm text-muted-foreground">Awaiting oracle start price...</div>
+          <div className="text-sm text-muted-foreground">Awaiting locked start price...</div>
         </div>
 
         {/* Mini sparkline chart */}
@@ -195,8 +209,9 @@ function LivePriceChart({ duel }: { duel: Duel }) {
           </div>
         )}
         
-        <div className="text-xs text-muted-foreground text-center">
-          Price history • Updates every 10s
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <span className="font-semibold text-amber-500">Binance</span>
+          <span>• Live prices • Updates every 3s</span>
         </div>
       </div>
     );
@@ -243,10 +258,13 @@ function LivePriceChart({ duel }: { duel: Duel }) {
         })}
       </div>
       
-      {/* Start vs Current */}
+      {/* Start vs Current with Binance attribution */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>Start: ${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
-        <span>Updates every 10s</span>
+        <div className="flex items-center gap-1">
+          <span className="font-semibold text-amber-500">Binance</span>
+          <span>• 3s updates</span>
+        </div>
       </div>
     </div>
   );

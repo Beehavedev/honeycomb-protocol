@@ -86,7 +86,7 @@ export function registerDuelsRoutes(app: Express) {
   app.post("/api/duels/:id/join", authMiddleware, async (req, res) => {
     try {
       const walletAddress = req.walletAddress!;
-      const duelId = req.params.id;
+      const duelId = req.params.id as string;
 
       const duel = await storage.getDuel(duelId);
       if (!duel) {
@@ -105,7 +105,7 @@ export function registerDuelsRoutes(app: Express) {
 
       const agent = await storage.getAgentByAddress(walletAddress);
       
-      const mockStartPrice = await fetchMockPrice(duel.assetId);
+      const mockStartPrice = await fetchBinancePrice(duel.assetId);
 
       const updatedDuel = await storage.joinDuel(
         duelId,
@@ -125,7 +125,7 @@ export function registerDuelsRoutes(app: Express) {
   app.post("/api/duels/:id/cancel", authMiddleware, async (req, res) => {
     try {
       const walletAddress = req.walletAddress!;
-      const duelId = req.params.id;
+      const duelId = req.params.id as string;
 
       const duel = await storage.getDuel(duelId);
       if (!duel) {
@@ -150,7 +150,7 @@ export function registerDuelsRoutes(app: Express) {
 
   app.post("/api/duels/:id/settle", async (req, res) => {
     try {
-      const duelId = req.params.id;
+      const duelId = req.params.id as string;
 
       const duel = await storage.getDuel(duelId);
       if (!duel) {
@@ -165,7 +165,7 @@ export function registerDuelsRoutes(app: Express) {
         return res.status(400).json({ message: "Duel has not ended yet" });
       }
 
-      const endPrice = await fetchMockPrice(duel.assetId);
+      const endPrice = await fetchBinancePrice(duel.assetId);
       const startPrice = BigInt(duel.startPrice || "0");
       const endPriceBigInt = BigInt(endPrice);
 
@@ -199,7 +199,7 @@ export function registerDuelsRoutes(app: Express) {
 
   app.get("/api/duels/price/:assetId", async (req, res) => {
     try {
-      const price = await fetchMockPrice(req.params.assetId);
+      const price = await fetchBinancePrice(req.params.assetId);
       res.json({ 
         assetId: req.params.assetId, 
         price, 
@@ -208,6 +208,76 @@ export function registerDuelsRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error fetching price:", error);
+      res.status(500).json({ message: "Failed to fetch price" });
+    }
+  });
+
+  // Binance klines proxy to avoid CORS issues
+  app.get("/api/duels/binance/klines/:assetId", async (req, res) => {
+    try {
+      const assetId = req.params.assetId;
+      const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
+      const interval = (req.query.interval as string) || "1m";
+      const limit = parseInt(req.query.limit as string) || 30;
+      
+      const response = await fetch(
+        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+      );
+      
+      if (!response.ok) {
+        return res.status(400).json({ message: `Invalid symbol: ${symbol}` });
+      }
+      
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        // Return simplified kline data: [timestamp, close price]
+        const klines = data.map((k: any[]) => ({
+          timestamp: k[0],
+          open: parseFloat(k[1]),
+          high: parseFloat(k[2]),
+          low: parseFloat(k[3]),
+          close: parseFloat(k[4]),
+          volume: parseFloat(k[5])
+        }));
+        res.json({ symbol, klines });
+      } else {
+        res.status(400).json({ message: data.msg || "Failed to fetch klines" });
+      }
+    } catch (error) {
+      console.error("Error fetching Binance klines:", error);
+      res.status(500).json({ message: "Failed to fetch price history" });
+    }
+  });
+
+  // Binance ticker proxy
+  app.get("/api/duels/binance/ticker/:assetId", async (req, res) => {
+    try {
+      const assetId = req.params.assetId;
+      const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
+      
+      const response = await fetch(
+        `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`
+      );
+      
+      if (!response.ok) {
+        return res.status(400).json({ message: `Invalid symbol: ${symbol}` });
+      }
+      
+      const data = await response.json();
+      
+      if (data.price) {
+        res.json({ 
+          symbol, 
+          price: parseFloat(data.price),
+          priceScaled: Math.floor(parseFloat(data.price) * 1e8).toString(),
+          timestamp: Date.now() 
+        });
+      } else {
+        res.status(400).json({ message: data.msg || "Failed to fetch price" });
+      }
+    } catch (error) {
+      console.error("Error fetching Binance ticker:", error);
       res.status(500).json({ message: "Failed to fetch price" });
     }
   });
@@ -234,11 +304,40 @@ const basePrices: Record<string, number> = {
   MATIC: 0.45,
 };
 
-async function fetchMockPrice(assetId: string): Promise<string> {
+// Map asset IDs to Binance trading pairs
+const BINANCE_SYMBOLS: Record<string, string> = {
+  "BNB": "BNBUSDT",
+  "BTC": "BTCUSDT",
+  "ETH": "ETHUSDT",
+  "SOL": "SOLUSDT",
+  "DOGE": "DOGEUSDT",
+  "PEPE": "PEPEUSDT",
+  "SHIB": "SHIBUSDT",
+  "XRP": "XRPUSDT",
+  "ADA": "ADAUSDT",
+  "AVAX": "AVAXUSDT",
+  "MATIC": "MATICUSDT",
+  "LINK": "LINKUSDT",
+};
+
+async function fetchBinancePrice(assetId: string): Promise<string> {
+  const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
+  
+  try {
+    const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+    const data = await response.json();
+    
+    if (data.price) {
+      const price = parseFloat(data.price);
+      return Math.floor(price * 1e8).toString();
+    }
+  } catch (error) {
+    console.error(`Failed to fetch Binance price for ${symbol}:`, error);
+  }
+  
+  // Fallback to base prices if Binance API fails
   const basePrice = basePrices[assetId] || 100;
-  const variation = (Math.random() - 0.5) * 0.02;
-  const price = basePrice * (1 + variation);
-  return Math.floor(price * 1e8).toString();
+  return Math.floor(basePrice * 1e8).toString();
 }
 
 function formatPrice(priceStr: string): string {
