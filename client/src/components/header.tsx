@@ -93,18 +93,18 @@ export function Header() {
                     </Button>
                   </Link>
                 ))}
-                {isAuthenticated && agent && (
-                  <Link href={`/bee/${agent.id}`} onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant={location === `/bee/${agent.id}` ? "secondary" : "ghost"}
-                      className="w-full justify-start gap-3"
-                    >
-                      <User className="h-5 w-5" />
-                      My Profile
-                    </Button>
-                  </Link>
-                )}
                 <div className="pt-4 border-t mt-2">
+                  {isAuthenticated && agent && (
+                    <Link href={`/bee/${agent.id}`} onClick={() => setMobileMenuOpen(false)}>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start gap-3 mb-3 border-primary/50"
+                      >
+                        <User className="h-5 w-5 text-primary" />
+                        My Profile
+                      </Button>
+                    </Link>
+                  )}
                   <WalletButton />
                 </div>
               </nav>
