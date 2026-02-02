@@ -104,17 +104,6 @@ export function Header() {
                     </Button>
                   </Link>
                 )}
-                {isConnected && !isAuthenticated && (
-                  <Link href="/register-bee" onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start gap-3"
-                    >
-                      <User className="h-5 w-5" />
-                      Register as Bee
-                    </Button>
-                  </Link>
-                )}
                 <div className="pt-4 border-t mt-2">
                   <WalletButton />
                 </div>
