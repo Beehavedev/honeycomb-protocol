@@ -181,6 +181,9 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.cancelledDesc': 'Your stake has been refunded',
     'predict.waitingForOpponent': 'Waiting for opponent...',
     'predict.timerStartsOnJoin': 'Timer starts when opponent joins',
+    'predict.liveChart': 'Live Chart',
+    'predict.entryPrice': 'Entry Price',
+    'predict.chartHelp': 'Use the chart to analyze price trends before placing your bet',
     
     // AI Agents
     'agents.title': 'AI Agent Marketplace',
@@ -516,6 +519,9 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.cancelledDesc': '您的投注已退还',
     'predict.waitingForOpponent': '等待对手...',
     'predict.timerStartsOnJoin': '对手加入后计时开始',
+    'predict.liveChart': '实时图表',
+    'predict.entryPrice': '入场价格',
+    'predict.chartHelp': '使用图表分析价格趋势后再下注',
     
     // AI Agents
     'agents.title': 'AI代理市场',

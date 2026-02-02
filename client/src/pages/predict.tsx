@@ -341,9 +341,9 @@ function LivePriceChart({ duel }: { duel: Duel }) {
 function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSettling, isCancelling, isReclaiming }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; onReclaim?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean; isReclaiming?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
-  const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
-  const isJoiner = duel.joinerAddress && address?.toLowerCase() === duel.joinerAddress.toLowerCase();
-  const canJoin = duel.status === "open" && !isCreator && address;
+  const isCreator = Boolean(address && address.toLowerCase() === duel.creatorAddress.toLowerCase());
+  const isJoiner = Boolean(duel.joinerAddress && address && address.toLowerCase() === duel.joinerAddress.toLowerCase());
+  const canJoin = duel.status === "open" && !isCreator && !!address;
   
   // Check if duel has expired (can be settled)
   const [canSettle, setCanSettle] = useState(false);
@@ -369,6 +369,10 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
   const stakeValue = parseFloat(duel.stakeWei) / 1e18;
   const totalPot = duel.joinerAddress ? stakeValue * 2 : stakeValue;
   const winnerTakes = totalPot * 0.9;
+  
+  // Check if current user is winner or loser
+  const isWinner = Boolean(duel.status === "settled" && duel.winnerAddress && address && duel.winnerAddress.toLowerCase() === address.toLowerCase());
+  const isLoser = Boolean(duel.status === "settled" && duel.winnerAddress && (isCreator || isJoiner) && !isWinner);
 
   return (
     <Card className="hover-elevate overflow-visible" data-testid={`duel-card-${duel.id}`}>
@@ -516,10 +520,24 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
           </div>
         )}
 
-        {/* Settled Results */}
+        {/* Settled Results with Win/Lose Animations */}
         {duel.status === "settled" && (
-          <div className="p-3 bg-muted/50 rounded-lg mb-3">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="relative p-3 bg-muted/50 rounded-lg mb-3 overflow-hidden">
+            {/* Winner animation overlay */}
+            {isWinner && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 via-yellow-400/20 to-green-500/10 animate-pulse" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl animate-bounce">🏆</div>
+              </div>
+            )}
+            {/* Loser animation overlay */}
+            {isLoser && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-b from-red-500/10 to-transparent" />
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-4 text-sm relative z-10">
               <div>
                 <span className="text-muted-foreground">{t('predict.startPrice')}:</span>
                 <span className="font-mono ml-2">{duel.startPrice ? formatPrice(duel.startPrice) : "-"}</span>
@@ -529,19 +547,48 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
                 <span className="font-mono ml-2">{duel.endPrice ? formatPrice(duel.endPrice) : "-"}</span>
               </div>
             </div>
-            {duel.winnerAddress && (
-              <div className="flex items-center gap-2 mt-3 p-2 bg-primary/10 rounded">
+            
+            {/* Winner display with enhanced styling */}
+            {duel.winnerAddress && isWinner && (
+              <div className="relative z-10 flex flex-col items-center gap-2 mt-4 p-4 bg-gradient-to-r from-green-500/20 via-yellow-400/30 to-green-500/20 rounded-lg border border-yellow-400/50 animate-pulse">
+                <Trophy className="h-8 w-8 text-yellow-400 animate-bounce" />
+                <span className="font-bold text-xl text-yellow-400 drop-shadow-lg">
+                  {t('predict.youWon')}!
+                </span>
+                <span className="text-lg font-semibold text-green-400">
+                  +{winnerTakes.toFixed(4)} BNB
+                </span>
+              </div>
+            )}
+            
+            {/* Loser display */}
+            {duel.winnerAddress && isLoser && (
+              <div className="relative z-10 flex flex-col items-center gap-2 mt-4 p-4 bg-red-500/10 rounded-lg border border-red-500/30">
+                <XCircle className="h-8 w-8 text-red-400" />
+                <span className="font-bold text-xl text-red-400">
+                  {t('predict.youLost')}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  -{formatBNB(duel.stakeWei)}
+                </span>
+              </div>
+            )}
+            
+            {/* Non-participant view */}
+            {duel.winnerAddress && !isWinner && !isLoser && (
+              <div className="flex items-center gap-2 mt-3 p-2 bg-primary/10 rounded relative z-10">
                 <Trophy className="h-5 w-5 text-primary" />
                 <span className="font-bold text-primary">
                   {t('predict.winner')}: {duel.winnerAddress.slice(0, 6)}...{duel.winnerAddress.slice(-4)}
                 </span>
                 <span className="text-sm text-muted-foreground ml-auto">
-                  {t('predict.youWon')} {winnerTakes.toFixed(4)} BNB
+                  {winnerTakes.toFixed(4)} BNB
                 </span>
               </div>
             )}
+            
             {!duel.winnerAddress && (
-              <div className="text-sm text-muted-foreground mt-3 text-center">
+              <div className="text-sm text-muted-foreground mt-3 text-center relative z-10">
                 {t('predict.draw')}
               </div>
             )}
@@ -585,8 +632,8 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
               )}
             </div>
           )}
-          {/* Settle button for expired live duels */}
-          {duel.status === "live" && canSettle && onSettle && (
+          {/* Settle button for expired live duels - only for participants */}
+          {(isCreator || isJoiner) && duel.status === "live" && canSettle && onSettle && (
             <Button 
               onClick={onSettle} 
               disabled={isSettling}
@@ -606,19 +653,8 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
               )}
             </Button>
           )}
-          {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress?.toLowerCase() === address?.toLowerCase() && (
-            <Badge className="bg-primary text-primary-foreground py-2 px-4">
-              <Trophy className="h-4 w-4 mr-1" />
-              {t('predict.youWon')} {winnerTakes.toFixed(4)} BNB!
-            </Badge>
-          )}
-          {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress && duel.winnerAddress?.toLowerCase() !== address?.toLowerCase() && (
-            <Badge variant="outline" className="py-2 px-4">
-              {t('predict.youLost')}
-            </Badge>
-          )}
           {/* Reclaim stake button for cancelled duels - hide for old duels with invalid onChainDuelId */}
-          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && onReclaim && duel.onChainDuelId && duel.onChainDuelId !== "1" && (
+          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && onReclaim && duel.onChainDuelId !== null && duel.onChainDuelId !== undefined && duel.onChainDuelId > BigInt(1) && (
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="py-2 px-4">
                 {t('duel.stakeReclaimable')}
@@ -635,7 +671,7 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
             </div>
           )}
           {/* Old cancelled duels with invalid ID - written off */}
-          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && (!duel.onChainDuelId || duel.onChainDuelId === "1") && (
+          {isCreator && duel.status === "cancelled" && !duel.settlementTxHash && (duel.onChainDuelId === null || duel.onChainDuelId === undefined || duel.onChainDuelId <= BigInt(1)) && (
             <Badge variant="outline" className="py-2 px-4 text-muted-foreground">
               {t('duel.cancelled')}
             </Badge>
@@ -959,6 +995,23 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Live TradingView chart to see entry price */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            {t('predict.liveChart')} - {assetId}/USDT
+            <Badge variant="outline" className="text-xs">{t('predict.entryPrice')}</Badge>
+          </Label>
+          <div className="rounded-lg overflow-hidden border">
+            <TradingViewChart 
+              symbol={assetId} 
+              theme={document.documentElement.classList.contains('dark') ? "dark" : "light"} 
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('predict.chartHelp')}
+          </p>
         </div>
 
         <div className="space-y-2">
