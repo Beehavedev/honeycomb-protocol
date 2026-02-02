@@ -52,6 +52,7 @@ function formatPrice(priceStr: string): string {
 
 function CountdownTimer({ endTs }: { endTs: Date }) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const { t } = useI18n();
 
   useEffect(() => {
     const updateTimer = () => {
@@ -65,7 +66,7 @@ function CountdownTimer({ endTs }: { endTs: Date }) {
     return () => clearInterval(interval);
   }, [endTs]);
 
-  if (timeLeft <= 0) return <span className="text-destructive font-bold">Ended</span>;
+  if (timeLeft <= 0) return <span className="text-destructive font-bold">{t('duel.ended')}</span>;
 
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
@@ -156,6 +157,7 @@ function useBinancePrice(assetId: string, enabled: boolean = true) {
 
 function LivePriceChart({ duel }: { duel: Duel }) {
   const { price, priceHistory, loading, error } = useBinancePrice(duel.assetId, duel.status === "live");
+  const { t } = useI18n();
   const startPrice = duel.startPrice ? parseFloat(duel.startPrice) / 1e8 : null;
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
@@ -177,7 +179,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   if (loading && !price) {
     return (
       <div className="h-48 bg-muted/30 rounded-lg flex items-center justify-center">
-        <span className="text-muted-foreground text-sm">Loading Binance price feed...</span>
+        <span className="text-muted-foreground text-sm">{t('duel.loadingPrice')}</span>
       </div>
     );
   }
@@ -199,15 +201,15 @@ function LivePriceChart({ duel }: { duel: Duel }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl font-bold">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: currentPrice < 1 ? 6 : 2 })}</span>
-            <Badge variant="outline">Waiting for opponent...</Badge>
+            <Badge variant="outline">{t('duel.waitingOpponent')}</Badge>
           </div>
         </div>
         <div className="text-center text-muted-foreground text-sm">
-          Start price will be locked when opponent joins
+          {t('duel.startPriceLocked')}
         </div>
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <span className="font-semibold text-amber-500">Binance</span>
-          <span>• Live Feed</span>
+          <span className="font-semibold text-amber-500">{t('predict.binance')}</span>
+          <span>• {t('predict.liveUpdates')}</span>
         </div>
       </div>
     );
@@ -304,7 +306,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
         </div>
         <div className="flex items-center gap-3">
           <div className={`text-sm font-bold ${creatorWinning ? "text-green-500" : "text-red-500"}`}>
-            {creatorWinning ? "Creator Winning" : "Opponent Winning"}
+            {creatorWinning ? t('predict.creatorWinning') : t('predict.opponentWinning')}
           </div>
           <div className="flex items-center gap-1 bg-background/50 px-3 py-1 rounded-full">
             <Clock className="h-4 w-4 text-primary" />
@@ -367,12 +369,12 @@ function LivePriceChart({ duel }: { duel: Duel }) {
       {/* Footer with start price and Binance attribution */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Start:</span>
+          <span className="text-muted-foreground">{t('predict.startPrice')}:</span>
           <span className="font-mono font-semibold">${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
         </div>
         <div className="flex items-center gap-1 text-muted-foreground">
-          <span className="font-semibold text-amber-500">Binance</span>
-          <span>• Live • 3s</span>
+          <span className="font-semibold text-amber-500">{t('predict.binance')}</span>
+          <span>• {t('predict.liveUpdates')}</span>
         </div>
       </div>
     </div>
@@ -381,6 +383,7 @@ function LivePriceChart({ duel }: { duel: Duel }) {
 
 function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void; isJoining?: boolean }) {
   const { address } = useAccount();
+  const { t } = useI18n();
   const isCreator = address?.toLowerCase() === duel.creatorAddress.toLowerCase();
   const isJoiner = duel.joinerAddress && address?.toLowerCase() === duel.joinerAddress.toLowerCase();
   const canJoin = duel.status === "open" && !isCreator && address;
@@ -406,12 +409,12 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
               variant={duel.status === "open" ? "default" : duel.status === "live" ? "secondary" : "outline"}
               className="uppercase"
             >
-              {duel.status === "open" ? "Waiting for Opponent" : duel.status === "live" ? "LIVE" : "Settled"}
+              {duel.status === "open" ? t('duel.waitingOpponent') : duel.status === "live" ? t('duel.liveNow') : t('duel.settled')}
             </Badge>
           </div>
           <div className="text-right">
             <div className="text-xl font-bold text-primary">{totalPot.toFixed(4)} BNB</div>
-            <div className="text-xs text-muted-foreground">Total Pot • Winner gets {winnerTakes.toFixed(4)} BNB</div>
+            <div className="text-xs text-muted-foreground">{t('duel.pot')} • {t('predict.winner')} {winnerTakes.toFixed(4)} BNB</div>
           </div>
         </div>
 
@@ -424,7 +427,7 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
               : "bg-red-500/10 border border-red-500/30"
           }`}>
             <div className="text-xs text-muted-foreground mb-1">
-              {isCreator ? "You" : "Creator"}
+              {isCreator ? t('common.you') : t('duel.creator')}
             </div>
             <div className="font-mono text-xs mb-2">{creatorShort}</div>
             <div className={`flex items-center justify-center gap-1 font-bold text-lg ${
@@ -433,23 +436,23 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
               {duel.creatorDirection === "up" ? (
                 <>
                   <TrendingUp className="h-5 w-5" />
-                  UP
+                  {t('predict.up')}
                 </>
               ) : (
                 <>
                   <TrendingDown className="h-5 w-5" />
-                  DOWN
+                  {t('predict.down')}
                 </>
               )}
             </div>
             <div className="text-xs mt-1 text-muted-foreground">
-              Betting {duel.assetId} goes {duel.creatorDirection}
+              {duel.assetId} {duel.creatorDirection === "up" ? t('predict.up') : t('predict.down')}
             </div>
           </div>
 
           {/* VS */}
           <div className="flex items-center justify-center">
-            <div className="text-2xl font-black text-muted-foreground">VS</div>
+            <div className="text-2xl font-black text-muted-foreground">{t('duel.vs')}</div>
           </div>
 
           {/* Opponent Side */}
@@ -463,7 +466,7 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
             {duel.joinerAddress ? (
               <>
                 <div className="text-xs text-muted-foreground mb-1">
-                  {isJoiner ? "You" : "Opponent"}
+                  {isJoiner ? t('common.you') : t('duel.opponent')}
                 </div>
                 <div className="font-mono text-xs mb-2">{joinerShort}</div>
                 <div className={`flex items-center justify-center gap-1 font-bold text-lg ${
@@ -472,40 +475,40 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
                   {duel.joinerDirection === "up" ? (
                     <>
                       <TrendingUp className="h-5 w-5" />
-                      UP
+                      {t('predict.up')}
                     </>
                   ) : (
                     <>
                       <TrendingDown className="h-5 w-5" />
-                      DOWN
+                      {t('predict.down')}
                     </>
                   )}
                 </div>
                 <div className="text-xs mt-1 text-muted-foreground">
-                  Betting {duel.assetId} goes {duel.joinerDirection}
+                  {duel.assetId} {duel.joinerDirection === "up" ? t('predict.up') : t('predict.down')}
                 </div>
               </>
             ) : (
               <>
-                <div className="text-xs text-muted-foreground mb-1">Opponent</div>
-                <div className="font-mono text-xs mb-2 text-muted-foreground">Waiting...</div>
+                <div className="text-xs text-muted-foreground mb-1">{t('duel.opponent')}</div>
+                <div className="font-mono text-xs mb-2 text-muted-foreground">{t('predict.waiting')}</div>
                 <div className={`flex items-center justify-center gap-1 font-bold text-lg ${
                   duel.joinerDirection === "up" ? "text-green-500" : "text-red-500"
                 }`}>
                   {duel.joinerDirection === "up" ? (
                     <>
                       <TrendingUp className="h-5 w-5" />
-                      UP
+                      {t('predict.up')}
                     </>
                   ) : (
                     <>
                       <TrendingDown className="h-5 w-5" />
-                      DOWN
+                      {t('predict.down')}
                     </>
                   )}
                 </div>
                 <div className="text-xs mt-1 text-muted-foreground">
-                  Must bet {duel.assetId} goes {duel.joinerDirection}
+                  {duel.assetId} {duel.joinerDirection === "up" ? t('predict.up') : t('predict.down')}
                 </div>
               </>
             )}
@@ -516,11 +519,11 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
         <div className="flex items-center justify-between mb-3 text-sm">
           <div className="flex items-center gap-1 text-muted-foreground">
             <Clock className="h-4 w-4" />
-            Duration: {formatDuration(duel.durationSec)}
+            {t('predict.duration')}: {formatDuration(duel.durationSec)}
           </div>
           {duel.status === "live" && duel.endTs && (
             <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Ends in:</span>
+              <span className="text-muted-foreground">{t('duel.timeRemaining')}:</span>
               <CountdownTimer endTs={new Date(duel.endTs)} />
             </div>
           )}
@@ -538,11 +541,11 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
           <div className="p-3 bg-muted/50 rounded-lg mb-3">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Start Price:</span>
+                <span className="text-muted-foreground">{t('predict.startPrice')}:</span>
                 <span className="font-mono ml-2">{duel.startPrice ? formatPrice(duel.startPrice) : "-"}</span>
               </div>
               <div>
-                <span className="text-muted-foreground">End Price:</span>
+                <span className="text-muted-foreground">{t('predict.endPrice')}:</span>
                 <span className="font-mono ml-2">{duel.endPrice ? formatPrice(duel.endPrice) : "-"}</span>
               </div>
             </div>
@@ -550,16 +553,16 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
               <div className="flex items-center gap-2 mt-3 p-2 bg-primary/10 rounded">
                 <Trophy className="h-5 w-5 text-primary" />
                 <span className="font-bold text-primary">
-                  Winner: {duel.winnerAddress.slice(0, 6)}...{duel.winnerAddress.slice(-4)}
+                  {t('predict.winner')}: {duel.winnerAddress.slice(0, 6)}...{duel.winnerAddress.slice(-4)}
                 </span>
                 <span className="text-sm text-muted-foreground ml-auto">
-                  Won {winnerTakes.toFixed(4)} BNB
+                  {t('predict.youWon')} {winnerTakes.toFixed(4)} BNB
                 </span>
               </div>
             )}
             {!duel.winnerAddress && (
               <div className="text-sm text-muted-foreground mt-3 text-center">
-                Draw - Stakes refunded to both players
+                {t('predict.draw')}
               </div>
             )}
           </div>
@@ -576,9 +579,9 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
               data-testid={`join-duel-${duel.id}`}
             >
               <Zap className="h-4 w-4 mr-2" />
-              {isJoining ? "Confirm in Wallet..." : (
+              {isJoining ? t('predict.confirmInWallet') : (
                 <>
-                  Join & Bet {duel.joinerDirection?.toUpperCase()} ({duel.stakeDisplay})
+                  {t('predict.join')} {duel.joinerDirection === "up" ? t('predict.up') : t('predict.down')} ({duel.stakeDisplay})
                 </>
               )}
             </Button>
@@ -586,18 +589,18 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: () => void
           {isCreator && duel.status === "open" && (
             <Badge variant="outline" className="py-2 px-4">
               <Clock className="h-3 w-3 mr-1" />
-              Waiting for opponent...
+              {t('predict.waiting')}
             </Badge>
           )}
           {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress?.toLowerCase() === address?.toLowerCase() && (
             <Badge className="bg-primary text-primary-foreground py-2 px-4">
               <Trophy className="h-4 w-4 mr-1" />
-              You Won {winnerTakes.toFixed(4)} BNB!
+              {t('predict.youWon')} {winnerTakes.toFixed(4)} BNB!
             </Badge>
           )}
           {(isCreator || isJoiner) && duel.status === "settled" && duel.winnerAddress && duel.winnerAddress?.toLowerCase() !== address?.toLowerCase() && (
             <Badge variant="outline" className="py-2 px-4">
-              You Lost
+              {t('predict.youLost')}
             </Badge>
           )}
         </div>

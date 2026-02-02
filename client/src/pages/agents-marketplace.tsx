@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, Zap, MessageSquare, Coins, Plus, TrendingUp, Users } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useI18n } from "@/lib/i18n";
 
 interface AiAgentProfile {
   id: string;
@@ -36,20 +37,21 @@ function formatPrice(weiAmount: string): string {
   return `${bnb.toFixed(4)} BNB`;
 }
 
-function getPricingLabel(model: string): string {
+function getPricingLabel(model: string, t: (key: string) => string): string {
   switch (model) {
     case "per_message":
-      return "per message";
+      return t('agents.perMessage');
     case "per_token":
-      return "per 1K tokens";
+      return t('agents.perToken');
     case "per_task":
-      return "per task";
+      return t('agents.perTask');
     default:
       return model;
   }
 }
 
 function AgentCard({ agent }: { agent: AiAgentProfile }) {
+  const { t } = useI18n();
   return (
     <Link href={`/agents/${agent.agentId}`}>
       <Card className="hover-elevate cursor-pointer h-full">
@@ -64,7 +66,7 @@ function AgentCard({ agent }: { agent: AiAgentProfile }) {
             <div className="flex-1 min-w-0">
               <CardTitle className="text-lg truncate">{agent.name}</CardTitle>
               <CardDescription className="line-clamp-2 text-sm">
-                {agent.bio || "AI-powered assistant"}
+                {agent.bio || t('agents.defaultBio')}
               </CardDescription>
             </div>
           </div>
@@ -74,7 +76,7 @@ function AgentCard({ agent }: { agent: AiAgentProfile }) {
             <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
               <Coins className="h-4 w-4" />
               <span className="font-medium">{formatPrice(agent.pricePerUnit)}</span>
-              <span className="text-xs text-muted-foreground">{getPricingLabel(agent.pricingModel)}</span>
+              <span className="text-xs text-muted-foreground">{getPricingLabel(agent.pricingModel, t)}</span>
             </div>
           </div>
 
@@ -85,7 +87,7 @@ function AgentCard({ agent }: { agent: AiAgentProfile }) {
             </div>
             <div className="flex items-center gap-1">
               <TrendingUp className="h-4 w-4" />
-              <span>{formatPrice(agent.totalEarnings)} earned</span>
+              <span>{formatPrice(agent.totalEarnings)} {t('agents.earned')}</span>
             </div>
           </div>
 
@@ -138,6 +140,7 @@ function AgentCardSkeleton() {
 
 export default function AgentsMarketplace() {
   const { isAuthenticated } = useAuth();
+  const { t } = useI18n();
 
   const { data, isLoading } = useQuery<{ agents: AiAgentProfile[] }>({
     queryKey: ["/api/ai-agents"],
@@ -151,17 +154,17 @@ export default function AgentsMarketplace() {
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Zap className="h-8 w-8 text-amber-500" />
-            AI Agent Marketplace
+            {t('agents.title')}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Discover and interact with AI-powered agents built by the community
+            {t('agents.description')}
           </p>
         </div>
         {isAuthenticated && (
           <Link href="/create-agent">
             <Button data-testid="button-create-agent">
               <Plus className="h-4 w-4 mr-2" />
-              Create AI Agent
+              {t('agents.createAgent')}
             </Button>
           </Link>
         )}
@@ -176,7 +179,7 @@ export default function AgentsMarketplace() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{agents.length}</p>
-                <p className="text-sm text-muted-foreground">Active Agents</p>
+                <p className="text-sm text-muted-foreground">{t('agents.activeAgents')}</p>
               </div>
             </div>
           </CardContent>
@@ -192,7 +195,7 @@ export default function AgentsMarketplace() {
                 <p className="text-2xl font-bold">
                   {agents.reduce((sum, a) => sum + a.totalInteractions, 0).toLocaleString()}
                 </p>
-                <p className="text-sm text-muted-foreground">Total Interactions</p>
+                <p className="text-sm text-muted-foreground">{t('agents.totalInteractions')}</p>
               </div>
             </div>
           </CardContent>
@@ -206,7 +209,7 @@ export default function AgentsMarketplace() {
               </div>
               <div>
                 <p className="text-2xl font-bold">99%</p>
-                <p className="text-sm text-muted-foreground">Creator Revenue Share</p>
+                <p className="text-sm text-muted-foreground">{t('agents.creatorRevenue')}</p>
               </div>
             </div>
           </CardContent>
@@ -223,20 +226,20 @@ export default function AgentsMarketplace() {
         <Card className="text-center py-12">
           <CardContent>
             <Bot className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No AI Agents Yet</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('agents.noAgents')}</h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Be the first to create a paid AI agent and start earning from your custom AI assistant.
+              {t('agents.noAgentsDescription')}
             </p>
             {isAuthenticated ? (
               <Link href="/create-agent">
                 <Button data-testid="button-create-first-agent">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Your AI Agent
+                  {t('agents.createAgent')}
                 </Button>
               </Link>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Connect your wallet and sign in to create an AI agent
+                {t('agents.connectToCreate')}
               </p>
             )}
           </CardContent>

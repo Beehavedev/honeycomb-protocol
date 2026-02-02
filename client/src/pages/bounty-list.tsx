@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Coins, Plus, Clock, Users, Hexagon, AlertCircle } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
+import { useI18n } from "@/lib/i18n";
 import type { Bounty, Agent } from "@shared/schema";
 
 interface BountyWithAgent extends Bounty {
@@ -24,6 +25,7 @@ interface BountiesResponse {
 export default function BountyList() {
   const [status, setStatus] = useState<"open" | "awarded" | "expired">("open");
   const { isAuthenticated, agent } = useAuth();
+  const { t } = useI18n();
 
   const { data, isLoading, error } = useQuery<BountiesResponse>({
     queryKey: ["/api/bounties", status],
@@ -39,27 +41,27 @@ export default function BountyList() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Coins className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Honey</h1>
+          <h1 className="text-3xl font-bold">{t('bounties.title')}</h1>
         </div>
         {isAuthenticated && agent && (
           <Link href="/honey/new">
             <Button className="gap-2" data-testid="button-create-bounty">
               <Plus className="h-4 w-4" />
-              Create Bounty
+              {t('bounties.createBounty')}
             </Button>
           </Link>
         )}
       </div>
 
       <p className="text-muted-foreground mb-6">
-        Task marketplace where Bees can post bounties and earn rewards by solving them.
+        {t('bounties.description')}
       </p>
 
       <Tabs value={status} onValueChange={(v) => setStatus(v as typeof status)} className="mb-6">
         <TabsList>
-          <TabsTrigger value="open" data-testid="tab-open">Open</TabsTrigger>
-          <TabsTrigger value="awarded" data-testid="tab-awarded">Awarded</TabsTrigger>
-          <TabsTrigger value="expired" data-testid="tab-expired">Expired</TabsTrigger>
+          <TabsTrigger value="open" data-testid="tab-open">{t('bounties.open')}</TabsTrigger>
+          <TabsTrigger value="awarded" data-testid="tab-awarded">{t('bounties.completed')}</TabsTrigger>
+          <TabsTrigger value="expired" data-testid="tab-expired">{t('bounties.expired')}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -81,7 +83,7 @@ export default function BountyList() {
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 p-6 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            <span>Failed to load bounties. Please try again.</span>
+            <span>{t('bounties.loadError')}</span>
           </CardContent>
         </Card>
       )}
@@ -91,18 +93,18 @@ export default function BountyList() {
           <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
             <Coins className="h-16 w-16 text-muted-foreground/50" />
             <div>
-              <h3 className="text-lg font-semibold">No {status} bounties</h3>
+              <h3 className="text-lg font-semibold">{t('bounties.noBounties')}</h3>
               <p className="text-muted-foreground">
                 {status === "open" 
-                  ? "Be the first to create a bounty for the hive!"
-                  : `No ${status} bounties to show.`}
+                  ? t('bounties.beFirst')
+                  : t('bounties.noBountiesStatus')}
               </p>
             </div>
             {status === "open" && isAuthenticated && agent && (
               <Link href="/honey/new">
                 <Button className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Create Bounty
+                  {t('bounties.createBounty')}
                 </Button>
               </Link>
             )}
@@ -122,6 +124,7 @@ export default function BountyList() {
 }
 
 function BountyCard({ bounty }: { bounty: BountyWithAgent }) {
+  const { t } = useI18n();
   const isExpired = bounty.isExpired || new Date(bounty.deadline) < new Date();
   const statusColor = 
     bounty.status === "awarded" ? "bg-green-500/10 text-green-600 border-green-500/20" :
@@ -137,9 +140,9 @@ function BountyCard({ bounty }: { bounty: BountyWithAgent }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <Badge className={statusColor}>
-                  {bounty.status === "awarded" ? "Awarded" : 
-                   bounty.status === "cancelled" ? "Cancelled" :
-                   isExpired ? "Expired" : "Open"}
+                  {bounty.status === "awarded" ? t('bounties.completed') : 
+                   bounty.status === "cancelled" ? t('bounties.cancelled') :
+                   isExpired ? t('bounties.expired') : t('bounties.open')}
                 </Badge>
                 <Badge variant="secondary" className="font-mono">
                   {bounty.rewardDisplay}

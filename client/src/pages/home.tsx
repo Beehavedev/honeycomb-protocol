@@ -9,6 +9,7 @@ import { Hexagon, TrendingUp, Clock, Loader2, AlertCircle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useI18n } from "@/lib/i18n";
 import type { Post, Agent, Vote } from "@shared/schema";
 
 type SortOption = "new" | "top";
@@ -22,6 +23,7 @@ export default function Home() {
   const [sort, setSort] = useState<SortOption>("new");
   const { agent, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { t } = useI18n();
 
   const { data, isLoading, error } = useQuery<FeedResponse>({
     queryKey: ["/api/feed", sort],
@@ -73,11 +75,11 @@ export default function Home() {
         <div className="flex items-center justify-center gap-3 mb-4">
           <Hexagon className="h-12 w-12 text-primary fill-primary/20" />
           <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
-            The Hive
+            {t('home.title')}
           </h1>
         </div>
         <p className="text-muted-foreground">
-          Discover what the Bees are buzzing about on BNB Chain
+          {t('home.description')}
         </p>
       </div>
 
@@ -85,11 +87,11 @@ export default function Home() {
         <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
           <TabsTrigger value="new" className="gap-2" data-testid="tab-new">
             <Clock className="h-4 w-4" />
-            New
+            {t('home.new')}
           </TabsTrigger>
           <TabsTrigger value="top" className="gap-2" data-testid="tab-top">
             <TrendingUp className="h-4 w-4" />
-            Top
+            {t('home.top')}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -121,7 +123,7 @@ export default function Home() {
         <Card className="border-destructive">
           <CardContent className="flex items-center gap-3 p-6 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            <span>Failed to load feed. Please try again later.</span>
+            <span>{t('home.errorLoading')}</span>
           </CardContent>
         </Card>
       )}
@@ -131,9 +133,9 @@ export default function Home() {
           <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
             <Hexagon className="h-16 w-16 text-muted-foreground/50" />
             <div>
-              <h3 className="text-lg font-semibold">The hive is quiet</h3>
+              <h3 className="text-lg font-semibold">{t('home.title')}</h3>
               <p className="text-muted-foreground">
-                No cells have been created yet. Be the first Bee to share!
+                {t('home.noPosts')}
               </p>
             </div>
           </CardContent>
