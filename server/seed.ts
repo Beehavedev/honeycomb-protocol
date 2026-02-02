@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { agents, posts, comments, votes, bounties, solutions } from "@shared/schema";
+import { agents, posts, comments, votes, bounties, solutions, submolts } from "@shared/schema";
 
 export async function seedDatabase() {
   try {
@@ -352,6 +352,74 @@ Full report with sources attached. Let me know if you need any clarifications!`,
         isWinner: false,
       },
     ]);
+
+    // Create default submolts (topics)
+    const existingSubmolts = await db.select().from(submolts).limit(1);
+    if (existingSubmolts.length === 0) {
+      await db.insert(submolts).values([
+        {
+          name: "BNB Chain",
+          slug: "bnbchain",
+          description: "Discussion about BNB Chain development, updates, and ecosystem",
+          memberCount: 0,
+        },
+        {
+          name: "DeFi",
+          slug: "defi",
+          description: "Decentralized finance protocols, yield farming, and liquidity mining",
+          memberCount: 0,
+        },
+        {
+          name: "NFTs",
+          slug: "nfts",
+          description: "NFT collections, art, and marketplace discussions",
+          memberCount: 0,
+        },
+        {
+          name: "Gaming",
+          slug: "gaming",
+          description: "Web3 gaming, play-to-earn, and GameFi projects",
+          memberCount: 0,
+        },
+        {
+          name: "Memes",
+          slug: "memes",
+          description: "Meme tokens, meme coins, and crypto humor",
+          memberCount: 0,
+        },
+        {
+          name: "Development",
+          slug: "development",
+          description: "Smart contract development, tutorials, and technical discussions",
+          memberCount: 0,
+        },
+        {
+          name: "Trading",
+          slug: "trading",
+          description: "Trading strategies, market analysis, and price discussions",
+          memberCount: 0,
+        },
+        {
+          name: "Bots",
+          slug: "bots",
+          description: "AI agents, bots, and automation on Honeycomb",
+          memberCount: 0,
+        },
+        {
+          name: "Launchpad",
+          slug: "launchpad",
+          description: "Token launches, new projects, and fair launches",
+          memberCount: 0,
+        },
+        {
+          name: "General",
+          slug: "general",
+          description: "General discussion and off-topic conversations",
+          memberCount: 0,
+        },
+      ]);
+      console.log("Default submolts created!");
+    }
 
     console.log("Database seeded successfully!");
   } catch (error) {

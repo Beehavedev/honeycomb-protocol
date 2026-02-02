@@ -33,6 +33,7 @@ export const agents = pgTable("agents", {
 export const posts = pgTable("posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull().references(() => agents.id),
+  submoltId: varchar("submolt_id"), // References submolts.id (validated at application level)
   title: text("title").notNull(),
   body: text("body").notNull(),
   tags: text("tags").array().default(sql`ARRAY[]::text[]`),
@@ -130,6 +131,112 @@ export const launchTrades = pgTable("launch_trades", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ MOLTBOOK-STYLE FEATURES ============
+
+// Submolts (Topics/Communities) - like subreddits
+export const submolts = pgTable("submolts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  iconUrl: text("icon_url"),
+  bannerUrl: text("banner_url"),
+  creatorId: varchar("creator_id").references(() => agents.id),
+  memberCount: integer("member_count").default(0).notNull(),
+  postCount: integer("post_count").default(0).notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Submolt memberships
+export const submoltMembers = pgTable("submolt_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  submoltId: varchar("submolt_id").notNull().references(() => submolts.id),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  role: text("role").default("member").notNull(), // member, moderator, admin
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueMember: unique().on(table.submoltId, table.agentId),
+}));
+
+// Bot follows (bot-to-bot following)
+export const botFollows = pgTable("bot_follows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  followerId: varchar("follower_id").notNull().references(() => agents.id),
+  followingId: varchar("following_id").notNull().references(() => agents.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueFollow: unique().on(table.followerId, table.followingId),
+}));
+
+// Bot persistent memory
+export const botMemory = pgTable("bot_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  memoryKey: text("memory_key").notNull(),
+  memoryValue: text("memory_value").notNull(),
+  category: text("category").default("general").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueMemory: unique().on(table.agentId, table.memoryKey),
+}));
+
+// Bot webhooks for notifications
+export const botWebhooks = pgTable("bot_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  events: text("events").array().default(sql`ARRAY['mention', 'reply', 'follow']::text[]`),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastDeliveryAt: timestamp("last_delivery_at"),
+  failureCount: integer("failure_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Bot skills (capabilities that can be shared)
+export const botSkills = pgTable("bot_skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").default("general").notNull(),
+  endpointUrl: text("endpoint_url"),
+  inputSchema: text("input_schema"), // JSON schema
+  outputSchema: text("output_schema"), // JSON schema
+  usageCount: integer("usage_count").default(0).notNull(),
+  isPublic: boolean("is_public").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Agent verification status
+export const agentVerifications = pgTable("agent_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  verificationType: text("verification_type").notNull(), // twitter, github, website
+  verificationData: text("verification_data"), // handle/username/domain
+  verifiedAt: timestamp("verified_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// AI Chat conversations for bot auto-replies
+export const conversations = pgTable("conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").references(() => agents.id),
+  title: text("title").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AI Chat messages
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => conversations.id),
+  role: text("role").notNull(), // user, assistant, system
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertAuthNonceSchema = createInsertSchema(authNonces).pick({
   address: true,
@@ -146,6 +253,7 @@ export const insertAgentSchema = createInsertSchema(agents).pick({
 
 export const insertPostSchema = createInsertSchema(posts).pick({
   agentId: true,
+  submoltId: true,
   title: true,
   body: true,
   tags: true,
@@ -202,6 +310,69 @@ export const insertLaunchTradeSchema = createInsertSchema(launchTrades).pick({
   txHash: true,
 });
 
+// Moltbook feature insert schemas
+export const insertSubmoltSchema = createInsertSchema(submolts).pick({
+  name: true,
+  slug: true,
+  description: true,
+  iconUrl: true,
+  bannerUrl: true,
+  creatorId: true,
+});
+
+export const insertSubmoltMemberSchema = createInsertSchema(submoltMembers).pick({
+  submoltId: true,
+  agentId: true,
+  role: true,
+});
+
+export const insertBotFollowSchema = createInsertSchema(botFollows).pick({
+  followerId: true,
+  followingId: true,
+});
+
+export const insertBotMemorySchema = createInsertSchema(botMemory).pick({
+  agentId: true,
+  memoryKey: true,
+  memoryValue: true,
+  category: true,
+});
+
+export const insertBotWebhookSchema = createInsertSchema(botWebhooks).pick({
+  agentId: true,
+  url: true,
+  secret: true,
+  events: true,
+});
+
+export const insertBotSkillSchema = createInsertSchema(botSkills).pick({
+  agentId: true,
+  name: true,
+  description: true,
+  category: true,
+  endpointUrl: true,
+  inputSchema: true,
+  outputSchema: true,
+  isPublic: true,
+});
+
+export const insertAgentVerificationSchema = createInsertSchema(agentVerifications).pick({
+  agentId: true,
+  verificationType: true,
+  verificationData: true,
+});
+
+export const insertConversationSchema = createInsertSchema(conversations).pick({
+  agentId: true,
+  title: true,
+});
+
+export const insertMessageSchema = createInsertSchema(messages).pick({
+  conversationId: true,
+  role: true,
+  content: true,
+});
+
 // Types
 export type AuthNonce = typeof authNonces.$inferSelect;
 export type InsertAuthNonce = z.infer<typeof insertAuthNonceSchema>;
@@ -229,6 +400,34 @@ export type InsertLaunchToken = z.infer<typeof insertLaunchTokenSchema>;
 
 export type LaunchTrade = typeof launchTrades.$inferSelect;
 export type InsertLaunchTrade = z.infer<typeof insertLaunchTradeSchema>;
+
+// Moltbook feature types
+export type Submolt = typeof submolts.$inferSelect;
+export type InsertSubmolt = z.infer<typeof insertSubmoltSchema>;
+
+export type SubmoltMember = typeof submoltMembers.$inferSelect;
+export type InsertSubmoltMember = z.infer<typeof insertSubmoltMemberSchema>;
+
+export type BotFollow = typeof botFollows.$inferSelect;
+export type InsertBotFollow = z.infer<typeof insertBotFollowSchema>;
+
+export type BotMemory = typeof botMemory.$inferSelect;
+export type InsertBotMemory = z.infer<typeof insertBotMemorySchema>;
+
+export type BotWebhook = typeof botWebhooks.$inferSelect;
+export type InsertBotWebhook = z.infer<typeof insertBotWebhookSchema>;
+
+export type BotSkill = typeof botSkills.$inferSelect;
+export type InsertBotSkill = z.infer<typeof insertBotSkillSchema>;
+
+export type AgentVerification = typeof agentVerifications.$inferSelect;
+export type InsertAgentVerification = z.infer<typeof insertAgentVerificationSchema>;
+
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = z.infer<typeof insertConversationSchema>;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 // API request/response types
 export const registerAgentRequestSchema = z.object({
