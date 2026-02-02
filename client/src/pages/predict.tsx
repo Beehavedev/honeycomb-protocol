@@ -571,7 +571,7 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, isJoining, isSettling, isC
                 <Clock className="h-3 w-3 mr-1" />
                 {t('predict.waitingForOpponent')}
               </Badge>
-              {onCancel && (
+              {onCancel && isCreator && (
                 <Button 
                   variant="destructive" 
                   size="sm"

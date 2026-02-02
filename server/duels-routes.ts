@@ -513,6 +513,11 @@ export function registerDuelsRoutes(app: Express) {
         return res.status(404).json({ message: "Duel not found" });
       }
 
+      // Verify duel has on-chain ID (required for on-chain cancellation)
+      if (!duel.onChainDuelId) {
+        return res.status(400).json({ message: "Duel has no on-chain ID" });
+      }
+
       // Verify caller is the creator
       if (duel.creatorAddress.toLowerCase() !== walletAddress.toLowerCase()) {
         return res.status(403).json({ message: "Only the creator can cancel this duel" });
@@ -520,6 +525,11 @@ export function registerDuelsRoutes(app: Express) {
 
       if (duel.status !== "open") {
         return res.status(400).json({ message: "Only open duels can be cancelled" });
+      }
+
+      // Verify no joiner has joined yet
+      if (duel.joinerAddress) {
+        return res.status(400).json({ message: "Cannot cancel duel that has an opponent" });
       }
 
       const updatedDuel = await storage.updateDuel(duelId, {
