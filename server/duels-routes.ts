@@ -726,7 +726,6 @@ export function registerDuelsRoutes(app: Express) {
         status: "settled",
         endPrice: endPriceStr,
         winnerAddress,
-        winnings,
         settlementTxHash: hash,
       });
 

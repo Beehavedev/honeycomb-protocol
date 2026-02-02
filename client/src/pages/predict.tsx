@@ -1429,17 +1429,8 @@ export default function Predict() {
     }
   }, [joinerRegisterError]);
 
-  // Handle settling a duel
+  // Handle settling a duel - calls backend oracle which has the ORACLE_ROLE
   const handleSettle = async (duel: Duel) => {
-    if (!canUseOnChainJoin) {
-      toast({ 
-        title: t('common.connectWallet'), 
-        description: t('predict.switchToBsc'),
-        variant: "destructive" 
-      });
-      return;
-    }
-    
     if (!duel.onChainDuelId) {
       toast({ title: "Error", description: "This bet cannot be settled on-chain", variant: "destructive" });
       return;
@@ -1448,44 +1439,31 @@ export default function Predict() {
     try {
       setSettlingDuelId(duel.id);
       
-      // Fetch current price for end price with retry
-      let price: number | null = null;
-      let retryCount = 3;
+      // Call backend oracle settlement endpoint
+      const response = await fetch(`/api/duels/${duel.id}/oracle-settle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
       
-      while (retryCount > 0 && price === null) {
-        try {
-          const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
-          if (priceRes.ok) {
-            const priceData = await priceRes.json();
-            if (priceData?.price && !isNaN(priceData.price)) {
-              price = priceData.price;
-            }
-          }
-        } catch (e) {
-          console.error("Price fetch attempt failed:", e);
-        }
-        if (price === null) {
-          retryCount--;
-          if (retryCount > 0) {
-            await new Promise(r => setTimeout(r, 1500)); // Wait 1.5s between retries
-          }
-        }
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Settlement failed");
       }
       
-      if (!price) {
-        toast({ title: "Price fetch failed", description: "Could not get current price. Please try again in a few seconds.", variant: "destructive" });
-        setSettlingDuelId(null);
-        return;
-      }
+      // Settlement successful
+      toast({ 
+        title: t('predict.settled') || "Bet Settled!", 
+        description: data.winner 
+          ? `${t('predict.payoutSent') || "Winner"}: ${data.winner.slice(0, 6)}...${data.winner.slice(-4)}`
+          : "Tie! Stakes refunded to both players."
+      });
       
-      const endPriceWei = BigInt(Math.floor(price * 1e8));
-      
-      settleDuelOnChain(
-        BigInt(duel.onChainDuelId.toString()),
-        endPriceWei
-      );
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+      setSettlingDuelId(null);
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      console.error("Settlement error:", err);
+      toast({ title: "Settlement failed", description: err.message, variant: "destructive" });
       setSettlingDuelId(null);
     }
   };
