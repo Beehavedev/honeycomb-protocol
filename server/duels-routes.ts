@@ -6,6 +6,17 @@ import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
 const FEE_PERCENTAGE = 10;
 
+// Helper to convert BigInt fields to strings for JSON serialization
+function serializeDuel(duel: any) {
+  if (!duel) return duel;
+  return {
+    ...duel,
+    onChainDuelId: duel.onChainDuelId?.toString() || null,
+    creatorOnChainAgentId: duel.creatorOnChainAgentId?.toString() || null,
+    joinerOnChainAgentId: duel.joinerOnChainAgentId?.toString() || null,
+  };
+}
+
 export function registerDuelsRoutes(app: Express) {
   app.get("/api/duels/assets", async (_req, res) => {
     try {
@@ -29,7 +40,7 @@ export function registerDuelsRoutes(app: Express) {
       }
       
       const duels = await storage.getDuels(status as "open" | "live" | "settled" | "cancelled" | "all", limit);
-      res.json(duels);
+      res.json(duels.map(serializeDuel));
     } catch (error) {
       console.error("Error fetching duels:", error);
       res.status(500).json({ message: "Failed to fetch duels" });
@@ -42,7 +53,7 @@ export function registerDuelsRoutes(app: Express) {
       if (!duel) {
         return res.status(404).json({ message: "Duel not found" });
       }
-      res.json(duel);
+      res.json(serializeDuel(duel));
     } catch (error) {
       console.error("Error fetching duel:", error);
       res.status(500).json({ message: "Failed to fetch duel" });
@@ -86,7 +97,7 @@ export function registerDuelsRoutes(app: Express) {
       }
 
       const updatedDuel = await storage.updateDuel(duelId, { status: "cancelled" });
-      res.json(updatedDuel);
+      res.json(serializeDuel(updatedDuel));
     } catch (error) {
       console.error("Error cancelling duel:", error);
       res.status(500).json({ message: "Failed to cancel duel" });
@@ -135,7 +146,7 @@ export function registerDuelsRoutes(app: Express) {
         fee.toString()
       );
 
-      res.json(settledDuel);
+      res.json(serializeDuel(settledDuel));
     } catch (error) {
       console.error("Error settling duel:", error);
       res.status(500).json({ message: "Failed to settle duel" });
@@ -271,7 +282,7 @@ export function registerDuelsRoutes(app: Express) {
         creatorDirection: direction,
       });
 
-      res.status(201).json(duel);
+      res.status(201).json(serializeDuel(duel));
     } catch (error) {
       console.error("Error syncing on-chain duel creation:", error);
       res.status(500).json({ message: "Failed to sync on-chain duel" });
@@ -317,7 +328,7 @@ export function registerDuelsRoutes(app: Express) {
         joinTxHash: txHash,
       });
 
-      res.json(updatedDuel);
+      res.json(serializeDuel(updatedDuel));
     } catch (error) {
       console.error("Error syncing on-chain duel join:", error);
       res.status(500).json({ message: "Failed to sync on-chain join" });
