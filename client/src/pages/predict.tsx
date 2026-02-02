@@ -177,13 +177,14 @@ function DuelCard({ duel, onJoin, isJoining }: { duel: Duel; onJoin?: (id: strin
 
 function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const { address } = useAccount();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
 
   const [assetId, setAssetId] = useState("BNB");
   const [duration, setDuration] = useState("60");
   const [stake, setStake] = useState("0.01");
   const [direction, setDirection] = useState<"up" | "down">("up");
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const { data: assets } = useQuery<DuelAsset[]>({
     queryKey: ["/api/duels/assets"],
@@ -213,6 +214,23 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
     },
   });
 
+  const handleSignIn = async () => {
+    try {
+      setAuthError(null);
+      await authenticate();
+    } catch (error: any) {
+      if (error.message?.includes("not found") || error.message?.includes("register")) {
+        setAuthError("register");
+      } else {
+        toast({ 
+          title: "Sign in failed", 
+          description: error.message || "Please try again", 
+          variant: "destructive" 
+        });
+      }
+    }
+  };
+
   if (!address) {
     return (
       <Card>
@@ -226,8 +244,27 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   if (!isAuthenticated) {
     return (
       <Card>
-        <CardContent className="p-6 text-center">
+        <CardContent className="p-6 text-center space-y-4">
           <p className="text-muted-foreground">Sign in as a Bee to create duels</p>
+          {authError === "register" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">You need to register as a Bee first</p>
+              <Link href="/register-bee">
+                <Button className="w-full" data-testid="button-register-bee">
+                  Register as a Bee
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleSignIn}
+              disabled={isAuthenticating}
+              className="w-full"
+              data-testid="button-sign-in-bee"
+            >
+              {isAuthenticating ? "Signing in..." : "Sign In with Wallet"}
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
