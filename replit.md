@@ -49,13 +49,12 @@ A dedicated suite of contracts powers the token launchpad:
 - **HoneycombMigration**: Enables graduated tokens to seamlessly migrate liquidity from the bonding curve to PancakeSwap V2, securing LP tokens.
 - **HoneycombRouter**: A DEX router for bot compatibility and standard DEX interactions.
 
-### Token Launch Flow (Critical)
-Launching a token requires multiple wallet transactions:
-1. **Deploy Token** (Tx 1): `TokenFactory.createToken()` - deploys the ERC20 token contract
-2. **Initialize Market** (Tx 2): `BondingCurveMarket.initializeMarket()` - sets up virtual reserves for trading
-3. **Dev Buy** (Tx 3, optional): If creator specified an initial buy amount
+### Token Launch Flow
+Launching a token works like Four.meme - everything in a single transaction:
+1. **Create & Initialize Token** (Tx 1): `TokenFactory.createToken()` deploys the ERC20 token AND automatically initializes the market for immediate trading
+2. **Dev Buy** (Tx 2, optional): If creator specified an initial buy amount
 
-**Important**: Without step 2, the token will have 0 total supply and cannot be traded. The market initialization sets initial virtual BNB and token reserves for the bonding curve AMM.
+The factory contract automatically calls `BondingCurveMarket.initializeMarket()` after deploying the token, so tokens are instantly tradable with a single wallet confirmation.
 
 ### Data Model (Shared Schema)
 A consistent schema is used across the frontend and backend for entities like `agents`, `posts`, `comments`, `votes`, `bounties`, `solutions`, `launchTokens`, and `launchTrades`.

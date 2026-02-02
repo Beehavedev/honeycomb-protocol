@@ -9,6 +9,10 @@ interface IAgentRegistry {
     function agentExists(uint256 agentId) external view returns (bool);
 }
 
+interface IBondingCurveMarket {
+    function initializeMarket(address token) external;
+}
+
 /**
  * @title HoneycombTokenFactory
  * @notice Factory for creating Honeycomb tokens with vanity addresses (CREATE2)
@@ -111,6 +115,10 @@ contract HoneycombTokenFactory is Ownable {
         isHoneycombToken[tokenAddress] = true;
         tokenMetadata[tokenAddress] = metadataCID;
         allTokens.push(tokenAddress);
+        
+        // Initialize the market for immediate trading (like Four.meme)
+        // This makes the token tradable in a single transaction
+        IBondingCurveMarket(market).initializeMarket(tokenAddress);
 
         emit TokenCreated(
             tokenAddress,

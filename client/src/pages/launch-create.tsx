@@ -24,7 +24,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
-import { useCreateToken, useTokenFactoryAddress, useBuyTokens, useInitializeMarket } from "@/contracts/hooks";
+import { useCreateToken, useTokenFactoryAddress, useBuyTokens } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
 import { decodeEventLog, parseEther } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
@@ -80,11 +80,6 @@ export default function LaunchCreate() {
   
   // Dev buy hook (separate transaction after token creation)
   const { buy: buyTokens, isPending: isBuyPending, isConfirming: isBuyConfirming, isSuccess: isBuySuccess, error: buyError } = useBuyTokens();
-  
-  // Market initialization hook (must be called after token creation for trading to work)
-  const { initializeMarket, isPending: isInitializing, isSuccess: isInitialized, hash: initHash, error: initError } = useInitializeMarket();
-  const { isLoading: isInitConfirming, isSuccess: isInitConfirmed } = useWaitForTransactionReceipt({ hash: initHash });
-  const [isMarketInitializing, setIsMarketInitializing] = useState(false);
 
   const form = useForm<CreateTokenForm>({
     resolver: zodResolver(createTokenSchema),
@@ -441,15 +436,23 @@ export default function LaunchCreate() {
               cid: metadataCID,
             });
             
-            // CRITICAL: Initialize market for trading to work
-            // This enables the bonding curve and allows buying/selling
-            setIsMarketInitializing(true);
-            toast({
-              title: "Token deployed!",
-              description: "Now initializing the trading market...",
-            });
-            console.log("Initializing market for token:", tokenAddress);
-            initializeMarket(tokenAddress as `0x${string}`);
+            // Market is now auto-initialized in the same transaction (like Four.meme)
+            // Check if dev buy is requested
+            if (devBuyAmountWei && devBuyAmountWei > BigInt(0)) {
+              setIsDevBuying(true);
+              toast({
+                title: "Token launched!",
+                description: "Now executing your initial buy...",
+              });
+              console.log("Executing dev buy for token:", tokenAddress, "amount:", devBuyAmountWei.toString());
+              buyTokens(tokenAddress as `0x${string}`, BigInt(0), devBuyAmountWei);
+            } else {
+              toast({
+                title: "Token launched!",
+                description: "Your token has been created and is now tradable.",
+              });
+              navigate(`/launch/${tokenAddress}`);
+            }
           } else {
             toast({
               title: "Token launched!",
@@ -471,7 +474,7 @@ export default function LaunchCreate() {
     };
     
     recordToken();
-  }, [isConfirmed, hash, txReceipt, formData, metadataCID, navigate, toast, recordMutation, initializeMarket, isMarketInitializing]);
+  }, [isConfirmed, hash, txReceipt, formData, metadataCID, navigate, toast, recordMutation, devBuyAmountWei, buyTokens]);
   
   // Handle dev buy completion
   useEffect(() => {
@@ -498,44 +501,6 @@ export default function LaunchCreate() {
       navigate(`/launch/${createdTokenAddress}`);
     }
   }, [buyError, isDevBuying, createdTokenAddress, navigate, toast]);
-  
-  // Handle market initialization completion
-  useEffect(() => {
-    if (isInitConfirmed && isMarketInitializing && createdTokenAddress) {
-      setIsMarketInitializing(false);
-      
-      // Now check if dev buy is requested
-      if (devBuyAmountWei && devBuyAmountWei > BigInt(0)) {
-        setIsDevBuying(true);
-        toast({
-          title: "Market initialized!",
-          description: "Now executing your initial buy...",
-        });
-        console.log("Executing dev buy for token:", createdTokenAddress, "amount:", devBuyAmountWei.toString());
-        buyTokens(createdTokenAddress, BigInt(0), devBuyAmountWei);
-      } else {
-        toast({
-          title: "Token launched!",
-          description: "Your token has been created and is now tradable.",
-        });
-        navigate(`/launch/${createdTokenAddress}`);
-      }
-    }
-  }, [isInitConfirmed, isMarketInitializing, createdTokenAddress, devBuyAmountWei, buyTokens, toast, navigate]);
-  
-  // Handle market initialization error
-  useEffect(() => {
-    if (initError && isMarketInitializing && createdTokenAddress) {
-      console.error("Market initialization failed:", initError);
-      setIsMarketInitializing(false);
-      toast({
-        title: "Warning",
-        description: "Token created but market initialization failed. You may need to initialize manually.",
-        variant: "destructive",
-      });
-      navigate(`/launch/${createdTokenAddress}`);
-    }
-  }, [initError, isMarketInitializing, createdTokenAddress, toast, navigate]);
 
   if (!isAuthenticated || !agent) {
     return (
@@ -558,7 +523,7 @@ export default function LaunchCreate() {
     );
   }
 
-  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching || isDevBuying || isBuyPending || isBuyConfirming || isMarketInitializing || isInitializing || isInitConfirming;
+  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching || isDevBuying || isBuyPending || isBuyConfirming;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
