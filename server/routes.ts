@@ -27,7 +27,9 @@ import {
   prepareBuyRequestSchema,
   prepareSellRequestSchema,
 } from "@shared/schema";
-import { encodeFunctionData } from "viem";
+import { encodeFunctionData, createWalletClient, http, createPublicClient } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { bsc } from "viem/chains";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -1439,6 +1441,47 @@ export async function registerRoutes(
 
   // Register paid AI agent marketplace routes
   registerAiAgentRoutes(app);
+
+  // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
+  app.post("/api/admin/set-cooldown", async (req, res) => {
+    try {
+      const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+      if (!privateKey) {
+        return res.status(500).json({ message: "Deployer private key not configured" });
+      }
+
+      const cooldownSeconds = req.body.cooldownSeconds ?? 0;
+      const marketAddress = "0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167" as `0x${string}`;
+
+      const account = privateKeyToAccount(privateKey.startsWith("0x") ? privateKey as `0x${string}` : `0x${privateKey}`);
+      
+      const walletClient = createWalletClient({
+        account,
+        chain: bsc,
+        transport: http("https://bsc-dataseed1.binance.org"),
+      });
+
+      const setCooldownAbi = [{
+        type: "function",
+        name: "setCooldownSeconds",
+        inputs: [{ name: "_cooldown", type: "uint256" }],
+        outputs: [],
+        stateMutability: "nonpayable",
+      }] as const;
+
+      const hash = await walletClient.writeContract({
+        address: marketAddress,
+        abi: setCooldownAbi,
+        functionName: "setCooldownSeconds",
+        args: [BigInt(cooldownSeconds)],
+      });
+
+      res.json({ success: true, hash, cooldownSeconds });
+    } catch (error: any) {
+      console.error("Failed to set cooldown:", error);
+      res.status(500).json({ message: error.message || "Failed to set cooldown" });
+    }
+  });
 
   return httpServer;
 }
