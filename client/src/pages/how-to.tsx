@@ -382,21 +382,58 @@ export default function HowTo() {
               <ol className="text-sm text-muted-foreground space-y-2">
                 <li className="flex items-start gap-2">
                   <Badge variant="outline" className="shrink-0">1</Badge>
-                  <span>User requests a quote for AI interaction</span>
+                  <span>User calls escrow contract with BNB payment for units</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Badge variant="outline" className="shrink-0">2</Badge>
-                  <span>User pays via on-chain transaction to escrow contract</span>
+                  <span>Contract returns unique payment hash for verification</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Badge variant="outline" className="shrink-0">3</Badge>
-                  <span>Backend verifies payment and runs AI inference</span>
+                  <span>99% held in escrow for agent, 1% sent to HoneycombFeeVault</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Badge variant="outline" className="shrink-0">4</Badge>
-                  <span>Agent creator can withdraw earnings anytime</span>
+                  <span>Agent creator withdraws earnings to their payout address</span>
                 </li>
               </ol>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="p-3 bg-muted/30 rounded">
+                <h5 className="text-sm font-medium mb-1">Agent Owner Features</h5>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Set custom payout address
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Update pricing anytime
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Deactivate/reactivate agent
+                  </li>
+                </ul>
+              </div>
+              <div className="p-3 bg-muted/30 rounded">
+                <h5 className="text-sm font-medium mb-1">Payment Details</h5>
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Native BNB payments only
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Prices set in wei per unit
+                  </li>
+                  <li className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Anti-replay protection
+                  </li>
+                </ul>
+              </div>
             </div>
 
             <Link href="/create-agent">
@@ -507,14 +544,14 @@ export default function HowTo() {
               <div className="p-3 bg-muted/50 rounded-lg">
                 <h4 className="font-medium text-sm">HoneycombAIAgentRegistry</h4>
                 <p className="text-xs text-muted-foreground">
-                  Registers AI agents with pricing models and metadata. Supports verification badges.
+                  Registers AI agents with pricing models (per message/token/task), payout addresses, and IPFS metadata. Supports verification badges and agent activation/deactivation.
                 </p>
               </div>
               
               <div className="p-3 bg-muted/50 rounded-lg">
                 <h4 className="font-medium text-sm">HoneycombAIAgentEscrow</h4>
                 <p className="text-xs text-muted-foreground">
-                  Handles payments for AI usage. Splits 99% to agent creator, 1% to platform.
+                  Holds BNB payments for AI usage. Returns unique payment hash for verification. Splits 99% to agent balance (withdrawable), 1% to HoneycombFeeVault. Anti-replay protection.
                 </p>
               </div>
               
@@ -528,7 +565,7 @@ export default function HowTo() {
               <div className="p-3 bg-muted/50 rounded-lg">
                 <h4 className="font-medium text-sm">HoneycombFeeVault</h4>
                 <p className="text-xs text-muted-foreground">
-                  Collects platform fees for development and community rewards.
+                  Collects 1% platform fees from AI agent payments and token trading. Funds development and community rewards.
                 </p>
               </div>
             </div>
@@ -556,8 +593,11 @@ export default function HowTo() {
             
             <div className="space-y-4">
               <div className="p-4 border rounded-lg">
-                <h4 className="font-medium mb-3">AI Agent Endpoints</h4>
-                <div className="space-y-2 text-sm font-mono">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">AI Agent Endpoints</h4>
+                  <Badge variant="outline" className="text-amber-600 border-amber-600">Coming Soon</Badge>
+                </div>
+                <div className="space-y-2 text-sm font-mono opacity-60">
                   <div className="flex items-center gap-2">
                     <Badge className="bg-green-600">POST</Badge>
                     <code>/v1/agents/ai/create-metadata</code>
@@ -571,6 +611,9 @@ export default function HowTo() {
                     <code>/v1/agents/ai/execute</code>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  These endpoints will enable on-chain payment verification and AI inference execution.
+                </p>
               </div>
               
               <div className="p-4 border rounded-lg">
