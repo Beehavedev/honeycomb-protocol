@@ -46,6 +46,20 @@ const COINGECKO_IDS: Record<string, string> = {
   "LINK": "chainlink",
 };
 
+// Kraken symbol mapping (works from US servers, matches TradingView prices)
+const KRAKEN_SYMBOLS: Record<string, string> = {
+  "BNB": "BNBUSD",
+  "BTC": "XBTUSD",
+  "ETH": "ETHUSD",
+  "SOL": "SOLUSD",
+  "DOGE": "DOGEUSD",
+  "XRP": "XRPUSD",
+  "ADA": "ADAUSD",
+  "AVAX": "AVAXUSD",
+  "MATIC": "MATICUSD",
+  "LINK": "LINKUSD",
+};
+
 // Binance symbol mapping (for reference, but API is geo-blocked)
 const BINANCE_SYMBOLS: Record<string, string> = {
   "BNB": "BNBUSDT",
@@ -816,12 +830,65 @@ const basePrices: Record<string, number> = {
 };
 
 async function fetchPrice(assetId: string): Promise<string> {
-  // Primary: Use CoinGecko (Binance is geo-blocked from Replit servers)
+  // Primary: Use CryptoCompare (fast, reliable, matches TradingView)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${assetId}&tsyms=USD`, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' }
+    });
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.USD && typeof data.USD === 'number') {
+        const price = data.USD;
+        console.log(`[fetchPrice] ${assetId} from CryptoCompare: $${price}`);
+        return Math.floor(price * 1e8).toString();
+      }
+    }
+  } catch (error: any) {
+    const errMsg = error?.name === 'AbortError' ? 'timeout' : error?.message || 'unknown';
+    console.log(`[fetchPrice] CryptoCompare failed for ${assetId} (${errMsg})`);
+  }
+  
+  // Secondary: Use Kraken (major exchange, matches TradingView)
+  const krakenSymbol = KRAKEN_SYMBOLS[assetId];
+  if (krakenSymbol) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(`https://api.kraken.com/0/public/Ticker?pair=${krakenSymbol}`, {
+        signal: controller.signal,
+        headers: { 'Accept': 'application/json' }
+      });
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Kraken returns: { result: { BNBUSD: { c: ["773.91000", "0.03800"] } } }
+        // c[0] is the last trade price
+        const resultKey = Object.keys(data?.result || {})[0];
+        if (resultKey && data.result[resultKey]?.c?.[0]) {
+          const price = parseFloat(data.result[resultKey].c[0]);
+          console.log(`[fetchPrice] ${assetId} from Kraken: $${price}`);
+          return Math.floor(price * 1e8).toString();
+        }
+      }
+    } catch (error: any) {
+      console.log(`[fetchPrice] Kraken failed for ${assetId}`);
+    }
+  }
+  
+  // Tertiary: Use CoinGecko
   const coinId = COINGECKO_IDS[assetId];
   if (coinId) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`, {
         signal: controller.signal,
@@ -835,47 +902,16 @@ async function fetchPrice(assetId: string): Promise<string> {
           const price = data[coinId].usd;
           console.log(`[fetchPrice] ${assetId} from CoinGecko: $${price}`);
           return Math.floor(price * 1e8).toString();
-        } else {
-          console.log(`[fetchPrice] CoinGecko returned no USD price for ${coinId}:`, data);
         }
-      } else {
-        console.log(`[fetchPrice] CoinGecko returned ${response.status} for ${coinId}`);
       }
     } catch (error: any) {
-      const errMsg = error?.name === 'AbortError' ? 'timeout' : error?.message || 'unknown';
-      console.error(`[fetchPrice] CoinGecko API failed for ${assetId} (${errMsg})`);
+      console.log(`[fetchPrice] CoinGecko failed for ${assetId}`);
     }
-  }
-  
-  console.log(`[fetchPrice] CoinGecko failed for ${assetId}, trying Binance...`);
-  
-  // Fallback: Try Binance (may be geo-blocked but worth trying)
-  const binanceSymbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const binanceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`, { 
-      signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
-    });
-    clearTimeout(timeoutId);
-    
-    if (binanceRes.ok) {
-      const binanceData = await binanceRes.json();
-      if (binanceData?.price) {
-        const price = parseFloat(binanceData.price);
-        console.log(`[fetchPrice] ${assetId} from Binance: $${price}`);
-        return Math.floor(price * 1e8).toString();
-      }
-    }
-  } catch (error: any) {
-    console.log(`[fetchPrice] Binance also failed for ${assetId}`);
   }
   
   // Last resort: Fallback to base prices (should rarely happen now)
   const basePrice = basePrices[assetId] || 100;
-  console.error(`[fetchPrice] CRITICAL: Using fallback price for ${assetId}: $${basePrice} - both APIs failed!`);
+  console.error(`[fetchPrice] CRITICAL: Using fallback price for ${assetId}: $${basePrice} - all APIs failed!`);
   return Math.floor(basePrice * 1e8).toString();
 }
 
