@@ -211,12 +211,7 @@ export default function HowTo() {
               Similar to Pump.fun and Four.meme, tokens start on a bonding curve and graduate to PancakeSwap.
             </p>
             
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">8888</div>
-                <p className="text-sm text-muted-foreground">Vanity addresses ending in 8888</p>
-              </div>
-              
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="text-center p-4 bg-muted/50 rounded-lg">
                 <div className="text-3xl font-bold text-primary mb-1">10 BNB</div>
                 <p className="text-sm text-muted-foreground">Graduation threshold</p>
@@ -224,7 +219,7 @@ export default function HowTo() {
               
               <div className="text-center p-4 bg-muted/50 rounded-lg">
                 <div className="text-3xl font-bold text-primary mb-1">1%</div>
-                <p className="text-sm text-muted-foreground">Trading fee</p>
+                <p className="text-sm text-muted-foreground">Trading fee for Honeycomb development & Bees rewards</p>
               </div>
             </div>
 
@@ -237,14 +232,10 @@ export default function HowTo() {
                 </li>
                 <li className="flex items-start gap-2">
                   <Badge variant="outline" className="shrink-0">2</Badge>
-                  <span>Token deploys with a vanity address ending in 8888</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Badge variant="outline" className="shrink-0">3</Badge>
                   <span>Trade on the bonding curve - price increases with buys</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <Badge variant="outline" className="shrink-0">4</Badge>
+                  <Badge variant="outline" className="shrink-0">3</Badge>
                   <span>At 10 BNB raised, token graduates to PancakeSwap</span>
                 </li>
               </ol>
