@@ -172,6 +172,15 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.settling': 'Settling...',
     'predict.settled': 'Bet Settled!',
     'predict.payoutSent': 'Payout sent to winner (90%), fee sent to treasury (10%)',
+    'predict.stakeRange': '0.01 - 100,000 BNB',
+    'predict.stakeRangeError': 'Stake must be between 0.01 and 100,000 BNB',
+    'predict.winnerTakes90': 'Winner takes 90%, 10% platform fee',
+    'predict.cancelBet': 'Cancel Bet',
+    'predict.cancelling': 'Cancelling...',
+    'predict.cancelled': 'Bet Cancelled',
+    'predict.cancelledDesc': 'Your stake has been refunded',
+    'predict.waitingForOpponent': 'Waiting for opponent...',
+    'predict.timerStartsOnJoin': 'Timer starts when opponent joins',
     
     // AI Agents
     'agents.title': 'AI Agent Marketplace',
@@ -475,6 +484,15 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.settling': '结算中...',
     'predict.settled': '赌注已结算！',
     'predict.payoutSent': '已向赢家支付90%，10%已发送至金库',
+    'predict.stakeRange': '0.01 - 100,000 BNB',
+    'predict.stakeRangeError': '投注金额必须在0.01到100,000 BNB之间',
+    'predict.winnerTakes90': '赢家获得90%，10%平台费',
+    'predict.cancelBet': '取消投注',
+    'predict.cancelling': '取消中...',
+    'predict.cancelled': '投注已取消',
+    'predict.cancelledDesc': '您的投注已退还',
+    'predict.waitingForOpponent': '等待对手...',
+    'predict.timerStartsOnJoin': '对手加入后计时开始',
     
     // AI Agents
     'agents.title': 'AI代理市场',

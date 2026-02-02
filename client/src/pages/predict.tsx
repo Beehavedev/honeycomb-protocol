@@ -751,6 +751,12 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const handleCreateDuel = () => {
     if (!canUseOnChain) return;
     
+    const stakeNum = parseFloat(stake);
+    if (isNaN(stakeNum) || stakeNum < 0.01 || stakeNum > 100000) {
+      toast({ title: t('common.error'), description: t('predict.stakeRangeError'), variant: "destructive" });
+      return;
+    }
+    
     try {
       // If user doesn't have an agent, auto-register first
       if (!hasAgent) {
@@ -879,15 +885,16 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
           <Label>Stake (BNB)</Label>
           <Input
             type="number"
-            step="0.001"
-            min="0.001"
+            step="0.01"
+            min="0.01"
+            max="100000"
             value={stake}
             onChange={(e) => setStake(e.target.value)}
             placeholder="0.01"
             data-testid="input-stake"
           />
           <p className="text-xs text-muted-foreground">
-            Winner takes 90% of pot. 10% platform fee.
+            {t('predict.stakeRange')} | {t('predict.winnerTakes90')}
           </p>
         </div>
 
