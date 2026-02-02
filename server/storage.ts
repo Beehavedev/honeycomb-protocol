@@ -14,7 +14,7 @@ import {
   launchTokens, launchTrades, duels, duelAssets
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, lt, lte } from "drizzle-orm";
+import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
 
 export interface IStorage {
   // Auth
@@ -483,13 +483,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDuels(status: "open" | "live" | "settled" | "cancelled" | "all", limit: number): Promise<Duel[]> {
+    // Only show duels that have a valid on-chain ID (successfully created on-chain)
     if (status === "all") {
       return db.select().from(duels)
+        .where(isNotNull(duels.onChainDuelId))
         .orderBy(desc(duels.createdAt))
         .limit(limit);
     }
     return db.select().from(duels)
-      .where(eq(duels.status, status))
+      .where(and(eq(duels.status, status), isNotNull(duels.onChainDuelId)))
       .orderBy(desc(duels.createdAt))
       .limit(limit);
   }
