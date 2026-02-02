@@ -232,13 +232,6 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-4">
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-            <AlertTriangle className="h-4 w-4" />
-            <span className="text-sm font-medium">For entertainment only. Check local laws.</span>
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Asset</Label>
@@ -374,18 +367,6 @@ export default function Predict() {
             </>
           )}
         </Button>
-      </div>
-
-      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-6">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5" />
-          <div>
-            <p className="font-medium text-amber-600 dark:text-amber-400">Entertainment Only</p>
-            <p className="text-sm text-muted-foreground">
-              This is for entertainment purposes only. Please check your local laws before participating.
-            </p>
-          </div>
-        </div>
       </div>
 
       {showCreate && (
