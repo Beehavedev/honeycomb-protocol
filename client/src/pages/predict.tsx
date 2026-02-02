@@ -156,10 +156,26 @@ function useBinancePrice(assetId: string, enabled: boolean = true) {
 function LivePriceChart({ duel }: { duel: Duel }) {
   const { price, priceHistory, loading, error } = useBinancePrice(duel.assetId, duel.status === "live");
   const startPrice = duel.startPrice ? parseFloat(duel.startPrice) / 1e8 : null;
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  // Timer effect
+  useEffect(() => {
+    if (!duel.endTs) return;
+    
+    const updateTimer = () => {
+      const now = new Date().getTime();
+      const end = new Date(duel.endTs!).getTime();
+      setTimeLeft(Math.max(0, Math.floor((end - now) / 1000)));
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [duel.endTs]);
   
   if (loading && !price) {
     return (
-      <div className="h-28 bg-muted/30 rounded-lg flex items-center justify-center">
+      <div className="h-48 bg-muted/30 rounded-lg flex items-center justify-center">
         <span className="text-muted-foreground text-sm">Loading Binance price feed...</span>
       </div>
     );
@@ -167,103 +183,195 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   
   if (error && !price) {
     return (
-      <div className="h-28 bg-muted/30 rounded-lg flex items-center justify-center">
+      <div className="h-48 bg-muted/30 rounded-lg flex items-center justify-center">
         <span className="text-red-500 text-sm">{error}</span>
       </div>
     );
   }
 
-  // Use current price for display, fallback to first history price or 0
   const currentPrice = price || (priceHistory.length > 0 ? priceHistory[priceHistory.length - 1] : 0);
   
-  // If no start price from oracle, show price-only mode
+  // If no start price, show waiting state with basic chart
   if (!startPrice) {
-    const chartData = priceHistory.length > 1 ? priceHistory : [currentPrice];
-    const minPrice = Math.min(...chartData);
-    const maxPrice = Math.max(...chartData);
-    const range = maxPrice - minPrice || 1;
-    
     return (
-      <div className="p-3 bg-muted/30 rounded-lg space-y-3">
+      <div className="p-4 bg-muted/30 rounded-lg space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl font-bold">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: currentPrice < 1 ? 6 : 2 })}</span>
-            <Badge variant="outline">Live</Badge>
+            <Badge variant="outline">Waiting for opponent...</Badge>
           </div>
-          <div className="text-sm text-muted-foreground">Awaiting locked start price...</div>
         </div>
-
-        {/* Mini sparkline chart */}
-        {chartData.length > 1 && (
-          <div className="h-12 flex items-end gap-0.5">
-            {chartData.map((p, i) => {
-              const height = ((p - minPrice) / range) * 100;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 bg-primary rounded-t opacity-70"
-                  style={{ height: `${Math.max(5, height)}%` }}
-                />
-              );
-            })}
-          </div>
-        )}
-        
+        <div className="text-center text-muted-foreground text-sm">
+          Start price will be locked when opponent joins
+        </div>
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <span className="font-semibold text-amber-500">Binance</span>
-          <span>• Live prices • Updates every 3s</span>
+          <span>• Live Feed</span>
         </div>
       </div>
     );
   }
 
+  // Chart dimensions
+  const chartWidth = 400;
+  const chartHeight = 120;
+  const padding = { top: 10, right: 10, bottom: 10, left: 10 };
+  const innerWidth = chartWidth - padding.left - padding.right;
+  const innerHeight = chartHeight - padding.top - padding.bottom;
+
+  // Use price history or generate from start/current
+  const chartData = priceHistory.length > 2 ? priceHistory : [startPrice, ...Array(10).fill(0).map((_, i) => {
+    const progress = i / 9;
+    return startPrice + (currentPrice - startPrice) * progress;
+  }), currentPrice];
+
+  // Calculate price range with some padding
+  const allPrices = [...chartData, startPrice];
+  const minPrice = Math.min(...allPrices);
+  const maxPrice = Math.max(...allPrices);
+  const priceRange = maxPrice - minPrice || startPrice * 0.001;
+  const paddedMin = minPrice - priceRange * 0.1;
+  const paddedMax = maxPrice + priceRange * 0.1;
+  const paddedRange = paddedMax - paddedMin;
+
+  // Calculate Y position for start price line
+  const startPriceY = padding.top + innerHeight - ((startPrice - paddedMin) / paddedRange) * innerHeight;
+
+  // Generate line path
+  const linePath = chartData.map((p, i) => {
+    const x = padding.left + (i / (chartData.length - 1)) * innerWidth;
+    const y = padding.top + innerHeight - ((p - paddedMin) / paddedRange) * innerHeight;
+    return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+  }).join(' ');
+
+  // Generate area paths (green above start, red below)
+  const generateAreaPath = (prices: number[], above: boolean) => {
+    const points: string[] = [];
+    let inArea = false;
+    let areaStartX = 0;
+
+    prices.forEach((p, i) => {
+      const x = padding.left + (i / (prices.length - 1)) * innerWidth;
+      const y = padding.top + innerHeight - ((p - paddedMin) / paddedRange) * innerHeight;
+      const isAbove = p >= startPrice;
+
+      if ((above && isAbove) || (!above && !isAbove)) {
+        if (!inArea) {
+          areaStartX = x;
+          points.push(`M ${x} ${startPriceY}`);
+          inArea = true;
+        }
+        points.push(`L ${x} ${y}`);
+      } else if (inArea) {
+        points.push(`L ${x} ${startPriceY}`);
+        points.push('Z');
+        inArea = false;
+      }
+    });
+
+    if (inArea) {
+      const lastX = padding.left + innerWidth;
+      points.push(`L ${lastX} ${startPriceY}`);
+      points.push('Z');
+    }
+
+    return points.join(' ');
+  };
+
+  const greenAreaPath = generateAreaPath(chartData, true);
+  const redAreaPath = generateAreaPath(chartData, false);
+
   const priceChangeFromStart = ((currentPrice - startPrice) / startPrice) * 100;
   const isUp = currentPrice > startPrice;
   const creatorWinning = (duel.creatorDirection === "up" && isUp) || (duel.creatorDirection === "down" && !isUp);
 
-  // Calculate mini chart bars
-  const chartData = priceHistory.length > 1 ? priceHistory : [startPrice, currentPrice];
-  const minPrice = Math.min(...chartData);
-  const maxPrice = Math.max(...chartData);
-  const range = maxPrice - minPrice || 1;
+  // Format timer
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const timerDisplay = `${mins}:${secs.toString().padStart(2, '0')}`;
 
   return (
-    <div className="p-3 bg-muted/30 rounded-lg space-y-3">
-      {/* Price and change */}
+    <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+      {/* Header with price, change, and timer */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-2xl font-bold">${currentPrice.toLocaleString(undefined, { maximumFractionDigits: currentPrice < 1 ? 6 : 2 })}</span>
           <Badge className={isUp ? "bg-green-500" : "bg-red-500"}>
             {isUp ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-            {priceChangeFromStart >= 0 ? "+" : ""}{priceChangeFromStart.toFixed(2)}%
+            {priceChangeFromStart >= 0 ? "+" : ""}{priceChangeFromStart.toFixed(3)}%
           </Badge>
         </div>
-        <div className={`text-lg font-bold ${creatorWinning ? "text-green-500" : "text-red-500"}`}>
-          {creatorWinning ? "Creator Winning" : "Opponent Winning"}
+        <div className="flex items-center gap-3">
+          <div className={`text-sm font-bold ${creatorWinning ? "text-green-500" : "text-red-500"}`}>
+            {creatorWinning ? "Creator Winning" : "Opponent Winning"}
+          </div>
+          <div className="flex items-center gap-1 bg-background/50 px-3 py-1 rounded-full">
+            <Clock className="h-4 w-4 text-primary" />
+            <span className="font-mono font-bold text-lg text-primary">{timerDisplay}</span>
+          </div>
         </div>
       </div>
 
-      {/* Mini sparkline chart */}
-      <div className="h-12 flex items-end gap-0.5">
-        {chartData.map((p, i) => {
-          const height = ((p - minPrice) / range) * 100;
-          const barColor = p >= startPrice ? "bg-green-500" : "bg-red-500";
-          return (
-            <div
-              key={i}
-              className={`flex-1 ${barColor} rounded-t opacity-70`}
-              style={{ height: `${Math.max(5, height)}%` }}
-            />
-          );
-        })}
+      {/* SVG Line Chart */}
+      <div className="relative">
+        <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-32">
+          {/* Green area (above start price) */}
+          <path d={greenAreaPath} fill="rgba(34, 197, 94, 0.3)" />
+          
+          {/* Red area (below start price) */}
+          <path d={redAreaPath} fill="rgba(239, 68, 68, 0.3)" />
+          
+          {/* Start price horizontal line */}
+          <line
+            x1={padding.left}
+            y1={startPriceY}
+            x2={chartWidth - padding.right}
+            y2={startPriceY}
+            stroke="white"
+            strokeWidth="1"
+            strokeDasharray="4 2"
+            opacity="0.6"
+          />
+          
+          {/* Price line */}
+          <path
+            d={linePath}
+            fill="none"
+            stroke={isUp ? "#22c55e" : "#ef4444"}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          
+          {/* Current price dot */}
+          <circle
+            cx={padding.left + innerWidth}
+            cy={padding.top + innerHeight - ((currentPrice - paddedMin) / paddedRange) * innerHeight}
+            r="4"
+            fill={isUp ? "#22c55e" : "#ef4444"}
+            stroke="white"
+            strokeWidth="2"
+          />
+        </svg>
+
+        {/* UP/DOWN labels */}
+        <div className="absolute left-2 top-2 text-xs font-bold text-green-500 opacity-70">
+          UP ▲
+        </div>
+        <div className="absolute left-2 bottom-2 text-xs font-bold text-red-500 opacity-70">
+          DOWN ▼
+        </div>
       </div>
       
-      {/* Start vs Current with Binance attribution */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Start: ${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
-        <div className="flex items-center gap-1">
+      {/* Footer with start price and Binance attribution */}
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Start:</span>
+          <span className="font-mono font-semibold">${startPrice.toLocaleString(undefined, { maximumFractionDigits: startPrice < 1 ? 6 : 2 })}</span>
+        </div>
+        <div className="flex items-center gap-1 text-muted-foreground">
           <span className="font-semibold text-amber-500">Binance</span>
-          <span>• 3s updates</span>
+          <span>• Live • 3s</span>
         </div>
       </div>
     </div>
