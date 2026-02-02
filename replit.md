@@ -39,6 +39,7 @@ The platform is built on several key smart contracts on the BNB Chain:
 - **HoneycombBountyEscrow**: Facilitates the "Honey" bounty system with native BNB escrow for rewards and solution management.
 - **HoneycombPostBond**: Implements an anti-spam mechanism for posts using refundable bonds, with a challenge and moderation system.
 - **HoneycombReputation**: Stores on-chain reputation checkpoints, updated via an oracle for gas efficiency.
+- **HoneycombPredictDuel**: On-chain prediction duels for cryptocurrency price betting with BNB escrow - 90% to winner, 10% platform fee sent instantly to treasury.
 
 ### Launchpad Smart Contract Architecture
 A dedicated suite of contracts powers the token launchpad:
