@@ -6,6 +6,10 @@ import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 const FEE_TREASURY_ADDRESS = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
 const FEE_PERCENTAGE = 10;
 
+// Price cache to avoid CoinGecko rate limits (free tier: 10-30 req/min)
+const priceCache: Record<string, { price: number; timestamp: number }> = {};
+const CACHE_TTL_MS = 10000; // 10 seconds cache
+
 // CoinGecko ID mapping for price data (Binance is geo-blocked from server)
 const COINGECKO_IDS: Record<string, string> = {
   "BNB": "binancecoin",
@@ -250,7 +254,7 @@ export function registerDuelsRoutes(app: Express) {
     }
   });
 
-  // Price ticker using CoinGecko (Binance is geo-blocked from server)
+  // Price ticker using CoinGecko with caching (Binance is geo-blocked from server)
   app.get("/api/duels/binance/ticker/:assetId", async (req, res) => {
     try {
       const assetId = req.params.assetId;
@@ -261,23 +265,67 @@ export function registerDuelsRoutes(app: Express) {
         return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
       }
       
-      const response = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
-      );
-      
-      if (!response.ok) {
-        return res.status(400).json({ message: `Failed to fetch price for ${assetId}` });
+      // Check cache first
+      const cached = priceCache[assetId];
+      const now = Date.now();
+      if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
+        return res.json({ 
+          symbol, 
+          price: cached.price,
+          priceScaled: Math.floor(cached.price * 1e8).toString(),
+          timestamp: cached.timestamp,
+          cached: true
+        });
       }
       
-      const data = await response.json();
+      // Fetch from CoinGecko with retry
+      let price: number | null = null;
+      let retries = 3;
       
-      if (data[coinId]?.usd) {
-        const price = data[coinId].usd;
+      while (retries > 0 && price === null) {
+        try {
+          const response = await fetch(
+            `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data[coinId]?.usd) {
+              price = data[coinId].usd;
+            }
+          } else if (response.status === 429) {
+            // Rate limited - wait and retry
+            console.log(`CoinGecko rate limited for ${assetId}, retrying...`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        } catch (e) {
+          console.error(`Fetch attempt failed for ${assetId}:`, e);
+        }
+        retries--;
+      }
+      
+      // If still no price, use cached value even if stale
+      if (price === null && cached) {
+        console.log(`Using stale cache for ${assetId}`);
+        return res.json({ 
+          symbol, 
+          price: cached.price,
+          priceScaled: Math.floor(cached.price * 1e8).toString(),
+          timestamp: cached.timestamp,
+          cached: true,
+          stale: true
+        });
+      }
+      
+      if (price !== null) {
+        // Update cache
+        priceCache[assetId] = { price, timestamp: now };
+        
         res.json({ 
           symbol, 
           price,
           priceScaled: Math.floor(price * 1e8).toString(),
-          timestamp: Date.now() 
+          timestamp: now 
         });
       } else {
         res.status(400).json({ message: "Failed to fetch price from CoinGecko" });
