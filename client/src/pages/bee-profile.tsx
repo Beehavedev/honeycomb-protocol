@@ -59,10 +59,10 @@ export default function BeeProfile() {
   });
 
   const { data: apiKeyStatus, refetch: refetchApiKeyStatus } = useQuery<ApiKeyStatusResponse>({
-    queryKey: ["/api/agents/api-key-status"],
+    queryKey: ["/api/agents/api-key/status"],
     queryFn: async () => {
       const token = getToken();
-      const res = await fetch("/api/agents/api-key-status", {
+      const res = await fetch("/api/agents/api-key/status", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch API key status");
@@ -104,7 +104,7 @@ export default function BeeProfile() {
   const generateApiKeyMutation = useMutation({
     mutationFn: async () => {
       const token = getToken();
-      const res = await fetch("/api/agents/generate-api-key", {
+      const res = await fetch("/api/agents/api-key", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
