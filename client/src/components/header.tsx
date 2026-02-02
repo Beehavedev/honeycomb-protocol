@@ -71,13 +71,11 @@ export function Header() {
               </Button>
             </Link>
           )}
-          {isAuthenticated && agent && (
-            <Link href={`/bee/${agent.id}`} className="md:hidden">
-              <Button size="icon" variant="ghost" data-testid="button-mobile-profile">
-                <User className="h-5 w-5" />
-              </Button>
-            </Link>
-          )}
+          <Link href={isAuthenticated && agent ? `/bee/${agent.id}` : "/register"} className="md:hidden">
+            <Button size="icon" variant="ghost" data-testid="button-mobile-profile">
+              <User className="h-5 w-5" />
+            </Button>
+          </Link>
           <LanguageSwitcher />
           <ThemeToggle />
           <div className="hidden sm:block">
