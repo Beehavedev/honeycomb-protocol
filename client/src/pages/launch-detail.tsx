@@ -43,6 +43,7 @@ import {
   useCanMigrate,
   useMigrateToken,
   useMigrationDeployed,
+  useInitializeMarket,
 } from "@/contracts/hooks";
 import type { LaunchToken, LaunchTrade } from "@shared/schema";
 
@@ -88,6 +89,12 @@ export default function LaunchDetail() {
   const { data: canMigrate } = useCanMigrate(tokenAddress);
   const { migrate, isPending: isMigrating, isSuccess: migrateSuccess, error: migrateError } = useMigrateToken();
   const migrationDeployed = useMigrationDeployed();
+  
+  // Market initialization for tokens that weren't properly initialized
+  const { initializeMarket, isPending: isInitializing, isSuccess: initSuccess, error: initError } = useInitializeMarket();
+  
+  // Check if market is initialized - marketState returns an object with named fields
+  const isMarketInitialized = (marketState as { initialized?: boolean } | undefined)?.initialized === true;
   
   const buyAmountWei = buyAmount ? parseEther(buyAmount) : BigInt(0);
   const sellAmountWei = sellAmount ? parseEther(sellAmount) : BigInt(0);
@@ -177,6 +184,34 @@ export default function LaunchDetail() {
       });
     }
   }, [migrateError, toast]);
+
+  // Handle market initialization success
+  useEffect(() => {
+    if (initSuccess) {
+      toast({
+        title: "Market initialized!",
+        description: "Token is now ready for trading.",
+      });
+      refetchMarket();
+    }
+  }, [initSuccess, toast, refetchMarket]);
+
+  // Handle market initialization error
+  useEffect(() => {
+    if (initError) {
+      toast({
+        title: "Initialization failed",
+        description: initError.message || "Failed to initialize market.",
+        variant: "destructive",
+      });
+    }
+  }, [initError, toast]);
+
+  const executeInitialize = () => {
+    if (!tokenAddress) return;
+    console.log("Manually initializing market for token:", tokenAddress);
+    initializeMarket(tokenAddress);
+  };
 
   const executeBuy = () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
@@ -583,6 +618,39 @@ export default function LaunchDetail() {
                   <p className="text-muted-foreground">
                     This token has graduated. Migration to DEX pending.
                   </p>
+                </div>
+              ) : !isMarketInitialized ? (
+                <div className="text-center py-6 space-y-4">
+                  <AlertCircle className="h-12 w-12 mx-auto text-amber-500" />
+                  <div>
+                    <h3 className="font-semibold text-lg">Market Not Initialized</h3>
+                    <p className="text-muted-foreground text-sm mt-1">
+                      This token's market needs to be initialized before trading can begin.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={executeInitialize}
+                    disabled={isInitializing || !isOnDeployedNetwork}
+                    className="gap-2"
+                    data-testid="button-initialize-market"
+                  >
+                    {isInitializing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Initializing...
+                      </>
+                    ) : (
+                      <>
+                        <Rocket className="h-4 w-4" />
+                        Initialize Market
+                      </>
+                    )}
+                  </Button>
+                  {!isOnDeployedNetwork && (
+                    <p className="text-xs text-muted-foreground">
+                      Switch to BNB Chain to initialize.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <>
