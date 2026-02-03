@@ -312,11 +312,7 @@ export function registerDuelsRoutes(app: Express) {
       const coinId = COINGECKO_IDS[assetId];
       const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
-      if (!coinId) {
-        return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
-      }
-      
-      // Check cache first
+      // Check cache first (short TTL for live prices)
       const cached = priceCache[assetId];
       const now = Date.now();
       if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
@@ -329,35 +325,78 @@ export function registerDuelsRoutes(app: Express) {
         });
       }
       
-      // Fetch from CoinGecko with retry
       let price: number | null = null;
-      let retries = 3;
       
-      while (retries > 0 && price === null) {
+      // Try CryptoCompare first (fastest, most reliable)
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const response = await fetch(
+          `https://min-api.cryptocompare.com/data/price?fsym=${assetId}&tsyms=USD`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.USD && typeof data.USD === 'number') {
+            price = data.USD;
+          }
+        }
+      } catch (e) {
+        // CryptoCompare failed, try next source
+      }
+      
+      // Try Kraken as backup
+      if (price === null) {
+        const krakenSymbol = KRAKEN_SYMBOLS[assetId];
+        if (krakenSymbol) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            const response = await fetch(
+              `https://api.kraken.com/0/public/Ticker?pair=${krakenSymbol}`,
+              { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const resultKey = Object.keys(data?.result || {})[0];
+              if (resultKey && data.result[resultKey]?.c?.[0]) {
+                price = parseFloat(data.result[resultKey].c[0]);
+              }
+            }
+          } catch (e) {
+            // Kraken failed, try next source
+          }
+        }
+      }
+      
+      // Try CoinGecko as last resort
+      if (price === null && coinId) {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
           const response = await fetch(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`
+            `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`,
+            { signal: controller.signal }
           );
+          clearTimeout(timeoutId);
           
           if (response.ok) {
             const data = await response.json();
             if (data[coinId]?.usd) {
               price = data[coinId].usd;
             }
-          } else if (response.status === 429) {
-            // Rate limited - wait and retry
-            console.log(`CoinGecko rate limited for ${assetId}, retrying...`);
-            await new Promise(r => setTimeout(r, 1000));
           }
         } catch (e) {
-          console.error(`Fetch attempt failed for ${assetId}:`, e);
+          // CoinGecko failed
         }
-        retries--;
       }
       
       // If still no price, use cached value even if stale
       if (price === null && cached) {
-        console.log(`Using stale cache for ${assetId}`);
         return res.json({ 
           symbol, 
           price: cached.price,
@@ -379,7 +418,7 @@ export function registerDuelsRoutes(app: Express) {
           timestamp: now 
         });
       } else {
-        res.status(400).json({ message: "Failed to fetch price from CoinGecko" });
+        res.status(400).json({ message: "Failed to fetch price - please try again" });
       }
     } catch (error) {
       console.error("Error fetching price:", error);

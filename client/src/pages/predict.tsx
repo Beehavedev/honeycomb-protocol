@@ -1605,11 +1605,23 @@ export default function Predict() {
           return;
         }
         
-        // Fetch current price for start price
-        const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
-        const priceData = await priceRes.json();
-        const price = priceData?.price;
-        if (!price || isNaN(price)) {
+        // Fetch current price for start price with retry
+        let price: number | null = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const priceRes = await fetch(`/api/duels/binance/ticker/${duel.assetId}`);
+            const priceData = await priceRes.json();
+            if (priceData?.price && !isNaN(priceData.price)) {
+              price = priceData.price;
+              break;
+            }
+          } catch (e) {
+            // Retry on error
+          }
+          if (attempt < 2) await new Promise(r => setTimeout(r, 500)); // Wait 500ms before retry
+        }
+        
+        if (!price) {
           toast({ title: "Price fetch failed", description: "Could not get current price. Please try again.", variant: "destructive" });
           setJoiningDuelId(null);
           return;
