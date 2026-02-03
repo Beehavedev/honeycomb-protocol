@@ -177,8 +177,8 @@ export default function LaunchDetail() {
   const { data: buyQuote } = useQuoteBuy(tokenAddress, buyAmountWei > BigInt(0) ? buyAmountWei : undefined);
   const { data: sellQuote } = useQuoteSell(tokenAddress, sellAmountWei > BigInt(0) ? sellAmountWei : undefined);
 
-  const { buy, isPending: isBuying, isSuccess: buySuccess, error: buyError, hash: buyHash } = useBuyTokens();
-  const { sell, isPending: isSelling, isSuccess: sellSuccess, error: sellError, hash: sellHash } = useSellTokens();
+  const { buy, isPending: isBuying, isSuccess: buySuccess, error: buyError, hash: buyHash, reset: resetBuy } = useBuyTokens();
+  const { sell, isPending: isSelling, isSuccess: sellSuccess, error: sellError, hash: sellHash, reset: resetSell } = useSellTokens();
   const { approve, isPending: isApproving, isSuccess: approveSuccess } = useApproveToken();
 
   const needsApproval = tradeTab === "sell" && sellAmountWei > BigInt(0) && allowance !== undefined && sellAmountWei > allowance;
@@ -277,6 +277,36 @@ export default function LaunchDetail() {
       });
     }
   }, [migrateError, toast]);
+
+  // Timeout for stuck transactions - mobile wallets sometimes don't respond
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    
+    if ((isBuying || isSelling) && !buyHash && !sellHash) {
+      timeoutId = setTimeout(() => {
+        if (isBuying) {
+          resetBuy();
+          toast({
+            title: "Transaction timed out",
+            description: "Wallet didn't respond. Please try again.",
+            variant: "destructive",
+          });
+        }
+        if (isSelling) {
+          resetSell();
+          toast({
+            title: "Transaction timed out", 
+            description: "Wallet didn't respond. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }, 20000); // 20 second timeout
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isBuying, isSelling, buyHash, sellHash, resetBuy, resetSell, toast]);
 
   // Handle market initialization success
   useEffect(() => {

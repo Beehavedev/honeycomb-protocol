@@ -477,7 +477,7 @@ export function useQuoteSell(tokenAddress?: `0x${string}`, tokenAmountIn?: bigin
 
 export function useBuyTokens() {
   const address = useBondingCurveMarketAddress();
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   
@@ -492,12 +492,12 @@ export function useBuyTokens() {
     });
   };
   
-  return { buy, isPending, isConfirming, isSuccess, hash, error };
+  return { buy, isPending, isConfirming, isSuccess, hash, error, reset };
 }
 
 export function useSellTokens() {
   const address = useBondingCurveMarketAddress();
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
   
@@ -512,7 +512,7 @@ export function useSellTokens() {
     });
   };
   
-  return { sell, isPending, isConfirming, isSuccess, hash, error };
+  return { sell, isPending, isConfirming, isSuccess, hash, error, reset };
 }
 
 // Simulate sell to check for errors before executing
