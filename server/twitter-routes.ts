@@ -349,6 +349,16 @@ router.get("/search", authMiddleware, adminOnly, async (req: Request, res: Respo
   }
 });
 
+router.post("/engage-moltbook", authMiddleware, adminOnly, async (_req: Request, res: Response) => {
+  try {
+    const result = await twitterService.searchAndEngageMoltbook();
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error engaging moltbook mentions:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export function registerTwitterRoutes(app: any) {
   app.use("/api/twitter", router);
 }

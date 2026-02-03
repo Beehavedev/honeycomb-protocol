@@ -186,6 +186,22 @@ export default function TwitterAdmin() {
     },
   });
 
+  const moltbookMutation = useMutation({
+    mutationFn: async () =>
+      apiRequest("POST", "/api/twitter/engage-moltbook") as Promise<{ success: boolean; engaged: number; error?: string }>,
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: "Moltbook Engagement Complete", description: `Engaged with ${data.engaged} tweets` });
+      } else {
+        toast({ title: "Engagement failed", description: data.error, variant: "destructive" });
+      }
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({ title: "Engagement failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   if (statusLoading) {
     return (
       <div className="container mx-auto px-4 py-8 flex justify-center">
@@ -428,6 +444,25 @@ export default function TwitterAdmin() {
                   </div>
                 </div>
               )}
+
+              <div className="border-t pt-4">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Automatically find and engage with tweets mentioning "moltbook" - invite them to try Predict!
+                </p>
+                <Button
+                  onClick={() => moltbookMutation.mutate()}
+                  disabled={moltbookMutation.isPending}
+                  className="w-full bg-amber-500 hover:bg-amber-600"
+                  data-testid="button-engage-moltbook"
+                >
+                  {moltbookMutation.isPending ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Users className="mr-2 h-4 w-4" />
+                  )}
+                  Engage Moltbook Mentions
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

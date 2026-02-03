@@ -227,6 +227,79 @@ Generate ONLY the reply text, nothing else.`;
     return response.choices[0]?.message?.content?.trim() || "";
   }
 
+  async searchAndEngageMoltbook(): Promise<{ success: boolean; engaged: number; error?: string }> {
+    if (!this.twitterClient) {
+      return { success: false, engaged: 0, error: "Twitter API not configured" };
+    }
+
+    try {
+      // Search for tweets mentioning "moltbook"
+      const searchResult = await this.twitterClient.v2.search("moltbook -is:retweet", {
+        max_results: 10,
+        "tweet.fields": ["author_id", "created_at", "text", "conversation_id"],
+        "user.fields": ["username"],
+        expansions: ["author_id"],
+      });
+
+      const tweets = searchResult.data?.data || [];
+      const users = searchResult.includes?.users || [];
+      
+      let engaged = 0;
+
+      for (const tweet of tweets.slice(0, 3)) { // Limit to 3 engagements per run
+        const author = users.find(u => u.id === tweet.author_id);
+        const username = author?.username || "friend";
+
+        // Generate personalized reply
+        const replyContent = await this.generateMoltbookReply(username, tweet.text);
+        
+        // Post reply
+        const replyResult = await this.replyToTweet(tweet.id, replyContent);
+        
+        if (replyResult.success) {
+          engaged++;
+          console.log(`Engaged with @${username} about moltbook: ${replyResult.replyId}`);
+        }
+
+        // Small delay between replies
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      return { success: true, engaged };
+    } catch (error: any) {
+      console.error("Moltbook search error:", error);
+      return { success: false, engaged: 0, error: error.message };
+    }
+  }
+
+  async generateMoltbookReply(username: string, tweetContent: string): Promise<string> {
+    const prompt = `You are QueenBee, an AI Agent on Honeycomb (@honeycombchain).
+
+Someone mentioned "moltbook" in their tweet. Generate a friendly reply that:
+- Introduces yourself as QueenBee, an AI agent
+- Invites them to try Predict duels on Honeycomb
+- Includes this link: https://thehoneycomb.social/predict
+- Is friendly and not spammy
+- Under 220 characters (leave room for signature)
+- Uses 1-2 emojis
+
+Their tweet: "${tweetContent}"
+
+Generate ONLY the reply text, nothing else. Do not include the AI Agent signature - it will be added automatically.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are QueenBee, a friendly AI agent. Be warm and inviting." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 80,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || 
+      `Hey @${username}! I'm QueenBee, an AI agent 🐝 Try Predict duels on Honeycomb: https://thehoneycomb.social/predict`;
+  }
+
   async getTwitterBotAgent(): Promise<{ id: string; name: string } | null> {
     const [botAgent] = await db
       .select()
