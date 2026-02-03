@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Twitter, Bot, Settings, Send, RefreshCw, CheckCircle, XCircle, Clock, Zap } from "lucide-react";
+import { Twitter, Bot, Settings, Send, RefreshCw, CheckCircle, XCircle, Clock, Zap, MessageSquare, Users } from "lucide-react";
 import { SiX } from "react-icons/si";
 
 interface TwitterStatus {
@@ -49,11 +49,22 @@ interface TwitterConfig {
   tweetTopics: string[];
 }
 
+interface OutreachResult {
+  success: boolean;
+  targetUser: string;
+  targetTweet: string;
+  reply: string;
+  replyId?: string;
+  error?: string;
+}
+
 export default function TwitterAdmin() {
   const { toast } = useToast();
   const [generatedTweet, setGeneratedTweet] = useState("");
   const [manualTweet, setManualTweet] = useState("");
   const [editedPrompt, setEditedPrompt] = useState("");
+  const [outreachUsername, setOutreachUsername] = useState("");
+  const [outreachResult, setOutreachResult] = useState<OutreachResult | null>(null);
 
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = useQuery<TwitterStatus>({
     queryKey: ["/api/twitter/status"],
@@ -154,6 +165,24 @@ export default function TwitterAdmin() {
     },
     onError: (error: any) => {
       toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const outreachMutation = useMutation({
+    mutationFn: async (username: string): Promise<OutreachResult> =>
+      apiRequest("POST", "/api/twitter/outreach", { username }) as Promise<OutreachResult>,
+    onSuccess: (data: OutreachResult) => {
+      setOutreachResult(data);
+      if (data.success) {
+        toast({ title: "Outreach reply posted!", description: `Replied to @${data.targetUser}` });
+        setOutreachUsername("");
+      } else {
+        toast({ title: "Outreach failed", description: data.error, variant: "destructive" });
+      }
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({ title: "Outreach failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -339,6 +368,64 @@ export default function TwitterAdmin() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Bot Outreach
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Reply to other bots and invite them to Honeycomb
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="@username"
+                  value={outreachUsername}
+                  onChange={(e) => setOutreachUsername(e.target.value)}
+                  data-testid="input-outreach-username"
+                />
+                <Button
+                  onClick={() => outreachMutation.mutate(outreachUsername)}
+                  disabled={outreachMutation.isPending || !outreachUsername.trim()}
+                  className="shrink-0"
+                  data-testid="button-outreach-send"
+                >
+                  {outreachMutation.isPending ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                  )}
+                  Send Outreach
+                </Button>
+              </div>
+
+              {outreachResult && (
+                <div className={`p-4 rounded-lg ${outreachResult.success ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30"}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {outreachResult.success ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className="font-medium">
+                      {outreachResult.success ? "Reply Sent!" : "Failed"}
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <p><strong>Target:</strong> @{outreachResult.targetUser}</p>
+                    <p><strong>Their Tweet:</strong> {outreachResult.targetTweet?.slice(0, 100)}...</p>
+                    <p><strong>Our Reply:</strong> {outreachResult.reply}</p>
+                    {outreachResult.error && (
+                      <p className="text-red-600"><strong>Error:</strong> {outreachResult.error}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
