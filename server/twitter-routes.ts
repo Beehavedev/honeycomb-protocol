@@ -283,6 +283,72 @@ router.post("/deactivate", authMiddleware, adminOnly, async (_req: Request, res:
   }
 });
 
+router.post("/reply", authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  try {
+    const { tweetId, content } = req.body;
+    if (!tweetId || !content) {
+      return res.status(400).json({ error: "tweetId and content are required" });
+    }
+
+    const result = await twitterService.replyToTweet(tweetId, content);
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error replying to tweet:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/outreach", authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  try {
+    const { username } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: "username is required" });
+    }
+
+    // Get user's recent tweets
+    const tweetsResult = await twitterService.getUserTweets(username.replace("@", ""), 5);
+    if (!tweetsResult.success || !tweetsResult.tweets?.length) {
+      return res.status(404).json({ error: tweetsResult.error || "No tweets found for user" });
+    }
+
+    // Get the most recent tweet
+    const latestTweet = tweetsResult.tweets[0];
+    
+    // Generate a personalized reply
+    const replyContent = await twitterService.generateOutreachReply(username, latestTweet.text);
+    
+    // Reply to their tweet
+    const replyResult = await twitterService.replyToTweet(latestTweet.id, replyContent);
+    
+    res.json({
+      success: replyResult.success,
+      targetUser: username,
+      targetTweet: latestTweet.text,
+      reply: replyContent,
+      replyId: replyResult.replyId,
+      error: replyResult.error,
+    });
+  } catch (error: any) {
+    console.error("Error in outreach:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/search", authMiddleware, adminOnly, async (req: Request, res: Response) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) {
+      return res.status(400).json({ error: "query parameter 'q' is required" });
+    }
+
+    const result = await twitterService.searchTweets(query, 10);
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error searching tweets:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export function registerTwitterRoutes(app: any) {
   app.use("/api/twitter", router);
 }

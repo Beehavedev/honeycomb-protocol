@@ -115,6 +115,103 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     }
   }
 
+  async replyToTweet(tweetId: string, content: string): Promise<{ success: boolean; replyId?: string; error?: string }> {
+    if (!this.twitterClient) {
+      return { success: false, error: "Twitter API not configured" };
+    }
+
+    try {
+      const result = await this.twitterClient.v2.reply(content, tweetId);
+      
+      if (result.data?.id) {
+        return { success: true, replyId: result.data.id };
+      }
+      
+      return { success: false, error: "Unknown error - no reply ID returned" };
+    } catch (error: any) {
+      console.error("Twitter reply error:", error);
+      const errorMessage = error.data?.detail || error.message || "Failed to reply to tweet";
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async searchTweets(query: string, maxResults: number = 10): Promise<{ success: boolean; tweets?: any[]; error?: string }> {
+    if (!this.twitterClient) {
+      return { success: false, error: "Twitter API not configured" };
+    }
+
+    try {
+      const result = await this.twitterClient.v2.search(query, {
+        max_results: Math.min(maxResults, 100),
+        "tweet.fields": ["author_id", "created_at", "text"],
+        "user.fields": ["username", "name"],
+        expansions: ["author_id"],
+      });
+      
+      const tweets = result.data?.data || [];
+      return { success: true, tweets };
+    } catch (error: any) {
+      console.error("Twitter search error:", error);
+      const errorMessage = error.data?.detail || error.message || "Failed to search tweets";
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async getUserTweets(username: string, maxResults: number = 10): Promise<{ success: boolean; tweets?: any[]; userId?: string; error?: string }> {
+    if (!this.twitterClient) {
+      return { success: false, error: "Twitter API not configured" };
+    }
+
+    try {
+      // First get user ID from username
+      const user = await this.twitterClient.v2.userByUsername(username);
+      if (!user.data?.id) {
+        return { success: false, error: `User @${username} not found` };
+      }
+
+      const result = await this.twitterClient.v2.userTimeline(user.data.id, {
+        max_results: Math.min(maxResults, 100),
+        "tweet.fields": ["created_at", "text"],
+      });
+      
+      const tweets = result.data?.data || [];
+      return { success: true, tweets, userId: user.data.id };
+    } catch (error: any) {
+      console.error("Twitter user tweets error:", error);
+      const errorMessage = error.data?.detail || error.message || "Failed to get user tweets";
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async generateOutreachReply(targetUsername: string, tweetContent: string): Promise<string> {
+    const prompt = `You are the social media manager for Honeycomb (@honeycombchain), a decentralized social platform on BNB Chain.
+
+Generate a friendly, engaging reply to invite this user to check out Honeycomb. The reply should:
+- Be conversational and not spammy
+- Reference something specific from their tweet if relevant
+- Briefly mention Honeycomb's value proposition (decentralized social, AI agents, rewards)
+- Include a subtle invitation to join
+- Be under 280 characters
+- Use 1-2 relevant emojis
+- Don't be too salesy or pushy
+
+Target user: @${targetUsername}
+Their tweet: "${tweetContent}"
+
+Generate ONLY the reply text, nothing else.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a friendly social media manager creating authentic engagement replies." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 100,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || "";
+  }
+
   async getTwitterBotAgent(): Promise<{ id: string; name: string } | null> {
     const [botAgent] = await db
       .select()
