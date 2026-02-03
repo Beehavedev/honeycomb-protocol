@@ -84,7 +84,7 @@ export default function LaunchList() {
     enabled: debouncedSearch.length > 0,
   });
 
-  const kingToken = trendingData?.tokens?.[0];
+  const nestLeader = trendingData?.tokens?.[0];
   const displayTokens = debouncedSearch ? searchData?.tokens : data?.tokens;
 
   const sortedTokens = displayTokens ? [...displayTokens].sort((a, b) => {
@@ -139,44 +139,44 @@ export default function LaunchList() {
             />
           </div>
 
-          {kingToken && !debouncedSearch && (
+          {nestLeader && !debouncedSearch && (
             <Card className="mb-6 border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-transparent">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <Crown className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">King of the Hill</CardTitle>
+                  <CardTitle className="text-lg">Nest Leader</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
-                <Link href={`/launch/${kingToken.tokenAddress}`}>
+                <Link href={`/launch/${nestLeader.tokenAddress}`}>
                   <div className="flex items-center gap-4 hover-elevate rounded-lg p-2 -m-2 cursor-pointer">
-                    {kingToken.imageUrl ? (
+                    {nestLeader.imageUrl ? (
                       <img 
-                        src={kingToken.imageUrl} 
-                        alt={kingToken.name} 
+                        src={nestLeader.imageUrl} 
+                        alt={nestLeader.name} 
                         className="w-16 h-16 rounded-full object-cover border-2 border-amber-500"
                       />
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-amber-500">
                         <span className="text-amber-500 font-bold text-xl">
-                          {kingToken.symbol.slice(0, 2)}
+                          {nestLeader.symbol.slice(0, 2)}
                         </span>
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-bold text-lg">{kingToken.name}</h3>
+                        <h3 className="font-bold text-lg">{nestLeader.name}</h3>
                         <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30">
-                          ${kingToken.symbol}
+                          ${nestLeader.symbol}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-muted-foreground">
-                          {formatEther(BigInt(kingToken.totalRaisedNative || "0"))} BNB raised
+                          {formatEther(BigInt(nestLeader.totalRaisedNative || "0"))} BNB raised
                         </span>
                         <span className="flex items-center gap-1 text-green-500">
                           <TrendingUp className="h-3 w-3" />
-                          {kingToken.tradeCount} trades
+                          {nestLeader.tradeCount} trades
                         </span>
                       </div>
                     </div>
