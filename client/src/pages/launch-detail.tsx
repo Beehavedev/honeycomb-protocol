@@ -358,6 +358,11 @@ export default function LaunchDetail() {
       tokenAmount: estimatedTokens,
     });
     
+    toast({
+      title: "Confirm in Wallet",
+      description: "Please check your wallet app to approve the transaction.",
+    });
+    
     buy(tokenAddress, minOut, buyAmountWei);
   };
 
@@ -374,6 +379,10 @@ export default function LaunchDetail() {
     }
     
     if (needsApproval) {
+      toast({
+        title: "Approval Required",
+        description: "Please approve the token spending in your wallet.",
+      });
       approve(tokenAddress, marketAddress, sellAmountWei);
       return;
     }
@@ -386,6 +395,11 @@ export default function LaunchDetail() {
       isBuy: false,
       nativeAmount: estimatedNative,
       tokenAmount: sellAmountWei.toString(),
+    });
+    
+    toast({
+      title: "Confirm in Wallet",
+      description: "Please check your wallet app to approve the transaction.",
     });
     
     sell(tokenAddress, sellAmountWei, minOut);
