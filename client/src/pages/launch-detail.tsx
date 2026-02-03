@@ -309,6 +309,15 @@ export default function LaunchDetail() {
   const executeBuy = () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
     
+    if (!marketAddress) {
+      toast({
+        title: "Trading unavailable",
+        description: "Please connect to BNB Chain to trade tokens.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const quoteValue = buyQuote as readonly [bigint, bigint] | undefined;
     const minOut = quoteValue ? (quoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
     const estimatedTokens = quoteValue ? quoteValue[0].toString() : "0";
@@ -323,7 +332,16 @@ export default function LaunchDetail() {
   };
 
   const executeSell = () => {
-    if (!tokenAddress || sellAmountWei <= BigInt(0) || !marketAddress) return;
+    if (!tokenAddress || sellAmountWei <= BigInt(0)) return;
+    
+    if (!marketAddress) {
+      toast({
+        title: "Trading unavailable",
+        description: "Please connect to BNB Chain to trade tokens.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (needsApproval) {
       approve(tokenAddress, marketAddress, sellAmountWei);
