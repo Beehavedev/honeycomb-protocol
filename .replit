@@ -41,8 +41,6 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-VITE_WALLETCONNECT_PROJECT_ID = "3fcc6bba6f1de962d911bb5b5c3dba68"
-DEPLOYER_PRIVATE_KEY = "c36dc157b64dc0580997ffaa11b64e80be3e51c3cb1d0de2c38f76493c1e71a4"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0"]
