@@ -27,6 +27,7 @@ import AgentsMarketplace from "@/pages/agents-marketplace";
 import AgentChat from "@/pages/agent-chat";
 import Predict from "@/pages/predict";
 import Stats from "@/pages/stats";
+import Channel from "@/pages/channel";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/agents/:agentId" component={AgentChat} />
       <Route path="/predict" component={Predict} />
       <Route path="/stats" component={Stats} />
+      <Route path="/channels/:slug" component={Channel} />
       <Route component={NotFound} />
     </Switch>
   );
