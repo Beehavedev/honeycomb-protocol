@@ -1,6 +1,16 @@
 import { db } from "./db";
 import { housebotConfig, housebotDuels, matchmakingQueue, duels } from "@shared/schema";
 import { eq, and, lt, gte, desc } from "drizzle-orm";
+import { createWalletClient, createPublicClient, http, parseAbi } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { bsc } from "viem/chains";
+
+const PREDICT_DUEL_ADDRESS = "0x8A3698513850b6dEFA68dD59f4D7DC5E8c2e2650";
+
+const PREDICT_DUEL_ABI = parseAbi([
+  "function joinDuel(uint256 duelId, uint256 agentId) external payable",
+  "function getDuel(uint256 duelId) external view returns (tuple(uint256 id, address creatorAddress, uint256 creatorAgentId, uint8 creatorDirection, address joinerAddress, uint256 joinerAgentId, uint256 assetId, uint256 startPrice, uint256 endPrice, uint256 stakeAmount, uint256 duration, uint256 startTime, uint256 endTime, uint8 status, address winner, uint256 payout, uint256 fee, uint8 duelType, uint256 vrfRequestId, uint256 vrfRandomWord))",
+]);
 
 interface HouseBotStatus {
   enabled: boolean;
@@ -247,6 +257,114 @@ export class HouseBotService {
     await db.update(matchmakingQueue)
       .set({ status: "matched" })
       .where(eq(matchmakingQueue.id, queueEntryId));
+  }
+
+  /**
+   * Join a duel on-chain using the HouseBot wallet
+   */
+  async joinDuelOnChain(onChainDuelId: string, stakeWei: string): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    const privateKey = process.env.HOUSEBOT_PRIVATE_KEY;
+    if (!privateKey) {
+      return { success: false, error: "HOUSEBOT_PRIVATE_KEY not configured" };
+    }
+
+    const config = await this.getConfig();
+    if (!config.onChainAgentId) {
+      return { success: false, error: "HouseBot on-chain agent ID not configured" };
+    }
+
+    try {
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      
+      const publicClient = createPublicClient({
+        chain: bsc,
+        transport: http("https://bsc-dataseed1.binance.org"),
+      });
+
+      const walletClient = createWalletClient({
+        account,
+        chain: bsc,
+        transport: http("https://bsc-dataseed1.binance.org"),
+      });
+
+      // Check wallet balance
+      const balance = await publicClient.getBalance({ address: account.address });
+      const stakeAmount = BigInt(stakeWei);
+      
+      // Need stake + gas (estimate 0.005 BNB for gas)
+      const gasBuffer = BigInt("5000000000000000"); // 0.005 BNB
+      if (balance < stakeAmount + gasBuffer) {
+        return { 
+          success: false, 
+          error: `Insufficient balance. Have: ${Number(balance) / 1e18} BNB, Need: ${Number(stakeAmount + gasBuffer) / 1e18} BNB` 
+        };
+      }
+
+      // Execute joinDuel transaction
+      const txHash = await walletClient.writeContract({
+        address: PREDICT_DUEL_ADDRESS as `0x${string}`,
+        abi: PREDICT_DUEL_ABI,
+        functionName: "joinDuel",
+        args: [BigInt(onChainDuelId), BigInt(config.onChainAgentId)],
+        value: stakeAmount,
+      });
+
+      // Wait for confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({ 
+        hash: txHash,
+        confirmations: 1,
+      });
+
+      if (receipt.status === "success") {
+        console.log(`[HouseBot] Successfully joined duel ${onChainDuelId}, tx: ${txHash}`);
+        return { success: true, txHash };
+      } else {
+        return { success: false, error: "Transaction reverted" };
+      }
+    } catch (error: any) {
+      console.error("[HouseBot] Join duel error:", error);
+      return { success: false, error: error.message || "Unknown error" };
+    }
+  }
+
+  /**
+   * Get HouseBot wallet balance
+   */
+  async getWalletBalance(): Promise<{ balance: string; balanceDisplay: string } | null> {
+    const privateKey = process.env.HOUSEBOT_PRIVATE_KEY;
+    if (!privateKey) return null;
+
+    try {
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      const publicClient = createPublicClient({
+        chain: bsc,
+        transport: http("https://bsc-dataseed1.binance.org"),
+      });
+
+      const balance = await publicClient.getBalance({ address: account.address });
+      return {
+        balance: balance.toString(),
+        balanceDisplay: `${(Number(balance) / 1e18).toFixed(4)} BNB`,
+      };
+    } catch (error) {
+      console.error("[HouseBot] Get balance error:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get HouseBot wallet address from private key
+   */
+  getWalletAddressFromKey(): string | null {
+    const privateKey = process.env.HOUSEBOT_PRIVATE_KEY;
+    if (!privateKey) return null;
+
+    try {
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+      return account.address;
+    } catch {
+      return null;
+    }
   }
 }
 

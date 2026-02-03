@@ -991,10 +991,73 @@ export function registerDuelsRoutes(app: Express) {
       
       const { houseBotService } = await import("./housebot");
       const status = await houseBotService.getStatus();
-      res.json(status);
+      const walletBalance = await houseBotService.getWalletBalance();
+      const derivedAddress = houseBotService.getWalletAddressFromKey();
+      
+      res.json({
+        ...status,
+        walletBalance: walletBalance?.balanceDisplay || "Not configured",
+        walletBalanceWei: walletBalance?.balance || "0",
+        privateKeyConfigured: !!process.env.HOUSEBOT_PRIVATE_KEY,
+        derivedWalletAddress: derivedAddress,
+      });
     } catch (error) {
       console.error("Error fetching HouseBot status:", error);
       res.status(500).json({ message: "Failed to fetch HouseBot status" });
+    }
+  });
+
+  // HouseBot join duel (admin only - manual trigger)
+  app.post("/api/housebot/join/:duelId", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = (req as any).user?.address?.toLowerCase();
+      
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { duelId } = req.params;
+      
+      // Get duel from database
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+      
+      if (duel.status !== "open") {
+        return res.status(400).json({ message: "Duel is not open for joining" });
+      }
+      
+      if (!duel.onChainDuelId) {
+        return res.status(400).json({ message: "Duel has no on-chain ID" });
+      }
+
+      const { houseBotService } = await import("./housebot");
+      
+      // Check if HouseBot can join
+      const canJoinResult = await houseBotService.canJoinDuel(duel);
+      if (!canJoinResult.canJoin) {
+        return res.status(400).json({ message: canJoinResult.reason });
+      }
+      
+      // Execute on-chain join
+      const result = await houseBotService.joinDuelOnChain(duel.onChainDuelId, duel.stakeWei);
+      
+      if (result.success) {
+        // Log the action
+        await houseBotService.logDuelAction(duelId, "joined", "0");
+        res.json({ 
+          success: true, 
+          txHash: result.txHash,
+          message: `HouseBot joined duel ${duelId}` 
+        });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      console.error("Error joining duel with HouseBot:", error);
+      res.status(500).json({ message: "Failed to join duel" });
     }
   });
 
