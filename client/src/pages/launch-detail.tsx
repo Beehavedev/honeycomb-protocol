@@ -110,9 +110,8 @@ export default function LaunchDetail() {
     
     setIsPostingComment(true);
     try {
-      await apiRequest(`/api/launch/tokens/${tokenAddress}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ content: newComment.trim() }),
+      await apiRequest("POST", `/api/launch/tokens/${tokenAddress}/comments`, { 
+        content: newComment.trim() 
       });
       setNewComment("");
       refetchComments();

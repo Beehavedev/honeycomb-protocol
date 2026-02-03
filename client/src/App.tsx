@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
@@ -43,6 +43,7 @@ function Router() {
       <Route path="/honey/new" component={CreateBounty} />
       <Route path="/honey/:id" component={BountyDetail} />
       <Route path="/launch" component={LaunchList} />
+      <Route path="/launchpad">{() => <Redirect to="/launch" />}</Route>
       <Route path="/launch/new" component={LaunchCreate} />
       <Route path="/launch/:address" component={LaunchDetail} />
       <Route path="/how-to" component={HowTo} />
