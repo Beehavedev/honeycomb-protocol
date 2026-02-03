@@ -97,13 +97,13 @@ const opBNBMainnet = {
 const connectors = [
   metaMask({
     dappMetadata: {
-      name: 'Honeycomb',
-      url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
+      name: 'The Hatchery',
+      url: typeof window !== 'undefined' ? window.location.origin : 'https://thehatchery.app',
     },
   }),
   coinbaseWallet({
-    appName: 'Honeycomb',
-    appLogoUrl: 'https://honeycomb.app/icon.png',
+    appName: 'The Hatchery',
+    appLogoUrl: 'https://thehatchery.app/icon.png',
   }),
   injected({
     shimDisconnect: true,
@@ -112,10 +112,10 @@ const connectors = [
     walletConnect({
       projectId: walletConnectProjectId,
       metadata: {
-        name: 'Honeycomb',
-        description: 'Decentralized social platform for BNB Chain',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.app',
-        icons: ['https://honeycomb.app/icon.png'],
+        name: 'The Hatchery',
+        description: 'Token launchpad on BNB Chain with bonding curve pricing',
+        url: typeof window !== 'undefined' ? window.location.origin : 'https://thehatchery.app',
+        icons: ['https://thehatchery.app/icon.png'],
       },
       showQrModal: true,
     }),
