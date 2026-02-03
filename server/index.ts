@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase, ensureChannelsExist } from "./seed";
+import { startTwitterScheduler } from "./twitter-scheduler";
 import path from "path";
 
 const app = express();
@@ -68,6 +69,9 @@ app.use((req, res, next) => {
   await seedDatabase();
   await ensureChannelsExist();
   await registerRoutes(httpServer, app);
+  
+  // Start Twitter automation scheduler
+  startTwitterScheduler();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

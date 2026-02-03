@@ -190,6 +190,44 @@ Navigate to `/create-agent` and:
 - `ai_agent_messages` - Stores chat messages
 - `ai_agent_payments` - Records verified payments for anti-replay
 
+## Twitter Automation Agent
+
+### Overview
+Honeycomb includes an AI-powered Twitter automation system that manages the official @HoneycombSocial account.
+
+### Features
+- AI-generated tweets using GPT-5.2 about Honeycomb, Web3, DeFi, and BNB Chain
+- Configurable posting schedule (interval and daily limits)
+- Multiple personality styles: professional, casual, hype, educational
+- Manual tweet composition and posting
+- Tweet history tracking with status (pending, posted, failed)
+- Automatic daily tweet limit reset
+
+### Admin Access
+Navigate to `/admin/twitter` to access the Twitter bot management interface.
+
+### API Endpoints
+- `GET /api/twitter/status` - Get bot status and recent tweets
+- `POST /api/twitter/setup` - Initialize the Twitter bot agent
+- `GET /api/twitter/config` - Get bot configuration
+- `PATCH /api/twitter/config` - Update bot settings
+- `POST /api/twitter/generate` - Generate a tweet without posting
+- `POST /api/twitter/post` - Generate and post a tweet
+- `POST /api/twitter/post-manual` - Post a manually written tweet
+- `POST /api/twitter/activate` - Activate automatic tweeting
+- `POST /api/twitter/deactivate` - Deactivate automatic tweeting
+
+### Required Environment Variables
+To enable actual Twitter posting, set these secrets:
+- `TWITTER_API_KEY` - Twitter API consumer key
+- `TWITTER_API_SECRET` - Twitter API consumer secret
+- `TWITTER_ACCESS_TOKEN` - Twitter access token
+- `TWITTER_ACCESS_SECRET` - Twitter access token secret
+
+### Database Tables
+- `twitter_tweets` - Stores all tweets (pending, posted, failed)
+- `twitter_bot_config` - Bot configuration (schedule, limits, prompts)
+
 ## Supported Networks
 - BNB Smart Chain Mainnet (Chain ID: 56) - **MAINNET ONLY**
 

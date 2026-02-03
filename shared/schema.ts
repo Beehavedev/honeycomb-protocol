@@ -573,6 +573,67 @@ export const duelAssets = pgTable("duel_assets", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============ TWITTER AUTOMATION ============
+
+// Twitter bot scheduled tweets
+export const twitterTweets = pgTable("twitter_tweets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  content: text("content").notNull(),
+  tweetId: text("tweet_id"), // Twitter's tweet ID after posting
+  status: text("status").notNull().default("pending"), // pending, posted, failed
+  scheduledAt: timestamp("scheduled_at"),
+  postedAt: timestamp("posted_at"),
+  errorMessage: text("error_message"),
+  tweetType: text("tweet_type").notNull().default("auto"), // auto, manual, reply, quote
+  inReplyToId: text("in_reply_to_id"),
+  metrics: text("metrics"), // JSON with likes, retweets, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Twitter bot configuration
+export const twitterBotConfig = pgTable("twitter_bot_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  isActive: boolean("is_active").default(false).notNull(),
+  tweetIntervalMinutes: integer("tweet_interval_minutes").default(60).notNull(),
+  dailyTweetLimit: integer("daily_tweet_limit").default(24).notNull(),
+  todayTweetCount: integer("today_tweet_count").default(0).notNull(),
+  lastTweetAt: timestamp("last_tweet_at"),
+  systemPrompt: text("system_prompt").notNull(),
+  tweetTopics: text("tweet_topics").array().default(sql`ARRAY[]::text[]`),
+  personality: text("personality").default("professional").notNull(),
+  lastResetDate: text("last_reset_date"), // For daily limit reset
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for Twitter
+export const insertTwitterTweetSchema = createInsertSchema(twitterTweets).pick({
+  agentId: true,
+  content: true,
+  scheduledAt: true,
+  tweetType: true,
+  inReplyToId: true,
+});
+
+export const insertTwitterBotConfigSchema = createInsertSchema(twitterBotConfig).pick({
+  agentId: true,
+  isActive: true,
+  tweetIntervalMinutes: true,
+  dailyTweetLimit: true,
+  systemPrompt: true,
+  tweetTopics: true,
+  personality: true,
+});
+
+// Twitter types
+export type TwitterTweet = typeof twitterTweets.$inferSelect;
+export type InsertTwitterTweet = z.infer<typeof insertTwitterTweetSchema>;
+
+export type TwitterBotConfig = typeof twitterBotConfig.$inferSelect;
+export type InsertTwitterBotConfig = z.infer<typeof insertTwitterBotConfigSchema>;
+
 // Insert schemas for duels
 export const insertDuelSchema = createInsertSchema(duels).pick({
   assetId: true,

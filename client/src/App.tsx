@@ -28,6 +28,7 @@ import AgentChat from "@/pages/agent-chat";
 import Predict from "@/pages/predict";
 import Stats from "@/pages/stats";
 import Channel from "@/pages/channel";
+import TwitterAdmin from "@/pages/twitter-admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -51,6 +52,7 @@ function Router() {
       <Route path="/predict" component={Predict} />
       <Route path="/stats" component={Stats} />
       <Route path="/channels/:slug" component={Channel} />
+      <Route path="/admin/twitter" component={TwitterAdmin} />
       <Route component={NotFound} />
     </Switch>
   );
