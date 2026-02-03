@@ -41,7 +41,7 @@ const FEE_PERCENTAGE = 10;
 const DUEL_EXPIRY_MINUTES = 5; // Auto-cancel open duels after 5 minutes
 
 // Price cache to avoid CoinGecko rate limits (free tier: 10-30 req/min)
-const priceCache: Record<string, { price: number; timestamp: number }> = {};
+const priceCache = new Map<string, { price: number; timestamp: number }>();
 const CACHE_TTL_MS = 10000; // 10 seconds cache
 
 // CoinGecko ID mapping for price data (Binance is geo-blocked from server)
@@ -336,7 +336,7 @@ export function registerDuelsRoutes(app: Express) {
       const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
       // Check cache first (short TTL for live prices)
-      const cached = priceCache[assetId];
+      const cached = priceCache.get(assetId);
       const now = Date.now();
       if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
         return res.json({ 
@@ -432,7 +432,7 @@ export function registerDuelsRoutes(app: Express) {
       
       if (price !== null) {
         // Update cache
-        priceCache[assetId] = { price, timestamp: now };
+        priceCache.set(assetId, { price, timestamp: now });
         
         res.json({ 
           symbol, 
