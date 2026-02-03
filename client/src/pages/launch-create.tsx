@@ -819,7 +819,7 @@ export default function LaunchCreate() {
                   <li>Total Supply: 1,000,000,000 tokens</li>
                   <li>Trading starts immediately via bonding curve</li>
                   <li>1% fee on all trades</li>
-                  <li>Graduates to DEX at 10 BNB raised</li>
+                  <li>Graduates to DEX at $50k market cap</li>
                 </ul>
               </div>
 

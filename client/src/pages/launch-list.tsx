@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useI18n } from "@/lib/i18n";
 import { formatEther } from "viem";
 import type { LaunchToken, LaunchActivity } from "@shared/schema";
+import { useBnbPrice, formatUsd, bnbToUsd, GRADUATION_USD_TARGET } from "@/hooks/use-bnb-price";
 
 interface TokensResponse {
   tokens: LaunchToken[];
@@ -289,11 +290,13 @@ export default function LaunchList() {
 
 function TokenCard({ token }: { token: LaunchToken }) {
   const { t, getDateLocale } = useI18n();
-  const graduationThreshold = BigInt("10000000000000000000");
+  const { data: priceData } = useBnbPrice();
+  const bnbPrice = priceData?.price || 600;
+  
   const totalRaised = BigInt(token.totalRaisedNative || "0");
-  const progress = graduationThreshold > BigInt(0) 
-    ? Number((totalRaised * BigInt(100)) / graduationThreshold)
-    : 0;
+  const totalRaisedBnb = Number(formatEther(totalRaised));
+  const totalRaisedUsd = bnbToUsd(totalRaisedBnb, bnbPrice);
+  const progress = (totalRaisedUsd / GRADUATION_USD_TARGET) * 100;
 
   return (
     <Link href={`/launch/${token.tokenAddress}`}>
@@ -340,7 +343,7 @@ function TokenCard({ token }: { token: LaunchToken }) {
             <div className="mb-3">
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
                 <span>{t('launchpad.progressToGraduation')}</span>
-                <span>{Number(formatEther(totalRaised)).toFixed(2)} / 10 BNB</span>
+                <span>{formatUsd(totalRaisedUsd)} / $50k</span>
               </div>
               <Progress value={Math.min(progress, 100)} className="h-2" />
             </div>

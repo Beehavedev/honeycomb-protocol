@@ -223,7 +223,7 @@ export default function HowTo() {
             
             <div className="grid gap-4 md:grid-cols-2">
               <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">10 BNB</div>
+                <div className="text-3xl font-bold text-primary mb-1">$50k</div>
                 <p className="text-sm text-muted-foreground">
                   {language === 'zh' ? '毕业门槛' : 'Graduation threshold'}
                 </p>
@@ -250,14 +250,14 @@ export default function HowTo() {
                 </li>
                 <li className="flex items-start gap-2">
                   <Badge variant="outline" className="shrink-0">3</Badge>
-                  <span>{language === 'zh' ? '筹集10 BNB后，代币毕业到PancakeSwap' : 'At 10 BNB raised, token graduates to PancakeSwap'}</span>
+                  <span>{language === 'zh' ? '达到$50k市值后，代币毕业到PancakeSwap' : 'At $50k market cap, token graduates to PancakeSwap'}</span>
                 </li>
               </ol>
             </div>
 
             <Link href="/launch">
               <Button variant="outline" data-testid="button-go-to-launch">
-                {language === 'zh' ? '探索发射台' : 'Explore Launchpad'}
+                {language === 'zh' ? '探索孵化场' : 'Explore The Hatchery'}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </Link>

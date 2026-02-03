@@ -28,6 +28,7 @@ import { formatDistanceToNow } from "date-fns";
 import { PriceChart } from "@/components/price-chart";
 import { formatEther, parseEther } from "viem";
 import { useAccount, useSwitchChain, useChainId } from "wagmi";
+import { useBnbPrice, formatUsd, bnbToUsd, GRADUATION_USD_TARGET } from "@/hooks/use-bnb-price";
 
 const DEPLOYED_CHAIN_ID = 56; // BSC Mainnet
 import { 
@@ -447,11 +448,13 @@ export default function LaunchDetail() {
   }
 
   const { token, trades } = data;
-  const graduationThreshold = BigInt("10000000000000000000");
+  const { data: priceData } = useBnbPrice();
+  const bnbPrice = priceData?.price || 600;
+  
   const totalRaised = BigInt(token.totalRaisedNative || "0");
-  const progress = graduationThreshold > BigInt(0) 
-    ? Number((totalRaised * BigInt(100)) / graduationThreshold)
-    : 0;
+  const totalRaisedBnb = Number(formatEther(totalRaised));
+  const totalRaisedUsd = bnbToUsd(totalRaisedBnb, bnbPrice);
+  const progress = (totalRaisedUsd / GRADUATION_USD_TARGET) * 100;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -519,7 +522,7 @@ export default function LaunchDetail() {
                 <div className="mb-4">
                   <div className="flex justify-between text-sm text-muted-foreground mb-2">
                     <span>Progress to graduation</span>
-                    <span>{formatEther(totalRaised)} / 10 BNB</span>
+                    <span>{formatUsd(totalRaisedUsd)} / $50k</span>
                   </div>
                   <Progress value={Math.min(progress, 100)} className="h-3" />
                 </div>
