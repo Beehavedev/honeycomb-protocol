@@ -10,8 +10,12 @@ import {
   type LaunchTrade, type InsertLaunchTrade,
   type Duel, type InsertDuel,
   type DuelAsset, type InsertDuelAsset,
+  type DuelStat, type InsertDuelStat,
+  type LeaderboardDaily, type InsertLeaderboardDaily,
+  type LeaderboardWeekly, type InsertLeaderboardWeekly,
   agents, posts, comments, votes, authNonces, bounties, solutions,
-  launchTokens, launchTrades, duels, duelAssets
+  launchTokens, launchTrades, duels, duelAssets,
+  duelStats, leaderboardDaily, leaderboardWeekly
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -104,6 +108,25 @@ export interface IStorage {
     activeDuels: number;
     totalAiAgents: number;
   }>;
+
+  // Leaderboard
+  getDuelStats(agentId: string): Promise<DuelStat | undefined>;
+  getDuelStatsByAddress(ownerAddress: string): Promise<DuelStat | undefined>;
+  upsertDuelStats(agentId: string, ownerAddress: string, stats: { 
+    wins?: number; losses?: number; draws?: number; 
+    volumeWei?: string; pnlWei?: string 
+  }): Promise<DuelStat>;
+  getLeaderboard(range: "daily" | "weekly", date?: string): Promise<Array<{
+    agentId: string;
+    ownerAddress: string;
+    wins: number;
+    losses: number;
+    draws: number;
+    pnlWei: string;
+    volumeWei: string;
+  }>>;
+  upsertLeaderboardDaily(entry: InsertLeaderboardDaily): Promise<LeaderboardDaily>;
+  upsertLeaderboardWeekly(entry: InsertLeaderboardWeekly): Promise<LeaderboardWeekly>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -564,6 +587,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async settleDuel(id: string, endPrice: string, winnerAddress: string | null, payoutWei: string, feeWei: string): Promise<Duel> {
+    // Get the duel before settling to access creator/joiner info
+    const [existingDuel] = await db.select().from(duels).where(eq(duels.id, id)).limit(1);
+    
     const [duel] = await db.update(duels)
       .set({
         endPrice,
@@ -574,6 +600,105 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(duels.id, id))
       .returning();
+    
+    // Update leaderboard stats for both participants
+    if (existingDuel && existingDuel.creatorAgentId && existingDuel.joinerAgentId) {
+      const stakeWei = existingDuel.stakeWei;
+      const isDraw = !winnerAddress;
+      const creatorWon = winnerAddress?.toLowerCase() === existingDuel.creatorAddress.toLowerCase();
+      const joinerWon = winnerAddress?.toLowerCase() === existingDuel.joinerAddress?.toLowerCase();
+      
+      // Calculate PnL: winner gets payout - stake, loser loses stake, draw is 0
+      const winnerPnL = (BigInt(payoutWei) - BigInt(stakeWei)).toString();
+      const loserPnL = `-${stakeWei}`;
+      
+      // Get today's date and week start for leaderboard entries
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(now);
+      monday.setDate(diff);
+      const weekStart = monday.toISOString().split('T')[0];
+      
+      try {
+        // Update creator stats
+        await this.upsertDuelStats(existingDuel.creatorAgentId, existingDuel.creatorAddress, {
+          wins: creatorWon ? 1 : 0,
+          losses: joinerWon ? 1 : 0,
+          draws: isDraw ? 1 : 0,
+          volumeWei: stakeWei,
+          pnlWei: isDraw ? "0" : (creatorWon ? winnerPnL : loserPnL),
+        });
+        
+        // Update joiner stats
+        if (existingDuel.joinerAddress) {
+          await this.upsertDuelStats(existingDuel.joinerAgentId, existingDuel.joinerAddress, {
+            wins: joinerWon ? 1 : 0,
+            losses: creatorWon ? 1 : 0,
+            draws: isDraw ? 1 : 0,
+            volumeWei: stakeWei,
+            pnlWei: isDraw ? "0" : (joinerWon ? winnerPnL : loserPnL),
+          });
+        }
+        
+        // Update daily leaderboard for creator
+        await this.upsertLeaderboardDaily({
+          date: today,
+          agentId: existingDuel.creatorAgentId,
+          ownerAddress: existingDuel.creatorAddress.toLowerCase(),
+          wins: creatorWon ? 1 : 0,
+          losses: joinerWon ? 1 : 0,
+          draws: isDraw ? 1 : 0,
+          pnlWei: isDraw ? "0" : (creatorWon ? winnerPnL : loserPnL),
+          volumeWei: stakeWei,
+        });
+        
+        // Update daily leaderboard for joiner
+        if (existingDuel.joinerAgentId && existingDuel.joinerAddress) {
+          await this.upsertLeaderboardDaily({
+            date: today,
+            agentId: existingDuel.joinerAgentId,
+            ownerAddress: existingDuel.joinerAddress.toLowerCase(),
+            wins: joinerWon ? 1 : 0,
+            losses: creatorWon ? 1 : 0,
+            draws: isDraw ? 1 : 0,
+            pnlWei: isDraw ? "0" : (joinerWon ? winnerPnL : loserPnL),
+            volumeWei: stakeWei,
+          });
+        }
+        
+        // Update weekly leaderboard for creator
+        await this.upsertLeaderboardWeekly({
+          weekStartDate: weekStart,
+          agentId: existingDuel.creatorAgentId,
+          ownerAddress: existingDuel.creatorAddress.toLowerCase(),
+          wins: creatorWon ? 1 : 0,
+          losses: joinerWon ? 1 : 0,
+          draws: isDraw ? 1 : 0,
+          pnlWei: isDraw ? "0" : (creatorWon ? winnerPnL : loserPnL),
+          volumeWei: stakeWei,
+        });
+        
+        // Update weekly leaderboard for joiner
+        if (existingDuel.joinerAgentId && existingDuel.joinerAddress) {
+          await this.upsertLeaderboardWeekly({
+            weekStartDate: weekStart,
+            agentId: existingDuel.joinerAgentId,
+            ownerAddress: existingDuel.joinerAddress.toLowerCase(),
+            wins: joinerWon ? 1 : 0,
+            losses: creatorWon ? 1 : 0,
+            draws: isDraw ? 1 : 0,
+            pnlWei: isDraw ? "0" : (joinerWon ? winnerPnL : loserPnL),
+            volumeWei: stakeWei,
+          });
+        }
+      } catch (statsError) {
+        console.error("Failed to update leaderboard stats:", statsError);
+        // Don't fail the settlement if stats update fails
+      }
+    }
+    
     return duel;
   }
 
@@ -630,6 +755,177 @@ export class DatabaseStorage implements IStorage {
       activeDuels: Number(activeDuelsResult.count),
       totalAiAgents: Number(aiAgentsResult.count),
     };
+  }
+
+  // ============ LEADERBOARD ============
+
+  async getDuelStats(agentId: string): Promise<DuelStat | undefined> {
+    const [result] = await db.select().from(duelStats)
+      .where(eq(duelStats.agentId, agentId))
+      .limit(1);
+    return result;
+  }
+
+  async getDuelStatsByAddress(ownerAddress: string): Promise<DuelStat | undefined> {
+    const [result] = await db.select().from(duelStats)
+      .where(eq(duelStats.ownerAddress, ownerAddress.toLowerCase()))
+      .limit(1);
+    return result;
+  }
+
+  async upsertDuelStats(
+    agentId: string, 
+    ownerAddress: string, 
+    stats: { wins?: number; losses?: number; draws?: number; volumeWei?: string; pnlWei?: string }
+  ): Promise<DuelStat> {
+    const existing = await this.getDuelStats(agentId);
+    
+    if (existing) {
+      const newWins = existing.wins + (stats.wins || 0);
+      const newLosses = existing.losses + (stats.losses || 0);
+      const newDraws = existing.draws + (stats.draws || 0);
+      const newVolume = (BigInt(existing.volumeWei) + BigInt(stats.volumeWei || "0")).toString();
+      const newPnl = (BigInt(existing.pnlWei) + BigInt(stats.pnlWei || "0")).toString();
+      
+      const [updated] = await db.update(duelStats)
+        .set({ 
+          wins: newWins,
+          losses: newLosses,
+          draws: newDraws,
+          volumeWei: newVolume,
+          pnlWei: newPnl,
+          lastUpdated: new Date()
+        })
+        .where(eq(duelStats.agentId, agentId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(duelStats)
+        .values({
+          agentId,
+          ownerAddress: ownerAddress.toLowerCase(),
+          wins: stats.wins || 0,
+          losses: stats.losses || 0,
+          draws: stats.draws || 0,
+          volumeWei: stats.volumeWei || "0",
+          pnlWei: stats.pnlWei || "0",
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getLeaderboard(range: "daily" | "weekly", date?: string): Promise<Array<{
+    agentId: string;
+    ownerAddress: string;
+    wins: number;
+    losses: number;
+    draws: number;
+    pnlWei: string;
+    volumeWei: string;
+  }>> {
+    const now = new Date();
+    
+    if (range === "daily") {
+      const targetDate = date || now.toISOString().split('T')[0];
+      const results = await db.select().from(leaderboardDaily)
+        .where(eq(leaderboardDaily.date, targetDate))
+        .orderBy(desc(sql`CAST(pnl_wei AS NUMERIC)`))
+        .limit(100);
+      
+      return results.map(r => ({
+        agentId: r.agentId,
+        ownerAddress: r.ownerAddress,
+        wins: r.wins,
+        losses: r.losses,
+        draws: r.draws,
+        pnlWei: r.pnlWei,
+        volumeWei: r.volumeWei,
+      }));
+    } else {
+      // Weekly - get the Monday of the target week
+      let targetWeekStart = date;
+      if (!targetWeekStart) {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(now);
+        monday.setDate(diff);
+        targetWeekStart = monday.toISOString().split('T')[0];
+      }
+      
+      const results = await db.select().from(leaderboardWeekly)
+        .where(eq(leaderboardWeekly.weekStartDate, targetWeekStart))
+        .orderBy(desc(sql`CAST(pnl_wei AS NUMERIC)`))
+        .limit(100);
+      
+      return results.map(r => ({
+        agentId: r.agentId,
+        ownerAddress: r.ownerAddress,
+        wins: r.wins,
+        losses: r.losses,
+        draws: r.draws,
+        pnlWei: r.pnlWei,
+        volumeWei: r.volumeWei,
+      }));
+    }
+  }
+
+  async upsertLeaderboardDaily(entry: InsertLeaderboardDaily): Promise<LeaderboardDaily> {
+    const [existing] = await db.select().from(leaderboardDaily)
+      .where(and(
+        eq(leaderboardDaily.date, entry.date),
+        eq(leaderboardDaily.agentId, entry.agentId)
+      ))
+      .limit(1);
+    
+    if (existing) {
+      const [updated] = await db.update(leaderboardDaily)
+        .set({
+          wins: (existing.wins || 0) + (entry.wins || 0),
+          losses: (existing.losses || 0) + (entry.losses || 0),
+          draws: (existing.draws || 0) + (entry.draws || 0),
+          pnlWei: (BigInt(existing.pnlWei) + BigInt(entry.pnlWei || "0")).toString(),
+          volumeWei: (BigInt(existing.volumeWei) + BigInt(entry.volumeWei || "0")).toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(leaderboardDaily.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(leaderboardDaily)
+        .values(entry)
+        .returning();
+      return created;
+    }
+  }
+
+  async upsertLeaderboardWeekly(entry: InsertLeaderboardWeekly): Promise<LeaderboardWeekly> {
+    const [existing] = await db.select().from(leaderboardWeekly)
+      .where(and(
+        eq(leaderboardWeekly.weekStartDate, entry.weekStartDate),
+        eq(leaderboardWeekly.agentId, entry.agentId)
+      ))
+      .limit(1);
+    
+    if (existing) {
+      const [updated] = await db.update(leaderboardWeekly)
+        .set({
+          wins: (existing.wins || 0) + (entry.wins || 0),
+          losses: (existing.losses || 0) + (entry.losses || 0),
+          draws: (existing.draws || 0) + (entry.draws || 0),
+          pnlWei: (BigInt(existing.pnlWei) + BigInt(entry.pnlWei || "0")).toString(),
+          volumeWei: (BigInt(existing.volumeWei) + BigInt(entry.volumeWei || "0")).toString(),
+          updatedAt: new Date(),
+        })
+        .where(eq(leaderboardWeekly.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(leaderboardWeekly)
+        .values(entry)
+        .returning();
+      return created;
+    }
   }
 }
 

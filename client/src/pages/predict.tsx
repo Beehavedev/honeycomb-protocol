@@ -36,7 +36,11 @@ import {
   Wallet,
   Loader2,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Medal,
+  Crown,
+  Shuffle,
+  ShieldCheck
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -340,6 +344,167 @@ function LivePriceChart({ duel }: { duel: Duel }) {
   );
 }
 
+// Leaderboard Panel Component
+function LeaderboardPanel() {
+  const { t } = useI18n();
+  const [leaderboardRange, setLeaderboardRange] = useState<"daily" | "weekly">("daily");
+  
+  const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<{
+    range: string;
+    date: string;
+    entries: Array<{
+      rank: number;
+      agentId: string;
+      ownerAddress: string;
+      agentName: string;
+      avatarUrl: string | null;
+      wins: number;
+      losses: number;
+      draws: number;
+      pnlWei: string;
+      volumeWei: string;
+      winRate: number;
+    }>;
+  }>({
+    queryKey: ["/api/duels/leaderboard", leaderboardRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/duels/leaderboard?range=${leaderboardRange}`);
+      return res.json();
+    },
+    refetchInterval: 30000,
+    staleTime: 10000,
+  });
+
+  const formatPnL = (pnlWei: string) => {
+    const bnb = parseFloat(pnlWei) / 1e18;
+    const isPositive = bnb >= 0;
+    return (
+      <span className={isPositive ? "text-green-500" : "text-red-500"}>
+        {isPositive ? "+" : ""}{bnb.toFixed(4)} BNB
+      </span>
+    );
+  };
+
+  const formatVolume = (volumeWei: string) => {
+    const bnb = parseFloat(volumeWei) / 1e18;
+    return `${bnb.toFixed(4)} BNB`;
+  };
+
+  const getRankBadge = (rank: number) => {
+    if (rank === 1) return <Crown className="h-5 w-5 text-amber-400" />;
+    if (rank === 2) return <Medal className="h-5 w-5 text-gray-400" />;
+    if (rank === 3) return <Medal className="h-5 w-5 text-amber-700" />;
+    return <span className="text-muted-foreground font-mono">#{rank}</span>;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-amber-500" />
+            {t('predict.leaderboard') || "Leaderboard"}
+          </CardTitle>
+          <Tabs value={leaderboardRange} onValueChange={(v) => setLeaderboardRange(v as "daily" | "weekly")}>
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger value="daily" data-testid="leaderboard-daily">
+                {t('predict.daily') || "Daily"}
+              </TabsTrigger>
+              <TabsTrigger value="weekly" data-testid="leaderboard-weekly">
+                {t('predict.weekly') || "Weekly"}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        {leaderboard?.date && (
+          <p className="text-sm text-muted-foreground">
+            {leaderboardRange === "daily" ? leaderboard.date : `Week of ${leaderboard.date}`}
+          </p>
+        )}
+      </CardHeader>
+      <CardContent>
+        {leaderboardLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : !leaderboard?.entries?.length ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>{t('predict.noLeaderboardData') || "No duels settled yet this period"}</p>
+            <p className="text-sm mt-2">{t('predict.beFirstOnLeaderboard') || "Be the first to complete a duel!"}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b pb-2 px-2">
+              <div className="col-span-1">#</div>
+              <div className="col-span-3">{t('predict.player') || "Player"}</div>
+              <div className="col-span-2 text-center">{t('predict.wins') || "W/L"}</div>
+              <div className="col-span-2 text-center">{t('predict.winRate') || "Win%"}</div>
+              <div className="col-span-2 text-right">{t('predict.pnl') || "P&L"}</div>
+              <div className="col-span-2 text-right">{t('predict.volume') || "Volume"}</div>
+            </div>
+            
+            {/* Leaderboard Entries */}
+            {leaderboard.entries.map((entry) => (
+              <div 
+                key={entry.agentId}
+                className={`grid grid-cols-12 gap-2 items-center py-2 px-2 rounded-md hover-elevate ${
+                  entry.rank <= 3 ? "bg-amber-500/5" : ""
+                }`}
+                data-testid={`leaderboard-entry-${entry.rank}`}
+              >
+                <div className="col-span-1 flex items-center justify-center">
+                  {getRankBadge(entry.rank)}
+                </div>
+                <div className="col-span-3 flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {entry.avatarUrl ? (
+                      <img src={entry.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-bold text-amber-500">
+                        {entry.agentName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate text-sm">{entry.agentName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {entry.ownerAddress.slice(0, 6)}...{entry.ownerAddress.slice(-4)}
+                    </p>
+                  </div>
+                </div>
+                <div className="col-span-2 text-center text-sm">
+                  <span className="text-green-500">{entry.wins}</span>
+                  <span className="text-muted-foreground">/</span>
+                  <span className="text-red-500">{entry.losses}</span>
+                  {entry.draws > 0 && (
+                    <>
+                      <span className="text-muted-foreground">/</span>
+                      <span className="text-gray-500">{entry.draws}</span>
+                    </>
+                  )}
+                </div>
+                <div className="col-span-2 text-center text-sm">
+                  <span className={entry.winRate >= 50 ? "text-green-500" : "text-red-500"}>
+                    {entry.winRate}%
+                  </span>
+                </div>
+                <div className="col-span-2 text-right text-sm">
+                  {formatPnL(entry.pnlWei)}
+                </div>
+                <div className="col-span-2 text-right text-sm text-muted-foreground">
+                  {formatVolume(entry.volumeWei)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSettling, isCancelling, isReclaiming }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; onReclaim?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean; isReclaiming?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
@@ -414,6 +579,12 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
             <Badge variant="outline" className="font-mono text-lg px-3 py-1">
               {duel.assetId}
             </Badge>
+            {duel.duelType === "random" && (
+              <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-500">
+                <Shuffle className="h-3 w-3 mr-1" />
+                {t('predict.provablyFair') || "Provably Fair"}
+              </Badge>
+            )}
             <Badge 
               variant={duel.status === "open" ? "default" : duel.status === "live" ? "secondary" : duel.status === "cancelled" ? "destructive" : "outline"}
               className="uppercase"
@@ -731,6 +902,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
   const [duration, setDuration] = useState("60");
   const [stake, setStake] = useState("0.01");
   const [direction, setDirection] = useState<"up" | "down">("up");
+  const [duelType, setDuelType] = useState<"price" | "random">("price");
   const [authError, setAuthError] = useState<string | null>(null);
 
   const { data: assets } = useQuery<DuelAsset[]>({
@@ -1026,7 +1198,42 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
           </div>
         </div>
 
-        {/* Live TradingView chart to see entry price */}
+        {/* Duel Type Selector */}
+        <div className="space-y-2">
+          <Label>{t('predict.duelType') || "Bet Type"}</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={duelType === "price" ? "default" : "outline"}
+              onClick={() => setDuelType("price")}
+              className={duelType === "price" ? "bg-amber-500 hover:bg-amber-600" : ""}
+              data-testid="btn-duel-type-price"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              {t('predict.pricePredict') || "Price Prediction"}
+            </Button>
+            <Button
+              type="button"
+              variant={duelType === "random" ? "default" : "outline"}
+              onClick={() => setDuelType("random")}
+              className={duelType === "random" ? "bg-purple-500 hover:bg-purple-600" : ""}
+              data-testid="btn-duel-type-random"
+            >
+              <Shuffle className="h-4 w-4 mr-2" />
+              {t('predict.randomDuel') || "Random 50/50"}
+            </Button>
+          </div>
+          {duelType === "random" && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <ShieldCheck className="h-4 w-4 text-purple-500" />
+              <span className="text-sm text-purple-500">
+                {t('predict.provablyFair') || "Provably Fair"} - {t('predict.vrfRandom') || "VRF determines winner randomly"}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Live TradingView chart to see entry price - only for price duels */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2">
             {t('predict.liveChart')} - {assetId}/USDT
@@ -1683,7 +1890,7 @@ export default function Predict() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex items-center gap-2 mb-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="open" data-testid="tab-open">
               <Users className="h-4 w-4 mr-2" />
               {t('predict.openDuels')}
@@ -1700,6 +1907,10 @@ export default function Predict() {
               <XCircle className="h-4 w-4 mr-2" />
               {t('duel.cancelled')}
             </TabsTrigger>
+            <TabsTrigger value="leaderboard" data-testid="tab-leaderboard">
+              <Medal className="h-4 w-4 mr-2" />
+              {t('predict.leaderboard') || "Leaderboard"}
+            </TabsTrigger>
           </TabsList>
           <Button 
             variant="outline" 
@@ -1712,44 +1923,54 @@ export default function Predict() {
           </Button>
         </div>
 
+        {/* Leaderboard Tab */}
+        <TabsContent value="leaderboard">
+          <LeaderboardPanel />
+        </TabsContent>
+
+        {/* Duel Tabs */}
         <TabsContent value={activeTab}>
-          {isLoading ? (
-            <div className="grid gap-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="h-32" />
+          {activeTab !== "leaderboard" && (
+            <>
+              {isLoading ? (
+                <div className="grid gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="h-32" />
+                    </Card>
+                  ))}
+                </div>
+              ) : duels?.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <p className="text-muted-foreground">No {activeTab} duels yet</p>
+                    {activeTab === "open" && (
+                      <Button onClick={() => setShowCreate(true)} className="mt-4" data-testid="btn-create-first">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create First Duel
+                      </Button>
+                    )}
+                  </CardContent>
                 </Card>
-              ))}
-            </div>
-          ) : duels?.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <p className="text-muted-foreground">No {activeTab} duels yet</p>
-                {activeTab === "open" && (
-                  <Button onClick={() => setShowCreate(true)} className="mt-4" data-testid="btn-create-first">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create First Duel
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {duels?.map((duel) => (
-                <DuelCard
-                  key={duel.id}
-                  duel={duel}
-                  onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
-                  onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
-                  onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}
-                  onReclaim={activeTab === "cancelled" ? () => handleReclaimStake(duel) : undefined}
-                  isJoining={joinMutation.isPending || isJoiningOnChain}
-                  isSettling={isSettlingOnChain || syncSettleMutation.isPending}
-                  isCancelling={isCancellingOnChain || syncCancelMutation.isPending}
-                  isReclaiming={reclaimingDuelId === duel.id && (isCancellingOnChain || syncReclaimMutation.isPending)}
-                />
-              ))}
-            </div>
+              ) : (
+                <div className="grid gap-4">
+                  {duels?.map((duel) => (
+                    <DuelCard
+                      key={duel.id}
+                      duel={duel}
+                      onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
+                      onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
+                      onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}
+                      onReclaim={activeTab === "cancelled" ? () => handleReclaimStake(duel) : undefined}
+                      isJoining={joinMutation.isPending || isJoiningOnChain}
+                      isSettling={isSettlingOnChain || syncSettleMutation.isPending}
+                      isCancelling={isCancellingOnChain || syncCancelMutation.isPending}
+                      isReclaiming={reclaimingDuelId === duel.id && (isCancellingOnChain || syncReclaimMutation.isPending)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>

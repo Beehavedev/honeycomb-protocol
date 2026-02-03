@@ -9,21 +9,29 @@ interface IAgentRegistry {
     function agentExists(uint256 agentId) external view returns (bool);
 }
 
+// VRF Consumer interface for random duels
+interface IVRFConsumer {
+    function requestRandomWords(uint256 duelId) external returns (uint256 requestId);
+}
+
 /**
  * @title HoneycombPredictDuel
- * @notice On-chain prediction duels for cryptocurrency price betting
+ * @notice On-chain prediction duels for cryptocurrency price betting + VRF random duels
  * @dev 1v1 duels with BNB escrow - 90% to winner, 10% platform fee
  */
 contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
+    bytes32 public constant VRF_ROLE = keccak256("VRF_ROLE");
 
-    enum DuelStatus { OPEN, LIVE, SETTLED, CANCELLED, EXPIRED }
+    enum DuelStatus { OPEN, LIVE, PENDING_VRF, SETTLED, CANCELLED, EXPIRED }
     enum Direction { UP, DOWN }
+    enum DuelType { PRICE, RANDOM }
 
     struct Duel {
         uint256 id;
         string assetId;
+        DuelType duelType;
         uint256 creatorAgentId;
         address creatorAddress;
         Direction creatorDirection;
@@ -40,9 +48,12 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         uint256 payout;
         uint256 fee;
         uint256 createdAt;
+        uint256 vrfRequestId;
+        uint256 vrfRandomWord;
     }
 
     IAgentRegistry public agentRegistry;
+    IVRFConsumer public vrfConsumer;
     address public feeTreasury;
     uint256 public feePercentage = 10;
     
@@ -50,6 +61,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
     
     mapping(uint256 => Duel) public duels;
     mapping(uint256 => bool) public duelExists;
+    mapping(uint256 => uint256) public vrfRequestToDuel; // VRF requestId => duelId
 
     uint256 public constant MIN_STAKE = 0.001 ether;
     uint256 public constant MAX_STAKE = 100 ether;
@@ -62,6 +74,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         address indexed creator,
         string assetId,
         uint8 direction,
+        uint8 duelType,
         uint256 stakeAmount,
         uint256 durationSeconds,
         uint256 timestamp
@@ -83,6 +96,28 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         uint256 endPrice,
         uint256 payout,
         uint256 fee,
+        uint256 timestamp
+    );
+
+    event RandomDuelSettled(
+        uint256 indexed duelId,
+        address indexed winner,
+        uint256 randomWord,
+        uint256 payout,
+        uint256 fee,
+        uint256 timestamp
+    );
+
+    event RandomnessRequested(
+        uint256 indexed duelId,
+        uint256 indexed requestId,
+        uint256 timestamp
+    );
+
+    event RandomnessFulfilled(
+        uint256 indexed duelId,
+        uint256 indexed requestId,
+        uint256 randomWord,
         uint256 timestamp
     );
 
@@ -123,6 +158,10 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
     error ZeroAddress();
     error StakeMismatch();
     error NoWinner();
+    error InvalidDuelType();
+    error VRFNotConfigured();
+    error InvalidVRFRequest();
+    error DuelNotPendingVRF();
 
     constructor(address _agentRegistry, address _feeTreasury) {
         if (_agentRegistry == address(0)) revert ZeroAddress();
@@ -134,6 +173,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(ORACLE_ROLE, msg.sender);
+        _grantRole(VRF_ROLE, msg.sender);
     }
 
     /**
@@ -154,6 +194,45 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         nonReentrant 
         returns (uint256 duelId) 
     {
+        return _createDuel(agentId, assetId, direction, durationSeconds, DuelType.PRICE);
+    }
+
+    /**
+     * @notice Create a new duel with specified type (PRICE or RANDOM)
+     * @param agentId The creator's agent ID
+     * @param assetId Asset symbol (e.g., "BTC", "ETH", "BNB") - used for display in RANDOM duels
+     * @param direction Creator's prediction (0 = UP, 1 = DOWN)
+     * @param durationSeconds Duration of the duel once started
+     * @param duelType 0 = PRICE (oracle-settled), 1 = RANDOM (VRF-settled)
+     */
+    function createDuelWithType(
+        uint256 agentId,
+        string calldata assetId,
+        Direction direction,
+        uint256 durationSeconds,
+        DuelType duelType
+    ) 
+        external 
+        payable 
+        nonReentrant 
+        returns (uint256 duelId) 
+    {
+        if (duelType == DuelType.RANDOM && address(vrfConsumer) == address(0)) {
+            revert VRFNotConfigured();
+        }
+        return _createDuel(agentId, assetId, direction, durationSeconds, duelType);
+    }
+
+    function _createDuel(
+        uint256 agentId,
+        string calldata assetId,
+        Direction direction,
+        uint256 durationSeconds,
+        DuelType duelType
+    ) 
+        internal 
+        returns (uint256 duelId) 
+    {
         if (!agentRegistry.agentExists(agentId)) revert AgentNotFound();
         if (!agentRegistry.isAgentOwner(msg.sender, agentId)) revert NotAgentOwner();
         if (bytes(assetId).length == 0) revert InvalidAssetId();
@@ -165,6 +244,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         duels[duelId] = Duel({
             id: duelId,
             assetId: assetId,
+            duelType: duelType,
             creatorAgentId: agentId,
             creatorAddress: msg.sender,
             creatorDirection: direction,
@@ -180,7 +260,9 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
             winner: address(0),
             payout: 0,
             fee: 0,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            vrfRequestId: 0,
+            vrfRandomWord: 0
         });
         
         duelExists[duelId] = true;
@@ -191,6 +273,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
             msg.sender,
             assetId,
             uint8(direction),
+            uint8(duelType),
             msg.value,
             durationSeconds,
             block.timestamp
@@ -241,7 +324,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Settle a live duel after it ends (oracle/admin only)
+     * @notice Settle a live PRICE duel after it ends (oracle/admin only)
      * @param duelId The duel to settle
      * @param endPrice Final price of the asset
      */
@@ -255,6 +338,7 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
         Duel storage duel = duels[duelId];
         if (duel.status != DuelStatus.LIVE) revert DuelNotLive();
         if (block.timestamp < duel.endTs) revert DuelNotEnded();
+        if (duel.duelType != DuelType.PRICE) revert InvalidDuelType();
 
         duel.endPrice = endPrice;
         duel.status = DuelStatus.SETTLED;
@@ -291,6 +375,84 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
 
         emit FeeTransferred(duelId, feeTreasury, fee, block.timestamp);
         emit DuelSettled(duelId, winner, endPrice, payout, fee, block.timestamp);
+    }
+
+    /**
+     * @notice Request VRF randomness for a RANDOM duel (oracle/admin only)
+     * @param duelId The duel to settle via VRF
+     */
+    function requestRandomSettlement(uint256 duelId) 
+        external 
+        nonReentrant
+        onlyRole(ORACLE_ROLE)
+    {
+        if (!duelExists[duelId]) revert DuelNotFound();
+        if (address(vrfConsumer) == address(0)) revert VRFNotConfigured();
+        
+        Duel storage duel = duels[duelId];
+        if (duel.status != DuelStatus.LIVE) revert DuelNotLive();
+        if (block.timestamp < duel.endTs) revert DuelNotEnded();
+        if (duel.duelType != DuelType.RANDOM) revert InvalidDuelType();
+
+        duel.status = DuelStatus.PENDING_VRF;
+        
+        uint256 requestId = vrfConsumer.requestRandomWords(duelId);
+        duel.vrfRequestId = requestId;
+        vrfRequestToDuel[requestId] = duelId;
+
+        emit RandomnessRequested(duelId, requestId, block.timestamp);
+    }
+
+    /**
+     * @notice Callback from VRF consumer with random result
+     * @param requestId The VRF request ID
+     * @param randomWord The random number from VRF
+     */
+    function fulfillRandomness(uint256 requestId, uint256 randomWord) 
+        external 
+        nonReentrant
+        onlyRole(VRF_ROLE)
+    {
+        uint256 duelId = vrfRequestToDuel[requestId];
+        if (duelId == 0) revert InvalidVRFRequest();
+        
+        Duel storage duel = duels[duelId];
+        if (duel.status != DuelStatus.PENDING_VRF) revert DuelNotPendingVRF();
+        
+        // Replay protection: clear the mapping to prevent re-fulfillment
+        delete vrfRequestToDuel[requestId];
+
+        duel.vrfRandomWord = randomWord;
+        duel.status = DuelStatus.SETTLED;
+
+        emit RandomnessFulfilled(duelId, requestId, randomWord, block.timestamp);
+
+        uint256 pot = duel.stakeAmount * 2;
+        uint256 fee = (pot * feePercentage) / 100;
+        uint256 payout = pot - fee;
+
+        // randomWord % 2: 0 = UP wins, 1 = DOWN wins
+        bool upWins = (randomWord % 2) == 0;
+        address winner;
+        
+        if (upWins) {
+            winner = duel.creatorDirection == Direction.UP ? duel.creatorAddress : duel.joinerAddress;
+        } else {
+            winner = duel.creatorDirection == Direction.DOWN ? duel.creatorAddress : duel.joinerAddress;
+        }
+
+        duel.winner = winner;
+        duel.payout = payout;
+        duel.fee = fee;
+
+        (bool successWinner, ) = winner.call{value: payout}("");
+        if (!successWinner) revert TransferFailed();
+
+        (bool successFee, ) = feeTreasury.call{value: fee}("");
+        if (!successFee) revert TransferFailed();
+
+        emit FeeTransferred(duelId, feeTreasury, fee, block.timestamp);
+        emit RandomDuelSettled(duelId, winner, randomWord, payout, fee, block.timestamp);
     }
 
     /**
@@ -389,5 +551,15 @@ contract HoneycombPredictDuel is AccessControl, ReentrancyGuard {
     {
         if (_agentRegistry == address(0)) revert ZeroAddress();
         agentRegistry = IAgentRegistry(_agentRegistry);
+    }
+
+    /**
+     * @notice Set VRF consumer contract address (admin only)
+     */
+    function setVRFConsumer(address _vrfConsumer) 
+        external 
+        onlyRole(ADMIN_ROLE) 
+    {
+        vrfConsumer = IVRFConsumer(_vrfConsumer);
     }
 }

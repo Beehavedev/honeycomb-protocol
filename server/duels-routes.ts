@@ -2,6 +2,20 @@ import type { Express } from "express";
 import { storage } from "./storage";
 import { authMiddleware } from "./auth";
 import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
+import { z } from "zod";
+
+// Zod schema for HouseBot config updates
+const housebotConfigUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  walletAddress: z.string().optional(),
+  agentId: z.string().optional(),
+  onChainAgentId: z.string().optional(),
+  maxStakeWei: z.string().optional(),
+  dailyLossLimitWei: z.string().optional(),
+  maxConcurrentDuels: z.number().int().min(1).max(20).optional(),
+  allowedAssets: z.array(z.string()).optional(),
+  allowedDuelTypes: z.array(z.enum(["price", "random"])).optional(),
+}).strict();
 import { createWalletClient, createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { bsc } from "viem/chains";
@@ -853,6 +867,266 @@ export function registerDuelsRoutes(app: Express) {
       res.status(500).json({ message: msg.slice(0, 200) });
     }
   });
+
+  // ============ LEADERBOARD ENDPOINTS ============
+
+  // Get leaderboard (daily or weekly)
+  app.get("/api/duels/leaderboard", async (req, res) => {
+    try {
+      const range = (req.query.range as string) || "daily";
+      const date = req.query.date as string; // YYYY-MM-DD for daily, week start for weekly
+      
+      const entries = await storage.getLeaderboard(range as "daily" | "weekly", date);
+      
+      // Enrich with agent info
+      const enrichedEntries = await Promise.all(
+        entries.map(async (entry: any, index: number) => {
+          const agent = await storage.getAgent(entry.agentId);
+          return {
+            rank: index + 1,
+            agentId: entry.agentId,
+            ownerAddress: entry.ownerAddress,
+            agentName: agent?.name || "Unknown Bee",
+            avatarUrl: agent?.avatarUrl,
+            wins: entry.wins,
+            losses: entry.losses,
+            draws: entry.draws,
+            pnlWei: entry.pnlWei,
+            volumeWei: entry.volumeWei,
+            winRate: entry.wins + entry.losses > 0 
+              ? Math.round((entry.wins / (entry.wins + entry.losses)) * 100) 
+              : 0,
+          };
+        })
+      );
+      
+      res.json({ 
+        range, 
+        date: date || (range === "daily" ? getTodayDateString() : getWeekStartDateString()),
+        entries: enrichedEntries 
+      });
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // Get stats for a specific agent
+  app.get("/api/duels/stats/:agentId", async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      
+      const stats = await storage.getDuelStats(agentId);
+      if (!stats) {
+        return res.json({
+          agentId,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          volumeWei: "0",
+          pnlWei: "0",
+          winRate: 0,
+          totalDuels: 0,
+        });
+      }
+      
+      const totalDuels = stats.wins + stats.losses + stats.draws;
+      const winRate = totalDuels > 0 ? Math.round((stats.wins / totalDuels) * 100) : 0;
+      
+      res.json({
+        ...stats,
+        winRate,
+        totalDuels,
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Get stats by wallet address
+  app.get("/api/duels/stats/wallet/:address", async (req, res) => {
+    try {
+      const { address } = req.params;
+      
+      const stats = await storage.getDuelStatsByAddress(address.toLowerCase());
+      if (!stats) {
+        return res.json({
+          ownerAddress: address,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          volumeWei: "0",
+          pnlWei: "0",
+          winRate: 0,
+          totalDuels: 0,
+        });
+      }
+      
+      const totalDuels = stats.wins + stats.losses + stats.draws;
+      const winRate = totalDuels > 0 ? Math.round((stats.wins / totalDuels) * 100) : 0;
+      
+      res.json({
+        ...stats,
+        winRate,
+        totalDuels,
+      });
+    } catch (error) {
+      console.error("Error fetching stats by address:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // ============ HOUSEBOT ENDPOINTS ============
+
+  // Get HouseBot status (admin only)
+  app.get("/api/housebot/status", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = (req as any).user?.address?.toLowerCase();
+      
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { houseBotService } = await import("./housebot");
+      const status = await houseBotService.getStatus();
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching HouseBot status:", error);
+      res.status(500).json({ message: "Failed to fetch HouseBot status" });
+    }
+  });
+
+  // Update HouseBot config (admin only)
+  app.patch("/api/housebot/config", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = (req as any).user?.address?.toLowerCase();
+      
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      // Validate request body with Zod schema
+      const parseResult = housebotConfigUpdateSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          message: "Invalid config", 
+          errors: parseResult.error.errors 
+        });
+      }
+      
+      const { houseBotService } = await import("./housebot");
+      const updated = await houseBotService.updateConfig(parseResult.data);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating HouseBot config:", error);
+      res.status(500).json({ message: "Failed to update HouseBot config" });
+    }
+  });
+
+  // Get HouseBot activity log (admin only)
+  app.get("/api/housebot/activity", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = (req as any).user?.address?.toLowerCase();
+      
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 20;
+      const { houseBotService } = await import("./housebot");
+      const activity = await houseBotService.getRecentActivity(limit);
+      res.json(activity);
+    } catch (error) {
+      console.error("Error fetching HouseBot activity:", error);
+      res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
+  // Check if HouseBot can join a duel (admin only)
+  app.get("/api/housebot/check/:duelId", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = (req as any).user?.address?.toLowerCase();
+      
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { duelId } = req.params;
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+      
+      const { houseBotService } = await import("./housebot");
+      const result = await houseBotService.canJoinDuel(duel);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking duel:", error);
+      res.status(500).json({ message: "Failed to check duel" });
+    }
+  });
+
+  // Get matchmaking queue
+  app.get("/api/matchmaking/queue", async (req, res) => {
+    try {
+      const { houseBotService } = await import("./housebot");
+      await houseBotService.expireOldQueueEntries();
+      const queue = await houseBotService.getMatchmakingQueue();
+      res.json(queue);
+    } catch (error) {
+      console.error("Error fetching matchmaking queue:", error);
+      res.status(500).json({ message: "Failed to fetch queue" });
+    }
+  });
+
+  // Add duel to matchmaking queue
+  app.post("/api/matchmaking/enqueue", authMiddleware, async (req, res) => {
+    try {
+      const { duelId } = req.body;
+      const duel = await storage.getDuel(duelId);
+      if (!duel) {
+        return res.status(404).json({ message: "Duel not found" });
+      }
+      
+      if (duel.status !== "open") {
+        return res.status(400).json({ message: "Only open duels can be enqueued" });
+      }
+      
+      const { houseBotService } = await import("./housebot");
+      await houseBotService.addToMatchmakingQueue(
+        duelId,
+        duel.assetId,
+        duel.duelType || "price",
+        duel.durationSec,
+        duel.stakeWei,
+        duel.creatorAddress
+      );
+      
+      res.json({ success: true, message: "Added to matchmaking queue" });
+    } catch (error) {
+      console.error("Error adding to queue:", error);
+      res.status(500).json({ message: "Failed to enqueue" });
+    }
+  });
+}
+
+// Helper functions for date strings
+function getTodayDateString(): string {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
+}
+
+function getWeekStartDateString(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Get Monday
+  const monday = new Date(now.setDate(diff));
+  return monday.toISOString().split('T')[0];
 }
 
 const basePrices: Record<string, number> = {

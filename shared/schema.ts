@@ -531,6 +531,7 @@ export const duels = pgTable("duels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   onChainDuelId: bigint("on_chain_duel_id", { mode: "bigint" }), // On-chain contract duel ID (null if database-only)
   createTxHash: text("create_tx_hash"), // Transaction hash for on-chain creation
+  duelType: text("duel_type").notNull().default("price"), // "price" or "random" (VRF)
   assetId: text("asset_id").notNull(), // e.g., "BNB", "BTC", "ETH"
   assetName: text("asset_name").notNull(), // e.g., "Binance Coin"
   durationSec: integer("duration_sec").notNull(), // 30, 60, or 300
@@ -554,6 +555,9 @@ export const duels = pgTable("duels", {
   feeWei: text("fee_wei"), // 10% platform fee
   joinTxHash: text("join_tx_hash"), // Transaction hash for on-chain join
   settlementTxHash: text("settlement_tx_hash"),
+  vrfRequestId: text("vrf_request_id"), // VRF request ID for random duels
+  vrfRandomWord: text("vrf_random_word"), // VRF random word result
+  isAutoJoin: boolean("is_auto_join").default(false), // Whether HouseBot can auto-join
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -573,6 +577,7 @@ export const duelAssets = pgTable("duel_assets", {
 export const insertDuelSchema = createInsertSchema(duels).pick({
   assetId: true,
   assetName: true,
+  duelType: true,
   durationSec: true,
   stakeWei: true,
   stakeDisplay: true,
@@ -582,6 +587,7 @@ export const insertDuelSchema = createInsertSchema(duels).pick({
   creatorDirection: true,
   onChainDuelId: true,
   createTxHash: true,
+  isAutoJoin: true,
 });
 
 export const insertDuelAssetSchema = createInsertSchema(duelAssets).pick({
@@ -598,6 +604,145 @@ export type InsertDuel = z.infer<typeof insertDuelSchema>;
 
 export type DuelAsset = typeof duelAssets.$inferSelect;
 export type InsertDuelAsset = z.infer<typeof insertDuelAssetSchema>;
+
+// ============ LEADERBOARD SYSTEM ============
+
+// Duel stats - cumulative stats per agent (updated on each DuelSettled)
+export const duelStats = pgTable("duel_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  ownerAddress: text("owner_address").notNull(),
+  wins: integer("wins").default(0).notNull(),
+  losses: integer("losses").default(0).notNull(),
+  draws: integer("draws").default(0).notNull(),
+  volumeWei: text("volume_wei").default("0").notNull(), // Total volume traded
+  pnlWei: text("pnl_wei").default("0").notNull(), // Profit/loss in wei (can be negative)
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+}, (table) => ({
+  uniqueAgent: unique().on(table.agentId),
+}));
+
+// Daily leaderboard snapshots
+export const leaderboardDaily = pgTable("leaderboard_daily", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: text("date").notNull(), // YYYY-MM-DD format
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  ownerAddress: text("owner_address").notNull(),
+  wins: integer("wins").default(0).notNull(),
+  losses: integer("losses").default(0).notNull(),
+  draws: integer("draws").default(0).notNull(),
+  pnlWei: text("pnl_wei").default("0").notNull(),
+  volumeWei: text("volume_wei").default("0").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueDayAgent: unique().on(table.date, table.agentId),
+}));
+
+// Weekly leaderboard snapshots
+export const leaderboardWeekly = pgTable("leaderboard_weekly", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekStartDate: text("week_start_date").notNull(), // YYYY-MM-DD (Monday)
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  ownerAddress: text("owner_address").notNull(),
+  wins: integer("wins").default(0).notNull(),
+  losses: integer("losses").default(0).notNull(),
+  draws: integer("draws").default(0).notNull(),
+  pnlWei: text("pnl_wei").default("0").notNull(),
+  volumeWei: text("volume_wei").default("0").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueWeekAgent: unique().on(table.weekStartDate, table.agentId),
+}));
+
+// Insert schemas for leaderboards
+export const insertDuelStatsSchema = createInsertSchema(duelStats).pick({
+  agentId: true,
+  ownerAddress: true,
+  wins: true,
+  losses: true,
+  draws: true,
+  volumeWei: true,
+  pnlWei: true,
+});
+
+export const insertLeaderboardDailySchema = createInsertSchema(leaderboardDaily).pick({
+  date: true,
+  agentId: true,
+  ownerAddress: true,
+  wins: true,
+  losses: true,
+  draws: true,
+  pnlWei: true,
+  volumeWei: true,
+});
+
+export const insertLeaderboardWeeklySchema = createInsertSchema(leaderboardWeekly).pick({
+  weekStartDate: true,
+  agentId: true,
+  ownerAddress: true,
+  wins: true,
+  losses: true,
+  draws: true,
+  pnlWei: true,
+  volumeWei: true,
+});
+
+// Leaderboard types
+export type DuelStat = typeof duelStats.$inferSelect;
+export type InsertDuelStat = z.infer<typeof insertDuelStatsSchema>;
+
+export type LeaderboardDaily = typeof leaderboardDaily.$inferSelect;
+export type InsertLeaderboardDaily = z.infer<typeof insertLeaderboardDailySchema>;
+
+export type LeaderboardWeekly = typeof leaderboardWeekly.$inferSelect;
+export type InsertLeaderboardWeekly = z.infer<typeof insertLeaderboardWeeklySchema>;
+
+// ============ HOUSEBOT AUTOMATION ============
+
+// HouseBot configuration for automated duel matching
+export const housebotConfig = pgTable("housebot_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enabled: boolean("enabled").default(false).notNull(),
+  walletAddress: text("wallet_address"), // HouseBot wallet (never store private key in DB)
+  agentId: varchar("agent_id").references(() => agents.id),
+  onChainAgentId: bigint("on_chain_agent_id", { mode: "bigint" }),
+  maxStakeWei: text("max_stake_wei").default("10000000000000000").notNull(), // 0.01 BNB default max
+  dailyLossLimitWei: text("daily_loss_limit_wei").default("100000000000000000").notNull(), // 0.1 BNB default
+  maxConcurrentDuels: integer("max_concurrent_duels").default(5).notNull(),
+  allowedAssets: text("allowed_assets").array().default(sql`ARRAY['BNB', 'BTC', 'ETH']::text[]`),
+  allowedDuelTypes: text("allowed_duel_types").array().default(sql`ARRAY['price', 'random']::text[]`),
+  currentDailyLossWei: text("current_daily_loss_wei").default("0").notNull(),
+  lastDailyReset: timestamp("last_daily_reset").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// HouseBot duel activity log
+export const housebotDuels = pgTable("housebot_duels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  duelId: varchar("duel_id").notNull().references(() => duels.id),
+  action: text("action").notNull(), // "joined", "won", "lost", "draw"
+  pnlWei: text("pnl_wei").default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Matchmaking queue for automated PvP matching
+export const matchmakingQueue = pgTable("matchmaking_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  duelId: varchar("duel_id").notNull().references(() => duels.id),
+  assetId: text("asset_id").notNull(),
+  duelType: text("duel_type").notNull(), // "price" or "random"
+  durationSec: integer("duration_sec").notNull(),
+  stakeWei: text("stake_wei").notNull(),
+  creatorAddress: text("creator_address").notNull(),
+  status: text("status").notNull().default("waiting"), // waiting, matched, expired
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+// HouseBot types
+export type HousebotConfig = typeof housebotConfig.$inferSelect;
+export type HousebotDuel = typeof housebotDuels.$inferSelect;
+export type MatchmakingQueueEntry = typeof matchmakingQueue.$inferSelect;
 
 // API request/response types
 export const registerAgentRequestSchema = z.object({
