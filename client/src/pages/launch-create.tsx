@@ -70,6 +70,7 @@ export default function LaunchCreate() {
   const [createdTokenAddress, setCreatedTokenAddress] = useState<`0x${string}` | null>(null);
   const [devBuyAmountWei, setDevBuyAmountWei] = useState<bigint | null>(null);
   const [isDevBuying, setIsDevBuying] = useState(false);
+  const recordingAttemptedRef = useRef(false);
   
   // Check if on deployed network
   const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
@@ -409,7 +410,8 @@ export default function LaunchCreate() {
 
   useEffect(() => {
     const recordToken = async () => {
-      if (isConfirmed && hash && txReceipt && formData && metadataCID && !isDevBuying) {
+      if (isConfirmed && hash && txReceipt && formData && metadataCID && !isDevBuying && !recordingAttemptedRef.current) {
+        recordingAttemptedRef.current = true;
         try {
           setStep("recording");
           
@@ -477,7 +479,8 @@ export default function LaunchCreate() {
     };
     
     recordToken();
-  }, [isConfirmed, hash, txReceipt, formData, metadataCID, navigate, toast, recordMutation, devBuyAmountWei, buyTokens]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfirmed, hash, txReceipt, formData, metadataCID, devBuyAmountWei, isDevBuying]);
   
   // Handle dev buy completion
   useEffect(() => {
