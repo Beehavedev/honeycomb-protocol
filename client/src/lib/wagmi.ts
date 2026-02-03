@@ -1,5 +1,5 @@
 import { createConfig, http } from 'wagmi';
-import { injected, metaMask, coinbaseWallet, walletConnect } from 'wagmi/connectors';
+import { walletConnect, injected } from 'wagmi/connectors';
 import { type Chain } from 'viem';
 
 // Custom BSC Testnet with official RPC
