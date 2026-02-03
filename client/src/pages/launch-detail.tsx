@@ -50,11 +50,17 @@ import {
   useSimulateSell,
   parseContractError,
 } from "@/contracts/hooks";
-import type { LaunchToken, LaunchTrade } from "@shared/schema";
+import type { LaunchToken, LaunchTrade, LaunchComment } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
+import { MessageSquare, Send } from "lucide-react";
 
 interface TokenDetailResponse {
   token: LaunchToken;
   trades: LaunchTrade[];
+}
+
+interface CommentsResponse {
+  comments: LaunchComment[];
 }
 
 export default function LaunchDetail() {
@@ -73,6 +79,8 @@ export default function LaunchDetail() {
   const [copied, setCopied] = useState(false);
   const [lastTradeInfo, setLastTradeInfo] = useState<{ isBuy: boolean; nativeAmount: string; tokenAmount: string } | null>(null);
   const [pendingAction, setPendingAction] = useState<"buy" | "sell" | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [isPostingComment, setIsPostingComment] = useState(false);
   
   // Check if on deployed network
   const isOnDeployedNetwork = chainId === DEPLOYED_CHAIN_ID;
@@ -86,6 +94,39 @@ export default function LaunchDetail() {
     },
     enabled: !!tokenAddress,
   });
+
+  const { data: commentsData, refetch: refetchComments } = useQuery<CommentsResponse>({
+    queryKey: ["/api/launch/tokens", tokenAddress, "comments"],
+    queryFn: async () => {
+      const res = await fetch(`/api/launch/tokens/${tokenAddress}/comments`);
+      if (!res.ok) throw new Error("Failed to fetch comments");
+      return res.json();
+    },
+    enabled: !!tokenAddress,
+  });
+
+  const handlePostComment = async () => {
+    if (!newComment.trim() || isPostingComment) return;
+    
+    setIsPostingComment(true);
+    try {
+      await apiRequest(`/api/launch/tokens/${tokenAddress}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+      setNewComment("");
+      refetchComments();
+      toast({ title: "Comment posted!" });
+    } catch (err) {
+      toast({ 
+        title: "Failed to post comment", 
+        description: err instanceof Error ? err.message : "Please try again",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
 
   const { data: marketState, refetch: refetchMarket } = useGetMarketState(tokenAddress);
   const { data: tokenBalance, refetch: refetchBalance } = useTokenBalance(tokenAddress, userAddress);
@@ -622,6 +663,69 @@ export default function LaunchDetail() {
                           {formatEther(BigInt(trade.nativeAmount))} BNB
                         </p>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Discussion
+                {commentsData?.comments?.length ? (
+                  <Badge variant="secondary">{commentsData.comments.length}</Badge>
+                ) : null}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isAuthenticated && (
+                <div className="flex gap-2 mb-4">
+                  <Textarea
+                    placeholder="Share your thoughts about this token..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[60px] resize-none"
+                    maxLength={500}
+                    data-testid="input-comment"
+                  />
+                  <Button
+                    onClick={handlePostComment}
+                    disabled={isPostingComment || !newComment.trim()}
+                    size="icon"
+                    data-testid="button-post-comment"
+                  >
+                    {isPostingComment ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              )}
+              
+              {!commentsData?.comments?.length ? (
+                <p className="text-muted-foreground text-center py-6">
+                  {isAuthenticated ? "Be the first to comment!" : "No comments yet"}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {commentsData.comments.map((comment) => (
+                    <div 
+                      key={comment.id}
+                      className="p-3 bg-muted/50 rounded-md"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-sm">
+                          {comment.walletAddress.slice(0, 6)}...{comment.walletAddress.slice(-4)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <p className="text-sm">{comment.content}</p>
                     </div>
                   ))}
                 </div>
