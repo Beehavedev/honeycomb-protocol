@@ -326,6 +326,10 @@ export function registerDuelsRoutes(app: Express) {
       const coinId = COINGECKO_IDS[assetId];
       const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
+      if (!coinId) {
+        return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
+      }
+      
       // Check cache first (short TTL for live prices)
       const cached = priceCache[assetId];
       const now = Date.now();
