@@ -938,12 +938,12 @@ export default function LaunchDetail() {
                       <div>
                         <div className="flex justify-between mb-2">
                           <label className="text-sm font-medium">Token Amount</label>
-                          {tokenBalance !== undefined && (
+                          {tokenBalance !== undefined && typeof tokenBalance === 'bigint' && tokenBalance > BigInt(0) && (
                             <button
                               className="text-xs text-primary hover:underline"
-                              onClick={() => setSellAmount(formatEther(tokenBalance as bigint))}
+                              onClick={() => setSellAmount(formatEther(tokenBalance))}
                             >
-                              Max: {Number(formatEther(tokenBalance as bigint)).toFixed(2)}
+                              Max: {Number(formatEther(tokenBalance)).toFixed(2)}
                             </button>
                           )}
                         </div>
@@ -1025,12 +1025,12 @@ export default function LaunchDetail() {
             </CardContent>
           </Card>
 
-          {tokenBalance !== undefined && (
+          {tokenBalance !== undefined && typeof tokenBalance === 'bigint' && (
             <Card>
               <CardContent className="p-4">
                 <p className="text-sm text-muted-foreground mb-1">Your Balance</p>
                 <p className="font-mono font-bold text-lg">
-                  {Number(formatEther(tokenBalance as bigint)).toLocaleString()} {token.symbol}
+                  {Number(formatEther(tokenBalance)).toLocaleString()} {token.symbol}
                 </p>
               </CardContent>
             </Card>
