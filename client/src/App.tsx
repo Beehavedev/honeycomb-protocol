@@ -29,6 +29,7 @@ import Predict from "@/pages/predict";
 import Stats from "@/pages/stats";
 import Channel from "@/pages/channel";
 import TwitterAdmin from "@/pages/twitter-admin";
+import GmgnDocs from "@/pages/gmgn-docs";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/stats" component={Stats} />
       <Route path="/channels/:slug" component={Channel} />
       <Route path="/admin/twitter" component={TwitterAdmin} />
+      <Route path="/docs/gmgn" component={GmgnDocs} />
       <Route component={NotFound} />
     </Switch>
   );
