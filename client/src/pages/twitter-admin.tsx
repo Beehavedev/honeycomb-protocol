@@ -447,7 +447,7 @@ export default function TwitterAdmin() {
 
               <div className="border-t pt-4">
                 <p className="text-sm text-muted-foreground mb-3">
-                  Automatically find and engage with tweets mentioning "moltbook" - invite them to try Predict!
+                  Find tweets mentioning "moltbook" or "prediction market" and invite them to try Predict!
                 </p>
                 <Button
                   onClick={() => moltbookMutation.mutate()}
@@ -460,7 +460,7 @@ export default function TwitterAdmin() {
                   ) : (
                     <Users className="mr-2 h-4 w-4" />
                   )}
-                  Engage Moltbook Mentions
+                  Engage Predict Mentions
                 </Button>
               </div>
             </CardContent>

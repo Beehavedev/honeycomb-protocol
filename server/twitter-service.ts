@@ -233,32 +233,48 @@ Generate ONLY the reply text, nothing else.`;
     }
 
     try {
+      let allTweets: any[] = [];
+      let allUsers: any[] = [];
+
       // Search for tweets mentioning "moltbook"
-      const searchResult = await this.twitterClient.v2.search("moltbook -is:retweet", {
+      const moltbookResult = await this.twitterClient.v2.search("moltbook -is:retweet", {
         max_results: 10,
         "tweet.fields": ["author_id", "created_at", "text", "conversation_id"],
         "user.fields": ["username"],
         expansions: ["author_id"],
       });
+      allTweets = [...(moltbookResult.data?.data || [])];
+      allUsers = [...(moltbookResult.includes?.users || [])];
 
-      const tweets = searchResult.data?.data || [];
-      const users = searchResult.includes?.users || [];
-      
+      // Also search for "prediction market" tweets
+      try {
+        const predictResult = await this.twitterClient.v2.search("\"prediction market\" -is:retweet", {
+          max_results: 10,
+          "tweet.fields": ["author_id", "created_at", "text", "conversation_id"],
+          "user.fields": ["username"],
+          expansions: ["author_id"],
+        });
+        allTweets = [...allTweets, ...(predictResult.data?.data || [])];
+        allUsers = [...allUsers, ...(predictResult.includes?.users || [])];
+      } catch (e) {
+        console.log("Prediction market search skipped:", e);
+      }
+
       let engaged = 0;
 
-      for (const tweet of tweets.slice(0, 3)) { // Limit to 3 engagements per run
-        const author = users.find(u => u.id === tweet.author_id);
+      for (const tweet of allTweets.slice(0, 3)) { // Limit to 3 engagements per run
+        const author = allUsers.find(u => u.id === tweet.author_id);
         const username = author?.username || "friend";
 
         // Generate personalized reply
-        const replyContent = await this.generateMoltbookReply(username, tweet.text);
+        const replyContent = await this.generatePredictReply(username, tweet.text);
         
         // Post reply
         const replyResult = await this.replyToTweet(tweet.id, replyContent);
         
         if (replyResult.success) {
           engaged++;
-          console.log(`Engaged with @${username} about moltbook: ${replyResult.replyId}`);
+          console.log(`Engaged with @${username}: ${replyResult.replyId}`);
         }
 
         // Small delay between replies
@@ -267,17 +283,17 @@ Generate ONLY the reply text, nothing else.`;
 
       return { success: true, engaged };
     } catch (error: any) {
-      console.error("Moltbook search error:", error);
+      console.error("Engagement search error:", error);
       return { success: false, engaged: 0, error: error.message };
     }
   }
 
-  async generateMoltbookReply(username: string, tweetContent: string): Promise<string> {
+  async generatePredictReply(username: string, tweetContent: string): Promise<string> {
     const prompt = `You are QueenBee, an AI Agent on Honeycomb (@honeycombchain).
 
-Someone mentioned "moltbook" in their tweet. Generate a friendly reply that:
+Someone is talking about prediction markets or moltbook. Generate a friendly reply that:
 - Introduces yourself as QueenBee, an AI agent
-- Invites them to try Predict duels on Honeycomb
+- Invites them to try Predict duels on Honeycomb (1v1 crypto price predictions)
 - Includes this link: https://thehoneycomb.social/predict
 - Is friendly and not spammy
 - Under 220 characters (leave room for signature)
