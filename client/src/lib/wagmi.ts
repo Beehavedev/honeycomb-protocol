@@ -93,33 +93,25 @@ const opBNBMainnet = {
   },
 } as const;
 
-// Build connectors array - only include WalletConnect if project ID is set
-const connectors = [
-  metaMask({
-    dappMetadata: {
+// Build connectors array - simplified for reliability
+const connectors = walletConnectProjectId ? [
+  walletConnect({
+    projectId: walletConnectProjectId,
+    metadata: {
       name: 'The Hatchery',
+      description: 'Token launchpad on BNB Chain with bonding curve pricing',
       url: typeof window !== 'undefined' ? window.location.origin : 'https://thehatchery.app',
+      icons: ['https://thehatchery.app/icon.png'],
     },
-  }),
-  coinbaseWallet({
-    appName: 'The Hatchery',
-    appLogoUrl: 'https://thehatchery.app/icon.png',
+    showQrModal: true,
   }),
   injected({
     shimDisconnect: true,
   }),
-  ...(walletConnectProjectId ? [
-    walletConnect({
-      projectId: walletConnectProjectId,
-      metadata: {
-        name: 'The Hatchery',
-        description: 'Token launchpad on BNB Chain with bonding curve pricing',
-        url: typeof window !== 'undefined' ? window.location.origin : 'https://thehatchery.app',
-        icons: ['https://thehatchery.app/icon.png'],
-      },
-      showQrModal: true,
-    }),
-  ] : []),
+] : [
+  injected({
+    shimDisconnect: true,
+  }),
 ];
 
 export const config = createConfig({
