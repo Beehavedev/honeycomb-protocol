@@ -52,6 +52,12 @@ export function addressEndsWith8888(address: string): boolean {
   return address.toLowerCase().endsWith('8888');
 }
 
+export function addressEndsWithBee(address: string): boolean {
+  return address.toLowerCase().endsWith('bee');
+}
+
+export const BEE_SUFFIX = 'bee';
+
 export function generateRandomSalt(): `0x${string}` {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);

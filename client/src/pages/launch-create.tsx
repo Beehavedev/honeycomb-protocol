@@ -22,13 +22,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Egg, ArrowLeft, AlertCircle, Upload, X, ImageIcon } from "lucide-react";
+import { Loader2, Egg, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useCreateToken, useTokenFactoryAddress, useBuyTokens } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
 import { decodeEventLog, parseEther } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
-import { generateRandomSalt } from "@/lib/vanity-miner";
+import { generateRandomSalt, VanityMineProgress, mineVanityAddressFast, BEE_SUFFIX } from "@/lib/vanity-miner";
 import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
 
 // BSC Mainnet is now the primary deployed network
@@ -57,7 +57,7 @@ export default function LaunchCreate() {
   const publicClient = usePublicClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [step, setStep] = useState<"form" | "creating" | "recording">("form");
+  const [step, setStep] = useState<"form" | "mining" | "creating" | "recording">("form");
   const [metadataCID, setMetadataCID] = useState<string>("");
   const [formData, setFormData] = useState<CreateTokenForm | null>(null);
   const [pendingSubmit, setPendingSubmit] = useState<CreateTokenForm | null>(null);
@@ -65,6 +65,7 @@ export default function LaunchCreate() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadedLogoUrl, setUploadedLogoUrl] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [miningProgress, setMiningProgress] = useState<VanityMineProgress | null>(null);
   const [minedSalt, setMinedSalt] = useState<`0x${string}` | null>(null);
   const [createdTokenAddress, setCreatedTokenAddress] = useState<`0x${string}` | null>(null);
   const [devBuyAmountWei, setDevBuyAmountWei] = useState<bigint | null>(null);
@@ -223,10 +224,48 @@ export default function LaunchCreate() {
       const cid = metaResult.metadataCID;
       setMetadataCID(cid);
       
+      // Mine for vanity address ending with "bee"
+      setStep("mining");
+      setMiningProgress({ attempts: 0, currentAddress: "" });
+      
       const beeId = BigInt(0);
-      const finalSalt = generateRandomSalt();
+      
+      toast({
+        title: "Mining bee address",
+        description: "Finding a token address ending with 'bee'...",
+      });
+      
+      // Use fast off-chain mining for "bee" suffix
+      const vanityResult = factoryAddress ? await mineVanityAddressFast(
+        factoryAddress,
+        data.name,
+        data.symbol.toUpperCase(),
+        cid,
+        beeId,
+        (progress) => setMiningProgress(progress),
+        BEE_SUFFIX,
+        500000
+      ) : null;
+      
+      let finalSalt: `0x${string}`;
+      if (vanityResult) {
+        finalSalt = vanityResult.salt;
+        console.log(`Found bee address in ${vanityResult.attempts} attempts:`, vanityResult.address);
+        toast({
+          title: "Bee address found!",
+          description: `Token will deploy to ${vanityResult.address.slice(0, 10)}...${vanityResult.address.slice(-8)}`,
+        });
+      } else {
+        // Fall back to random salt if vanity mining times out
+        finalSalt = generateRandomSalt();
+        toast({
+          title: "Using standard address",
+          description: "Vanity mining timed out, using standard deployment.",
+        });
+      }
       
       setMinedSalt(finalSalt);
+      setMiningProgress(null);
       setStep("creating");
       
       toast({
@@ -240,6 +279,7 @@ export default function LaunchCreate() {
       console.error("Error details:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
       setStep("form");
       setFormData(null);
+      setMiningProgress(null);
       setMinedSalt(null);
       setDevBuyAmountWei(null);
       
@@ -775,12 +815,36 @@ export default function LaunchCreate() {
               <div className="bg-muted/50 p-4 rounded-md text-sm">
                 <p className="font-medium mb-2">Token Launch Details:</p>
                 <ul className="space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    <span className="text-foreground font-medium">Contract address ending in "bee"</span>
+                  </li>
                   <li>Total Supply: 1,000,000,000 tokens</li>
                   <li>Trading starts immediately via bonding curve</li>
                   <li>1% fee on all trades</li>
                   <li>Graduates to DEX at $50k market cap</li>
                 </ul>
               </div>
+
+              {step === "mining" && (
+                <div className="bg-primary/10 border border-primary/30 p-4 rounded-md text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    <span className="font-medium">Mining Bee Address</span>
+                  </div>
+                  <p className="text-muted-foreground mb-2">
+                    Finding a token address ending with "bee"...
+                  </p>
+                  {miningProgress && (
+                    <div className="space-y-1">
+                      <Progress value={Math.min((miningProgress.attempts / 100000) * 100, 95)} className="h-2" />
+                      <p className="text-xs text-muted-foreground">
+                        {miningProgress.attempts.toLocaleString()} attempts
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -792,6 +856,7 @@ export default function LaunchCreate() {
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     {isUploading ? "Uploading..." :
+                     step === "mining" ? "Mining Bee Address..." :
                      step === "creating" ? "Creating Token..." : 
                      isConfirming ? "Confirming..." :
                      isDevBuying || isBuyPending ? "Executing Dev Buy..." :
