@@ -256,9 +256,14 @@ export function registerDuelsRoutes(app: Express) {
 
   app.get("/api/duels/price/:assetId", async (req, res) => {
     try {
-      const price = await fetchPrice(req.params.assetId);
+      const assetId = req.params.assetId;
+      if (!Object.hasOwn(COINGECKO_IDS, assetId)) {
+        return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
+      }
+      
+      const price = await fetchPrice(assetId);
       res.json({ 
-        assetId: req.params.assetId, 
+        assetId, 
         price, 
         priceFormatted: formatPrice(price),
         timestamp: Date.now() 
@@ -273,12 +278,12 @@ export function registerDuelsRoutes(app: Express) {
   app.get("/api/duels/binance/klines/:assetId", async (req, res) => {
     try {
       const assetId = req.params.assetId;
-      const coinId = COINGECKO_IDS[assetId];
-      const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
-      
-      if (!coinId) {
+      if (!Object.hasOwn(COINGECKO_IDS, assetId)) {
         return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
       }
+      
+      const coinId = COINGECKO_IDS[assetId];
+      const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
       // CoinGecko market chart - get last 1 day with 5 min intervals
       const response = await fetch(
@@ -323,12 +328,12 @@ export function registerDuelsRoutes(app: Express) {
   app.get("/api/duels/binance/ticker/:assetId", async (req, res) => {
     try {
       const assetId = req.params.assetId;
-      const coinId = COINGECKO_IDS[assetId];
-      const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
-      
-      if (!coinId) {
+      if (!Object.hasOwn(COINGECKO_IDS, assetId)) {
         return res.status(400).json({ message: `Unsupported asset: ${assetId}` });
       }
+      
+      const coinId = COINGECKO_IDS[assetId];
+      const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
       // Check cache first (short TTL for live prices)
       const cached = priceCache[assetId];
