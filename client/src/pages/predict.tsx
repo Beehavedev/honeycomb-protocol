@@ -35,7 +35,8 @@ import {
   Users,
   Wallet,
   Loader2,
-  XCircle
+  XCircle,
+  RefreshCw
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -1143,13 +1144,14 @@ export default function Predict() {
   // Check if contract is deployed
   const isContractDeployed = predictDuelAddress && predictDuelAddress !== "0x0000000000000000000000000000000000000000";
 
-  const { data: duels, isLoading } = useQuery<Duel[]>({
+  const { data: duels, isLoading, refetch: refetchDuels } = useQuery<Duel[]>({
     queryKey: ["/api/duels", activeTab],
     queryFn: async () => {
       const res = await fetch(`/api/duels?status=${activeTab}&limit=50`);
       return res.json();
     },
-    refetchInterval: 5000,
+    refetchInterval: 3000, // Faster refresh for better visibility
+    staleTime: 0, // Always refetch on tab change
   });
 
   // On-chain join hook
@@ -1668,24 +1670,35 @@ export default function Predict() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-4">
-          <TabsTrigger value="open" data-testid="tab-open">
-            <Users className="h-4 w-4 mr-2" />
-            {t('predict.openDuels')}
-          </TabsTrigger>
-          <TabsTrigger value="live" data-testid="tab-live">
-            <Zap className="h-4 w-4 mr-2" />
-            {t('predict.liveDuels')}
-          </TabsTrigger>
-          <TabsTrigger value="settled" data-testid="tab-settled">
-            <Trophy className="h-4 w-4 mr-2" />
-            {t('predict.settledDuels')}
-          </TabsTrigger>
-          <TabsTrigger value="cancelled" data-testid="tab-cancelled">
-            <XCircle className="h-4 w-4 mr-2" />
-            {t('duel.cancelled')}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center gap-2 mb-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="open" data-testid="tab-open">
+              <Users className="h-4 w-4 mr-2" />
+              {t('predict.openDuels')}
+            </TabsTrigger>
+            <TabsTrigger value="live" data-testid="tab-live">
+              <Zap className="h-4 w-4 mr-2" />
+              {t('predict.liveDuels')}
+            </TabsTrigger>
+            <TabsTrigger value="settled" data-testid="tab-settled">
+              <Trophy className="h-4 w-4 mr-2" />
+              {t('predict.settledDuels')}
+            </TabsTrigger>
+            <TabsTrigger value="cancelled" data-testid="tab-cancelled">
+              <XCircle className="h-4 w-4 mr-2" />
+              {t('duel.cancelled')}
+            </TabsTrigger>
+          </TabsList>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => refetchDuels()}
+            data-testid="button-refresh-duels"
+            title={t('common.refresh') || "Refresh"}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
 
         <TabsContent value={activeTab}>
           {isLoading ? (
