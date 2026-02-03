@@ -104,7 +104,7 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     try {
       // Add AI agent signature if enabled and there's room
       let finalContent = content;
-      const signature = "\n\n🤖 AI Agent";
+      const signature = "\n\n🤖 AI Agent: QueenBee";
       if (addAgentSignature && content.length + signature.length <= 280) {
         finalContent = content + signature;
       }
@@ -131,7 +131,7 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     try {
       // Add AI agent signature if enabled and there's room
       let finalContent = content;
-      const signature = "\n\n🤖 AI Agent";
+      const signature = "\n\n🤖 AI Agent: QueenBee";
       if (addAgentSignature && content.length + signature.length <= 280) {
         finalContent = content + signature;
       }
