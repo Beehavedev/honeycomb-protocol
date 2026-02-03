@@ -44,7 +44,22 @@ export class HouseBotService {
       }).returning();
       return newConfig;
     }
-    return configs[0];
+    
+    const config = configs[0];
+    
+    // Auto-populate wallet address from private key if not set
+    if (!config.walletAddress && process.env.HOUSEBOT_PRIVATE_KEY) {
+      const derivedAddress = this.getWalletAddressFromKey();
+      if (derivedAddress) {
+        const [updated] = await db.update(housebotConfig)
+          .set({ walletAddress: derivedAddress.toLowerCase(), updatedAt: new Date() })
+          .where(eq(housebotConfig.id, config.id))
+          .returning();
+        return updated;
+      }
+    }
+    
+    return config;
   }
 
   async updateConfig(updates: Partial<{
