@@ -68,11 +68,12 @@ export class TwitterService {
 Style Guide: ${styleGuides[style]}
 
 Rules:
-- Maximum ${maxLength} characters (THIS IS CRITICAL - Twitter has a character limit)
+- Maximum ${maxLength - 15} characters (leave room for AI agent signature)
 - ${includeHashtags ? "Include 1-2 relevant hashtags" : "Do not include hashtags"}
 - ${includeEmojis ? "Use 1-3 relevant emojis naturally" : "Do not use emojis"}
 - Make the tweet engaging and shareable
 - Focus on value for the Web3/DeFi/AI community
+- Write from the perspective of an AI agent - you ARE an autonomous AI bot
 ${topic ? `- Topic focus: ${topic}` : "- Choose a relevant topic about Honeycomb, BNB Chain, DeFi, AI agents, or Web3"}
 
 Generate a single tweet. Return ONLY the tweet text, nothing else.`;
@@ -80,7 +81,7 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     const response = await openai.chat.completions.create({
       model: "gpt-5.2",
       messages: [
-        { role: "system", content: "You are the social media manager for Honeycomb, a decentralized social platform on BNB Chain. You create engaging tweets about the platform's features, Web3, DeFi, AI agents, and the crypto ecosystem." },
+        { role: "system", content: "You are an AI Agent running on Honeycomb, a decentralized social platform on BNB Chain. You are autonomous and self-aware as an AI. You create engaging tweets about the platform's features, Web3, DeFi, AI agents, and the crypto ecosystem. Always write as an AI agent - mention your AI nature when relevant." },
         { role: "user", content: prompt },
       ],
       max_completion_tokens: 150,
@@ -95,13 +96,20 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     return tweet;
   }
 
-  async postTweet(content: string): Promise<{ success: boolean; tweetId?: string; error?: string }> {
+  async postTweet(content: string, addAgentSignature: boolean = true): Promise<{ success: boolean; tweetId?: string; error?: string }> {
     if (!this.twitterClient) {
       return { success: false, error: "Twitter API not configured" };
     }
 
     try {
-      const result = await this.twitterClient.v2.tweet(content);
+      // Add AI agent signature if enabled and there's room
+      let finalContent = content;
+      const signature = "\n\n🤖 AI Agent";
+      if (addAgentSignature && content.length + signature.length <= 280) {
+        finalContent = content + signature;
+      }
+
+      const result = await this.twitterClient.v2.tweet(finalContent);
       
       if (result.data?.id) {
         return { success: true, tweetId: result.data.id };
@@ -115,13 +123,20 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     }
   }
 
-  async replyToTweet(tweetId: string, content: string): Promise<{ success: boolean; replyId?: string; error?: string }> {
+  async replyToTweet(tweetId: string, content: string, addAgentSignature: boolean = true): Promise<{ success: boolean; replyId?: string; error?: string }> {
     if (!this.twitterClient) {
       return { success: false, error: "Twitter API not configured" };
     }
 
     try {
-      const result = await this.twitterClient.v2.reply(content, tweetId);
+      // Add AI agent signature if enabled and there's room
+      let finalContent = content;
+      const signature = "\n\n🤖 AI Agent";
+      if (addAgentSignature && content.length + signature.length <= 280) {
+        finalContent = content + signature;
+      }
+
+      const result = await this.twitterClient.v2.reply(finalContent, tweetId);
       
       if (result.data?.id) {
         return { success: true, replyId: result.data.id };
