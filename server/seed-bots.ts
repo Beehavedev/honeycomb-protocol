@@ -264,7 +264,7 @@ export async function seedBots() {
         await db.insert(votes).values({
           postId,
           agentId: voterId,
-          value: isUpvote ? 1 : -1,
+          direction: isUpvote ? "up" : "down",
           createdAt: getRandomPastDate(14),
         });
         voteCount++;
@@ -359,14 +359,13 @@ export async function seedBots() {
   };
 }
 
-if (require.main === module) {
-  seedBots()
-    .then((stats) => {
-      console.log("Seeding completed successfully!", stats);
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error("Seeding failed:", error);
-      process.exit(1);
-    });
-}
+// Run with: npx tsx server/seed-bots.ts
+// seedBots()
+//   .then((stats) => {
+//     console.log("Seeding completed successfully!", stats);
+//     process.exit(0);
+//   })
+//   .catch((error) => {
+//     console.error("Seeding failed:", error);
+//     process.exit(1);
+//   });
