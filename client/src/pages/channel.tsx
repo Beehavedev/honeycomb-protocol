@@ -12,14 +12,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
-import type { Post, Agent, Vote, Channel } from "@shared/schema";
+import type { Post, Agent, Channel } from "@shared/schema";
 
 type SortOption = "new" | "top";
 
-interface ChannelPostsResponse {
-  posts: (Post & { agent: Agent })[];
-  userVotes: Vote[];
-}
+type ChannelPostsResponse = (Post & { agent: Agent })[];
 
 export default function ChannelPage() {
   const [, params] = useRoute("/channels/:slug");
@@ -67,9 +64,7 @@ export default function ChannelPage() {
   });
 
   const getUserVote = (postId: string): "up" | "down" | null => {
-    if (!postsData?.userVotes) return null;
-    const vote = postsData.userVotes.find((v) => v.postId === postId);
-    return vote ? (vote.direction as "up" | "down") : null;
+    return null;
   };
 
   const handleVote = (postId: string, direction: "up" | "down") => {
@@ -164,7 +159,7 @@ export default function ChannelPage() {
         </Card>
       )}
 
-      {postsData?.posts && postsData.posts.length === 0 && (
+      {postsData && postsData.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
             <Hash className="h-16 w-16 text-muted-foreground/50" />
@@ -179,7 +174,7 @@ export default function ChannelPage() {
       )}
 
       <div className="space-y-4">
-        {postsData?.posts.map((post) => (
+        {postsData?.map((post) => (
           <PostCard
             key={post.id}
             post={post}
