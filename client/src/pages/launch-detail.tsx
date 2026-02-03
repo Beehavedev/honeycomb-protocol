@@ -47,7 +47,6 @@ import {
   useInitializeMarket,
   useCooldownSeconds,
   useLastTradeTime,
-  useMarketNativeBalance,
   useSimulateSell,
   parseContractError,
 } from "@/contracts/hooks";
@@ -144,8 +143,7 @@ export default function LaunchDetail() {
   const { data: cooldownSeconds } = useCooldownSeconds();
   const { data: lastTradeTimeData, refetch: refetchLastTrade } = useLastTradeTime(tokenAddress, userAddress);
   
-  // Market liquidity checking
-  const { data: marketBalance } = useMarketNativeBalance();
+  // Get the token's native reserve from market state (not overall contract balance)
   
   // Cooldown timer state
   const [cooldownTick, setCooldownTick] = useState(0);
@@ -169,7 +167,9 @@ export default function LaunchDetail() {
   }, [isCooldownActive, cooldownRemaining, cooldownTick]);
   
   // Check if market is initialized - marketState returns an object with named fields
-  const isMarketInitialized = (marketState as { initialized?: boolean } | undefined)?.initialized === true;
+  const marketStateData = marketState as { initialized?: boolean; nativeReserve?: bigint } | undefined;
+  const isMarketInitialized = marketStateData?.initialized === true;
+  const tokenNativeReserve = marketStateData?.nativeReserve ?? BigInt(0);
   
   const buyAmountWei = buyAmount ? parseEther(buyAmount) : BigInt(0);
   const sellAmountWei = sellAmount ? parseEther(sellAmount) : BigInt(0);
@@ -183,11 +183,11 @@ export default function LaunchDetail() {
 
   const needsApproval = tradeTab === "sell" && sellAmountWei > BigInt(0) && allowance !== undefined && sellAmountWei > allowance;
 
-  // Preflight liquidity check - compare sell quote against actual market balance
+  // Preflight liquidity check - compare sell quote against token's native reserve
   const sellQuoteValue = sellQuote as readonly [bigint, bigint] | undefined;
   const expectedNativeOut = sellQuoteValue ? sellQuoteValue[0] : BigInt(0);
-  const actualMarketBalance = marketBalance?.value ?? BigInt(0);
-  const hasInsufficientLiquidity = sellAmountWei > BigInt(0) && expectedNativeOut > BigInt(0) && expectedNativeOut > actualMarketBalance;
+  // Use the token's specific native reserve, not overall contract balance
+  const hasInsufficientLiquidity = sellAmountWei > BigInt(0) && expectedNativeOut > BigInt(0) && tokenNativeReserve > BigInt(0) && expectedNativeOut > tokenNativeReserve;
 
   // Simulate sell transaction to catch errors before executing
   const minOutForSimulation = sellQuoteValue ? (sellQuoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
