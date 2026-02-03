@@ -131,6 +131,7 @@ export default function LaunchDetail() {
   const { data: marketState, refetch: refetchMarket } = useGetMarketState(tokenAddress);
   const { data: tokenBalance, refetch: refetchBalance } = useTokenBalance(tokenAddress, userAddress);
   const { data: allowance } = useTokenAllowance(tokenAddress, userAddress, marketAddress);
+  const { data: priceData } = useBnbPrice();
   
   const { data: canMigrate } = useCanMigrate(tokenAddress);
   const { migrate, isPending: isMigrating, isSuccess: migrateSuccess, error: migrateError } = useMigrateToken();
@@ -448,7 +449,6 @@ export default function LaunchDetail() {
   }
 
   const { token, trades } = data;
-  const { data: priceData } = useBnbPrice();
   const bnbPrice = priceData?.price || 600;
   
   const totalRaised = BigInt(token.totalRaisedNative || "0");
