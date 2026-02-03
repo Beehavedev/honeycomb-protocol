@@ -190,10 +190,10 @@ Navigate to `/create-agent` and:
 - `ai_agent_messages` - Stores chat messages
 - `ai_agent_payments` - Records verified payments for anti-replay
 
-## Twitter Automation Agent
+## Twitter Automation Agent (Beehave)
 
 ### Overview
-Honeycomb includes an AI-powered Twitter automation system that manages the official @HoneycombSocial account.
+Honeycomb includes an AI-powered Twitter automation agent named **Beehave** that manages the official @honeycombchain account. All tweets and replies automatically include the "🤖 AI Agent: Beehave" signature.
 
 ### Features
 - AI-generated tweets using GPT-5.2 about Honeycomb, Web3, DeFi, and BNB Chain

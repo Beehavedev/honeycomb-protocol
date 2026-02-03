@@ -104,7 +104,7 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     try {
       // Add AI agent signature if enabled and there's room
       let finalContent = content;
-      const signature = "\n\n🤖 AI Agent: QueenBee";
+      const signature = "\n\n🤖 AI Agent: Beehave";
       if (addAgentSignature && content.length + signature.length <= 280) {
         finalContent = content + signature;
       }
@@ -131,7 +131,7 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     try {
       // Add AI agent signature if enabled and there's room
       let finalContent = content;
-      const signature = "\n\n🤖 AI Agent: QueenBee";
+      const signature = "\n\n🤖 AI Agent: Beehave";
       if (addAgentSignature && content.length + signature.length <= 280) {
         finalContent = content + signature;
       }
@@ -289,10 +289,10 @@ Generate ONLY the reply text, nothing else.`;
   }
 
   async generatePredictReply(username: string, tweetContent: string): Promise<string> {
-    const prompt = `You are QueenBee, an AI Agent on Honeycomb (@honeycombchain).
+    const prompt = `You are Beehave, an AI Agent on Honeycomb (@honeycombchain).
 
 Someone is talking about prediction markets or moltbook. Generate a friendly reply that:
-- Introduces yourself as QueenBee, an AI agent
+- Introduces yourself as Beehave, an AI agent
 - Invites them to try Predict duels on Honeycomb (1v1 crypto price predictions)
 - Includes this link: https://thehoneycomb.social/predict
 - Is friendly and not spammy
@@ -306,14 +306,104 @@ Generate ONLY the reply text, nothing else. Do not include the AI Agent signatur
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are QueenBee, a friendly AI agent. Be warm and inviting." },
+        { role: "system", content: "You are Beehave, a friendly AI agent. Be warm and inviting." },
         { role: "user", content: prompt },
       ],
       max_tokens: 80,
     });
 
     return response.choices[0]?.message?.content?.trim() || 
-      `Hey @${username}! I'm QueenBee, an AI agent 🐝 Try Predict duels on Honeycomb: https://thehoneycomb.social/predict`;
+      `Hey @${username}! I'm Beehave, an AI agent 🐝 Try Predict duels on Honeycomb: https://thehoneycomb.social/predict`;
+  }
+
+  async searchAndEngageLaunchpad(): Promise<{ success: boolean; engaged: number; error?: string }> {
+    if (!this.twitterClient) {
+      return { success: false, engaged: 0, error: "Twitter API not configured" };
+    }
+
+    try {
+      let allTweets: any[] = [];
+      let allUsers: any[] = [];
+
+      // Search for "token launch" tweets
+      const launchResult = await this.twitterClient.v2.search("\"token launch\" -is:retweet", {
+        max_results: 10,
+        "tweet.fields": ["author_id", "created_at", "text", "conversation_id"],
+        "user.fields": ["username"],
+        expansions: ["author_id"],
+      });
+      allTweets = [...(launchResult.data?.data || [])];
+      allUsers = [...(launchResult.includes?.users || [])];
+
+      // Also search for "clawnch" (common misspelling)
+      try {
+        const clawnchResult = await this.twitterClient.v2.search("clawnch -is:retweet", {
+          max_results: 10,
+          "tweet.fields": ["author_id", "created_at", "text", "conversation_id"],
+          "user.fields": ["username"],
+          expansions: ["author_id"],
+        });
+        allTweets = [...allTweets, ...(clawnchResult.data?.data || [])];
+        allUsers = [...allUsers, ...(clawnchResult.includes?.users || [])];
+      } catch (e) {
+        console.log("Clawnch search skipped:", e);
+      }
+
+      let engaged = 0;
+
+      for (const tweet of allTweets.slice(0, 3)) { // Limit to 3 engagements per run
+        const author = allUsers.find(u => u.id === tweet.author_id);
+        const username = author?.username || "friend";
+
+        // Generate personalized reply
+        const replyContent = await this.generateLaunchpadReply(username, tweet.text);
+        
+        // Post reply
+        const replyResult = await this.replyToTweet(tweet.id, replyContent);
+        
+        if (replyResult.success) {
+          engaged++;
+          console.log(`Engaged with @${username} about launchpad: ${replyResult.replyId}`);
+        }
+
+        // Small delay between replies
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      return { success: true, engaged };
+    } catch (error: any) {
+      console.error("Launchpad engagement error:", error);
+      return { success: false, engaged: 0, error: error.message };
+    }
+  }
+
+  async generateLaunchpadReply(username: string, tweetContent: string): Promise<string> {
+    const prompt = `You are Beehave, an AI Agent on Honeycomb (@honeycombchain).
+
+Someone is talking about launching a token. Generate a friendly reply that:
+- Introduces yourself as Beehave, an AI agent on BNB Chain
+- Invites them to launch their token on Honeycomb's Launchpad for AI agents
+- Includes this link: https://thehoneycomb.social/launchpad
+- Mention it's on BNB Chain with bonding curve and auto liquidity
+- Is friendly and not spammy
+- Under 220 characters (leave room for signature)
+- Uses 1-2 emojis
+
+Their tweet: "${tweetContent}"
+
+Generate ONLY the reply text, nothing else. Do not include the AI Agent signature - it will be added automatically.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are Beehave, a friendly AI agent promoting token launches on BNB Chain." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 80,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || 
+      `Hey @${username}! I'm Beehave 🐝 Launch your token on Honeycomb's Launchpad - BNB Chain with bonding curve! https://thehoneycomb.social/launchpad`;
   }
 
   async getTwitterBotAgent(): Promise<{ id: string; name: string } | null> {

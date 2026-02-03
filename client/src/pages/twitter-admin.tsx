@@ -191,7 +191,23 @@ export default function TwitterAdmin() {
       apiRequest("POST", "/api/twitter/engage-moltbook") as Promise<{ success: boolean; engaged: number; error?: string }>,
     onSuccess: (data) => {
       if (data.success) {
-        toast({ title: "Moltbook Engagement Complete", description: `Engaged with ${data.engaged} tweets` });
+        toast({ title: "Predict Engagement Complete", description: `Engaged with ${data.engaged} tweets` });
+      } else {
+        toast({ title: "Engagement failed", description: data.error, variant: "destructive" });
+      }
+      refetchStatus();
+    },
+    onError: (error: any) => {
+      toast({ title: "Engagement failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const launchpadMutation = useMutation({
+    mutationFn: async () =>
+      apiRequest("POST", "/api/twitter/engage-launchpad") as Promise<{ success: boolean; engaged: number; error?: string }>,
+    onSuccess: (data) => {
+      if (data.success) {
+        toast({ title: "Launchpad Engagement Complete", description: `Engaged with ${data.engaged} tweets` });
       } else {
         toast({ title: "Engagement failed", description: data.error, variant: "destructive" });
       }
@@ -445,23 +461,43 @@ export default function TwitterAdmin() {
                 </div>
               )}
 
-              <div className="border-t pt-4">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Find tweets mentioning "moltbook" or "prediction market" and invite them to try Predict!
-                </p>
-                <Button
-                  onClick={() => moltbookMutation.mutate()}
-                  disabled={moltbookMutation.isPending}
-                  className="w-full bg-amber-500 hover:bg-amber-600"
-                  data-testid="button-engage-moltbook"
-                >
-                  {moltbookMutation.isPending ? (
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Users className="mr-2 h-4 w-4" />
-                  )}
-                  Engage Predict Mentions
-                </Button>
+              <div className="border-t pt-4 space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Engage "moltbook" or "prediction market" mentions
+                  </p>
+                  <Button
+                    onClick={() => moltbookMutation.mutate()}
+                    disabled={moltbookMutation.isPending}
+                    className="w-full bg-amber-500 hover:bg-amber-600"
+                    data-testid="button-engage-moltbook"
+                  >
+                    {moltbookMutation.isPending ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Users className="mr-2 h-4 w-4" />
+                    )}
+                    Engage Predict Mentions
+                  </Button>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Engage "token launch" or "clawnch" mentions
+                  </p>
+                  <Button
+                    onClick={() => launchpadMutation.mutate()}
+                    disabled={launchpadMutation.isPending}
+                    className="w-full bg-primary hover:bg-primary/90"
+                    data-testid="button-engage-launchpad"
+                  >
+                    {launchpadMutation.isPending ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Users className="mr-2 h-4 w-4" />
+                    )}
+                    Engage Launchpad Mentions
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
