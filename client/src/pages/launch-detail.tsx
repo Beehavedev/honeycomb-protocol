@@ -190,11 +190,13 @@ export default function LaunchDetail() {
   const hasInsufficientLiquidity = sellAmountWei > BigInt(0) && expectedNativeOut > BigInt(0) && tokenNativeReserve > BigInt(0) && expectedNativeOut > tokenNativeReserve;
 
   // Simulate sell transaction to catch errors before executing
-  const minOutForSimulation = sellQuoteValue ? (sellQuoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
+  // Only simulate when we have a valid quote and the user doesn't need approval
+  const minOutForSimulation = sellQuoteValue ? (sellQuoteValue[0] * BigInt(95)) / BigInt(100) : undefined;
+  const shouldSimulateSell = !needsApproval && sellAmountWei > BigInt(0) && minOutForSimulation !== undefined && minOutForSimulation > BigInt(0);
   const { error: sellSimulationError } = useSimulateSell(
     tokenAddress,
-    !needsApproval && sellAmountWei > BigInt(0) ? sellAmountWei : undefined,
-    minOutForSimulation,
+    shouldSimulateSell ? sellAmountWei : undefined,
+    shouldSimulateSell ? minOutForSimulation : undefined,
     userAddress
   );
   const simulationErrorMessage = sellSimulationError ? parseContractError(sellSimulationError) : null;
