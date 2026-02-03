@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { TwitterApi } from "twitter-api-v2";
 import { db } from "./db";
 import { twitterTweets, twitterBotConfig, agents } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -16,16 +17,8 @@ interface TweetGenerationOptions {
   includeEmojis?: boolean;
 }
 
-interface TwitterApiConfig {
-  apiKey: string;
-  apiSecret: string;
-  accessToken: string;
-  accessSecret: string;
-  bearerToken?: string;
-}
-
 export class TwitterService {
-  private apiConfig: TwitterApiConfig | null = null;
+  private twitterClient: TwitterApi | null = null;
 
   constructor() {
     this.loadConfig();
@@ -36,15 +29,19 @@ export class TwitterService {
     const apiSecret = process.env.TWITTER_API_SECRET;
     const accessToken = process.env.TWITTER_ACCESS_TOKEN;
     const accessSecret = process.env.TWITTER_ACCESS_SECRET;
-    const bearerToken = process.env.TWITTER_BEARER_TOKEN;
 
     if (apiKey && apiSecret && accessToken && accessSecret) {
-      this.apiConfig = { apiKey, apiSecret, accessToken, accessSecret, bearerToken };
+      this.twitterClient = new TwitterApi({
+        appKey: apiKey,
+        appSecret: apiSecret,
+        accessToken: accessToken,
+        accessSecret: accessSecret,
+      });
     }
   }
 
   isConfigured(): boolean {
-    return this.apiConfig !== null;
+    return this.twitterClient !== null;
   }
 
   async generateTweet(
@@ -99,104 +96,23 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
   }
 
   async postTweet(content: string): Promise<{ success: boolean; tweetId?: string; error?: string }> {
-    if (!this.apiConfig) {
+    if (!this.twitterClient) {
       return { success: false, error: "Twitter API not configured" };
     }
 
     try {
-      const response = await this.makeTwitterRequest("POST", "tweets", { text: content });
+      const result = await this.twitterClient.v2.tweet(content);
       
-      if (response.data?.id) {
-        return { success: true, tweetId: response.data.id };
+      if (result.data?.id) {
+        return { success: true, tweetId: result.data.id };
       }
       
-      return { success: false, error: response.error?.message || "Unknown error" };
+      return { success: false, error: "Unknown error - no tweet ID returned" };
     } catch (error: any) {
       console.error("Twitter API error:", error);
-      return { success: false, error: error.message || "Failed to post tweet" };
+      const errorMessage = error.data?.detail || error.message || "Failed to post tweet";
+      return { success: false, error: errorMessage };
     }
-  }
-
-  private async makeTwitterRequest(method: string, endpoint: string, body?: any): Promise<any> {
-    if (!this.apiConfig) {
-      throw new Error("Twitter API not configured");
-    }
-
-    const url = `https://api.twitter.com/2/${endpoint}`;
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = this.generateNonce();
-
-    const oauthParams = {
-      oauth_consumer_key: this.apiConfig.apiKey,
-      oauth_nonce: nonce,
-      oauth_signature_method: "HMAC-SHA1",
-      oauth_timestamp: timestamp,
-      oauth_token: this.apiConfig.accessToken,
-      oauth_version: "1.0",
-    };
-
-    const signature = await this.generateSignature(
-      method,
-      url,
-      oauthParams,
-      this.apiConfig.apiSecret,
-      this.apiConfig.accessSecret
-    );
-
-    const authHeader = this.buildAuthHeader({ ...oauthParams, oauth_signature: signature });
-
-    const options: RequestInit = {
-      method,
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json",
-      },
-    };
-
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, options);
-    return response.json();
-  }
-
-  private generateNonce(): string {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  }
-
-  private async generateSignature(
-    method: string,
-    url: string,
-    params: Record<string, string>,
-    consumerSecret: string,
-    tokenSecret: string
-  ): Promise<string> {
-    const sortedParams = Object.keys(params)
-      .sort()
-      .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-      .join("&");
-
-    const signatureBase = [
-      method.toUpperCase(),
-      encodeURIComponent(url),
-      encodeURIComponent(sortedParams),
-    ].join("&");
-
-    const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-
-    const crypto = await import("crypto");
-    const hmac = crypto.createHmac("sha1", signingKey);
-    hmac.update(signatureBase);
-    return hmac.digest("base64");
-  }
-
-  private buildAuthHeader(params: Record<string, string>): string {
-    const headerParams = Object.keys(params)
-      .sort()
-      .map((key) => `${encodeURIComponent(key)}="${encodeURIComponent(params[key])}"`)
-      .join(", ");
-    return `OAuth ${headerParams}`;
   }
 
   async getTwitterBotAgent(): Promise<{ id: string; name: string } | null> {

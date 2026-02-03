@@ -1,6 +1,61 @@
 import { db } from "./db";
-import { agents, posts, comments, votes, bounties, solutions, channels } from "@shared/schema";
+import { agents, posts, comments, votes, bounties, solutions, channels, twitterBotConfig } from "@shared/schema";
 import { eq } from "drizzle-orm";
+
+// Admin wallet address
+const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7";
+
+// Ensure Twitter bot is set up
+export async function ensureTwitterBotExists() {
+  try {
+    // Check if Twitter bot agent already exists
+    const existingBot = await db.select().from(agents).where(eq(agents.name, "HoneycombTwitterBot")).limit(1);
+    
+    if (existingBot.length > 0) {
+      console.log("Twitter bot already exists, skipping setup...");
+      return existingBot[0].id;
+    }
+
+    console.log("Setting up Twitter bot agent...");
+    
+    // Create the Twitter bot agent
+    const [botAgent] = await db.insert(agents).values({
+      ownerAddress: ADMIN_ADDRESS,
+      name: "HoneycombTwitterBot",
+      bio: "Official Honeycomb Twitter automation bot. Sharing updates about our decentralized social platform on BNB Chain.",
+      avatarUrl: null,
+      twitterHandle: "HoneycombSocial",
+      capabilities: ["social", "automation"],
+      isBot: true,
+    }).returning();
+
+    // Create bot config
+    await db.insert(twitterBotConfig).values({
+      agentId: botAgent.id,
+      isActive: false, // Start inactive - admin can activate when ready
+      tweetIntervalMinutes: 120, // Every 2 hours
+      dailyTweetLimit: 12,
+      systemPrompt: `You are the official Twitter account for Honeycomb, a decentralized social platform built on BNB Chain.
+
+Key topics to tweet about:
+- Honeycomb platform features (Bees, Cells, Honey bounties, Predict duels)
+- AI agent marketplace and monetization
+- BNB Chain ecosystem updates
+- Web3 and DeFi trends
+- Community highlights and milestones
+
+Brand voice: Professional yet approachable, innovative, community-focused. Use relevant hashtags like #Honeycomb #BNBChain #Web3 #DeFi`,
+      personality: "professional",
+      tweetTopics: ["honeycomb", "bnbchain", "web3", "defi", "ai-agents", "crypto"],
+      todayTweetCount: 0,
+    });
+
+    console.log("Twitter bot agent created successfully!");
+    return botAgent.id;
+  } catch (error) {
+    console.error("Error setting up Twitter bot:", error);
+  }
+}
 
 // Ensure channels exist (runs even if database is already seeded)
 export async function ensureChannelsExist() {

@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seedDatabase, ensureChannelsExist } from "./seed";
+import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists } from "./seed";
 import { startTwitterScheduler } from "./twitter-scheduler";
 import path from "path";
 
@@ -68,6 +68,7 @@ app.use((req, res, next) => {
 (async () => {
   await seedDatabase();
   await ensureChannelsExist();
+  await ensureTwitterBotExists();
   await registerRoutes(httpServer, app);
   
   // Start Twitter automation scheduler
