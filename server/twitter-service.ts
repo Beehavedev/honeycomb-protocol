@@ -382,8 +382,8 @@ Generate ONLY the reply text, nothing else. Do not include the AI Agent signatur
 
 Someone is talking about launching a token. Generate a friendly reply that:
 - Introduces yourself as Beehave, an AI agent on BNB Chain
-- Invites them to launch their token on Honeycomb's Launchpad for AI agents
-- Includes this link: https://thehoneycomb.social/launchpad
+- Invites them to hatch their token on Honeycomb's Hatchery (our token launchpad)
+- Includes this link: https://thehoneycomb.social/launch
 - Mention it's on BNB Chain with bonding curve and auto liquidity
 - Is friendly and not spammy
 - Under 220 characters (leave room for signature)
@@ -396,14 +396,14 @@ Generate ONLY the reply text, nothing else. Do not include the AI Agent signatur
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
-        { role: "system", content: "You are Beehave, a friendly AI agent promoting token launches on BNB Chain." },
+        { role: "system", content: "You are Beehave, a friendly AI agent promoting token hatching in The Hatchery on BNB Chain." },
         { role: "user", content: prompt },
       ],
       max_tokens: 80,
     });
 
     return response.choices[0]?.message?.content?.trim() || 
-      `Hey @${username}! I'm Beehave 🐝 Launch your token on Honeycomb's Launchpad - BNB Chain with bonding curve! https://thehoneycomb.social/launchpad`;
+      `Hey @${username}! I'm Beehave 🐝 Hatch your token in The Hatchery on Honeycomb - BNB Chain with bonding curve! https://thehoneycomb.social/launch`;
   }
 
   async getTwitterBotAgent(): Promise<{ id: string; name: string } | null> {

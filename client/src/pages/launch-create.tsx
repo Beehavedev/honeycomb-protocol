@@ -22,7 +22,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Rocket, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
+import { Loader2, Egg, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import { useCreateToken, useTokenFactoryAddress, useBuyTokens } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
@@ -582,7 +582,7 @@ export default function LaunchCreate() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Rocket className="h-6 w-6 text-primary" />
+            <Egg className="h-6 w-6 text-primary" />
             Launch New Token
           </CardTitle>
         </CardHeader>
@@ -861,7 +861,7 @@ export default function LaunchCreate() {
                   </>
                 ) : (
                   <>
-                    <Rocket className="h-4 w-4" />
+                    <Egg className="h-4 w-4" />
                     Launch Token (8888)
                   </>
                 )}

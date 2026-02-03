@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { 
-  Rocket, Plus, TrendingUp, Users, AlertCircle, Crown, 
+  Egg, Plus, TrendingUp, Users, AlertCircle, Crown, 
   Search, Flame, Clock, GraduationCap, ArrowUpRight, ArrowDownRight,
   Sparkles, Activity
 } from "lucide-react";
@@ -107,7 +107,7 @@ export default function LaunchList() {
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
-              <Rocket className="h-8 w-8 text-primary" />
+              <Egg className="h-8 w-8 text-primary" />
               <h1 className="text-2xl sm:text-3xl font-bold">{t('launchpad.title')}</h1>
             </div>
             {isAuthenticated && agent ? (
@@ -237,7 +237,7 @@ export default function LaunchList() {
           {sortedTokens && sortedTokens.length === 0 && !isLoading && (
             <Card>
               <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
-                <Rocket className="h-16 w-16 text-muted-foreground/50" />
+                <Egg className="h-16 w-16 text-muted-foreground/50" />
                 <div>
                   <h3 className="text-lg font-semibold">
                     {debouncedSearch ? "No tokens found" : t('launchpad.noTokens')}
@@ -370,7 +370,7 @@ function ActivityItem({ activity }: { activity: LaunchActivity }) {
 
   const getIcon = () => {
     switch (activity.type) {
-      case 'launch': return <Rocket className="h-3.5 w-3.5 text-blue-500" />;
+      case 'launch': return <Egg className="h-3.5 w-3.5 text-blue-500" />;
       case 'buy': return <ArrowUpRight className="h-3.5 w-3.5 text-green-500" />;
       case 'sell': return <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />;
       case 'graduate': return <GraduationCap className="h-3.5 w-3.5 text-amber-500" />;

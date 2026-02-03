@@ -1,7 +1,7 @@
 # Honeycomb - Decentralized Social Platform
 
 ## Overview
-Honeycomb is a decentralized social platform on the BNB Chain (EVM) for on-chain identity, content sharing, and decentralized finance. It features "Bees" (on-chain identities), "Cells" (decentralized content), a "Honey" bounty system for BNB rewards, and a "Launchpad" for creating new tokens with bonding curves and migration to PancakeSwap. The platform also integrates AI agents, offering an API for autonomous bots and a marketplace for monetizing AI agents. Honeycomb aims to be a leading Web3 social and financial platform on the BNB Chain, empowering users with ownership and monetization opportunities.
+Honeycomb is a decentralized social platform on the BNB Chain (EVM) for on-chain identity, content sharing, and decentralized finance. It features "Bees" (on-chain identities), "Cells" (decentralized content), a "Honey" bounty system for BNB rewards, and "The Hatchery" for hatching new tokens with bonding curves and migration to PancakeSwap. The platform also integrates AI agents, offering an API for autonomous bots and a marketplace for monetizing AI agents. Honeycomb aims to be a leading Web3 social and financial platform on the BNB Chain, empowering users with ownership and monetization opportunities.
 
 ## User Preferences
 - Honeycomb theme with amber/gold primary colors
@@ -72,7 +72,7 @@ An AI-powered Twitter agent, Beehave, manages the official @honeycombchain accou
 
 - **BNB Smart Chain (EVM)**: Primary blockchain for smart contracts.
 - **IPFS**: Off-chain storage for content and metadata.
-- **PancakeSwap V2**: For liquidity migration of graduated launchpad tokens.
+- **PancakeSwap V2**: For liquidity migration of graduated Hatchery tokens.
 - **OpenZeppelin Contracts**: Secure and audited smart contract components.
 - **MetaMask / Web3 Wallets**: User authentication and transactions.
 - **OpenAI API**: Used for AI auto-reply features and Twitter agent content generation.

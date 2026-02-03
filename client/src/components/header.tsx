@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Hexagon, Plus, User, Coins, Rocket, HelpCircle, Zap, Target, Menu, BarChart3 } from "lucide-react";
+import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -22,7 +22,7 @@ export function Header() {
   const navItems = [
     { href: "/", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/" },
     { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
-    { href: "/launch", label: t('nav.launchpad'), icon: Rocket, match: (loc: string) => loc.startsWith("/launch") },
+    { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
     { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
     ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),

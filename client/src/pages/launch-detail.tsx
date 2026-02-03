@@ -19,7 +19,7 @@ import {
   Users,
   Loader2,
   AlertCircle,
-  Rocket,
+  Egg,
   Copy,
   Check,
   BarChart3
@@ -578,7 +578,7 @@ export default function LaunchDetail() {
                           </>
                         ) : (
                           <>
-                            <Rocket className="h-4 w-4 mr-2" />
+                            <Egg className="h-4 w-4 mr-2" />
                             Migrate to DEX
                           </>
                         )}
@@ -737,7 +737,7 @@ export default function LaunchDetail() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Rocket className="h-5 w-5" />
+                <Egg className="h-5 w-5" />
                 Trade
               </CardTitle>
             </CardHeader>
@@ -795,7 +795,7 @@ export default function LaunchDetail() {
                       </>
                     ) : (
                       <>
-                        <Rocket className="h-4 w-4" />
+                        <Egg className="h-4 w-4" />
                         Initialize Market
                       </>
                     )}
