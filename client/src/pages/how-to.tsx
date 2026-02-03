@@ -321,6 +321,120 @@ export default function HowTo() {
               </ol>
             </div>
 
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-500" />
+                  {language === 'zh' ? '玩家对玩家 (PvP)' : 'Player vs Player (PvP)'}
+                </h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    {language === 'zh' ? '与真人玩家进行价格预测对决' : 'Battle real players in price predictions'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    {language === 'zh' ? '创建对决或加入现有对决' : 'Create a duel or join an existing one'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    {language === 'zh' ? '基于技术分析和市场判断' : 'Based on technical analysis & market insight'}
+                  </li>
+                </ul>
+              </div>
+              
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-amber-500" />
+                  {language === 'zh' ? '玩家对机器人 (PvB)' : 'Player vs Bot (PvB)'}
+                </h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    {language === 'zh' ? 'HouseBot随时准备接受挑战' : 'HouseBot always ready to accept challenges'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    {language === 'zh' ? '无需等待其他玩家加入' : 'No waiting for other players to join'}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-green-500" />
+                    {language === 'zh' ? '机器人使用真实BNB质押' : 'Bot stakes real BNB from its wallet'}
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-4 border border-primary/30 bg-primary/5 rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                {language === 'zh' ? '随机对决模式 (50/50) - 公平VRF' : 'Random Duel Mode (50/50) - Fair VRF'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh' 
+                  ? '随机对决使用可验证随机函数(VRF)确保100%公平性。结果完全随机，无法被操纵或预测。每个VRF请求和随机数都记录在链上，任何人都可以验证。'
+                  : 'Random duels use Verifiable Random Function (VRF) to ensure 100% fairness. Results are completely random and cannot be manipulated or predicted. Every VRF request and random number is recorded on-chain for anyone to verify.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? '链上可验证' : 'On-chain Verifiable'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? '防篡改' : 'Tamper-proof'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? '可追溯' : 'Fully Traceable'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Shield className="h-4 w-4 text-green-500" />
+                {language === 'zh' ? '链上透明 & 可追溯' : 'On-chain Transparency & Traceability'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh'
+                  ? '所有对决都在BNB智能链上进行。每笔质押、每次对决结果、每笔支付都有链上交易记录。你可以在BSCScan上查看完整的交易历史，确保完全透明。'
+                  : 'All duels happen on the BNB Smart Chain. Every stake, every duel result, every payout has an on-chain transaction record. You can view the complete transaction history on BSCScan, ensuring full transparency.'}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ExternalLink className="h-3 w-3" />
+                <span>{language === 'zh' ? '合约地址：' : 'Contract: '}</span>
+                <code className="bg-muted px-1 rounded">0x8A3698513850b6dEFA68dD59f4D7DC5E8c2e2650</code>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-amber-500" />
+                {language === 'zh' ? '排行榜系统' : 'Leaderboard System'}
+              </h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                {language === 'zh'
+                  ? '竞争上榜，成为顶级预测者！排行榜根据盈亏(PnL)排名，而不仅仅是胜场数。'
+                  : 'Compete to climb the ranks and become a top predictor! Leaderboards rank by profit/loss (PnL), not just wins.'}
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="p-3 bg-muted/30 rounded flex items-start gap-2">
+                  <Badge className="shrink-0">{language === 'zh' ? '日榜' : 'Daily'}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '每日午夜重置，展示今日最佳表现' : 'Resets at midnight, shows top performers today'}
+                  </span>
+                </div>
+                <div className="p-3 bg-muted/30 rounded flex items-start gap-2">
+                  <Badge className="shrink-0">{language === 'zh' ? '周榜' : 'Weekly'}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '每周一重置，展示本周冠军' : 'Resets every Monday, shows weekly champions'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium">{language === 'zh' ? '追踪数据：' : 'Tracked stats: '}</span>
+                {language === 'zh' ? '胜场、败场、盈亏(BNB)、交易量' : 'Wins, Losses, PnL (BNB), Volume'}
+              </div>
+            </div>
+
             <Link href="/predict">
               <Button variant="outline" data-testid="button-go-to-predict">
                 {language === 'zh' ? '开始预测对决' : 'Start Prediction Duel'}
