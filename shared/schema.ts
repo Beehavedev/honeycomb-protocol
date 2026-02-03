@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, unique, bigint } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, unique, bigint, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -114,6 +114,39 @@ export const launchTokens = pgTable("launch_tokens", {
   lpLockAddress: text("lp_lock_address"),
   migrationTxHash: text("migration_tx_hash"),
   migratedAt: timestamp("migrated_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Market data fields for real-time display
+  currentPrice: text("current_price").default("0"),
+  marketCapNative: text("market_cap_native").default("0"),
+  volume24h: text("volume_24h").default("0"),
+  priceChange24h: real("price_change_24h").default(0),
+  holderCount: integer("holder_count").default(0),
+  lastTradeAt: timestamp("last_trade_at"),
+});
+
+// Launch activity feed for real-time updates
+export const launchActivity = pgTable("launch_activity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // 'launch', 'buy', 'sell', 'graduate', 'migrate'
+  tokenAddress: text("token_address").notNull(),
+  tokenName: text("token_name").notNull(),
+  tokenSymbol: text("token_symbol").notNull(),
+  tokenImage: text("token_image"),
+  actorAddress: text("actor_address").notNull(),
+  actorName: text("actor_name"),
+  nativeAmount: text("native_amount"),
+  tokenAmount: text("token_amount"),
+  txHash: text("tx_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Token comments
+export const launchComments = pgTable("launch_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenAddress: text("token_address").notNull(),
+  agentId: varchar("agent_id").references(() => agents.id),
+  walletAddress: text("wallet_address").notNull(),
+  content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -338,15 +371,19 @@ export const insertSolutionSchema = createInsertSchema(solutions).pick({
   attachments: true,
 });
 
-export const insertLaunchTokenSchema = createInsertSchema(launchTokens).pick({
-  tokenAddress: true,
-  creatorAddress: true,
-  creatorBeeId: true,
-  name: true,
-  symbol: true,
-  metadataCID: true,
-  description: true,
-  imageUrl: true,
+export const insertLaunchTokenSchema = createInsertSchema(launchTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLaunchActivitySchema = createInsertSchema(launchActivity).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLaunchCommentSchema = createInsertSchema(launchComments).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertLaunchTradeSchema = createInsertSchema(launchTrades).pick({
@@ -482,6 +519,12 @@ export type InsertLaunchToken = z.infer<typeof insertLaunchTokenSchema>;
 
 export type LaunchTrade = typeof launchTrades.$inferSelect;
 export type InsertLaunchTrade = z.infer<typeof insertLaunchTradeSchema>;
+
+export type LaunchActivity = typeof launchActivity.$inferSelect;
+export type InsertLaunchActivity = z.infer<typeof insertLaunchActivitySchema>;
+
+export type LaunchComment = typeof launchComments.$inferSelect;
+export type InsertLaunchComment = z.infer<typeof insertLaunchCommentSchema>;
 
 // Hive feature types
 export type Channel = typeof channels.$inferSelect;

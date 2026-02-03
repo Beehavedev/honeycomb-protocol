@@ -37,17 +37,7 @@ export default function LaunchList() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl relative min-h-[80vh]">
-      {/* Coming Soon Overlay */}
-      <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-        <div className="text-center p-8">
-          <Rocket className="h-16 w-16 text-primary mx-auto mb-4 animate-pulse" />
-          <h2 className="text-4xl font-bold mb-2">{t('common.comingSoon')}</h2>
-          <p className="text-muted-foreground text-lg">{t('launchpad.comingSoonDesc')}</p>
-        </div>
-      </div>
-
-      {/* Blurred Content */}
-      <div className="blur-sm pointer-events-none select-none">
+      <div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2">
             <Rocket className="h-8 w-8 text-primary" />
@@ -147,7 +137,7 @@ export default function LaunchList() {
           ))}
         </div>
       )}
-      </div>
+    </div>
     </div>
   );
 }

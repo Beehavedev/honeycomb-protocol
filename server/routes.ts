@@ -1089,6 +1089,21 @@ export async function registerRoutes(
         description,
         imageUrl,
       });
+      
+      // Record launch activity
+      const agent = await storage.getAgentByWallet(walletAddress);
+      await storage.createLaunchActivity({
+        type: 'launch',
+        tokenAddress,
+        tokenName: name,
+        tokenSymbol: symbol,
+        tokenImage: imageUrl || null,
+        actorAddress: walletAddress,
+        actorName: agent?.name || null,
+        nativeAmount: null,
+        tokenAmount: null,
+        txHash: null,
+      });
 
       res.json({ token });
     } catch (error) {
@@ -1117,19 +1132,122 @@ export async function registerRoutes(
         txHash,
       });
 
-      // Update token stats if needed
-      if (isBuy) {
-        const token = await storage.getLaunchToken(tokenAddress);
-        if (token) {
+      // Get token info and update stats
+      const token = await storage.getLaunchToken(tokenAddress);
+      if (token) {
+        // Update token stats
+        if (isBuy) {
           const newTotalRaised = (BigInt(token.totalRaisedNative) + BigInt(nativeAmount) - BigInt(feeNative || "0")).toString();
-          await storage.updateLaunchToken(tokenAddress, { totalRaisedNative: newTotalRaised });
+          await storage.updateLaunchToken(tokenAddress, { 
+            totalRaisedNative: newTotalRaised,
+            lastTradeAt: new Date(),
+          });
         }
+        
+        // Record activity
+        const agent = await storage.getAgentByWallet(trader);
+        await storage.createLaunchActivity({
+          type: isBuy ? 'buy' : 'sell',
+          tokenAddress,
+          tokenName: token.name,
+          tokenSymbol: token.symbol,
+          tokenImage: token.imageUrl || null,
+          actorAddress: trader,
+          actorName: agent?.name || null,
+          nativeAmount,
+          tokenAmount,
+          txHash,
+        });
       }
 
       res.json({ trade });
     } catch (error) {
       console.error("Record trade error:", error);
       res.status(500).json({ message: "Failed to record trade" });
+    }
+  });
+  
+  // Get activity feed (recent trades, launches, migrations)
+  app.get("/api/launch/activity", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const activity = await storage.getLaunchActivity(limit);
+      res.json({ activity });
+    } catch (error) {
+      console.error("Get activity error:", error);
+      res.status(500).json({ message: "Failed to get activity" });
+    }
+  });
+  
+  // Get trending tokens (King of the Hill)
+  app.get("/api/launch/trending", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const tokens = await storage.getTrendingTokens(limit);
+      res.json({ tokens });
+    } catch (error) {
+      console.error("Get trending error:", error);
+      res.status(500).json({ message: "Failed to get trending tokens" });
+    }
+  });
+  
+  // Search tokens
+  app.get("/api/launch/search", async (req, res) => {
+    try {
+      const query = req.query.q as string || "";
+      const limit = parseInt(req.query.limit as string) || 20;
+      
+      if (!query.trim()) {
+        return res.json({ tokens: [] });
+      }
+      
+      const tokens = await storage.searchLaunchTokens(query, limit);
+      res.json({ tokens });
+    } catch (error) {
+      console.error("Search tokens error:", error);
+      res.status(500).json({ message: "Failed to search tokens" });
+    }
+  });
+  
+  // Get comments for a token
+  app.get("/api/launch/tokens/:address/comments", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const comments = await storage.getLaunchComments(req.params.address, limit);
+      res.json({ comments });
+    } catch (error) {
+      console.error("Get comments error:", error);
+      res.status(500).json({ message: "Failed to get comments" });
+    }
+  });
+  
+  // Post a comment on a token
+  app.post("/api/launch/tokens/:address/comments", authMiddleware, async (req, res) => {
+    try {
+      const { content } = req.body;
+      const walletAddress = req.walletAddress!;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+      
+      if (content.length > 500) {
+        return res.status(400).json({ message: "Comment too long (max 500 characters)" });
+      }
+      
+      const agent = await storage.getAgentByWallet(walletAddress);
+      
+      const comment = await storage.createLaunchComment({
+        tokenAddress: req.params.address,
+        agentId: agent?.id || null,
+        walletAddress,
+        content: content.trim(),
+      });
+      
+      res.json({ comment });
+    } catch (error) {
+      console.error("Post comment error:", error);
+      res.status(500).json({ message: "Failed to post comment" });
     }
   });
 

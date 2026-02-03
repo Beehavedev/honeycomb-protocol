@@ -8,13 +8,15 @@ import {
   type Solution, type InsertSolution,
   type LaunchToken, type InsertLaunchToken,
   type LaunchTrade, type InsertLaunchTrade,
+  type LaunchActivity, type InsertLaunchActivity,
+  type LaunchComment, type InsertLaunchComment,
   type Duel, type InsertDuel,
   type DuelAsset, type InsertDuelAsset,
   type DuelStat, type InsertDuelStat,
   type LeaderboardDaily, type InsertLeaderboardDaily,
   type LeaderboardWeekly, type InsertLeaderboardWeekly,
   agents, posts, comments, votes, authNonces, bounties, solutions,
-  launchTokens, launchTrades, duels, duelAssets,
+  launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly
 } from "@shared/schema";
 import { db } from "./db";
@@ -83,6 +85,18 @@ export interface IStorage {
   // Launch Trades
   createLaunchTrade(data: InsertLaunchTrade): Promise<LaunchTrade>;
   getLaunchTradesByToken(tokenAddress: string, limit: number): Promise<LaunchTrade[]>;
+  
+  // Launch Activity Feed
+  createLaunchActivity(data: InsertLaunchActivity): Promise<LaunchActivity>;
+  getLaunchActivity(limit: number): Promise<LaunchActivity[]>;
+  
+  // Launch Comments
+  createLaunchComment(data: InsertLaunchComment): Promise<LaunchComment>;
+  getLaunchComments(tokenAddress: string, limit: number): Promise<LaunchComment[]>;
+  
+  // Launch Token Stats
+  getTrendingTokens(limit: number): Promise<LaunchToken[]>;
+  searchLaunchTokens(query: string, limit: number): Promise<LaunchToken[]>;
 
   // Duels
   createDuel(data: InsertDuel): Promise<Duel>;
@@ -497,6 +511,55 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(launchTrades)
       .where(eq(launchTrades.tokenAddress, tokenAddress.toLowerCase()))
       .orderBy(desc(launchTrades.createdAt))
+      .limit(limit);
+  }
+  
+  // Launch Activity Feed
+  async createLaunchActivity(data: InsertLaunchActivity): Promise<LaunchActivity> {
+    const [activity] = await db.insert(launchActivity).values({
+      ...data,
+      tokenAddress: data.tokenAddress.toLowerCase(),
+      actorAddress: data.actorAddress.toLowerCase(),
+    }).returning();
+    return activity;
+  }
+  
+  async getLaunchActivity(limit: number): Promise<LaunchActivity[]> {
+    return db.select().from(launchActivity)
+      .orderBy(desc(launchActivity.createdAt))
+      .limit(limit);
+  }
+  
+  // Launch Comments
+  async createLaunchComment(data: InsertLaunchComment): Promise<LaunchComment> {
+    const [comment] = await db.insert(launchComments).values({
+      ...data,
+      tokenAddress: data.tokenAddress.toLowerCase(),
+      walletAddress: data.walletAddress.toLowerCase(),
+    }).returning();
+    return comment;
+  }
+  
+  async getLaunchComments(tokenAddress: string, limit: number): Promise<LaunchComment[]> {
+    return db.select().from(launchComments)
+      .where(eq(launchComments.tokenAddress, tokenAddress.toLowerCase()))
+      .orderBy(desc(launchComments.createdAt))
+      .limit(limit);
+  }
+  
+  // Launch Token Stats - Trending by volume and recent trades
+  async getTrendingTokens(limit: number): Promise<LaunchToken[]> {
+    return db.select().from(launchTokens)
+      .where(eq(launchTokens.graduated, false))
+      .orderBy(desc(launchTokens.tradeCount), desc(launchTokens.totalRaisedNative))
+      .limit(limit);
+  }
+  
+  async searchLaunchTokens(query: string, limit: number): Promise<LaunchToken[]> {
+    const searchTerm = `%${query.toLowerCase()}%`;
+    return db.select().from(launchTokens)
+      .where(sql`LOWER(${launchTokens.name}) LIKE ${searchTerm} OR LOWER(${launchTokens.symbol}) LIKE ${searchTerm}`)
+      .orderBy(desc(launchTokens.createdAt))
       .limit(limit);
   }
 
