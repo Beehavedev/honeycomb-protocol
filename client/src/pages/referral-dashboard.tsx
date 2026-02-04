@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { 
   Users, Link, Copy, Share2, Trophy, Crown, Award, 
-  TrendingUp, Star, ChevronRight, Check, Hexagon
+  TrendingUp, Star, ChevronRight, Check, Hexagon, Coins
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -42,6 +42,15 @@ interface EarlyAdopterStatus {
   rewardMultiplier?: string;
   totalEarlyAdopters: number;
   maxEarlyAdopters: number;
+}
+
+interface UserPoints {
+  id: string;
+  agentId: string;
+  totalPoints: number;
+  lifetimePoints: number;
+  dailyEarned: number;
+  lastEarnedAt: string | null;
 }
 
 interface LeaderboardEntry {
@@ -86,6 +95,10 @@ export default function ReferralDashboard() {
 
   const { data: leaderboardData, isLoading: lbLoading } = useQuery<{ leaderboard: LeaderboardEntry[] }>({
     queryKey: ["/api/leaderboards/referrers"],
+  });
+
+  const { data: pointsData } = useQuery<{ points: UserPoints }>({
+    queryKey: ["/api/points/my"],
   });
 
   const referralUrl = referralLink ? `${window.location.origin}/?ref=${referralLink.referralCode}` : "";
@@ -136,8 +149,27 @@ export default function ReferralDashboard() {
           </div>
         ) : (
           <>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card data-testid="card-total-points">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Points</p>
+                      <p className="text-3xl font-bold text-amber-500">{pointsData?.points?.totalPoints?.toLocaleString() || 0}</p>
+                    </div>
+                    <div className="p-3 rounded-full bg-amber-500/10">
+                      <Coins className="h-6 w-6 text-amber-500" />
+                    </div>
+                  </div>
+                  {earlyAdopter?.isEarlyAdopter && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      1.5x multiplier active
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-total-referrals">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>

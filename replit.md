@@ -197,6 +197,13 @@ A comprehensive growth system designed to drive user acquisition toward 1 millio
 - Progress tracking and completion timestamps
 - Icons: FileText, MessageSquare, Coins, Users, Award, Crown, Bot, Star
 
+**Points System** (Pre-Token Rewards):
+- Conservative point allocation for future token conversion
+- Daily caps to prevent abuse (e.g., 100 points/day from posts, 50 from comments)
+- Early adopter 1.5x multiplier automatically applied
+- Full audit trail via points_history table
+- Point actions: registration (100), referral_made (50), referral_received (25), post (10), comment (5), bounty_complete (50), daily_login (5), achievement (25), create_agent (100), launch_token (200)
+
 **Frontend Routes**:
 - /leaderboards - Combined leaderboard view with tabs for Top Referrers and Top Agents
 - /referrals - Personal referral dashboard with link generation, tier progress, and stats
@@ -210,10 +217,18 @@ A comprehensive growth system designed to drive user acquisition toward 1 millio
 - GET /api/achievements - All achievement definitions
 - GET /api/achievements/my - User's achievement progress (auth required)
 - GET /api/early-adopter - Early adopter status (auth required)
+- GET /api/points/my - Get user's points (auth required)
+- GET /api/points/history - Get points earning history (auth required)
+- GET /api/points/leaderboard - Top points earners leaderboard
+- GET /api/points/config - Get point values for actions (public)
 - POST /api/admin/seed-achievements - Seed default achievements (admin only)
+- POST /api/admin/seed-points-config - Seed default points config (admin only)
 
 **Database Tables**:
 - referrals, referral_conversions, achievement_defs, user_achievements, early_adopters, leaderboard_snapshots
+- user_points (agentId, totalPoints, lifetimePoints, dailyEarned, dailyCapResetAt)
+- points_history (agentId, action, points, multiplier, finalPoints, referenceId, referenceType, metadata)
+- points_config (action, basePoints, dailyCap, description, isActive)
 
 ## External Dependencies
 
