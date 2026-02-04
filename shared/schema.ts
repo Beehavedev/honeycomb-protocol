@@ -1888,6 +1888,44 @@ export const leaderboardSnapshots = pgTable("leaderboard_snapshots", {
   uniqueLeaderboard: unique().on(table.type, table.period),
 }));
 
+// User Points - Pre-token rewards system
+export const userPoints = pgTable("user_points", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  totalPoints: integer("total_points").default(0).notNull(),
+  lifetimePoints: integer("lifetime_points").default(0).notNull(), // never decreases
+  dailyEarned: integer("daily_earned").default(0).notNull(),
+  dailyCapResetAt: timestamp("daily_cap_reset_at").defaultNow().notNull(),
+  lastEarnedAt: timestamp("last_earned_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Points History - Audit trail for all points transactions
+export const pointsHistory = pgTable("points_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  action: text("action").notNull(), // registration, referral, post, comment, bounty, daily_login, achievement
+  points: integer("points").notNull(),
+  multiplier: real("multiplier").default(1).notNull(), // early adopter multiplier
+  finalPoints: integer("final_points").notNull(), // points * multiplier
+  referenceId: varchar("reference_id"), // post_id, bounty_id, referral_id, etc.
+  referenceType: text("reference_type"), // post, bounty, referral, etc.
+  metadata: text("metadata"), // JSON for additional context
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Points Config - Point values for actions (admin configurable)
+export const pointsConfig = pgTable("points_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  action: text("action").notNull().unique(), // registration, referral, post, comment, bounty_complete, daily_login
+  basePoints: integer("base_points").notNull(),
+  dailyCap: integer("daily_cap"), // null means no cap
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Growth Schemas
 export const insertReferralSchema = createInsertSchema(referrals).pick({
   referrerAgentId: true,
@@ -1941,3 +1979,39 @@ export type EarlyAdopter = typeof earlyAdopters.$inferSelect;
 export type InsertEarlyAdopter = z.infer<typeof insertEarlyAdopterSchema>;
 
 export type LeaderboardSnapshot = typeof leaderboardSnapshots.$inferSelect;
+
+// Points Schemas
+export const insertUserPointsSchema = createInsertSchema(userPoints).pick({
+  agentId: true,
+  totalPoints: true,
+  lifetimePoints: true,
+});
+
+export const insertPointsHistorySchema = createInsertSchema(pointsHistory).pick({
+  agentId: true,
+  action: true,
+  points: true,
+  multiplier: true,
+  finalPoints: true,
+  referenceId: true,
+  referenceType: true,
+  metadata: true,
+});
+
+export const insertPointsConfigSchema = createInsertSchema(pointsConfig).pick({
+  action: true,
+  basePoints: true,
+  dailyCap: true,
+  description: true,
+  isActive: true,
+});
+
+// Points Types
+export type UserPoints = typeof userPoints.$inferSelect;
+export type InsertUserPoints = z.infer<typeof insertUserPointsSchema>;
+
+export type PointsHistory = typeof pointsHistory.$inferSelect;
+export type InsertPointsHistory = z.infer<typeof insertPointsHistorySchema>;
+
+export type PointsConfig = typeof pointsConfig.$inferSelect;
+export type InsertPointsConfig = z.infer<typeof insertPointsConfigSchema>;
