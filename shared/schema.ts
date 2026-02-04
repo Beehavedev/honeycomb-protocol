@@ -1203,3 +1203,254 @@ export type AgentGraduation = typeof agentGraduations.$inferSelect;
 export type InsertAgentGraduation = z.infer<typeof insertAgentGraduationSchema>;
 
 export type AgentLeaderboard = typeof agentLeaderboard.$inferSelect;
+
+// ============ BEEPAY - AGENT SETTLEMENT LAYER ============
+
+// BeePay Identities - unified identity system for agents and humans
+export const beepayIdentities = pgTable("beepay_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identityId: text("identity_id").notNull().unique(), // bytes32 on-chain identity
+  identityType: text("identity_type").notNull(), // "agent" or "human"
+  primaryAccount: text("primary_account").notNull(), // Primary wallet address
+  metadataUri: text("metadata_uri"), // IPFS or off-chain metadata
+  agentId: varchar("agent_id").references(() => agents.id), // Link to platform agent if applicable
+  displayName: text("display_name"),
+  avatarUrl: text("avatar_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  onChainRegistryId: integer("on_chain_registry_id"), // On-chain contract ID
+  linkedAccounts: text("linked_accounts").array().default(sql`ARRAY[]::text[]`), // Additional linked wallet addresses
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// BeePay Budget Vaults - spending controls for identities
+export const beepayBudgets = pgTable("beepay_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identityId: text("identity_id").notNull(), // References beepayIdentities.identityId
+  token: text("token").notNull(), // Token address (0x0 for native BNB)
+  balanceWei: text("balance_wei").default("0").notNull(),
+  dailyLimitWei: text("daily_limit_wei"), // Optional daily spending limit
+  dailySpentWei: text("daily_spent_wei").default("0").notNull(),
+  lastResetDay: integer("last_reset_day").default(0).notNull(), // UTC day number for limit reset
+  isFrozen: boolean("is_frozen").default(false).notNull(),
+  allowedTargets: text("allowed_targets").array().default(sql`ARRAY[]::text[]`), // Allowed contract addresses
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueIdentityToken: unique().on(table.identityId, table.token),
+}));
+
+// BeePay Payments - instant payment history
+export const beepayPayments = pgTable("beepay_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromIdentityId: text("from_identity_id").notNull(),
+  toIdentityId: text("to_identity_id").notNull(),
+  token: text("token").notNull(), // Token address (0x0 for BNB)
+  grossAmountWei: text("gross_amount_wei").notNull(),
+  feeAmountWei: text("fee_amount_wei").notNull(),
+  netAmountWei: text("net_amount_wei").notNull(),
+  memoHash: text("memo_hash"), // Optional memo/invoice reference
+  memo: text("memo"), // Optional plaintext memo
+  payerAccount: text("payer_account").notNull(), // Actual wallet that sent
+  txHash: text("tx_hash"),
+  paymentType: text("payment_type").notNull().default("direct"), // direct, pull, escrow_release
+  status: text("status").notNull().default("pending"), // pending, confirmed, failed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BeePay Invoices - payment requests
+export const beepayInvoices = pgTable("beepay_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceHash: text("invoice_hash").notNull().unique(), // Hash of invoice details
+  sellerIdentityId: text("seller_identity_id").notNull(),
+  buyerIdentityId: text("buyer_identity_id"), // Optional - can be open invoice
+  token: text("token").notNull(),
+  amountWei: text("amount_wei").notNull(),
+  amountDisplay: text("amount_display").notNull(), // Human readable amount
+  serviceType: text("service_type"), // Category of service
+  terms: text("terms"), // Service terms/description
+  expiresAt: timestamp("expires_at"),
+  status: text("status").notNull().default("pending"), // pending, paid, expired, cancelled
+  paymentId: varchar("payment_id").references(() => beepayPayments.id), // Link to payment if paid
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BeePay Escrows - conditional payments
+export const beepayEscrows = pgTable("beepay_escrows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  onChainEscrowId: integer("on_chain_escrow_id"), // On-chain escrow ID
+  payerId: text("payer_id").notNull(), // Payer identity
+  payeeId: text("payee_id").notNull(), // Payee identity
+  token: text("token").notNull(),
+  amountWei: text("amount_wei").notNull(),
+  amountDisplay: text("amount_display").notNull(),
+  deadline: timestamp("deadline").notNull(),
+  termsHash: text("terms_hash"), // Hash of terms/agreement
+  terms: text("terms"), // Human-readable terms
+  conditionModule: text("condition_module").notNull(), // mutual_sign, quorum, oracle
+  conditionData: text("condition_data"), // JSON module-specific config
+  status: text("status").notNull().default("created"), // created, funded, released, refunded, disputed
+  fundedAt: timestamp("funded_at"),
+  fundTxHash: text("fund_tx_hash"),
+  releasedAt: timestamp("released_at"),
+  releaseTxHash: text("release_tx_hash"),
+  refundedAt: timestamp("refunded_at"),
+  refundTxHash: text("refund_tx_hash"),
+  feeAmountWei: text("fee_amount_wei"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BeePay Escrow Approvals - track signature approvals for conditions
+export const beepayEscrowApprovals = pgTable("beepay_escrow_approvals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  escrowId: varchar("escrow_id").notNull().references(() => beepayEscrows.id),
+  identityId: text("identity_id").notNull(), // Identity that approved
+  approvalType: text("approval_type").notNull(), // release, refund, receipt
+  signatureHash: text("signature_hash"), // Signature hash for verification
+  outcomeHash: text("outcome_hash"), // For validator receipts
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueApproval: unique().on(table.escrowId, table.identityId, table.approvalType),
+}));
+
+// BeePay Validators - third-party validators for escrow conditions
+export const beepayValidators = pgTable("beepay_validators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identityId: text("identity_id").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  specialties: text("specialties").array().default(sql`ARRAY[]::text[]`), // e.g., ["code_review", "delivery"]
+  bondAmountWei: text("bond_amount_wei").default("0").notNull(), // Staked bond
+  totalEscrowsValidated: integer("total_escrows_validated").default(0).notNull(),
+  successRate: real("success_rate").default(100), // Success percentage
+  isActive: boolean("is_active").default(true).notNull(),
+  slashedAmountWei: text("slashed_amount_wei").default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BeePay Webhook Subscriptions - agent event notifications
+export const beepayWebhooks = pgTable("beepay_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  identityId: text("identity_id").notNull(),
+  url: text("url").notNull(),
+  secret: text("secret").notNull(),
+  events: text("events").array().default(sql`ARRAY['payment_received', 'escrow_funded', 'escrow_released']::text[]`),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastDeliveryAt: timestamp("last_delivery_at"),
+  failureCount: integer("failure_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BeePay Pull Payment Authorizations - pre-authorized recurring payments
+export const beepayPullAuths = pgTable("beepay_pull_auths", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromIdentityId: text("from_identity_id").notNull(),
+  toIdentityId: text("to_identity_id").notNull(),
+  token: text("token").notNull(),
+  maxAmountWei: text("max_amount_wei").notNull(), // Max per pull
+  totalLimitWei: text("total_limit_wei"), // Optional total limit
+  totalPulledWei: text("total_pulled_wei").default("0").notNull(),
+  nonce: integer("nonce").default(0).notNull(),
+  deadline: timestamp("deadline"), // Optional expiry
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniquePullAuth: unique().on(table.fromIdentityId, table.toIdentityId, table.token),
+}));
+
+// Insert schemas for BeePay
+export const insertBeepayIdentitySchema = createInsertSchema(beepayIdentities).pick({
+  identityId: true,
+  identityType: true,
+  primaryAccount: true,
+  metadataUri: true,
+  agentId: true,
+  displayName: true,
+  avatarUrl: true,
+});
+
+export const insertBeepayBudgetSchema = createInsertSchema(beepayBudgets).pick({
+  identityId: true,
+  token: true,
+  balanceWei: true,
+  dailyLimitWei: true,
+});
+
+export const insertBeepayPaymentSchema = createInsertSchema(beepayPayments).pick({
+  fromIdentityId: true,
+  toIdentityId: true,
+  token: true,
+  grossAmountWei: true,
+  feeAmountWei: true,
+  netAmountWei: true,
+  memoHash: true,
+  memo: true,
+  payerAccount: true,
+  txHash: true,
+  paymentType: true,
+});
+
+export const insertBeepayInvoiceSchema = createInsertSchema(beepayInvoices).pick({
+  invoiceHash: true,
+  sellerIdentityId: true,
+  buyerIdentityId: true,
+  token: true,
+  amountWei: true,
+  amountDisplay: true,
+  serviceType: true,
+  terms: true,
+  expiresAt: true,
+});
+
+export const insertBeepayEscrowSchema = createInsertSchema(beepayEscrows).pick({
+  payerId: true,
+  payeeId: true,
+  token: true,
+  amountWei: true,
+  amountDisplay: true,
+  deadline: true,
+  termsHash: true,
+  terms: true,
+  conditionModule: true,
+  conditionData: true,
+});
+
+export const insertBeepayValidatorSchema = createInsertSchema(beepayValidators).pick({
+  identityId: true,
+  displayName: true,
+  description: true,
+  specialties: true,
+  bondAmountWei: true,
+});
+
+export const insertBeepayWebhookSchema = createInsertSchema(beepayWebhooks).pick({
+  identityId: true,
+  url: true,
+  secret: true,
+  events: true,
+});
+
+// BeePay Types
+export type BeepayIdentity = typeof beepayIdentities.$inferSelect;
+export type InsertBeepayIdentity = z.infer<typeof insertBeepayIdentitySchema>;
+
+export type BeepayBudget = typeof beepayBudgets.$inferSelect;
+export type InsertBeepayBudget = z.infer<typeof insertBeepayBudgetSchema>;
+
+export type BeepayPayment = typeof beepayPayments.$inferSelect;
+export type InsertBeepayPayment = z.infer<typeof insertBeepayPaymentSchema>;
+
+export type BeepayInvoice = typeof beepayInvoices.$inferSelect;
+export type InsertBeepayInvoice = z.infer<typeof insertBeepayInvoiceSchema>;
+
+export type BeepayEscrow = typeof beepayEscrows.$inferSelect;
+export type InsertBeepayEscrow = z.infer<typeof insertBeepayEscrowSchema>;
+
+export type BeepayEscrowApproval = typeof beepayEscrowApprovals.$inferSelect;
+
+export type BeepayValidator = typeof beepayValidators.$inferSelect;
+export type InsertBeepayValidator = z.infer<typeof insertBeepayValidatorSchema>;
+
+export type BeepayWebhook = typeof beepayWebhooks.$inferSelect;
+export type InsertBeepayWebhook = z.infer<typeof insertBeepayWebhookSchema>;
+
+export type BeepayPullAuth = typeof beepayPullAuths.$inferSelect;

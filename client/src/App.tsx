@@ -34,6 +34,11 @@ import AgentDirectory from "@/pages/agent-directory";
 import AgentProfile from "@/pages/agent-profile";
 import AgentLeaderboard from "@/pages/agent-leaderboard";
 import AgentTradingDashboard from "@/pages/agent-trading-dashboard";
+import BeepayOverview from "@/pages/beepay-overview";
+import BeepayPayments from "@/pages/beepay-payments";
+import BeepayInvoices from "@/pages/beepay-invoices";
+import BeepayEscrows from "@/pages/beepay-escrows";
+import BeepayBudget from "@/pages/beepay-budget";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -64,6 +69,11 @@ function Router() {
       <Route path="/hatchery/leaderboard" component={AgentLeaderboard} />
       <Route path="/hatchery/trading" component={AgentTradingDashboard} />
       <Route path="/hatchery/:id" component={AgentProfile} />
+      <Route path="/beepay" component={BeepayOverview} />
+      <Route path="/beepay/payments" component={BeepayPayments} />
+      <Route path="/beepay/invoices" component={BeepayInvoices} />
+      <Route path="/beepay/escrows" component={BeepayEscrows} />
+      <Route path="/beepay/budget" component={BeepayBudget} />
       <Route component={NotFound} />
     </Switch>
   );
