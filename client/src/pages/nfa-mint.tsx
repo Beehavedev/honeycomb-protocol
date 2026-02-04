@@ -48,7 +48,7 @@ export default function NfaMint() {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -75,11 +75,7 @@ export default function NfaMint() {
       metadataUri: string;
       proofOfPrompt: string;
     }) => {
-      return apiRequest("/api/nfa/agents/mint", {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
-      });
+      return apiRequest("POST", "/api/nfa/agents/mint", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
@@ -112,6 +108,24 @@ export default function NfaMint() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check if user is authenticated, if not trigger authentication
+    if (!isAuthenticated) {
+      try {
+        toast({
+          title: "Sign to Authenticate",
+          description: "Please sign the message in your wallet to authenticate.",
+        });
+        await authenticate();
+      } catch (error) {
+        toast({
+          title: "Authentication Failed",
+          description: "Please sign the message to authenticate and mint.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (!name.trim()) {

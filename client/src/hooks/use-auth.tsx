@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticating(true);
     try {
       // Get nonce
-      const nonceRes = await apiRequest("POST", "/api/auth/nonce", { address });
+      const nonceRes = await apiRequest<{ nonce: string }>("POST", "/api/auth/nonce", { address });
       const { nonce } = nonceRes;
 
       // Sign message
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const signature = await signMessageAsync({ message });
 
       // Verify signature and get JWT
-      const verifyRes = await apiRequest("POST", "/api/auth/verify", {
+      const verifyRes = await apiRequest<{ token: string; agent?: Agent }>("POST", "/api/auth/verify", {
         address,
         signature,
         nonce,
