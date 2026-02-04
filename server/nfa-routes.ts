@@ -9,13 +9,20 @@ import {
   nfaVerifications, 
   nfaStats, 
   nfaRatings,
+  nfaTemplates,
+  nfaLearningModules,
+  nfaLearningMetrics,
+  nfaVaultPermissions,
+  nfaActions,
   insertNfaAgentSchema,
   insertNfaMemorySchema,
   insertNfaInteractionSchema,
   insertNfaListingSchema,
-  insertNfaRatingSchema
+  insertNfaRatingSchema,
+  insertNfaVaultPermissionSchema,
+  insertNfaActionSchema
 } from "@shared/schema";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, gte } from "drizzle-orm";
 import crypto from "crypto";
 import { authMiddleware, optionalAuthMiddleware } from "./auth";
 
@@ -77,12 +84,40 @@ nfaRouter.get("/agents/:id", async (req: Request, res: Response) => {
     const stats = await db.select().from(nfaStats).where(eq(nfaStats.nfaId, id));
     const verification = await db.select().from(nfaVerifications).where(eq(nfaVerifications.nfaId, id));
     const listing = await db.select().from(nfaListings).where(eq(nfaListings.nfaId, id));
+    
+    // BAP-578: Include learning metrics if learning is enabled
+    let learningMetrics = null;
+    let learningModule = null;
+    if (agent.learningEnabled) {
+      const metrics = await db.select().from(nfaLearningMetrics).where(eq(nfaLearningMetrics.nfaId, id));
+      learningMetrics = metrics[0] || { 
+        totalInteractions: 0, learningEvents: 0, 
+        learningVelocity: "0", confidenceScore: "0",
+        treeDepth: 0, totalNodes: 0 
+      };
+      
+      if (agent.learningModuleId) {
+        const modules = await db.select().from(nfaLearningModules).where(eq(nfaLearningModules.id, agent.learningModuleId));
+        learningModule = modules[0] || null;
+      }
+    }
+
+    // BAP-578: Include template info if from template
+    let template = null;
+    if (agent.templateId) {
+      const templates = await db.select().from(nfaTemplates).where(eq(nfaTemplates.id, agent.templateId));
+      template = templates[0] || null;
+    }
 
     res.json({
       agent,
       stats: stats[0] || { totalInteractions: 0, totalRevenue: "0", rating: 0, ratingCount: 0 },
       verification: verification[0] || { status: "UNVERIFIED" },
-      listing: listing[0]?.active ? listing[0] : null
+      listing: listing[0]?.active ? listing[0] : null,
+      // BAP-578 enhanced data
+      learningMetrics,
+      learningModule,
+      template
     });
   } catch (error) {
     console.error("Error fetching NFA agent:", error);
@@ -120,6 +155,7 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
 
     const memoryRoot = validated.memoryRoot || generateMemoryRoot({});
 
+    // BAP-578 enhanced agent creation
     const result = await db.insert(nfaAgents).values({
       tokenId: validated.tokenId,
       ownerAddress: validated.ownerAddress.toLowerCase(),
@@ -133,6 +169,19 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       metadataUri: validated.metadataUri,
       category: validated.category,
       systemPrompt: validated.systemPrompt,
+      // BAP-578 enhanced metadata
+      persona: validated.persona,
+      experience: validated.experience,
+      voiceHash: validated.voiceHash,
+      animationUri: validated.animationUri,
+      vaultUri: validated.vaultUri,
+      vaultHash: validated.vaultHash,
+      logicAddress: validated.logicAddress,
+      // BAP-578 learning configuration
+      learningEnabled: validated.learningEnabled || false,
+      learningModuleId: validated.learningModuleId,
+      learningTreeRoot: validated.learningTreeRoot,
+      templateId: validated.templateId,
     }).returning();
 
     const agent = result[0];
@@ -152,6 +201,19 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       status: "UNVERIFIED",
     });
 
+    // Initialize learning metrics if learning is enabled
+    if (agent.learningEnabled) {
+      await db.insert(nfaLearningMetrics).values({
+        nfaId: agent.id,
+        totalInteractions: 0,
+        learningEvents: 0,
+        learningVelocity: "0",
+        confidenceScore: "0",
+        treeDepth: 0,
+        totalNodes: 0
+      });
+    }
+
     res.json({ agent, proofOfPrompt, memoryRoot });
   } catch (error) {
     console.error("Error minting NFA agent:", error);
@@ -162,7 +224,12 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
 nfaRouter.patch("/agents/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, category, status, memoryRoot } = req.body;
+    const { 
+      name, description, category, memoryRoot,
+      // BAP-578 fields
+      persona, experience, voiceHash, animationUri, vaultUri, vaultHash,
+      logicAddress, systemPrompt
+    } = req.body;
 
     // Verify ownership
     const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
@@ -173,12 +240,31 @@ nfaRouter.patch("/agents/:id", authMiddleware, async (req: Request, res: Respons
       return res.status(403).json({ error: "Only the owner can update this agent" });
     }
 
+    // Cannot update terminated agents
+    if (agents[0].status === "TERMINATED") {
+      return res.status(400).json({ error: "Cannot update a terminated agent" });
+    }
+
     const updateData: any = { lastActiveAt: new Date() };
-    if (name) updateData.name = name;
-    if (description) updateData.description = description;
-    if (category) updateData.category = category;
-    if (status) updateData.status = status;
-    if (memoryRoot) updateData.memoryRoot = memoryRoot;
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
+    if (memoryRoot !== undefined) updateData.memoryRoot = memoryRoot;
+    // BAP-578 fields
+    if (persona !== undefined) updateData.persona = persona;
+    if (experience !== undefined) updateData.experience = experience;
+    if (voiceHash !== undefined) updateData.voiceHash = voiceHash;
+    if (animationUri !== undefined) updateData.animationUri = animationUri;
+    if (vaultUri !== undefined) updateData.vaultUri = vaultUri;
+    if (vaultHash !== undefined) updateData.vaultHash = vaultHash;
+    if (logicAddress !== undefined) updateData.logicAddress = logicAddress;
+    if (systemPrompt !== undefined) {
+      updateData.systemPrompt = systemPrompt;
+      // Update proof of prompt hash when system prompt changes
+      updateData.proofOfPrompt = "0x" + crypto.createHash("sha256")
+        .update(`${systemPrompt}:${agents[0].modelType}:${Date.now()}`)
+        .digest("hex");
+    }
 
     const result = await db
       .update(nfaAgents)
@@ -680,5 +766,559 @@ nfaRouter.get("/categories", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error fetching categories:", error);
     res.json({ categories: [] });
+  }
+});
+
+// ==================== BAP-578 Templates ====================
+
+nfaRouter.get("/templates", async (req: Request, res: Response) => {
+  try {
+    const { category, active = "true" } = req.query;
+    
+    let templates = await db
+      .select()
+      .from(nfaTemplates)
+      .where(eq(nfaTemplates.isActive, active === "true"))
+      .orderBy(desc(nfaTemplates.createdAt));
+
+    if (category) {
+      templates = templates.filter(t => t.category === category);
+    }
+
+    res.json({ templates });
+  } catch (error) {
+    console.error("Error fetching templates:", error);
+    res.json({ templates: [] });
+  }
+});
+
+nfaRouter.get("/templates/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const templates = await db.select().from(nfaTemplates).where(eq(nfaTemplates.id, id));
+    if (templates.length === 0) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+
+    res.json({ template: templates[0] });
+  } catch (error) {
+    console.error("Error fetching template:", error);
+    res.status(500).json({ error: "Failed to fetch template" });
+  }
+});
+
+// ==================== BAP-578 Learning Modules ====================
+
+nfaRouter.get("/learning-modules", async (req: Request, res: Response) => {
+  try {
+    const { type, active = "true" } = req.query;
+    
+    let modules = await db
+      .select()
+      .from(nfaLearningModules)
+      .where(eq(nfaLearningModules.isActive, active === "true"))
+      .orderBy(nfaLearningModules.name);
+
+    if (type) {
+      modules = modules.filter(m => m.moduleType === type);
+    }
+
+    res.json({ modules });
+  } catch (error) {
+    console.error("Error fetching learning modules:", error);
+    res.json({ modules: [] });
+  }
+});
+
+nfaRouter.get("/learning-modules/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const modules = await db.select().from(nfaLearningModules).where(eq(nfaLearningModules.id, id));
+    if (modules.length === 0) {
+      return res.status(404).json({ error: "Learning module not found" });
+    }
+
+    res.json({ module: modules[0] });
+  } catch (error) {
+    console.error("Error fetching learning module:", error);
+    res.status(500).json({ error: "Failed to fetch learning module" });
+  }
+});
+
+// ==================== BAP-578 Learning Metrics ====================
+
+nfaRouter.get("/agents/:id/learning-metrics", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const metrics = await db.select().from(nfaLearningMetrics).where(eq(nfaLearningMetrics.nfaId, id));
+    
+    res.json({ 
+      metrics: metrics[0] || {
+        totalInteractions: 0,
+        learningEvents: 0,
+        learningVelocity: "0",
+        confidenceScore: "0",
+        treeDepth: 0,
+        totalNodes: 0
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching learning metrics:", error);
+    res.status(500).json({ error: "Failed to fetch learning metrics" });
+  }
+});
+
+nfaRouter.post("/agents/:id/learning-update", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { newTreeRoot, learningData, treeDepth, totalNodes } = req.body;
+
+    // Verify ownership
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    if (agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only the owner can update learning" });
+    }
+
+    const agent = agents[0];
+    if (!agent.learningEnabled) {
+      return res.status(400).json({ error: "Agent does not have learning enabled" });
+    }
+
+    // Update agent learning root
+    const newVersion = (agent.learningVersion || 0) + 1;
+    await db
+      .update(nfaAgents)
+      .set({
+        learningTreeRoot: newTreeRoot,
+        learningVersion: newVersion,
+        lastLearningUpdate: new Date(),
+        lastActiveAt: new Date()
+      })
+      .where(eq(nfaAgents.id, id));
+
+    // Update or create learning metrics
+    const existingMetrics = await db.select().from(nfaLearningMetrics).where(eq(nfaLearningMetrics.nfaId, id));
+    
+    if (existingMetrics.length > 0) {
+      await db
+        .update(nfaLearningMetrics)
+        .set({
+          learningEvents: sql`${nfaLearningMetrics.learningEvents} + 1`,
+          lastUpdateTimestamp: new Date(),
+          treeDepth: treeDepth || existingMetrics[0].treeDepth,
+          totalNodes: totalNodes || existingMetrics[0].totalNodes,
+          updatedAt: new Date()
+        })
+        .where(eq(nfaLearningMetrics.nfaId, id));
+    } else {
+      await db.insert(nfaLearningMetrics).values({
+        nfaId: id,
+        learningEvents: 1,
+        treeDepth: treeDepth || 0,
+        totalNodes: totalNodes || 0
+      });
+    }
+
+    // Log training history
+    await db.insert(nfaTrainingHistory).values({
+      nfaId: id,
+      version: newVersion,
+      trainingHash: newTreeRoot,
+      trainingData: JSON.stringify(learningData)
+    });
+
+    res.json({ 
+      success: true, 
+      newVersion,
+      learningTreeRoot: newTreeRoot 
+    });
+  } catch (error) {
+    console.error("Error updating learning:", error);
+    res.status(500).json({ error: "Failed to update learning" });
+  }
+});
+
+// ==================== BAP-578 Lifecycle Management ====================
+
+nfaRouter.post("/agents/:id/pause", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    if (agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only the owner can pause this agent" });
+    }
+    if (agents[0].status === "TERMINATED") {
+      return res.status(400).json({ error: "Cannot pause a terminated agent" });
+    }
+
+    const result = await db
+      .update(nfaAgents)
+      .set({ 
+        status: "PAUSED",
+        lastActiveAt: new Date()
+      })
+      .where(eq(nfaAgents.id, id))
+      .returning();
+
+    // Log action
+    await db.insert(nfaActions).values({
+      nfaId: id,
+      executorAddress: req.walletAddress!.toLowerCase(),
+      actionType: "PAUSE",
+      status: "COMPLETED"
+    });
+
+    res.json({ agent: result[0] });
+  } catch (error) {
+    console.error("Error pausing agent:", error);
+    res.status(500).json({ error: "Failed to pause agent" });
+  }
+});
+
+nfaRouter.post("/agents/:id/unpause", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    if (agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only the owner can unpause this agent" });
+    }
+    if (agents[0].status !== "PAUSED") {
+      return res.status(400).json({ error: "Agent is not paused" });
+    }
+
+    const result = await db
+      .update(nfaAgents)
+      .set({ 
+        status: "ACTIVE",
+        lastActiveAt: new Date()
+      })
+      .where(eq(nfaAgents.id, id))
+      .returning();
+
+    // Log action
+    await db.insert(nfaActions).values({
+      nfaId: id,
+      executorAddress: req.walletAddress!.toLowerCase(),
+      actionType: "UNPAUSE",
+      status: "COMPLETED"
+    });
+
+    res.json({ agent: result[0] });
+  } catch (error) {
+    console.error("Error unpausing agent:", error);
+    res.status(500).json({ error: "Failed to unpause agent" });
+  }
+});
+
+nfaRouter.post("/agents/:id/terminate", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verify ownership
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    if (agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only the owner can terminate this agent" });
+    }
+    if (agents[0].status === "TERMINATED") {
+      return res.status(400).json({ error: "Agent is already terminated" });
+    }
+
+    const result = await db
+      .update(nfaAgents)
+      .set({ 
+        status: "TERMINATED",
+        lastActiveAt: new Date()
+      })
+      .where(eq(nfaAgents.id, id))
+      .returning();
+
+    // Deactivate any active listings
+    await db
+      .update(nfaListings)
+      .set({ active: false })
+      .where(eq(nfaListings.nfaId, id));
+
+    // Log action
+    await db.insert(nfaActions).values({
+      nfaId: id,
+      executorAddress: req.walletAddress!.toLowerCase(),
+      actionType: "TERMINATE",
+      status: "COMPLETED"
+    });
+
+    res.json({ agent: result[0] });
+  } catch (error) {
+    console.error("Error terminating agent:", error);
+    res.status(500).json({ error: "Failed to terminate agent" });
+  }
+});
+
+// ==================== BAP-578 Fund Agent ====================
+
+nfaRouter.post("/agents/:id/fund", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount, txHash } = req.body;
+
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: "Invalid funding amount" });
+    }
+
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    if (agents[0].status === "TERMINATED") {
+      return res.status(400).json({ error: "Cannot fund a terminated agent" });
+    }
+
+    const agent = agents[0];
+    const currentBalance = parseFloat(agent.balance || "0");
+    const newBalance = (currentBalance + parseFloat(amount)).toString();
+
+    const result = await db
+      .update(nfaAgents)
+      .set({
+        balance: newBalance,
+        lastActiveAt: new Date()
+      })
+      .where(eq(nfaAgents.id, id))
+      .returning();
+
+    // Log action
+    await db.insert(nfaActions).values({
+      nfaId: id,
+      executorAddress: req.walletAddress!.toLowerCase(),
+      actionType: "FUND",
+      actionData: JSON.stringify({ amount }),
+      txHash,
+      status: "COMPLETED"
+    });
+
+    res.json({ agent: result[0], newBalance });
+  } catch (error) {
+    console.error("Error funding agent:", error);
+    res.status(500).json({ error: "Failed to fund agent" });
+  }
+});
+
+// ==================== BAP-578 Execute Action ====================
+
+nfaRouter.post("/agents/:id/execute", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { actionType, actionData, txHash } = req.body;
+
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    
+    const agent = agents[0];
+    if (agent.status !== "ACTIVE") {
+      return res.status(400).json({ error: `Agent is ${agent.status}, cannot execute actions` });
+    }
+
+    // Check vault permissions - owner can always execute
+    if (agent.ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      const permissions = await db
+        .select()
+        .from(nfaVaultPermissions)
+        .where(and(
+          eq(nfaVaultPermissions.nfaId, id),
+          eq(nfaVaultPermissions.granteeAddress, req.walletAddress!.toLowerCase())
+        ));
+
+      if (permissions.length === 0 || !permissions[0].canExecute) {
+        return res.status(403).json({ error: "No execute permission for this agent" });
+      }
+
+      // Check expiry
+      if (permissions[0].expiresAt && new Date(permissions[0].expiresAt) < new Date()) {
+        return res.status(403).json({ error: "Permission has expired" });
+      }
+    }
+
+    // Log action
+    const actionResult = await db.insert(nfaActions).values({
+      nfaId: id,
+      executorAddress: req.walletAddress!.toLowerCase(),
+      actionType: actionType || "EXECUTE",
+      actionData: JSON.stringify(actionData),
+      txHash,
+      status: "PENDING"
+    }).returning();
+
+    // Update last action timestamp
+    await db
+      .update(nfaAgents)
+      .set({
+        lastActionTimestamp: new Date(),
+        lastActiveAt: new Date()
+      })
+      .where(eq(nfaAgents.id, id));
+
+    res.json({ action: actionResult[0] });
+  } catch (error) {
+    console.error("Error executing action:", error);
+    res.status(500).json({ error: "Failed to execute action" });
+  }
+});
+
+nfaRouter.get("/agents/:id/actions", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { limit = "50" } = req.query;
+
+    const actions = await db
+      .select()
+      .from(nfaActions)
+      .where(eq(nfaActions.nfaId, id))
+      .orderBy(desc(nfaActions.createdAt))
+      .limit(parseInt(limit as string));
+
+    res.json({ actions });
+  } catch (error) {
+    console.error("Error fetching actions:", error);
+    res.json({ actions: [] });
+  }
+});
+
+// ==================== BAP-578 Vault Permissions ====================
+
+nfaRouter.get("/agents/:id/permissions", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const permissions = await db
+      .select()
+      .from(nfaVaultPermissions)
+      .where(eq(nfaVaultPermissions.nfaId, id))
+      .orderBy(desc(nfaVaultPermissions.createdAt));
+
+    res.json({ permissions });
+  } catch (error) {
+    console.error("Error fetching permissions:", error);
+    res.json({ permissions: [] });
+  }
+});
+
+nfaRouter.post("/agents/:id/permissions", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { granteeAddress, permissionLevel, canRead, canWrite, canExecute, canGrant, expiresAt } = req.body;
+
+    // Verify ownership or grant permission
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+
+    const isOwner = agents[0].ownerAddress.toLowerCase() === req.walletAddress?.toLowerCase();
+    
+    if (!isOwner) {
+      // Check if caller has grant permission
+      const callerPerms = await db
+        .select()
+        .from(nfaVaultPermissions)
+        .where(and(
+          eq(nfaVaultPermissions.nfaId, id),
+          eq(nfaVaultPermissions.granteeAddress, req.walletAddress!.toLowerCase())
+        ));
+
+      if (callerPerms.length === 0 || !callerPerms[0].canGrant) {
+        return res.status(403).json({ error: "No permission to grant access" });
+      }
+    }
+
+    // Check if permission already exists
+    const existing = await db
+      .select()
+      .from(nfaVaultPermissions)
+      .where(and(
+        eq(nfaVaultPermissions.nfaId, id),
+        eq(nfaVaultPermissions.granteeAddress, granteeAddress.toLowerCase())
+      ));
+
+    let permission;
+    if (existing.length > 0) {
+      const result = await db
+        .update(nfaVaultPermissions)
+        .set({
+          permissionLevel: permissionLevel || existing[0].permissionLevel,
+          canRead: canRead !== undefined ? canRead : existing[0].canRead,
+          canWrite: canWrite !== undefined ? canWrite : existing[0].canWrite,
+          canExecute: canExecute !== undefined ? canExecute : existing[0].canExecute,
+          canGrant: canGrant !== undefined ? canGrant : existing[0].canGrant,
+          expiresAt: expiresAt ? new Date(expiresAt) : existing[0].expiresAt,
+          updatedAt: new Date()
+        })
+        .where(eq(nfaVaultPermissions.id, existing[0].id))
+        .returning();
+      permission = result[0];
+    } else {
+      const result = await db.insert(nfaVaultPermissions).values({
+        nfaId: id,
+        granteeAddress: granteeAddress.toLowerCase(),
+        permissionLevel: permissionLevel || "VIEWER",
+        canRead: canRead || false,
+        canWrite: canWrite || false,
+        canExecute: canExecute || false,
+        canGrant: canGrant || false,
+        expiresAt: expiresAt ? new Date(expiresAt) : null
+      }).returning();
+      permission = result[0];
+    }
+
+    res.json({ permission });
+  } catch (error) {
+    console.error("Error setting permission:", error);
+    res.status(500).json({ error: "Failed to set permission" });
+  }
+});
+
+nfaRouter.delete("/agents/:id/permissions/:granteeAddress", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id, granteeAddress } = req.params;
+
+    // Verify ownership
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    if (agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only the owner can revoke permissions" });
+    }
+
+    await db
+      .delete(nfaVaultPermissions)
+      .where(and(
+        eq(nfaVaultPermissions.nfaId, id),
+        eq(nfaVaultPermissions.granteeAddress, granteeAddress.toLowerCase())
+      ));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error revoking permission:", error);
+    res.status(500).json({ error: "Failed to revoke permission" });
   }
 });

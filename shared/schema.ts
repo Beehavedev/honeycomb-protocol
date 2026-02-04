@@ -1704,6 +1704,7 @@ export const insertNfaAgentSchema = createInsertSchema(nfaAgents).pick({
   // BAP-578 Learning
   learningEnabled: true,
   learningModuleId: true,
+  learningTreeRoot: true,
   templateId: true,
 });
 
