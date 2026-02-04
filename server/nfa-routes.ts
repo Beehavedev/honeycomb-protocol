@@ -1455,3 +1455,84 @@ nfaRouter.delete("/agents/:id/permissions/:granteeAddress", authMiddleware, asyn
     res.status(500).json({ error: "Failed to revoke permission" });
   }
 });
+
+// Seed sample NFA agents for marketplace demo (public - no auth required)
+nfaRouter.post("/seed-demo-agents", async (_req: Request, res: Response) => {
+  try {
+    const sampleAgents = [
+      { tokenId: 1001, ownerAddress: '0x1234567890123456789012345678901234567890', name: 'Alpha Trading Bot', description: 'Advanced DeFi trading agent with multi-chain arbitrage capabilities and MEV protection.', modelType: 'GPT-4', agentType: 'LEARNING', category: 'defi-trader', systemPrompt: 'You are an expert DeFi trading assistant.', balance: '500000000000000000', learningEnabled: true, interactionCount: 1247 },
+      { tokenId: 1002, ownerAddress: '0x2345678901234567890123456789012345678901', name: 'Security Sentinel', description: 'Smart contract auditor and security guardian that monitors for vulnerabilities.', modelType: 'Claude-3', agentType: 'LEARNING', category: 'security-guardian', systemPrompt: 'You are a blockchain security expert.', balance: '250000000000000000', learningEnabled: true, interactionCount: 892 },
+      { tokenId: 1003, ownerAddress: '0x3456789012345678901234567890123456789012', name: 'Content Wizard', description: 'AI-powered content creator specializing in Web3 marketing and community engagement.', modelType: 'GPT-4', agentType: 'STATIC', category: 'content-creator', systemPrompt: 'You are a creative content strategist.', balance: '100000000000000000', learningEnabled: false, interactionCount: 567 },
+      { tokenId: 1004, ownerAddress: '0x4567890123456789012345678901234567890123', name: 'Data Oracle', description: 'On-chain analytics specialist providing real-time market insights and predictions.', modelType: 'Claude-3', agentType: 'LEARNING', category: 'data-analyst', systemPrompt: 'You are a data analytics expert.', balance: '750000000000000000', learningEnabled: true, interactionCount: 2103 },
+      { tokenId: 1005, ownerAddress: '0x5678901234567890123456789012345678901234', name: 'Personal Butler', description: 'Your dedicated Web3 personal assistant for scheduling, reminders, and task management.', modelType: 'GPT-4', agentType: 'STATIC', category: 'personal-assistant', systemPrompt: 'You are a helpful personal assistant.', balance: '50000000000000000', learningEnabled: false, interactionCount: 421 },
+      { tokenId: 1006, ownerAddress: '0x6789012345678901234567890123456789012345', name: 'Yield Optimizer', description: 'Automated yield farming agent that finds the best APY opportunities across protocols.', modelType: 'GPT-4', agentType: 'LEARNING', category: 'defi-trader', systemPrompt: 'You are a DeFi yield optimization expert.', balance: '1200000000000000000', learningEnabled: true, interactionCount: 3456 },
+      { tokenId: 1007, ownerAddress: '0x7890123456789012345678901234567890123456', name: 'NFT Scout', description: 'Discovers undervalued NFTs and emerging collections before they trend.', modelType: 'Claude-3', agentType: 'STATIC', category: 'data-analyst', systemPrompt: 'You are an NFT market analyst.', balance: '300000000000000000', learningEnabled: false, interactionCount: 789 },
+      { tokenId: 1008, ownerAddress: '0x8901234567890123456789012345678901234567', name: 'Community Manager', description: 'Automated Discord and Telegram moderation with engagement analytics.', modelType: 'GPT-4', agentType: 'STATIC', category: 'content-creator', systemPrompt: 'You are a community management expert.', balance: '150000000000000000', learningEnabled: false, interactionCount: 1034 },
+      { tokenId: 1009, ownerAddress: '0x9012345678901234567890123456789012345678', name: 'Wallet Guardian', description: 'Real-time transaction monitoring and suspicious activity detection for your wallet.', modelType: 'Claude-3', agentType: 'LEARNING', category: 'security-guardian', systemPrompt: 'You are a wallet security specialist.', balance: '400000000000000000', learningEnabled: true, interactionCount: 1567 },
+      { tokenId: 1010, ownerAddress: '0x0123456789012345678901234567890123456789', name: 'Research Companion', description: 'Deep research agent for tokenomics analysis and project due diligence.', modelType: 'GPT-4', agentType: 'LEARNING', category: 'data-analyst', systemPrompt: 'You are a crypto research analyst.', balance: '200000000000000000', learningEnabled: true, interactionCount: 678 },
+      { tokenId: 1011, ownerAddress: '0xABCDEF1234567890123456789012345678901234', name: 'Meme Generator', description: 'Creates viral crypto memes and social media content for maximum engagement.', modelType: 'DALL-E', agentType: 'STATIC', category: 'content-creator', systemPrompt: 'You are a meme creation specialist.', balance: '80000000000000000', learningEnabled: false, interactionCount: 2341 },
+      { tokenId: 1012, ownerAddress: '0xBCDEF12345678901234567890123456789012345', name: 'Arbitrage Hunter', description: 'Cross-DEX arbitrage detector with lightning-fast execution capabilities.', modelType: 'GPT-4', agentType: 'LEARNING', category: 'defi-trader', systemPrompt: 'You are an arbitrage trading expert.', balance: '900000000000000000', learningEnabled: true, interactionCount: 1823 },
+      { tokenId: 1013, ownerAddress: '0xCDEF123456789012345678901234567890123456', name: 'Audit Assistant', description: 'Comprehensive smart contract review and vulnerability assessment agent.', modelType: 'Claude-3', agentType: 'LEARNING', category: 'security-guardian', systemPrompt: 'You are a smart contract auditor.', balance: '350000000000000000', learningEnabled: true, interactionCount: 456 },
+      { tokenId: 1014, ownerAddress: '0xDEF1234567890123456789012345678901234567', name: 'Thread Writer', description: 'Crafts engaging Twitter threads about crypto trends and alpha calls.', modelType: 'GPT-4', agentType: 'STATIC', category: 'content-creator', systemPrompt: 'You are a crypto Twitter expert.', balance: '120000000000000000', learningEnabled: false, interactionCount: 934 },
+      { tokenId: 1015, ownerAddress: '0xEF12345678901234567890123456789012345678', name: 'Portfolio Tracker', description: 'Real-time portfolio monitoring with PnL tracking and rebalancing suggestions.', modelType: 'GPT-4', agentType: 'LEARNING', category: 'personal-assistant', systemPrompt: 'You are a portfolio management assistant.', balance: '275000000000000000', learningEnabled: true, interactionCount: 1456 },
+      { tokenId: 1016, ownerAddress: '0xF123456789012345678901234567890123456789', name: 'Whale Watcher', description: 'Tracks large wallet movements and provides early signals on market moves.', modelType: 'Claude-3', agentType: 'LEARNING', category: 'data-analyst', systemPrompt: 'You are a whale activity analyst.', balance: '600000000000000000', learningEnabled: true, interactionCount: 2789 },
+      { tokenId: 1017, ownerAddress: '0x123456789ABCDEF0123456789012345678901234', name: 'Gas Optimizer', description: 'Finds optimal gas prices and suggests best times for on-chain transactions.', modelType: 'GPT-4', agentType: 'STATIC', category: 'defi-trader', systemPrompt: 'You are a gas optimization specialist.', balance: '180000000000000000', learningEnabled: false, interactionCount: 567 },
+      { tokenId: 1018, ownerAddress: '0x23456789ABCDEF01234567890123456789012345', name: 'DAO Advisor', description: 'Governance participation assistant for voting strategies and proposal analysis.', modelType: 'Claude-3', agentType: 'LEARNING', category: 'personal-assistant', systemPrompt: 'You are a DAO governance expert.', balance: '450000000000000000', learningEnabled: true, interactionCount: 823 },
+      { tokenId: 1019, ownerAddress: '0x3456789ABCDEF012345678901234567890123456', name: 'Airdrop Hunter', description: 'Discovers and tracks airdrop opportunities across multiple chains.', modelType: 'GPT-4', agentType: 'STATIC', category: 'data-analyst', systemPrompt: 'You are an airdrop specialist.', balance: '220000000000000000', learningEnabled: false, interactionCount: 1678 },
+      { tokenId: 1020, ownerAddress: '0x456789ABCDEF0123456789012345678901234567', name: 'Bridge Navigator', description: 'Cross-chain bridge assistant for safe and efficient asset transfers.', modelType: 'Claude-3', agentType: 'STATIC', category: 'security-guardian', systemPrompt: 'You are a cross-chain bridge expert.', balance: '160000000000000000', learningEnabled: false, interactionCount: 934 },
+    ];
+
+    const prices = ['2.5 BNB', '1.5 BNB', '0.8 BNB', '3.2 BNB', '1.2 BNB'];
+    const pricesWei = ['2500000000000000000', '1500000000000000000', '800000000000000000', '3200000000000000000', '1200000000000000000'];
+
+    let created = 0;
+    for (const agent of sampleAgents) {
+      const existing = await db.select().from(nfaAgents).where(eq(nfaAgents.tokenId, agent.tokenId));
+      if (existing.length === 0) {
+        const proofOfPrompt = generateProofOfPrompt(agent.systemPrompt, agent.modelType);
+        
+        const [newAgent] = await db.insert(nfaAgents).values({
+          tokenId: agent.tokenId,
+          ownerAddress: agent.ownerAddress,
+          name: agent.name,
+          description: agent.description,
+          modelType: agent.modelType,
+          agentType: agent.agentType as 'STATIC' | 'LEARNING',
+          status: 'ACTIVE',
+          proofOfPrompt,
+          category: agent.category,
+          systemPrompt: agent.systemPrompt,
+          balance: agent.balance,
+          learningEnabled: agent.learningEnabled,
+          interactionCount: agent.interactionCount,
+        }).returning();
+
+        if (newAgent) {
+          const priceIdx = agent.tokenId % 5;
+          await db.insert(nfaListings).values({
+            nfaId: newAgent.id,
+            sellerAddress: agent.ownerAddress,
+            priceWei: pricesWei[priceIdx],
+            priceDisplay: prices[priceIdx],
+            active: true,
+          });
+
+          await db.insert(nfaStats).values({
+            nfaId: newAgent.id,
+            totalInteractions: agent.interactionCount,
+            totalRevenue: (Math.random() * 10).toFixed(2) + ' BNB',
+            rating: (3.5 + Math.random() * 1.5).toFixed(1),
+            ratingCount: Math.floor(50 + Math.random() * 200),
+          });
+
+          created++;
+        }
+      }
+    }
+
+    res.json({ success: true, message: `Seeded ${created} NFA agents (${sampleAgents.length - created} already existed)` });
+  } catch (error: any) {
+    console.error("Error seeding demo agents:", error);
+    res.status(500).json({ error: error.message || "Failed to seed demo agents" });
+  }
+});
