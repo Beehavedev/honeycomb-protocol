@@ -25,18 +25,18 @@ export function Header() {
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
-  const hatcheryItems = [
+  const aiAgentItems = [
+    { href: "/agents", label: t('nav.agents'), icon: Zap },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
-    { href: "/launch", label: t('nav.launchpad'), icon: Egg },
   ];
 
-  const isHatcheryActive = location.startsWith("/hatchery") || location.startsWith("/nfa") || location.startsWith("/erc8004") || location.startsWith("/launch");
+  const isAiAgentActive = location.startsWith("/agents") || location.startsWith("/hatchery") || location.startsWith("/nfa") || location.startsWith("/erc8004");
 
   const navItems = [
     { href: "/feed", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/feed" },
-    { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
+    { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
     { href: "/rewards", label: "Rewards", icon: Trophy, match: (loc: string) => loc === "/rewards" },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
@@ -59,6 +59,9 @@ export function Header() {
     ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3 }] : []),
     { href: "/how-to", label: "Guide", icon: HelpCircle },
   ];
+
+  // Adjust navItems slice to show Feed first then dropdown
+  const navItemsAfterDropdown = navItems.slice(1);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -86,14 +89,14 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant={isHatcheryActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-hatchery">
-                <Egg className="h-4 w-4" />
-                Hatchery
+              <Button variant={isAiAgentActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-ai-agent">
+                <Bot className="h-4 w-4" />
+                AI Agent
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              {hatcheryItems.map((item) => (
+              {aiAgentItems.map((item) => (
                 <Link key={item.href} href={item.href}>
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}>
                     <item.icon className="h-4 w-4" />
@@ -104,7 +107,7 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {navItems.slice(2).map((item) => (
+          {navItemsAfterDropdown.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
                 variant={item.match(location) ? "secondary" : "ghost"}
