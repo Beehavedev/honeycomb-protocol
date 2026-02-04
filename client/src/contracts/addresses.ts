@@ -156,3 +156,38 @@ export function getContractAddresses(chainId: number): ContractAddresses | null 
 export function getDexConfig(chainId: number): DexConfig | null {
   return DEX_CONFIG[chainId] || null;
 }
+
+// BAP-578 NFA Marketplace addresses
+export interface NFAMarketplaceAddresses {
+  nfaToken: `0x${string}`;
+  marketplace: `0x${string}`;
+  feeWallet: `0x${string}`;
+}
+
+// Platform fee wallet for 1% marketplace fees
+export const NFA_FEE_WALLET = "0xEA42922A5c695bD947246988B7927fbD3fD889fF" as `0x${string}`;
+
+export const NFA_MARKETPLACE_ADDRESSES: Record<number, NFAMarketplaceAddresses> = {
+  // BSC Mainnet
+  56: {
+    nfaToken: "0x0000000000000000000000000000000000000000", // TODO: Deploy BAP-578 token
+    marketplace: "0x0000000000000000000000000000000000000000", // TODO: Deploy marketplace
+    feeWallet: NFA_FEE_WALLET,
+  },
+  // BSC Testnet
+  97: {
+    nfaToken: "0x0000000000000000000000000000000000000000", // TODO: Deploy BAP-578 token
+    marketplace: "0x0000000000000000000000000000000000000000", // TODO: Deploy marketplace
+    feeWallet: NFA_FEE_WALLET,
+  },
+  // Local Hardhat
+  31337: {
+    nfaToken: "0x0000000000000000000000000000000000000000",
+    marketplace: "0x0000000000000000000000000000000000000000",
+    feeWallet: NFA_FEE_WALLET,
+  },
+};
+
+export function getNFAMarketplaceAddresses(chainId: number): NFAMarketplaceAddresses | null {
+  return NFA_MARKETPLACE_ADDRESSES[chainId] || null;
+}
