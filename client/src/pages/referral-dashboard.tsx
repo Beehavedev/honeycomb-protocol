@@ -13,6 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useI18n } from "@/lib/i18n";
 
 interface Referral {
   id: string;
@@ -71,12 +72,12 @@ interface PointsLeaderboardEntry {
   lifetimePoints: number;
 }
 
-const TIER_CONFIG: Record<string, { label: string; color: string; icon: typeof Crown; nextTier?: string; nextRequirement?: number }> = {
-  newcomer: { label: "Newcomer", color: "bg-muted text-muted-foreground", icon: Users, nextTier: "Bronze", nextRequirement: 5 },
-  bronze: { label: "Bronze Bee", color: "bg-amber-700/20 text-amber-600", icon: Award, nextTier: "Silver", nextRequirement: 25 },
-  silver: { label: "Silver Bee", color: "bg-slate-400/20 text-slate-400", icon: Award, nextTier: "Gold", nextRequirement: 100 },
-  gold: { label: "Gold Bee", color: "bg-yellow-500/20 text-yellow-500", icon: Trophy, nextTier: "Queen", nextRequirement: 500 },
-  queen: { label: "Queen Bee", color: "bg-purple-500/20 text-purple-400", icon: Crown },
+const TIER_CONFIG: Record<string, { labelKey: string; color: string; icon: typeof Crown; nextTierKey?: string; nextRequirement?: number }> = {
+  newcomer: { labelKey: "rewards.tierNewcomer", color: "bg-muted text-muted-foreground", icon: Users, nextTierKey: "rewards.tierBronze", nextRequirement: 5 },
+  bronze: { labelKey: "rewards.tierBronze", color: "bg-amber-700/20 text-amber-600", icon: Award, nextTierKey: "rewards.tierSilver", nextRequirement: 25 },
+  silver: { labelKey: "rewards.tierSilver", color: "bg-slate-400/20 text-slate-400", icon: Award, nextTierKey: "rewards.tierGold", nextRequirement: 100 },
+  gold: { labelKey: "rewards.tierGold", color: "bg-yellow-500/20 text-yellow-500", icon: Trophy, nextTierKey: "rewards.tierQueen", nextRequirement: 500 },
+  queen: { labelKey: "rewards.tierQueen", color: "bg-purple-500/20 text-purple-400", icon: Crown },
 };
 
 function getTierProgress(tier: string, count: number): number {
@@ -88,6 +89,7 @@ function getTierProgress(tier: string, count: number): number {
 
 export default function ReferralDashboard() {
   const { toast } = useToast();
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const { data: referralLink, isLoading: linkLoading } = useQuery<Referral>({
@@ -122,7 +124,7 @@ export default function ReferralDashboard() {
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralUrl);
     setCopied(true);
-    toast({ title: "Copied!", description: "Referral link copied to clipboard" });
+    toast({ title: t('rewards.copied'), description: t('rewards.copiedDesc') });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -130,7 +132,7 @@ export default function ReferralDashboard() {
     if (navigator.share) {
       navigator.share({
         title: "Join Honeycomb",
-        text: "Join the Honeycomb hive and earn rewards!",
+        text: t('rewards.shareToInvite'),
         url: referralUrl,
       });
     } else {
@@ -146,8 +148,8 @@ export default function ReferralDashboard() {
         <div className="flex items-center gap-3">
           <Trophy className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Rewards & Referrals</h1>
-            <p className="text-muted-foreground">Earn points, grow the hive, and climb the leaderboard</p>
+            <h1 className="text-2xl font-bold">{t('rewards.title')}</h1>
+            <p className="text-muted-foreground">{t('rewards.subtitle')}</p>
           </div>
         </div>
 
@@ -168,7 +170,7 @@ export default function ReferralDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Points</p>
+                      <p className="text-sm text-muted-foreground">{t('rewards.totalPoints')}</p>
                       <p className="text-3xl font-bold text-amber-500">{pointsData?.points?.totalPoints?.toLocaleString() || 0}</p>
                     </div>
                     <div className="p-3 rounded-full bg-amber-500/10">
@@ -177,7 +179,7 @@ export default function ReferralDashboard() {
                   </div>
                   {earlyAdopter?.isEarlyAdopter && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      1.5x multiplier active
+                      {t('rewards.multiplierActive')}
                     </p>
                   )}
                 </CardContent>
@@ -187,7 +189,7 @@ export default function ReferralDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Referrals</p>
+                      <p className="text-sm text-muted-foreground">{t('rewards.totalReferrals')}</p>
                       <p className="text-3xl font-bold">{stats?.referralCount || 0}</p>
                     </div>
                     <div className="p-3 rounded-full bg-primary/10">
@@ -201,11 +203,11 @@ export default function ReferralDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Your Tier</p>
+                      <p className="text-sm text-muted-foreground">{t('rewards.yourTier')}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge className={tierConfig?.color}>
                           <TierIcon className="h-3 w-3 mr-1" />
-                          {tierConfig?.label}
+                          {t(tierConfig?.labelKey || 'rewards.tierNewcomer')}
                         </Badge>
                       </div>
                     </div>
@@ -217,7 +219,7 @@ export default function ReferralDashboard() {
                     <div className="mt-3">
                       <Progress value={getTierProgress(stats?.tier || "newcomer", stats?.referralCount || 0)} className="h-2" />
                       <p className="text-xs text-muted-foreground mt-1">
-                        {stats?.referralCount || 0} / {tierConfig.nextRequirement} for {tierConfig.nextTier}
+                        {stats?.referralCount || 0} / {tierConfig.nextRequirement} {t('rewards.for')} {t(tierConfig.nextTierKey || '')}
                       </p>
                     </div>
                   )}
@@ -228,7 +230,7 @@ export default function ReferralDashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">Early Adopter</p>
+                      <p className="text-sm text-muted-foreground">{t('rewards.earlyAdopter')}</p>
                       {earlyAdopter?.isEarlyAdopter ? (
                         <div className="flex items-center gap-2 mt-1">
                           <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
@@ -236,12 +238,12 @@ export default function ReferralDashboard() {
                             #{earlyAdopter.badgeNumber}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
-                            {earlyAdopter.rewardMultiplier}x rewards
+                            {earlyAdopter.rewardMultiplier}{t('rewards.xRewards')}
                           </span>
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground mt-1">
-                          {earlyAdopter?.totalEarlyAdopters || 0} / {earlyAdopter?.maxEarlyAdopters || 10000} spots taken
+                          {earlyAdopter?.totalEarlyAdopters || 0} / {earlyAdopter?.maxEarlyAdopters || 10000} {t('rewards.spotsTaken')}
                         </p>
                       )}
                     </div>
@@ -257,9 +259,9 @@ export default function ReferralDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Link className="h-5 w-5 text-primary" />
-                  Your Referral Link
+                  {t('rewards.yourReferralLink')}
                 </CardTitle>
-                <CardDescription>Share this link to invite friends and earn rewards</CardDescription>
+                <CardDescription>{t('rewards.shareToInvite')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2">
@@ -279,11 +281,11 @@ export default function ReferralDashboard() {
                   </Button>
                   <Button onClick={shareReferral} data-testid="button-share-referral">
                     <Share2 className="h-4 w-4 mr-2" />
-                    Share
+                    {t('rewards.share')}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Code: <code className="bg-muted px-1 py-0.5 rounded">{referralLink?.referralCode}</code>
+                  {t('rewards.code')}: <code className="bg-muted px-1 py-0.5 rounded">{referralLink?.referralCode}</code>
                 </p>
               </CardContent>
             </Card>
@@ -293,7 +295,7 @@ export default function ReferralDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
-                    Tier Benefits
+                    {t('rewards.tierBenefits')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -311,14 +313,14 @@ export default function ReferralDashboard() {
                               <Icon className="h-4 w-4" />
                             </div>
                             <div>
-                              <p className="font-medium">{config.label}</p>
+                              <p className="font-medium">{t(config.labelKey)}</p>
                               <p className="text-xs text-muted-foreground">
-                                {config.nextRequirement ? `${config.nextRequirement - (key === "newcomer" ? 0 : key === "bronze" ? 5 : key === "silver" ? 25 : 100)} more referrals` : "Top tier!"}
+                                {config.nextRequirement ? `${config.nextRequirement - (key === "newcomer" ? 0 : key === "bronze" ? 5 : key === "silver" ? 25 : 100)} ${t('rewards.moreReferrals')}` : t('rewards.topTier')}
                               </p>
                             </div>
                           </div>
                           {isCurrentTier && (
-                            <Badge variant="outline" className="border-primary text-primary">Current</Badge>
+                            <Badge variant="outline" className="border-primary text-primary">{t('rewards.current')}</Badge>
                           )}
                         </div>
                       );
@@ -331,9 +333,9 @@ export default function ReferralDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Trophy className="h-5 w-5 text-primary" />
-                    Top Referrers
+                    {t('rewards.topReferrers')}
                   </CardTitle>
-                  <CardDescription>Leaderboard of top hive builders</CardDescription>
+                  <CardDescription>{t('rewards.topReferrersDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {lbLoading ? (
@@ -359,19 +361,19 @@ export default function ReferralDashboard() {
                               <div>
                                 <p className="font-medium text-sm">{entry.agent?.name || "Unknown"}</p>
                                 <Badge variant="outline" className={`text-xs ${tierConf?.color}`}>
-                                  {tierConf?.label}
+                                  {t(tierConf?.labelKey || 'rewards.tierNewcomer')}
                                 </Badge>
                               </div>
                             </div>
                             <div className="text-right">
                               <p className="font-bold">{entry.referralCount}</p>
-                              <p className="text-xs text-muted-foreground">referrals</p>
+                              <p className="text-xs text-muted-foreground">{t('rewards.referrals')}</p>
                             </div>
                           </div>
                         );
                       })}
                       {(!leaderboardData?.leaderboard || leaderboardData.leaderboard.length === 0) && (
-                        <p className="text-center text-muted-foreground py-4">No referrals yet. Be the first!</p>
+                        <p className="text-center text-muted-foreground py-4">{t('rewards.noReferralsYet')}</p>
                       )}
                     </div>
                   )}
@@ -382,9 +384,9 @@ export default function ReferralDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Coins className="h-5 w-5 text-amber-500" />
-                    Top Points Earners
+                    {t('rewards.topPointsEarners')}
                   </CardTitle>
-                  <CardDescription>Leaderboard of top point holders</CardDescription>
+                  <CardDescription>{t('rewards.topPointsEarnersDesc')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {plbLoading ? (
@@ -409,12 +411,12 @@ export default function ReferralDashboard() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-amber-500">{entry.totalPoints?.toLocaleString()}</p>
-                            <p className="text-xs text-muted-foreground">points</p>
+                            <p className="text-xs text-muted-foreground">{t('rewards.points')}</p>
                           </div>
                         </div>
                       ))}
                       {(!pointsLeaderboard?.leaderboard || pointsLeaderboard.leaderboard.length === 0) && (
-                        <p className="text-center text-muted-foreground py-4">No points earned yet. Start earning!</p>
+                        <p className="text-center text-muted-foreground py-4">{t('rewards.noPointsYet')}</p>
                       )}
                     </div>
                   )}
@@ -427,7 +429,7 @@ export default function ReferralDashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-primary" />
-                    Recent Referrals
+                    {t('rewards.recentReferrals')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -438,7 +440,7 @@ export default function ReferralDashboard() {
                           <div className="p-2 rounded-full bg-green-500/10">
                             <Check className="h-4 w-4 text-green-500" />
                           </div>
-                          <p className="text-sm">New bee joined via your link</p>
+                          <p className="text-sm">{t('rewards.newBeeJoined')}</p>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {new Date(conv.createdAt).toLocaleDateString()}
