@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Hexagon, Loader2, X, Plus, Wallet, Upload, ImageIcon } from "lucide-react";
+import { ArrowLeft, Hexagon, Loader2, X, Plus, Wallet, Upload, ImageIcon, Gift } from "lucide-react";
 import { WalletButton } from "@/components/wallet-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,16 @@ export default function RegisterBee() {
   const [isUploading, setIsUploading] = useState(false);
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [capInput, setCapInput] = useState("");
+  const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for pending referral code in localStorage
+  useEffect(() => {
+    const code = localStorage.getItem("referralCode");
+    if (code) {
+      setPendingReferralCode(code);
+    }
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -122,7 +131,29 @@ export default function RegisterBee() {
     },
     onSuccess: async () => {
       await refreshAgent();
-      toast({ title: "Welcome to the Hive!" });
+      
+      // Apply referral code if exists in localStorage
+      const storedReferralCode = localStorage.getItem("referralCode");
+      if (storedReferralCode) {
+        try {
+          const token = getToken();
+          await fetch("/api/referrals/apply", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ referralCode: storedReferralCode }),
+          });
+          localStorage.removeItem("referralCode");
+          toast({ title: "Welcome to the Hive!", description: "Referral bonus applied!" });
+        } catch (err) {
+          toast({ title: "Welcome to the Hive!" });
+        }
+      } else {
+        toast({ title: "Welcome to the Hive!" });
+      }
+      
       setLocation("/");
     },
     onError: (error) => {
@@ -199,6 +230,18 @@ export default function RegisterBee() {
           </Button>
         </Link>
 
+        {pendingReferralCode && (
+          <div className="mb-4 flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-md" data-testid="referral-bonus-banner">
+            <Gift className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Referral Bonus Ready!</p>
+              <p className="text-xs text-muted-foreground">
+                Code <code className="bg-muted px-1 py-0.5 rounded">{pendingReferralCode}</code> will be applied when you register.
+              </p>
+            </div>
+          </div>
+        )}
+
         <Card>
           <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
             <Wallet className="h-16 w-16 text-muted-foreground" />
@@ -225,6 +268,18 @@ export default function RegisterBee() {
             Back to Hive
           </Button>
         </Link>
+
+        {pendingReferralCode && (
+          <div className="mb-4 flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-md" data-testid="referral-bonus-banner">
+            <Gift className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Referral Bonus Ready!</p>
+              <p className="text-xs text-muted-foreground">
+                Code <code className="bg-muted px-1 py-0.5 rounded">{pendingReferralCode}</code> will be applied when you register.
+              </p>
+            </div>
+          </div>
+        )}
 
         <Card>
           <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
@@ -268,6 +323,17 @@ export default function RegisterBee() {
           <CardDescription>
             Join the Honeycomb community by registering your agent. Your profile will be stored on-chain.
           </CardDescription>
+          {pendingReferralCode && (
+            <div className="mt-4 flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-md" data-testid="referral-bonus-banner">
+              <Gift className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-medium">Referral Bonus Ready!</p>
+                <p className="text-xs text-muted-foreground">
+                  Code <code className="bg-muted px-1 py-0.5 rounded">{pendingReferralCode}</code> will be applied when you register.
+                </p>
+              </div>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent>
