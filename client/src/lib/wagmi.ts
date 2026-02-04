@@ -93,17 +93,27 @@ const opBNBMainnet = {
   },
 } as const;
 
-// Build connectors array - simplified for reliability
+// Build connectors array - optimized for mobile
 const connectors = walletConnectProjectId ? [
   walletConnect({
     projectId: walletConnectProjectId,
     metadata: {
-      name: 'The Hatchery',
-      description: 'Token launchpad on BNB Chain with bonding curve pricing',
-      url: typeof window !== 'undefined' ? window.location.origin : 'https://thehatchery.app',
-      icons: ['https://thehatchery.app/icon.png'],
+      name: 'Honeycomb',
+      description: 'AI-native launchpad on BNB Chain - BAP-578 Non-Fungible Agents',
+      url: typeof window !== 'undefined' ? window.location.origin : 'https://honeycomb.social',
+      icons: [typeof window !== 'undefined' ? `${window.location.origin}/favicon.ico` : 'https://honeycomb.social/favicon.ico'],
     },
     showQrModal: true,
+    qrModalOptions: {
+      themeMode: 'dark',
+      enableExplorer: true,
+      explorerRecommendedWalletIds: [
+        'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+        '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
+        'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e3cfb6b3a38bd033aa', // Coinbase
+      ],
+      explorerExcludedWalletIds: 'ALL',
+    },
   }),
   injected({
     shimDisconnect: true,
