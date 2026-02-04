@@ -1764,7 +1764,6 @@ export const insertNfaInteractionSchema = createInsertSchema(nfaInteractions).pi
 
 export const insertNfaListingSchema = createInsertSchema(nfaListings).pick({
   nfaId: true,
-  sellerAddress: true,
   priceWei: true,
   priceDisplay: true,
 });
