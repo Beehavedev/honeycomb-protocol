@@ -183,16 +183,19 @@ export default function LaunchDetail() {
     buyAmountWei = BigInt(0);
   }
   // Use raw tokenBalance when max is selected to avoid formatEther/parseEther conversion issues
-  if (useMaxSell && tokenBalance && typeof tokenBalance === 'bigint') {
-    sellAmountWei = tokenBalance;
-  } else {
-    try {
-      if (sellAmount && sellAmount.trim() !== '') {
-        sellAmountWei = parseEther(sellAmount);
+  try {
+    if (useMaxSell && tokenBalance && typeof tokenBalance === 'bigint') {
+      sellAmountWei = tokenBalance;
+    } else if (sellAmount && sellAmount.trim() !== '') {
+      // Validate input before parsing - must be a valid number format
+      const trimmedAmount = sellAmount.trim();
+      // Check for valid numeric format (allows decimals and scientific notation)
+      if (/^-?\d*\.?\d+(?:[eE][-+]?\d+)?$/.test(trimmedAmount)) {
+        sellAmountWei = parseEther(trimmedAmount);
       }
-    } catch {
-      sellAmountWei = BigInt(0);
     }
+  } catch {
+    sellAmountWei = BigInt(0);
   }
   
   const { data: buyQuote } = useQuoteBuy(tokenAddress, buyAmountWei > BigInt(0) ? buyAmountWei : undefined);
@@ -202,7 +205,7 @@ export default function LaunchDetail() {
   const { sell, isPending: isSelling, isSuccess: sellSuccess, error: sellError, hash: sellHash, reset: resetSell } = useSellTokens();
   const { approve, isPending: isApproving, isSuccess: approveSuccess } = useApproveToken();
 
-  const needsApproval = tradeTab === "sell" && sellAmountWei > BigInt(0) && allowance !== undefined && sellAmountWei > allowance;
+  const needsApproval = tradeTab === "sell" && sellAmountWei > BigInt(0) && allowance !== undefined && typeof allowance === 'bigint' && sellAmountWei > allowance;
 
   // Safe type guard for quote tuples
   const isValidQuoteTuple = (quote: unknown): quote is readonly [bigint, bigint] => {
