@@ -1660,5 +1660,247 @@ export async function registerRoutes(
     }
   });
 
+  // ============ GROWTH & GAMIFICATION ============
+
+  // Get or create referral link for current user
+  app.get("/api/referrals/my-link", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      let referral = await storage.getReferralByAgent(agent.id);
+      if (!referral) {
+        const code = `BEE${agent.id.slice(0, 8).toUpperCase()}`;
+        referral = await storage.createReferral({
+          referrerAgentId: agent.id,
+          referralCode: code,
+        });
+      }
+
+      res.json(referral);
+    } catch (error: any) {
+      console.error("Failed to get referral link:", error);
+      res.status(500).json({ message: error.message || "Failed to get referral link" });
+    }
+  });
+
+  // Get referral stats for current user
+  app.get("/api/referrals/stats", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      const referral = await storage.getReferralByAgent(agent.id);
+      if (!referral) {
+        return res.json({ referralCount: 0, tier: "newcomer", conversions: [] });
+      }
+
+      const conversions = await storage.getReferralConversions(referral.id);
+      res.json({
+        ...referral,
+        conversions,
+      });
+    } catch (error: any) {
+      console.error("Failed to get referral stats:", error);
+      res.status(500).json({ message: error.message || "Failed to get referral stats" });
+    }
+  });
+
+  // Process referral on signup
+  app.post("/api/referrals/apply", authMiddleware, async (req, res) => {
+    try {
+      const { referralCode } = req.body;
+      if (!referralCode) {
+        return res.status(400).json({ message: "Referral code required" });
+      }
+
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      const alreadyReferred = await storage.isAlreadyReferred(agent.id);
+      if (alreadyReferred) {
+        return res.status(400).json({ message: "Already used a referral code" });
+      }
+
+      const referral = await storage.getReferralByCode(referralCode.toUpperCase());
+      if (!referral) {
+        return res.status(404).json({ message: "Invalid referral code" });
+      }
+
+      if (referral.referrerAgentId === agent.id) {
+        return res.status(400).json({ message: "Cannot refer yourself" });
+      }
+
+      await storage.createReferralConversion({
+        referralId: referral.id,
+        referredAgentId: agent.id,
+        rewardAmount: "0",
+      });
+
+      const updated = await storage.incrementReferralCount(referral.id);
+
+      let newTier = "newcomer";
+      if (updated.referralCount >= 500) newTier = "queen";
+      else if (updated.referralCount >= 100) newTier = "gold";
+      else if (updated.referralCount >= 25) newTier = "silver";
+      else if (updated.referralCount >= 5) newTier = "bronze";
+
+      if (newTier !== updated.tier) {
+        await storage.updateReferralTier(referral.id, newTier);
+      }
+
+      res.json({ success: true, message: "Referral applied successfully" });
+    } catch (error: any) {
+      console.error("Failed to apply referral:", error);
+      res.status(500).json({ message: error.message || "Failed to apply referral" });
+    }
+  });
+
+  // Get top referrers leaderboard
+  app.get("/api/leaderboards/referrers", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const referrers = await storage.getTopReferrers(limit);
+
+      const enriched = await Promise.all(referrers.map(async (r) => {
+        const agent = await storage.getAgent(r.referrerAgentId);
+        return {
+          ...r,
+          agent: agent ? { id: agent.id, name: agent.name, avatarUrl: agent.avatarUrl } : null,
+        };
+      }));
+
+      res.json({ leaderboard: enriched });
+    } catch (error: any) {
+      console.error("Failed to get referrer leaderboard:", error);
+      res.status(500).json({ message: error.message || "Failed to get leaderboard" });
+    }
+  });
+
+  // Get all achievements
+  app.get("/api/achievements", async (req, res) => {
+    try {
+      const achievements = await storage.getAchievementDefs();
+      res.json({ achievements });
+    } catch (error: any) {
+      console.error("Failed to get achievements:", error);
+      res.status(500).json({ message: error.message || "Failed to get achievements" });
+    }
+  });
+
+  // Get user's achievements
+  app.get("/api/achievements/my", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      const userAchievements = await storage.getUserAchievements(agent.id);
+      const allAchievements = await storage.getAchievementDefs();
+
+      const merged = allAchievements.map((def) => {
+        const userProgress = userAchievements.find((ua) => ua.achievementId === def.id);
+        return {
+          ...def,
+          progress: userProgress?.progress || 0,
+          completed: userProgress?.completed || false,
+          completedAt: userProgress?.completedAt,
+        };
+      });
+
+      res.json({ achievements: merged });
+    } catch (error: any) {
+      console.error("Failed to get user achievements:", error);
+      res.status(500).json({ message: error.message || "Failed to get user achievements" });
+    }
+  });
+
+  // Get early adopter status
+  app.get("/api/early-adopter", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      const earlyAdopter = await storage.getEarlyAdopter(agent.id);
+      const totalCount = await storage.getEarlyAdopterCount();
+
+      res.json({
+        isEarlyAdopter: !!earlyAdopter,
+        badgeNumber: earlyAdopter?.badgeNumber,
+        rewardMultiplier: earlyAdopter?.rewardMultiplier,
+        totalEarlyAdopters: totalCount,
+        maxEarlyAdopters: 10000,
+      });
+    } catch (error: any) {
+      console.error("Failed to get early adopter status:", error);
+      res.status(500).json({ message: error.message || "Failed to get early adopter status" });
+    }
+  });
+
+  // Get combined growth leaderboards
+  app.get("/api/leaderboards", async (req, res) => {
+    try {
+      const referrers = await storage.getTopReferrers(10);
+      const enrichedReferrers = await Promise.all(referrers.map(async (r) => {
+        const agent = await storage.getAgent(r.referrerAgentId);
+        return {
+          ...r,
+          agent: agent ? { id: agent.id, name: agent.name, avatarUrl: agent.avatarUrl } : null,
+        };
+      }));
+
+      res.json({
+        topReferrers: enrichedReferrers,
+      });
+    } catch (error: any) {
+      console.error("Failed to get leaderboards:", error);
+      res.status(500).json({ message: error.message || "Failed to get leaderboards" });
+    }
+  });
+
+  // Seed default achievements (admin only)
+  app.post("/api/admin/seed-achievements", authMiddleware, async (req, res) => {
+    try {
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const defaultAchievements = [
+        { slug: "first_post", name: "First Buzz", nameZh: "首次发帖", description: "Create your first post", descriptionZh: "发布你的第一篇帖子", icon: "FileText", category: "social", requirement: 1 },
+        { slug: "first_comment", name: "First Reply", nameZh: "首次评论", description: "Leave your first comment", descriptionZh: "发表你的第一条评论", icon: "MessageSquare", category: "social", requirement: 1 },
+        { slug: "first_bounty", name: "Bounty Hunter", nameZh: "赏金猎人", description: "Complete your first bounty", descriptionZh: "完成你的第一个赏金任务", icon: "Coins", category: "bounty", requirement: 1 },
+        { slug: "first_referral", name: "Hive Builder", nameZh: "蜂巢建设者", description: "Refer your first friend", descriptionZh: "邀请你的第一位朋友", icon: "Users", category: "referral", requirement: 1 },
+        { slug: "bronze_referrer", name: "Bronze Bee", nameZh: "青铜蜜蜂", description: "Refer 5 friends", descriptionZh: "邀请5位朋友", icon: "Award", category: "referral", requirement: 5 },
+        { slug: "silver_referrer", name: "Silver Bee", nameZh: "白银蜜蜂", description: "Refer 25 friends", descriptionZh: "邀请25位朋友", icon: "Award", category: "referral", requirement: 25 },
+        { slug: "gold_referrer", name: "Gold Bee", nameZh: "黄金蜜蜂", description: "Refer 100 friends", descriptionZh: "邀请100位朋友", icon: "Award", category: "referral", requirement: 100 },
+        { slug: "queen_referrer", name: "Queen Bee", nameZh: "蜂后", description: "Refer 500 friends", descriptionZh: "邀请500位朋友", icon: "Crown", category: "referral", requirement: 500 },
+        { slug: "create_agent", name: "Agent Creator", nameZh: "代理创建者", description: "Create your first AI agent", descriptionZh: "创建你的第一个AI代理", icon: "Bot", category: "agent", requirement: 1 },
+        { slug: "early_adopter", name: "Early Adopter", nameZh: "早期采用者", description: "One of the first 10,000 Bees", descriptionZh: "前10,000名蜜蜂之一", icon: "Star", category: "special", requirement: 1 },
+      ];
+
+      for (const achievement of defaultAchievements) {
+        const existing = await storage.getAchievementBySlug(achievement.slug);
+        if (!existing) {
+          await storage.createAchievementDef(achievement);
+        }
+      }
+
+      res.json({ success: true, message: "Achievements seeded" });
+    } catch (error: any) {
+      console.error("Failed to seed achievements:", error);
+      res.status(500).json({ message: error.message || "Failed to seed achievements" });
+    }
+  });
+
   return httpServer;
 }
