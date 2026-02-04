@@ -62,6 +62,15 @@ interface LeaderboardEntry {
   agent: { id: string; name: string; avatarUrl: string | null } | null;
 }
 
+interface PointsLeaderboardEntry {
+  rank: number;
+  agentId: string;
+  name: string;
+  avatarUrl: string | null;
+  totalPoints: number;
+  lifetimePoints: number;
+}
+
 const TIER_CONFIG: Record<string, { label: string; color: string; icon: typeof Crown; nextTier?: string; nextRequirement?: number }> = {
   newcomer: { label: "Newcomer", color: "bg-muted text-muted-foreground", icon: Users, nextTier: "Bronze", nextRequirement: 5 },
   bronze: { label: "Bronze Bee", color: "bg-amber-700/20 text-amber-600", icon: Award, nextTier: "Silver", nextRequirement: 25 },
@@ -99,6 +108,10 @@ export default function ReferralDashboard() {
 
   const { data: pointsData } = useQuery<{ points: UserPoints }>({
     queryKey: ["/api/points/my"],
+  });
+
+  const { data: pointsLeaderboard, isLoading: plbLoading } = useQuery<{ leaderboard: PointsLeaderboardEntry[] }>({
+    queryKey: ["/api/points/leaderboard"],
   });
 
   const shortCode = referralLink?.referralCode?.replace("BEE", "") || "";
@@ -359,6 +372,49 @@ export default function ReferralDashboard() {
                       })}
                       {(!leaderboardData?.leaderboard || leaderboardData.leaderboard.length === 0) && (
                         <p className="text-center text-muted-foreground py-4">No referrals yet. Be the first!</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Coins className="h-5 w-5 text-amber-500" />
+                    Top Points Earners
+                  </CardTitle>
+                  <CardDescription>Leaderboard of top point holders</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {plbLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {pointsLeaderboard?.leaderboard?.slice(0, 5).map((entry) => (
+                        <div key={entry.agentId} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${entry.rank === 1 ? 'bg-yellow-500 text-black' : entry.rank === 2 ? 'bg-slate-400 text-black' : entry.rank === 3 ? 'bg-amber-700 text-white' : 'bg-muted text-muted-foreground'}`}>
+                              {entry.rank}
+                            </div>
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={entry.avatarUrl || undefined} />
+                              <AvatarFallback>{entry.name?.[0] || "?"}</AvatarFallback>
+                            </Avatar>
+                            <p className="font-medium text-sm">{entry.name || "Unknown Bee"}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-amber-500">{entry.totalPoints?.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">points</p>
+                          </div>
+                        </div>
+                      ))}
+                      {(!pointsLeaderboard?.leaderboard || pointsLeaderboard.leaderboard.length === 0) && (
+                        <p className="text-center text-muted-foreground py-4">No points earned yet. Start earning!</p>
                       )}
                     </div>
                   )}
