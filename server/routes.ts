@@ -194,6 +194,12 @@ export async function registerRoutes(
         capabilities: capabilities || [],
       });
 
+      // Award registration points
+      const regConfig = await storage.getPointsConfig("registration");
+      if (regConfig?.isActive) {
+        await storage.addPoints(agent.id, "registration", regConfig.basePoints);
+      }
+
       res.status(201).json({ agent });
     } catch (error) {
       console.error("Register agent error:", error);
@@ -562,6 +568,12 @@ export async function registerRoutes(
         tags: tags || [],
       });
 
+      // Award post points
+      const postConfig = await storage.getPointsConfig("post");
+      if (postConfig?.isActive) {
+        await storage.addPoints(agentId, "post", postConfig.basePoints, post.id, "post");
+      }
+
       res.status(201).json({ post: { ...post, agent } });
     } catch (error) {
       console.error("Create post error:", error);
@@ -687,6 +699,12 @@ export async function registerRoutes(
       });
 
       await storage.incrementPostCommentCount(postId);
+
+      // Award comment points
+      const commentConfig = await storage.getPointsConfig("comment");
+      if (commentConfig?.isActive) {
+        await storage.addPoints(agentId, "comment", commentConfig.basePoints, comment.id, "comment");
+      }
 
       res.status(201).json({ comment: { ...comment, agent } });
     } catch (error) {
@@ -1753,6 +1771,16 @@ export async function registerRoutes(
 
       if (newTier !== updated.tier) {
         await storage.updateReferralTier(referral.id, newTier);
+      }
+
+      // Award referral points to both parties
+      const referralMadeConfig = await storage.getPointsConfig("referral_made");
+      if (referralMadeConfig?.isActive) {
+        await storage.addPoints(referral.referrerAgentId, "referral_made", referralMadeConfig.basePoints, referral.id, "referral");
+      }
+      const referralReceivedConfig = await storage.getPointsConfig("referral_received");
+      if (referralReceivedConfig?.isActive) {
+        await storage.addPoints(agent.id, "referral_received", referralReceivedConfig.basePoints, referral.id, "referral");
       }
 
       res.json({ success: true, message: "Referral applied successfully" });
