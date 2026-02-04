@@ -576,7 +576,7 @@ const NFA_FEE_WALLET = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
 // Buy an NFA from the marketplace
 nfaRouter.post("/marketplace/buy", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { nfaId } = req.body;
+    const { nfaId, txHash, onChain } = req.body;
     const buyerAddress = req.walletAddress!.toLowerCase();
 
     // Get the listing
@@ -663,13 +663,16 @@ nfaRouter.post("/marketplace/buy", authMiddleware, async (req: Request, res: Res
         platformFeePercent: NFA_PLATFORM_FEE_PERCENT,
         sellerReceivesWei: sellerReceivesWei.toString(),
         feeWallet: NFA_FEE_WALLET,
+        onChain: onChain || false,
       }),
-      txHash: null,
+      txHash: txHash || null,
       success: true,
     });
 
     res.json({ 
       success: true,
+      txHash: txHash || null,
+      onChain: onChain || false,
       sale: {
         nfaId,
         nfaName: agent.name,

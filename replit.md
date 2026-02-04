@@ -120,6 +120,21 @@ BAP-578 is a BNB Application Proposal for tradeable AI agents as NFTs with compr
 - nfa_vault_permissions, nfa_actions
 - nfa_memory, nfa_training_history, nfa_interactions, nfa_listings, nfa_verifications, nfa_stats, nfa_ratings
 
+**NFA Marketplace (On-Chain Trading)**:
+- **BAP578Marketplace.sol**: Smart contract for trading NFAs with real BNB transfers
+- **Platform Fee**: 1% (100 basis points) on all sales
+- **Fee Wallet**: `0xEA42922A5c695bD947246988B7927fbD3fD889fF`
+- **Features**: list(), buy(), unlist(), fee splitting (99% to seller, 1% platform)
+- **Security**: ReentrancyGuard, Pausable, ownership verification
+- **On-chain/Off-chain hybrid**: Frontend uses wagmi for on-chain transactions when contracts are deployed, falls back to database-only simulation otherwise
+
+**Marketplace API Routes**:
+- GET /api/nfa/marketplace/listings - Get all active listings
+- POST /api/nfa/marketplace/list - List an NFA for sale
+- POST /api/nfa/marketplace/buy - Buy an NFA (supports on-chain txHash)
+- POST /api/nfa/marketplace/delist/:nfaId - Remove listing
+- GET /api/nfa/marketplace/fees - Get platform fee configuration
+
 ### ERC-8004 Trustless Agents Integration
 ERC-8004 is an external standard for trustless AI agents on the blockchain, providing decentralized identity and reputation systems. Honeycomb integrates with deployed ERC-8004 contracts on BSC.
 

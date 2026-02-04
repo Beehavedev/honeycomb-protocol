@@ -20,9 +20,12 @@ import {
   ArrowUpRight, Heart, MoreHorizontal, RefreshCw, User
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseEther } from "viem";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { BAP578MarketplaceABI } from "@/contracts/abis";
+import { getNFAMarketplaceAddresses, NFA_FEE_WALLET } from "@/contracts/addresses";
 
 interface NfaAgent {
   id: string;
@@ -269,6 +272,7 @@ function ActivityItem({ agent, price, type, time }: { agent: NfaAgent; price: st
 export default function NfaMarketplace() {
   const { isAuthenticated, authenticate } = useAuth();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -280,6 +284,16 @@ export default function NfaMarketplace() {
   const [agentTypeFilter, setAgentTypeFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>(["ACTIVE"]);
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | null>(null);
+
+  const marketplaceAddresses = getNFAMarketplaceAddresses(chainId);
+  const isMarketplaceDeployed = marketplaceAddresses?.marketplace !== "0x0000000000000000000000000000000000000000";
+
+  const { writeContractAsync } = useWriteContract();
+  
+  const { isLoading: isWaitingTx } = useWaitForTransactionReceipt({
+    hash: pendingTxHash ?? undefined,
+  });
 
   const ensureAuthenticated = async () => {
     if (!isAuthenticated) {
@@ -325,17 +339,39 @@ export default function NfaMarketplace() {
   });
 
   const buyMutation = useMutation({
-    mutationFn: async (nfaId: string) => {
+    mutationFn: async ({ nfaId, tokenId, priceWei }: { nfaId: string; tokenId: number; priceWei: string }) => {
       if (!await ensureAuthenticated()) throw new Error("Not authenticated");
       setBuyingId(nfaId);
-      return apiRequest("POST", "/api/nfa/marketplace/buy", { nfaId });
+      
+      if (isMarketplaceDeployed && marketplaceAddresses) {
+        const txHash = await writeContractAsync({
+          address: marketplaceAddresses.marketplace,
+          abi: BAP578MarketplaceABI,
+          functionName: "buy",
+          args: [BigInt(tokenId)],
+          value: BigInt(priceWei),
+        });
+        
+        setPendingTxHash(txHash);
+        
+        const result = await apiRequest("POST", "/api/nfa/marketplace/buy", { 
+          nfaId, 
+          txHash,
+          onChain: true 
+        });
+        
+        setPendingTxHash(null);
+        return result;
+      } else {
+        return apiRequest("POST", "/api/nfa/marketplace/buy", { nfaId });
+      }
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/marketplace/listings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
       toast({
         title: "Purchase Successful!",
-        description: `You now own "${data.sale?.nfaName}".`,
+        description: `You now own "${data.sale?.nfaName}".${data.txHash ? " Transaction confirmed on-chain." : ""}`,
       });
       setBuyingId(null);
     },
@@ -346,6 +382,7 @@ export default function NfaMarketplace() {
         variant: "destructive",
       });
       setBuyingId(null);
+      setPendingTxHash(null);
     },
   });
 
@@ -838,8 +875,12 @@ export default function NfaMarketplace() {
                     key={agent.id}
                     listing={listing}
                     agent={agent}
-                    onBuy={() => buyMutation.mutate(agent.id)}
-                    isBuying={buyingId === agent.id}
+                    onBuy={() => buyMutation.mutate({ 
+                      nfaId: agent.id, 
+                      tokenId: agent.tokenId, 
+                      priceWei: listing.priceWei 
+                    })}
+                    isBuying={buyingId === agent.id || isWaitingTx}
                     isOwner={agent.ownerAddress.toLowerCase() === address?.toLowerCase()}
                     platformFee={platformFeePercent}
                   />
