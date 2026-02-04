@@ -621,14 +621,32 @@ nfaRouter.post("/marketplace/buy", authMiddleware, async (req: Request, res: Res
       .set({ ownerAddress: buyerAddress })
       .where(eq(nfaAgents.id, nfaId));
 
-    // Update agent stats
-    await db
-      .update(nfaStats)
-      .set({
-        totalRevenue: sql`CAST(${nfaStats.totalRevenue} AS NUMERIC) + ${listing.priceDisplay}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(nfaStats.nfaId, nfaId));
+    // Update agent stats - handle case where stats might not exist
+    const existingStats = await db.select().from(nfaStats).where(eq(nfaStats.nfaId, nfaId));
+    const priceNum = parseFloat(listing.priceDisplay) || 0;
+    
+    if (existingStats.length > 0) {
+      // Parse existing revenue (remove " BNB" suffix if present)
+      const currentRevenue = parseFloat(existingStats[0].totalRevenue?.replace(' BNB', '') || '0');
+      const newRevenue = (currentRevenue + priceNum).toFixed(4);
+      
+      await db
+        .update(nfaStats)
+        .set({
+          totalRevenue: newRevenue,
+          updatedAt: new Date(),
+        })
+        .where(eq(nfaStats.nfaId, nfaId));
+    } else {
+      // Create stats entry if it doesn't exist
+      await db.insert(nfaStats).values({
+        nfaId,
+        totalInteractions: 0,
+        totalRevenue: priceNum.toFixed(4),
+        rating: 0,
+        ratingCount: 0,
+      });
+    }
 
     // Log the action
     await db.insert(nfaActions).values({
@@ -702,13 +720,29 @@ nfaRouter.post("/marketplace/sold", async (req: Request, res: Response) => {
       .set({ ownerAddress: buyerAddress.toLowerCase() })
       .where(eq(nfaAgents.id, nfaId));
 
-    await db
-      .update(nfaStats)
-      .set({
-        totalRevenue: sql`CAST(${nfaStats.totalRevenue} AS NUMERIC) + ${price}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(nfaStats.nfaId, nfaId));
+    // Update agent stats - handle case where stats might not exist
+    const existingStats = await db.select().from(nfaStats).where(eq(nfaStats.nfaId, nfaId));
+    
+    if (existingStats.length > 0) {
+      const currentRevenue = parseFloat(existingStats[0].totalRevenue?.replace(' BNB', '') || '0');
+      const newRevenue = (currentRevenue + priceNum).toFixed(4);
+      
+      await db
+        .update(nfaStats)
+        .set({
+          totalRevenue: newRevenue,
+          updatedAt: new Date(),
+        })
+        .where(eq(nfaStats.nfaId, nfaId));
+    } else {
+      await db.insert(nfaStats).values({
+        nfaId,
+        totalInteractions: 0,
+        totalRevenue: priceNum.toFixed(4),
+        rating: 0,
+        ratingCount: 0,
+      });
+    }
 
     res.json({ 
       success: true,
