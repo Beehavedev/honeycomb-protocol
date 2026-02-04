@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, Clock, Shield, Pause, XCircle, Wallet } from "lucide-react";
+import { Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, Clock, Shield, Pause, XCircle, Wallet, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useAccount } from "wagmi";
 
 interface NfaAgent {
   id: string;
@@ -51,6 +52,7 @@ interface LeaderboardEntry {
 
 export default function NfaMarketplace() {
   const { isAuthenticated } = useAuth();
+  const { address, isConnected } = useAccount();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
@@ -67,9 +69,20 @@ export default function NfaMarketplace() {
     queryKey: ["/api/nfa/categories"],
   });
 
+  const { data: myAgentsData, isLoading: myAgentsLoading } = useQuery<{ agents: NfaAgent[] }>({
+    queryKey: ["/api/nfa/agents", { owner: address }],
+    queryFn: async () => {
+      const res = await fetch(`/api/nfa/agents?owner=${address}`);
+      if (!res.ok) throw new Error("Failed to fetch agents");
+      return res.json();
+    },
+    enabled: isConnected && !!address,
+  });
+
   const listings = listingsData?.listings || [];
   const leaderboard = leaderboardData?.agents || [];
   const categories = categoriesData?.categories || [];
+  const myAgents = myAgentsData?.agents || [];
 
   const filteredListings = listings.filter(item => {
     const matchesSearch = !searchQuery || 
@@ -154,8 +167,14 @@ export default function NfaMarketplace() {
           </Card>
         </div>
 
-        <Tabs defaultValue="marketplace" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue={isConnected ? "my-nfas" : "marketplace"} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            {isConnected && (
+              <TabsTrigger value="my-nfas" className="gap-2" data-testid="tab-my-nfas">
+                <User className="h-4 w-4" />
+                My NFAs
+              </TabsTrigger>
+            )}
             <TabsTrigger value="marketplace" className="gap-2" data-testid="tab-marketplace">
               <ShoppingCart className="h-4 w-4" />
               Marketplace
@@ -169,6 +188,84 @@ export default function NfaMarketplace() {
               Categories
             </TabsTrigger>
           </TabsList>
+
+          {isConnected && (
+            <TabsContent value="my-nfas" className="mt-4">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Your Non-Fungible Agents</h2>
+                <p className="text-muted-foreground text-sm">Manage and list your minted NFAs</p>
+              </div>
+              
+              {myAgentsLoading ? (
+                <div className="text-center py-12 text-muted-foreground">Loading your agents...</div>
+              ) : myAgents.length === 0 ? (
+                <Card className="text-center py-12">
+                  <CardContent>
+                    <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No NFAs Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      You haven't minted any Non-Fungible Agents yet.
+                    </p>
+                    <Link href="/nfa/mint">
+                      <Button data-testid="button-mint-first-nfa">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Mint Your First NFA
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {myAgents.map(agent => (
+                    <Link key={agent.id} href={`/nfa/${agent.id}`}>
+                      <Card className="hover-elevate cursor-pointer h-full">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-lg truncate">{agent.name}</CardTitle>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Badge variant={agent.status === "ACTIVE" ? "default" : agent.status === "PAUSED" ? "secondary" : "destructive"}>
+                                {agent.status}
+                              </Badge>
+                              {agent.agentType === "LEARNING" && (
+                                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                                  <Brain className="h-3 w-3 mr-1" />
+                                  Learning
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <CardDescription className="line-clamp-2">
+                            {agent.description || "No description"}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              {agent.interactionCount} interactions
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Wallet className="h-3 w-3" />
+                              {parseFloat(agent.balance) / 1e18} BNB
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline">{agent.modelType}</Badge>
+                            {agent.category && <Badge variant="outline">{agent.category}</Badge>}
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-0">
+                          <Button variant="outline" className="w-full" data-testid={`button-view-nfa-${agent.id}`}>
+                            View & Manage
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
 
           <TabsContent value="marketplace" className="mt-4">
             <div className="flex flex-col md:flex-row gap-4 mb-6">
