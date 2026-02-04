@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { BAP578MarketplaceABI } from "@/contracts/abis";
 import { getNFAMarketplaceAddresses, NFA_FEE_WALLET } from "@/contracts/addresses";
+import { useI18n } from "@/lib/i18n";
 
 interface NfaAgent {
   id: string;
@@ -90,6 +91,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
   isOwner: boolean;
   platformFee: number;
 }) {
+  const { t } = useI18n();
   const CategoryIcon = CATEGORY_ICONS[agent.category || ""] || Bot;
   const colorClass = CATEGORY_COLORS[agent.category || ""] || "from-primary/20 to-primary/10 border-primary/30";
   
@@ -105,7 +107,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
           {agent.agentType === "LEARNING" && (
             <Badge className="bg-green-500/90 text-white border-0 gap-1">
               <Brain className="h-3 w-3" />
-              Learning AI
+              {t('nfa.learning')}
             </Badge>
           )}
         </div>
@@ -140,10 +142,10 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
               data-testid={`button-buy-${agent.id}`}
             >
               {isBuying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
-              Buy Now
+              {t('nfa.buy')}
             </Button>
           ) : (
-            <Badge variant="secondary" className="w-full justify-center py-2">Your Agent</Badge>
+            <Badge variant="secondary" className="w-full justify-center py-2">{t('nfa.owned')}</Badge>
           )}
         </div>
       </div>
@@ -190,7 +192,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
 
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-muted-foreground">Price</p>
+            <p className="text-xs text-muted-foreground">{t('nfa.price')}</p>
             <div className="flex items-baseline gap-1">
               <span className="text-lg font-bold">{listing.priceDisplay}</span>
               <span className="text-xs text-muted-foreground">+{platformFee}% fee</span>
@@ -208,6 +210,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
 }
 
 function TrendingCard({ agent, stats, rank }: { agent: NfaAgent; stats: LeaderboardEntry["stats"]; rank: number }) {
+  const { t } = useI18n();
   const CategoryIcon = CATEGORY_ICONS[agent.category || ""] || Bot;
   
   return (
@@ -231,7 +234,7 @@ function TrendingCard({ agent, stats, rank }: { agent: NfaAgent; stats: Leaderbo
           </div>
           <div className="text-right">
             <p className="font-bold">{stats?.totalInteractions || 0}</p>
-            <p className="text-xs text-muted-foreground">interactions</p>
+            <p className="text-xs text-muted-foreground">{t('nfa.interactions')}</p>
           </div>
           {stats?.rating && stats.rating > 0 && (
             <div className="flex items-center gap-1 text-amber-500">
@@ -274,6 +277,7 @@ export default function NfaMarketplace() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { toast } = useToast();
+  const { t } = useI18n();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -370,14 +374,14 @@ export default function NfaMarketplace() {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/marketplace/listings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
       toast({
-        title: "Purchase Successful!",
-        description: `You now own "${data.sale?.nfaName}".${data.txHash ? " Transaction confirmed on-chain." : ""}`,
+        title: t('nfa.purchaseSuccess'),
+        description: t('nfa.purchaseSuccessDesc'),
       });
       setBuyingId(null);
     },
     onError: (error: Error) => {
       toast({
-        title: "Purchase Failed",
+        title: t('nfa.purchaseFailed'),
         description: error.message,
         variant: "destructive",
       });
@@ -433,10 +437,10 @@ export default function NfaMarketplace() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold tracking-tight" data-testid="text-page-title">
-                    NFA Marketplace
+                    {t('nfa.title')}
                   </h1>
                   <p className="text-muted-foreground">
-                    Discover, collect, and trade Non-Fungible Agents
+                    {t('nfa.description')}
                   </p>
                 </div>
               </div>
@@ -447,7 +451,7 @@ export default function NfaMarketplace() {
                 <Link href="/nfa/mint">
                   <Button size="lg" className="gap-2 shadow-lg shadow-primary/20" data-testid="button-mint-nfa">
                     <Plus className="h-5 w-5" />
-                    Create NFA
+                    {t('nfa.mintAgent')}
                   </Button>
                 </Link>
               )}
@@ -541,20 +545,20 @@ export default function NfaMarketplace() {
             {isConnected && (
               <TabsTrigger value="my-nfas" className="gap-2" data-testid="tab-my-nfas">
                 <User className="h-4 w-4" />
-                My NFAs
+                {t('nfa.myAgents')}
               </TabsTrigger>
             )}
             <TabsTrigger value="explore" className="gap-2" data-testid="tab-marketplace">
               <ShoppingCart className="h-4 w-4" />
-              Explore
+              {t('nfa.marketplace')}
             </TabsTrigger>
             <TabsTrigger value="leaderboard" className="gap-2" data-testid="tab-leaderboard">
               <Trophy className="h-4 w-4" />
-              Leaderboard
+              {t('nfa.leaderboard')}
             </TabsTrigger>
             <TabsTrigger value="categories" className="gap-2" data-testid="tab-categories">
               <Brain className="h-4 w-4" />
-              Categories
+              {t('nfa.allCategories')}
             </TabsTrigger>
           </TabsList>
 
@@ -771,7 +775,7 @@ export default function NfaMarketplace() {
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by name or description..."
+                  placeholder={t('nfa.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 bg-card"
@@ -955,7 +959,7 @@ export default function NfaMarketplace() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold">{entry.stats?.totalInteractions || 0}</p>
-                          <p className="text-xs text-muted-foreground">interactions</p>
+                          <p className="text-xs text-muted-foreground">{t('nfa.interactions')}</p>
                         </div>
                         {entry.stats?.rating && entry.stats.rating > 0 && (
                           <div className="flex items-center gap-1 text-amber-500">
