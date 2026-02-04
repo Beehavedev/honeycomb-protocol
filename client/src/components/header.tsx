@@ -44,12 +44,12 @@ export function Header() {
   const hatcheryItems = [
     { href: "/launch", label: t('nav.launchpad'), icon: Egg },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
-    { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
   ];
-  const isHatcheryActive = location.startsWith("/launch") || location.startsWith("/hatchery") || location.startsWith("/nfa");
+  const isHatcheryActive = location.startsWith("/launch") || location.startsWith("/hatchery");
 
   // Standalone nav items
   const standaloneItems = [
+    { href: "/nfa", label: "NFA Market", icon: Sparkles, match: (loc: string) => loc.startsWith("/nfa") },
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
     { href: "/rewards", label: "Rewards", icon: Trophy, match: (loc: string) => loc === "/rewards" },
@@ -65,7 +65,7 @@ export function Header() {
     { href: "/honey", label: t('nav.bounties'), icon: Coins },
     { href: "/launch", label: t('nav.launchpad'), icon: Egg },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
-    { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
+    { href: "/nfa", label: "NFA Market", icon: Sparkles },
     { href: "/beepay", label: "BeePay", icon: DollarSign },
     { href: "/predict", label: t('nav.predict'), icon: Target },
     { href: "/rewards", label: "Rewards", icon: Trophy },
