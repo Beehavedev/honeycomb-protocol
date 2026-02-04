@@ -27,11 +27,13 @@ import {
   type UserAchievement, type InsertUserAchievement,
   type EarlyAdopter, type InsertEarlyAdopter,
   type LeaderboardSnapshot,
+  type UserPoints, type PointsHistory, type PointsConfig, type InsertPointsConfig,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
   autonomousAgents, agentTokenLaunches, agentTrades, agentTradingStats, agentGraduations, agentLeaderboard,
-  referrals, referralConversions, achievementDefs, userAchievements, earlyAdopters, leaderboardSnapshots
+  referrals, referralConversions, achievementDefs, userAchievements, earlyAdopters, leaderboardSnapshots,
+  userPoints, pointsHistory, pointsConfig
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -218,6 +220,16 @@ export interface IStorage {
   // Growth & Gamification - Leaderboard Snapshots
   getLeaderboardSnapshot(type: string, period: string): Promise<LeaderboardSnapshot | undefined>;
   upsertLeaderboardSnapshot(type: string, period: string, data: string): Promise<LeaderboardSnapshot>;
+
+  // Points System
+  getUserPoints(agentId: string): Promise<UserPoints | undefined>;
+  createUserPoints(agentId: string): Promise<UserPoints>;
+  addPoints(agentId: string, action: string, basePoints: number, referenceId?: string, referenceType?: string, metadata?: string): Promise<PointsHistory>;
+  getPointsHistory(agentId: string, limit?: number): Promise<PointsHistory[]>;
+  getPointsConfig(action: string): Promise<PointsConfig | undefined>;
+  getAllPointsConfig(): Promise<PointsConfig[]>;
+  upsertPointsConfig(data: InsertPointsConfig): Promise<PointsConfig>;
+  getPointsLeaderboard(limit: number): Promise<UserPoints[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1393,6 +1405,121 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Points System
+  async getUserPoints(agentId: string): Promise<UserPoints | undefined> {
+    const [points] = await db.select().from(userPoints).where(eq(userPoints.agentId, agentId));
+    return points;
+  }
+
+  async createUserPoints(agentId: string): Promise<UserPoints> {
+    const [points] = await db.insert(userPoints).values({ agentId }).returning();
+    return points;
+  }
+
+  async addPoints(
+    agentId: string, 
+    action: string, 
+    basePoints: number, 
+    referenceId?: string, 
+    referenceType?: string, 
+    metadata?: string
+  ): Promise<PointsHistory> {
+    // Get or create user points
+    let points = await this.getUserPoints(agentId);
+    if (!points) {
+      points = await this.createUserPoints(agentId);
+    }
+
+    // Check daily cap reset (new day = reset counter)
+    const now = new Date();
+    const resetTime = new Date(points.dailyCapResetAt);
+    const isNewDay = now.getDate() !== resetTime.getDate() || 
+                     now.getMonth() !== resetTime.getMonth() || 
+                     now.getFullYear() !== resetTime.getFullYear();
+
+    // Get config for daily cap check
+    const config = await this.getPointsConfig(action);
+    const dailyCap = config?.dailyCap;
+
+    // Check if already at daily cap
+    let currentDailyEarned = isNewDay ? 0 : points.dailyEarned;
+    if (dailyCap && currentDailyEarned >= dailyCap) {
+      // At daily cap - award 0 points
+      basePoints = 0;
+    } else if (dailyCap && currentDailyEarned + basePoints > dailyCap) {
+      // Would exceed cap - cap the points
+      basePoints = dailyCap - currentDailyEarned;
+    }
+
+    // Get early adopter multiplier
+    const earlyAdopter = await this.getEarlyAdopter(agentId);
+    const multiplier = earlyAdopter?.rewardMultiplier || 1;
+    const finalPoints = Math.floor(basePoints * multiplier);
+
+    // Create history entry
+    const [history] = await db.insert(pointsHistory).values({
+      agentId,
+      action,
+      points: basePoints,
+      multiplier,
+      finalPoints,
+      referenceId,
+      referenceType,
+      metadata,
+    }).returning();
+
+    // Update user points
+    await db.update(userPoints)
+      .set({
+        totalPoints: points.totalPoints + finalPoints,
+        lifetimePoints: points.lifetimePoints + finalPoints,
+        dailyEarned: isNewDay ? finalPoints : currentDailyEarned + finalPoints,
+        dailyCapResetAt: isNewDay ? now : points.dailyCapResetAt,
+        lastEarnedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(userPoints.agentId, agentId));
+
+    return history;
+  }
+
+  async getPointsHistory(agentId: string, limit: number = 50): Promise<PointsHistory[]> {
+    return db.select().from(pointsHistory)
+      .where(eq(pointsHistory.agentId, agentId))
+      .orderBy(desc(pointsHistory.createdAt))
+      .limit(limit);
+  }
+
+  async getPointsConfig(action: string): Promise<PointsConfig | undefined> {
+    const [config] = await db.select().from(pointsConfig).where(eq(pointsConfig.action, action));
+    return config;
+  }
+
+  async getAllPointsConfig(): Promise<PointsConfig[]> {
+    return db.select().from(pointsConfig).orderBy(pointsConfig.action);
+  }
+
+  async upsertPointsConfig(data: InsertPointsConfig): Promise<PointsConfig> {
+    const [existing] = await db.select().from(pointsConfig).where(eq(pointsConfig.action, data.action));
+    
+    if (existing) {
+      const [updated] = await db.update(pointsConfig)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(pointsConfig.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(pointsConfig).values(data).returning();
+      return created;
+    }
+  }
+
+  async getPointsLeaderboard(limit: number): Promise<UserPoints[]> {
+    return db.select().from(userPoints)
+      .orderBy(desc(userPoints.lifetimePoints))
+      .limit(limit);
   }
 }
 
