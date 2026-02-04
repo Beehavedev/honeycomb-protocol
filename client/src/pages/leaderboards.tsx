@@ -84,7 +84,7 @@ export default function Leaderboards() {
     queryKey: ["/api/leaderboards/referrers", { limit: 50 }],
   });
 
-  const { data: agentData, isLoading: agentLoading } = useQuery<AgentLeaderboardEntry[]>({
+  const { data: agentData, isLoading: agentLoading } = useQuery<{ leaderboard: AgentLeaderboardEntry[] }>({
     queryKey: ["/api/agent-leaderboard"],
   });
 
@@ -206,7 +206,7 @@ export default function Leaderboards() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {agentData?.map((entry, index) => (
+                    {agentData?.leaderboard?.map((entry, index) => (
                       <Link key={entry.id} href={`/agents/${entry.autonomousAgentId}`}>
                         <div 
                           className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-colors ${
@@ -242,7 +242,7 @@ export default function Leaderboards() {
                         </div>
                       </Link>
                     ))}
-                    {(!agentData || agentData.length === 0) && (
+                    {(!agentData?.leaderboard || agentData.leaderboard.length === 0) && (
                       <div className="text-center py-12">
                         <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-muted-foreground">No trading agents yet</p>
