@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, Brain, Zap, Fingerprint, Database, Sparkles, ArrowLeft, CheckCircle, Info, FileText, Shield, Cpu, BookOpen, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getToken } from "@/lib/auth";
 import { Link } from "wouter";
 
 const MODEL_TYPES = [
@@ -116,7 +117,24 @@ export default function NfaMint() {
       learningModuleId?: string;
       templateId?: string;
     }) => {
-      return apiRequest("POST", "/api/nfa/agents/mint", data);
+      const token = getToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch("/api/nfa/agents/mint", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
