@@ -24,7 +24,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Egg, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
-import { useCreateToken, useTokenFactoryAddress, useBuyTokens } from "@/contracts/hooks";
+import { useCreateToken, useTokenFactoryAddress, useBuyTokens, useInitializeMarket } from "@/contracts/hooks";
 import { useAccount, useWaitForTransactionReceipt, useSwitchChain, useChainId, usePublicClient } from "wagmi";
 import { decodeEventLog, parseEther } from "viem";
 import { HoneycombTokenFactoryABI } from "@/contracts/abis";
@@ -85,8 +85,20 @@ export default function LaunchCreate() {
   const { createToken, isPending: isCreating, isSuccess: txSuccess, hash, error: txError } = useCreateToken();
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash });
   
-  // Dev buy hook (separate transaction after token creation)
+  // Market initialization hook (separate transaction after token creation)
+  const { 
+    initializeMarket, 
+    isPending: isInitPending, 
+    isConfirming: isInitConfirming, 
+    isSuccess: isInitSuccess, 
+    error: initError 
+  } = useInitializeMarket();
+  
+  // Dev buy hook (separate transaction after market initialization)
   const { buy: buyTokens, isPending: isBuyPending, isConfirming: isBuyConfirming, isSuccess: isBuySuccess, error: buyError } = useBuyTokens();
+  
+  // Track whether we're in the initialization phase
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const form = useForm<CreateTokenForm>({
     resolver: zodResolver(createTokenSchema),
@@ -447,20 +459,19 @@ export default function LaunchCreate() {
               cid: metadataCID,
             });
             
-            // Market is now auto-initialized in the same transaction (like Four.meme)
-            // Check if dev buy is requested
+            // Step 2: Initialize market before dev buy
             if (devBuyAmountWei && devBuyAmountWei > BigInt(0)) {
-              setIsDevBuying(true);
+              setIsInitializing(true);
               toast({
-                title: "Token launched!",
-                description: "Now executing your initial buy...",
+                title: "Token created!",
+                description: "Initializing market for trading...",
               });
-              console.log("Executing dev buy for token:", tokenAddress, "amount:", devBuyAmountWei.toString());
-              buyTokens(tokenAddress as `0x${string}`, BigInt(0), devBuyAmountWei);
+              console.log("Initializing market for token:", tokenAddress);
+              initializeMarket(tokenAddress as `0x${string}`);
             } else {
               toast({
                 title: "Token launched!",
-                description: "Your token has been created and is now tradable.",
+                description: "Your token has been created. Initialize market to start trading.",
               });
               navigate(`/launch/${tokenAddress}`);
             }
@@ -488,12 +499,40 @@ export default function LaunchCreate() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed, hash, txReceipt, formData, metadataCID, devBuyAmountWei, isDevBuying]);
   
+  // Handle market initialization success - then execute dev buy
+  useEffect(() => {
+    if (isInitSuccess && isInitializing && createdTokenAddress && devBuyAmountWei && devBuyAmountWei > BigInt(0)) {
+      console.log("Market initialized! Executing dev buy for:", createdTokenAddress);
+      setIsInitializing(false);
+      setIsDevBuying(true);
+      toast({
+        title: "Market initialized!",
+        description: "Now executing your initial buy...",
+      });
+      buyTokens(createdTokenAddress, BigInt(0), devBuyAmountWei);
+    }
+  }, [isInitSuccess, isInitializing, createdTokenAddress, devBuyAmountWei, toast, buyTokens]);
+  
+  // Handle market initialization error
+  useEffect(() => {
+    if (initError && isInitializing && createdTokenAddress) {
+      console.error("Market initialization failed:", initError);
+      setIsInitializing(false);
+      toast({
+        title: "Initialization failed",
+        description: "Market couldn't be initialized. Token is created but not tradable yet.",
+        variant: "destructive",
+      });
+      navigate(`/launch/${createdTokenAddress}`);
+    }
+  }, [initError, isInitializing, createdTokenAddress, navigate, toast]);
+  
   // Handle dev buy completion
   useEffect(() => {
     if (isBuySuccess && isDevBuying && createdTokenAddress) {
       toast({
-        title: "Dev buy complete!",
-        description: "You've successfully purchased tokens.",
+        title: "Token launched!",
+        description: "You've successfully purchased tokens. Trading is now live!",
       });
       setIsDevBuying(false);
       navigate(`/launch/${createdTokenAddress}`);
@@ -505,8 +544,8 @@ export default function LaunchCreate() {
     if (buyError && isDevBuying && createdTokenAddress) {
       console.error("Dev buy failed:", buyError);
       toast({
-        title: "Token launched!",
-        description: "Dev buy failed, but your token is ready.",
+        title: "Market initialized!",
+        description: "Dev buy failed, but token is tradable.",
         variant: "destructive",
       });
       setIsDevBuying(false);
@@ -535,7 +574,7 @@ export default function LaunchCreate() {
     );
   }
 
-  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching || isDevBuying || isBuyPending || isBuyConfirming;
+  const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching || isInitializing || isInitPending || isInitConfirming || isDevBuying || isBuyPending || isBuyConfirming;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
@@ -867,7 +906,9 @@ export default function LaunchCreate() {
                     {isUploading ? "Uploading..." :
                      step === "mining" ? "Mining Bee Address..." :
                      step === "creating" ? "Creating Token..." : 
-                     isConfirming ? "Confirming..." :
+                     isConfirming ? "Confirming Token..." :
+                     isInitializing || isInitPending ? "Initializing Market..." :
+                     isInitConfirming ? "Confirming Market..." :
                      isDevBuying || isBuyPending ? "Executing Dev Buy..." :
                      isBuyConfirming ? "Confirming Dev Buy..." : "Processing..."}
                   </>
