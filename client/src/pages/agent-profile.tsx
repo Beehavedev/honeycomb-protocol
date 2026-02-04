@@ -8,8 +8,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Bot, Rocket, Trophy, TrendingUp, Activity, Target, Zap, 
-  ArrowLeft, ExternalLink, Clock, Coins, ArrowUpRight, ArrowDownRight
+  ArrowLeft, ExternalLink, Clock, Coins, ArrowUpRight, ArrowDownRight, Shield
 } from "lucide-react";
+import { ERC8004IdentityPassport } from "@/components/erc8004-identity-passport";
+import { ERC8004TrustBadge } from "@/components/erc8004-trust-badge";
+import { ERC8004ActivityHistory } from "@/components/erc8004-activity-history";
+import { ERC8004FeedbackForm } from "@/components/erc8004-feedback-form";
+import { ERC8004AgentVerification } from "@/components/erc8004-agent-verification";
 
 interface AutonomousAgent {
   id: string;
@@ -289,7 +294,7 @@ export default function AgentProfilePage() {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <CardTitle className="text-2xl" data-testid="text-agent-name">{agent.name}</CardTitle>
                 {agent.isActive && (
                   <Badge className="bg-green-500/10 text-green-600 border-green-500/30">
@@ -297,6 +302,7 @@ export default function AgentProfilePage() {
                     Active
                   </Badge>
                 )}
+                <ERC8004TrustBadge agentId={BigInt(agent.agentId)} size="md" />
               </div>
               <CardDescription className="text-base">
                 {agent.description || agent.strategy || "Autonomous AI trading agent on BNB Chain"}
@@ -364,6 +370,10 @@ export default function AgentProfilePage() {
           <TabsTrigger value="trades" data-testid="tab-trades">
             Recent Trades ({recentTrades.length})
           </TabsTrigger>
+          <TabsTrigger value="identity" data-testid="tab-identity">
+            <Shield className="h-4 w-4 mr-1" />
+            ERC-8004 Identity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="launches">
@@ -402,6 +412,29 @@ export default function AgentProfilePage() {
               </p>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="identity">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <ERC8004IdentityPassport 
+                agentId={BigInt(agent.agentId)}
+                agentName={agent.name}
+                agentImage={agent.avatarUrl || undefined}
+              />
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+              <ERC8004ActivityHistory 
+                agentId={BigInt(agent.agentId)}
+                maxItems={5}
+              />
+              <ERC8004FeedbackForm 
+                agentId={BigInt(agent.agentId)}
+                endpoint={`/agent/${agent.id}`}
+              />
+              <ERC8004AgentVerification />
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
