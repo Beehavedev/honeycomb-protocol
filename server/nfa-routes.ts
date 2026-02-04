@@ -215,9 +215,10 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
     }
 
     res.json({ agent, proofOfPrompt, memoryRoot });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error minting NFA agent:", error);
-    res.status(500).json({ error: "Failed to mint agent" });
+    const errorMessage = error?.message || error?.toString() || "Failed to mint agent";
+    res.status(500).json({ error: errorMessage });
   }
 });
 
