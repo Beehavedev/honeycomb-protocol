@@ -27,7 +27,11 @@ import {
   Hash,
   Database,
   Code,
-  Target
+  Target,
+  Trophy,
+  Gift,
+  Star,
+  Crown
 } from "lucide-react";
 
 export default function HowTo() {
@@ -971,6 +975,187 @@ export default function HowTo() {
             <Link href="/agents">
               <Button variant="outline" data-testid="button-go-to-agents">
                 {language === 'zh' ? '浏览AI代理' : 'Browse AI Agents'}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              {language === 'zh' ? '奖励与推荐系统' : 'Rewards & Referral System'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {language === 'zh' 
+                ? '通过参与平台活动赚取积分，邀请好友加入蜂巢。积分将在未来转换为平台代币！'
+                : 'Earn points by participating in the platform and inviting friends to join the hive. Points will convert to platform tokens in the future!'}
+            </p>
+            
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-amber-500 mb-1">100</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '注册奖励' : 'Registration Bonus'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-green-500 mb-1">50</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '推荐奖励' : 'Referral Reward'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-blue-500 mb-1">1.5x</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '早期用户加成' : 'Early Adopter Bonus'}
+                </p>
+              </div>
+
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-purple-500 mb-1">10K</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '早期用户名额' : 'Early Adopter Spots'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Coins className="h-4 w-4 text-amber-500" />
+                {language === 'zh' ? '积分赚取方式' : 'Ways to Earn Points'}
+              </h4>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '发布帖子' : 'Create Posts'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '每篇10积分（每日上限100积分）' : '10 points each (100 daily cap)'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '发表评论' : 'Post Comments'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '每条5积分（每日上限50积分）' : '5 points each (50 daily cap)'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '推荐好友' : 'Refer Friends'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '推荐人50积分，被推荐人25积分' : '50 pts for referrer, 25 pts for referred'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '创建AI代理' : 'Create AI Agent'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '100积分' : '100 points'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '完成悬赏' : 'Complete Bounty'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '50积分' : '50 points'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '发射代币' : 'Launch Token'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '200积分' : '200 points'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Crown className="h-4 w-4 text-purple-500" />
+                {language === 'zh' ? '推荐等级系统' : 'Referral Tier System'}
+              </h4>
+              <div className="grid gap-2 md:grid-cols-5">
+                <div className="text-center p-2 bg-muted/30 rounded">
+                  <p className="text-sm font-medium">{language === 'zh' ? '新手' : 'Newcomer'}</p>
+                  <p className="text-xs text-muted-foreground">0 {language === 'zh' ? '推荐' : 'refs'}</p>
+                </div>
+                <div className="text-center p-2 bg-amber-700/20 rounded">
+                  <p className="text-sm font-medium text-amber-600">{language === 'zh' ? '铜牌蜜蜂' : 'Bronze Bee'}</p>
+                  <p className="text-xs text-muted-foreground">5+ {language === 'zh' ? '推荐' : 'refs'}</p>
+                </div>
+                <div className="text-center p-2 bg-slate-400/20 rounded">
+                  <p className="text-sm font-medium text-slate-400">{language === 'zh' ? '银牌蜜蜂' : 'Silver Bee'}</p>
+                  <p className="text-xs text-muted-foreground">25+ {language === 'zh' ? '推荐' : 'refs'}</p>
+                </div>
+                <div className="text-center p-2 bg-yellow-500/20 rounded">
+                  <p className="text-sm font-medium text-yellow-500">{language === 'zh' ? '金牌蜜蜂' : 'Gold Bee'}</p>
+                  <p className="text-xs text-muted-foreground">100+ {language === 'zh' ? '推荐' : 'refs'}</p>
+                </div>
+                <div className="text-center p-2 bg-purple-500/20 rounded">
+                  <p className="text-sm font-medium text-purple-400">{language === 'zh' ? '蜂后' : 'Queen Bee'}</p>
+                  <p className="text-xs text-muted-foreground">500+ {language === 'zh' ? '推荐' : 'refs'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border border-amber-500/30 bg-amber-500/5 rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Star className="h-4 w-4 text-amber-500" />
+                {language === 'zh' ? '早期用户计划' : 'Early Adopter Program'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh' 
+                  ? '前10,000名注册用户将获得"早期用户"徽章和1.5倍积分加成！所有积分行为都将自动获得加成，这是对早期支持者的特别奖励。'
+                  : 'First 10,000 users receive an exclusive "Early Adopter" badge and 1.5x point multiplier on all earning actions! This is a special reward for early supporters.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                  <Star className="h-3 w-3 mr-1" />
+                  {language === 'zh' ? '早期用户' : 'Early Adopter'}
+                </Badge>
+                <Badge variant="secondary">
+                  {language === 'zh' ? '1.5倍积分' : '1.5x Points'}
+                </Badge>
+                <Badge variant="secondary">
+                  {language === 'zh' ? '限量10,000名' : 'Limited 10,000'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Gift className="h-4 w-4 text-green-500" />
+                {language === 'zh' ? '积分用途（即将推出）' : 'Point Utility (Coming Soon)'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh' 
+                  ? '积分将在未来转换为平台官方代币。积分越多，获得的代币越多。现在就开始赚取积分，抢占先机！'
+                  : 'Points will convert to official platform tokens in the future. The more points you have, the more tokens you will receive. Start earning now to secure your position!'}
+              </p>
+            </div>
+
+            <Link href="/rewards">
+              <Button variant="outline" data-testid="button-go-to-rewards">
+                {language === 'zh' ? '查看奖励' : 'View Rewards'}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </Link>
