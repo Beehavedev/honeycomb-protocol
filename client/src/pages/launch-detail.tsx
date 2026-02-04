@@ -129,7 +129,7 @@ export default function LaunchDetail() {
 
   const { data: marketState, refetch: refetchMarket } = useGetMarketState(tokenAddress);
   const { data: tokenBalance, refetch: refetchBalance } = useTokenBalance(tokenAddress, userAddress);
-  const { data: allowance } = useTokenAllowance(tokenAddress, userAddress, marketAddress);
+  const { data: allowance, refetch: refetchAllowance } = useTokenAllowance(tokenAddress, userAddress, marketAddress);
   const { data: priceData } = useBnbPrice();
   
   const { data: canMigrate } = useCanMigrate(tokenAddress);
@@ -283,8 +283,10 @@ export default function LaunchDetail() {
         title: "Approval successful",
         description: "You can now sell tokens.",
       });
+      // Refetch allowance to update the UI
+      refetchAllowance();
     }
-  }, [approveSuccess, toast]);
+  }, [approveSuccess, toast, refetchAllowance]);
 
   useEffect(() => {
     if (migrateSuccess && tokenAddress) {
