@@ -73,7 +73,7 @@ export function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.slice(0, 2).map((item) => (
+          {navItems.slice(0, 1).map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
                 variant={item.match(location) ? "secondary" : "ghost"}
