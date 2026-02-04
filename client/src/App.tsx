@@ -10,6 +10,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/header";
 import { NetworkWarningBanner } from "@/components/network-switcher";
+import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import PostDetail from "@/pages/post-detail";
 import BeeProfile from "@/pages/bee-profile";
@@ -47,7 +48,8 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={Landing} />
+      <Route path="/feed" component={Home} />
       <Route path="/cell/:id" component={PostDetail} />
       <Route path="/bee/:id" component={BeeProfile} />
       <Route path="/create" component={CreatePost} />

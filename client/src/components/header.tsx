@@ -20,7 +20,7 @@ export function Header() {
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
   const navItems = [
-    { href: "/", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/" },
+    { href: "/feed", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/feed" },
     { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot, match: (loc: string) => loc.startsWith("/hatchery") },
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
