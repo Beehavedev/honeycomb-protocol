@@ -204,8 +204,13 @@ export default function LaunchDetail() {
 
   const needsApproval = tradeTab === "sell" && sellAmountWei > BigInt(0) && allowance !== undefined && sellAmountWei > allowance;
 
+  // Safe type guard for quote tuples
+  const isValidQuoteTuple = (quote: unknown): quote is readonly [bigint, bigint] => {
+    return Array.isArray(quote) && quote.length >= 2 && typeof quote[0] === 'bigint' && typeof quote[1] === 'bigint';
+  };
+
   // Preflight liquidity check - compare sell quote against token's native reserve
-  const sellQuoteValue = sellQuote as readonly [bigint, bigint] | undefined;
+  const sellQuoteValue = isValidQuoteTuple(sellQuote) ? sellQuote : undefined;
   const expectedNativeOut = sellQuoteValue ? sellQuoteValue[0] : BigInt(0);
   // Use the token's specific native reserve, not overall contract balance
   const hasInsufficientLiquidity = sellAmountWei > BigInt(0) && expectedNativeOut > BigInt(0) && tokenNativeReserve > BigInt(0) && expectedNativeOut > tokenNativeReserve;
@@ -411,9 +416,8 @@ export default function LaunchDetail() {
       return;
     }
     
-    const quoteValue = sellQuote as readonly [bigint, bigint] | undefined;
-    const minOut = quoteValue ? (quoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
-    const estimatedNative = quoteValue ? quoteValue[0].toString() : "0";
+    const minOut = sellQuoteValue ? (sellQuoteValue[0] * BigInt(95)) / BigInt(100) : BigInt(0);
+    const estimatedNative = sellQuoteValue ? sellQuoteValue[0].toString() : "0";
     
     setLastTradeInfo({
       isBuy: false,
@@ -986,11 +990,11 @@ export default function LaunchDetail() {
                         />
                       </div>
                       
-                      {sellQuote && sellAmountWei > BigInt(0) && (
+                      {sellQuoteValue && sellAmountWei > BigInt(0) && (
                         <div className="bg-muted/50 p-3 rounded-md space-y-1">
                           <p className="text-sm text-muted-foreground">You will receive:</p>
                           <p className="font-mono font-medium">
-                            ~{formatEther((sellQuote as readonly [bigint, bigint])[0])} BNB
+                            ~{formatEther(sellQuoteValue[0])} BNB
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Market BNB: {marketBalance?.value ? formatEther(marketBalance.value) : "0"} BNB
