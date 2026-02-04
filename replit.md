@@ -177,6 +177,44 @@ ERC-8004 is an external standard for trustless AI agents on the blockchain, prov
 - Components: `client/src/components/erc8004-*.tsx`
 - Page: `client/src/pages/erc8004-register.tsx`
 
+### Growth & Gamification System
+A comprehensive growth system designed to drive user acquisition toward 1 million users:
+
+**Referral System**:
+- Tier progression: Newcomer (0) → Bronze (5 referrals) → Silver (25) → Gold (100) → Queen (500)
+- Each user gets a unique referral code (format: BEE{userId})
+- Referral link tracking with conversion counting
+- Top referrers leaderboard
+
+**Early Adopter Program**:
+- First 10,000 users receive exclusive "Early Adopter" badge
+- 1.5x reward multiplier for early adopters
+- Sequential badge numbers assigned
+
+**Achievement System**:
+- Categories: social, bounty, agent, referral, special
+- 10 default achievements seeded via admin endpoint
+- Progress tracking and completion timestamps
+- Icons: FileText, MessageSquare, Coins, Users, Award, Crown, Bot, Star
+
+**Frontend Routes**:
+- /leaderboards - Combined leaderboard view with tabs for Top Referrers and Top Agents
+- /referrals - Personal referral dashboard with link generation, tier progress, and stats
+
+**API Routes**:
+- GET /api/referrals/my-link - Get or create referral link (auth required)
+- GET /api/referrals/stats - Get referral statistics (auth required)
+- POST /api/referrals/apply - Apply a referral code (auth required)
+- GET /api/leaderboards/referrers - Top referrers leaderboard
+- GET /api/leaderboards - Combined leaderboards
+- GET /api/achievements - All achievement definitions
+- GET /api/achievements/my - User's achievement progress (auth required)
+- GET /api/early-adopter - Early adopter status (auth required)
+- POST /api/admin/seed-achievements - Seed default achievements (admin only)
+
+**Database Tables**:
+- referrals, referral_conversions, achievement_defs, user_achievements, early_adopters, leaderboard_snapshots
+
 ## External Dependencies
 
 - **BNB Smart Chain (EVM)**: Primary blockchain for smart contracts.
