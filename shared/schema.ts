@@ -1457,7 +1457,35 @@ export type BeepayPullAuth = typeof beepayPullAuths.$inferSelect;
 
 // ==================== BAP-578 Non-Fungible Agents (NFA) ====================
 
-// NFA Agent tokens
+// BAP-578 Agent Templates (pre-configured archetypes)
+export const nfaTemplates = pgTable("nfa_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // Assistant, Guardian, Creator, Analyst, Trader
+  defaultPersona: text("default_persona").notNull(), // JSON-encoded traits
+  defaultExperience: text("default_experience").notNull(),
+  defaultSystemPrompt: text("default_system_prompt").notNull(),
+  suggestedCapabilities: text("suggested_capabilities").array(), // Array of capability strings
+  iconUri: text("icon_uri"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// BAP-578 Learning Modules Registry
+export const nfaLearningModules = pgTable("nfa_learning_modules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  moduleType: text("module_type").notNull(), // RAG, MCP, FINE_TUNING, REINFORCEMENT, HYBRID
+  contractAddress: text("contract_address"), // On-chain module address
+  version: text("version").notNull().default("1.0.0"),
+  configSchema: text("config_schema"), // JSON schema for module configuration
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// NFA Agent tokens - BAP-578 compliant
 export const nfaAgents = pgTable("nfa_agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tokenId: integer("token_id").notNull().unique(),
@@ -1468,6 +1496,28 @@ export const nfaAgents = pgTable("nfa_agents", {
   modelType: text("model_type").notNull(), // e.g., "gpt-4", "claude-3"
   agentType: text("agent_type").notNull().default("STATIC"), // STATIC or LEARNING
   status: text("status").notNull().default("ACTIVE"), // ACTIVE, PAUSED, TERMINATED
+  
+  // BAP-578 Core Metadata (4.3.1)
+  persona: text("persona"), // JSON-encoded character traits, style, tone
+  experience: text("experience"), // Short summary of agent's role/purpose
+  voiceHash: text("voice_hash"), // Reference ID to stored audio profile
+  animationUri: text("animation_uri"), // URI to video or animation file
+  vaultUri: text("vault_uri"), // URI to agent's vault (extended data storage)
+  vaultHash: text("vault_hash"), // Hash of vault contents for verification
+  
+  // BAP-578 State Management (4.2)
+  balance: text("balance").default("0").notNull(), // BNB balance in wei
+  logicAddress: text("logic_address"), // Logic contract address
+  lastActionTimestamp: timestamp("last_action_timestamp").defaultNow().notNull(),
+  
+  // BAP-578 Learning Extension (4.3.2)
+  learningEnabled: boolean("learning_enabled").default(false).notNull(),
+  learningModuleId: varchar("learning_module_id").references(() => nfaLearningModules.id),
+  learningTreeRoot: text("learning_tree_root"), // Merkle root of learning tree
+  learningVersion: integer("learning_version").default(0).notNull(),
+  lastLearningUpdate: timestamp("last_learning_update"),
+  
+  // Original fields
   proofOfPrompt: text("proof_of_prompt").notNull(), // Hash of training config
   memoryRoot: text("memory_root"), // Current memory merkle root
   trainingVersion: integer("training_version").default(1).notNull(),
@@ -1475,6 +1525,7 @@ export const nfaAgents = pgTable("nfa_agents", {
   metadataUri: text("metadata_uri"), // IPFS URI for extended metadata
   category: text("category"),
   systemPrompt: text("system_prompt"), // Off-chain storage of system prompt
+  templateId: varchar("template_id").references(() => nfaTemplates.id), // Template used
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastActiveAt: timestamp("last_active_at").defaultNow().notNull(),
 });
@@ -1562,7 +1613,72 @@ export const nfaRatings = pgTable("nfa_ratings", {
   uniqueRating: unique().on(table.nfaId, table.raterAddress),
 }));
 
+// BAP-578 Learning Metrics (4.4.1)
+export const nfaLearningMetrics = pgTable("nfa_learning_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id).unique(),
+  totalInteractions: integer("total_interactions").default(0).notNull(),
+  learningEvents: integer("learning_events").default(0).notNull(), // Significant learning updates
+  lastUpdateTimestamp: timestamp("last_update_timestamp").defaultNow().notNull(),
+  learningVelocity: text("learning_velocity").default("0").notNull(), // Learning rate (scaled by 1e18)
+  confidenceScore: text("confidence_score").default("0").notNull(), // Overall confidence (scaled by 1e18)
+  treeDepth: integer("tree_depth").default(0).notNull(), // Current depth of learning tree
+  totalNodes: integer("total_nodes").default(0).notNull(), // Total nodes in learning tree
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// BAP-578 Vault Permission System (4.6)
+export const nfaVaultPermissions = pgTable("nfa_vault_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id),
+  granteeAddress: text("grantee_address").notNull(), // Address with permission
+  permissionLevel: text("permission_level").notNull().default("NONE"), // OWNER, OPERATOR, VIEWER, NONE
+  canRead: boolean("can_read").default(false).notNull(),
+  canWrite: boolean("can_write").default(false).notNull(),
+  canExecute: boolean("can_execute").default(false).notNull(),
+  canGrant: boolean("can_grant").default(false).notNull(), // Can grant permissions to others
+  expiresAt: timestamp("expires_at"), // Optional expiration
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniquePermission: unique().on(table.nfaId, table.granteeAddress),
+}));
+
+// BAP-578 Agent Action Log (for executeAction tracking)
+export const nfaActions = pgTable("nfa_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id),
+  executorAddress: text("executor_address").notNull(),
+  actionType: text("action_type").notNull(), // EXECUTE, FUND, PAUSE, UNPAUSE, TERMINATE, UPGRADE_LOGIC
+  actionData: text("action_data"), // JSON encoded action parameters
+  result: text("result"), // JSON encoded result
+  txHash: text("tx_hash"), // Transaction hash if on-chain
+  status: text("status").notNull().default("PENDING"), // PENDING, SUCCESS, FAILED
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // BAP-578 Insert Schemas
+export const insertNfaTemplateSchema = createInsertSchema(nfaTemplates).pick({
+  name: true,
+  description: true,
+  category: true,
+  defaultPersona: true,
+  defaultExperience: true,
+  defaultSystemPrompt: true,
+  suggestedCapabilities: true,
+  iconUri: true,
+});
+
+export const insertNfaLearningModuleSchema = createInsertSchema(nfaLearningModules).pick({
+  name: true,
+  description: true,
+  moduleType: true,
+  contractAddress: true,
+  version: true,
+  configSchema: true,
+});
+
 export const insertNfaAgentSchema = createInsertSchema(nfaAgents).pick({
   tokenId: true,
   ownerAddress: true,
@@ -1576,6 +1692,50 @@ export const insertNfaAgentSchema = createInsertSchema(nfaAgents).pick({
   metadataUri: true,
   category: true,
   systemPrompt: true,
+  // BAP-578 Enhanced Metadata
+  persona: true,
+  experience: true,
+  voiceHash: true,
+  animationUri: true,
+  vaultUri: true,
+  vaultHash: true,
+  // BAP-578 State
+  logicAddress: true,
+  // BAP-578 Learning
+  learningEnabled: true,
+  learningModuleId: true,
+  templateId: true,
+});
+
+export const insertNfaLearningMetricsSchema = createInsertSchema(nfaLearningMetrics).pick({
+  nfaId: true,
+  totalInteractions: true,
+  learningEvents: true,
+  learningVelocity: true,
+  confidenceScore: true,
+  treeDepth: true,
+  totalNodes: true,
+});
+
+export const insertNfaVaultPermissionSchema = createInsertSchema(nfaVaultPermissions).pick({
+  nfaId: true,
+  granteeAddress: true,
+  permissionLevel: true,
+  canRead: true,
+  canWrite: true,
+  canExecute: true,
+  canGrant: true,
+  expiresAt: true,
+});
+
+export const insertNfaActionSchema = createInsertSchema(nfaActions).pick({
+  nfaId: true,
+  executorAddress: true,
+  actionType: true,
+  actionData: true,
+  result: true,
+  txHash: true,
+  status: true,
 });
 
 export const insertNfaMemorySchema = createInsertSchema(nfaMemory).pick({
@@ -1636,3 +1796,19 @@ export type NfaStats = typeof nfaStats.$inferSelect;
 
 export type NfaRating = typeof nfaRatings.$inferSelect;
 export type InsertNfaRating = z.infer<typeof insertNfaRatingSchema>;
+
+// BAP-578 New Types
+export type NfaTemplate = typeof nfaTemplates.$inferSelect;
+export type InsertNfaTemplate = z.infer<typeof insertNfaTemplateSchema>;
+
+export type NfaLearningModule = typeof nfaLearningModules.$inferSelect;
+export type InsertNfaLearningModule = z.infer<typeof insertNfaLearningModuleSchema>;
+
+export type NfaLearningMetrics = typeof nfaLearningMetrics.$inferSelect;
+export type InsertNfaLearningMetrics = z.infer<typeof insertNfaLearningMetricsSchema>;
+
+export type NfaVaultPermission = typeof nfaVaultPermissions.$inferSelect;
+export type InsertNfaVaultPermission = z.infer<typeof insertNfaVaultPermissionSchema>;
+
+export type NfaAction = typeof nfaActions.$inferSelect;
+export type InsertNfaAction = z.infer<typeof insertNfaActionSchema>;
