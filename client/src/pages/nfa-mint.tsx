@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
-import { parseEther, keccak256, toBytes } from "viem";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAccount } from "wagmi";
+import { keccak256, toBytes } from "viem";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Brain, Zap, Fingerprint, Database, Sparkles, ArrowLeft, CheckCircle, Info } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bot, Brain, Zap, Fingerprint, Database, Sparkles, ArrowLeft, CheckCircle, Info, FileText, Shield, Cpu, BookOpen, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -40,18 +41,39 @@ const CATEGORIES = [
   "Content Creation",
   "Customer Support",
   "Research",
+  "Security",
   "Other",
 ];
+
+interface Template {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  defaultPersona: string;
+  defaultExperience: string;
+  defaultSystemPrompt: string;
+  suggestedCapabilities: string[] | null;
+  iconUri: string | null;
+}
+
+interface LearningModule {
+  id: string;
+  name: string;
+  description: string | null;
+  moduleType: string;
+  version: string;
+}
 
 export default function NfaMint() {
   const [, navigate] = useLocation();
   const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
-  const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
+  const { isAuthenticated, authenticate } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [mintMode, setMintMode] = useState<"template" | "custom">("template");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [modelType, setModelType] = useState("gpt-4");
@@ -59,8 +81,22 @@ export default function NfaMint() {
   const [category, setCategory] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [metadataUri, setMetadataUri] = useState("");
+  const [persona, setPersona] = useState("");
+  const [experience, setExperience] = useState("");
+  const [learningModuleId, setLearningModuleId] = useState<string>("");
   const [step, setStep] = useState(1);
   const [isMinting, setIsMinting] = useState(false);
+
+  const { data: templatesData } = useQuery<{ templates: Template[] }>({
+    queryKey: ["/api/nfa/templates"],
+  });
+
+  const { data: modulesData } = useQuery<{ modules: LearningModule[] }>({
+    queryKey: ["/api/nfa/learning-modules"],
+  });
+
+  const templates = templatesData?.templates || [];
+  const learningModules = modulesData?.modules || [];
 
   const mintMutation = useMutation({
     mutationFn: async (data: {
@@ -74,6 +110,11 @@ export default function NfaMint() {
       systemPrompt: string;
       metadataUri: string;
       proofOfPrompt: string;
+      persona?: string;
+      experience?: string;
+      learningEnabled?: boolean;
+      learningModuleId?: string;
+      templateId?: string;
     }) => {
       return apiRequest("POST", "/api/nfa/agents/mint", data);
     },
@@ -100,6 +141,17 @@ export default function NfaMint() {
     return keccak256(toBytes(data));
   };
 
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+      setSelectedTemplateId(templateId);
+      setCategory(template.category);
+      setSystemPrompt(template.defaultSystemPrompt);
+      setPersona(template.defaultPersona);
+      setExperience(template.defaultExperience);
+    }
+  };
+
   const handleMint = async () => {
     if (!isConnected || !address) {
       toast({
@@ -110,7 +162,6 @@ export default function NfaMint() {
       return;
     }
 
-    // Check if user is authenticated, if not trigger authentication
     if (!isAuthenticated) {
       try {
         toast({
@@ -118,7 +169,7 @@ export default function NfaMint() {
           description: "Please sign the message in your wallet to authenticate.",
         });
         await authenticate();
-      } catch (error) {
+      } catch {
         toast({
           title: "Authentication Failed",
           description: "Please sign the message to authenticate and mint.",
@@ -154,6 +205,11 @@ export default function NfaMint() {
         systemPrompt,
         metadataUri,
         proofOfPrompt,
+        persona: persona || undefined,
+        experience: experience || undefined,
+        learningEnabled: agentType === "LEARNING",
+        learningModuleId: agentType === "LEARNING" && learningModuleId ? learningModuleId : undefined,
+        templateId: selectedTemplateId || undefined,
       });
     } catch (error) {
       console.error("Mint error:", error);
@@ -177,7 +233,7 @@ export default function NfaMint() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-3xl">
+    <div className="container mx-auto p-4 max-w-4xl">
       <div className="mb-6">
         <Link href="/nfa">
           <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
@@ -194,9 +250,9 @@ export default function NfaMint() {
               <Bot className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-2xl" data-testid="text-page-title">Mint NFA</CardTitle>
+              <CardTitle className="text-2xl" data-testid="text-page-title">Mint NFA (BAP-578)</CardTitle>
               <CardDescription>
-                Create a new Non-Fungible Agent (BAP-578)
+                Create a new Non-Fungible Agent with full BAP-578 compliance
               </CardDescription>
             </div>
           </div>
@@ -204,10 +260,10 @@ export default function NfaMint() {
 
         <CardContent className="space-y-6">
           <div className="flex items-center justify-center gap-2 mb-6">
-            {[1, 2, 3].map(s => (
+            {[1, 2, 3, 4].map(s => (
               <div
                 key={s}
-                className={`flex items-center gap-2 ${s < 3 ? "flex-1" : ""}`}
+                className={`flex items-center gap-2 ${s < 4 ? "flex-1" : ""}`}
               >
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -218,7 +274,7 @@ export default function NfaMint() {
                 >
                   {step > s ? <CheckCircle className="h-4 w-4" /> : s}
                 </div>
-                {s < 3 && (
+                {s < 4 && (
                   <div className={`flex-1 h-1 ${step > s ? "bg-primary" : "bg-muted"}`} />
                 )}
               </div>
@@ -226,11 +282,82 @@ export default function NfaMint() {
           </div>
 
           {step === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Bot className="h-5 w-5" />
-                Basic Information
+                <Wand2 className="h-5 w-5" />
+                Choose Creation Method
               </h3>
+
+              <Tabs value={mintMode} onValueChange={(v) => setMintMode(v as "template" | "custom")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="template" className="gap-2" data-testid="tab-template">
+                    <FileText className="h-4 w-4" />
+                    From Template
+                  </TabsTrigger>
+                  <TabsTrigger value="custom" className="gap-2" data-testid="tab-custom">
+                    <Cpu className="h-4 w-4" />
+                    Custom Agent
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="template" className="space-y-4 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Start with a pre-configured agent template for common use cases
+                  </p>
+                  <div className="grid gap-3">
+                    {templates.map((template) => (
+                      <Card
+                        key={template.id}
+                        className={`cursor-pointer transition-all ${
+                          selectedTemplateId === template.id 
+                            ? "ring-2 ring-primary" 
+                            : "hover-elevate"
+                        }`}
+                        onClick={() => applyTemplate(template.id)}
+                        data-testid={`template-${template.name.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-primary/10">
+                              {template.category === "Guardian" ? (
+                                <Shield className="h-5 w-5 text-primary" />
+                              ) : template.category === "Analyst" ? (
+                                <Database className="h-5 w-5 text-primary" />
+                              ) : template.category === "Trader" ? (
+                                <Zap className="h-5 w-5 text-primary" />
+                              ) : (
+                                <Bot className="h-5 w-5 text-primary" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium">{template.name}</h4>
+                                <Badge variant="outline" className="text-xs">{template.category}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{template.description}</p>
+                            </div>
+                            {selectedTemplateId === template.id && (
+                              <CheckCircle className="h-5 w-5 text-primary" />
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="custom" className="space-y-4 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Build a completely custom agent from scratch
+                  </p>
+                  <div className="p-4 rounded-lg border bg-muted/30 text-center">
+                    <Cpu className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Configure all settings manually in the next steps
+                    </p>
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <div className="space-y-2">
                 <Label htmlFor="name">Agent Name *</Label>
@@ -244,6 +371,15 @@ export default function NfaMint() {
                 />
                 <p className="text-xs text-muted-foreground">{name.length}/64 characters</p>
               </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                Agent Details
+              </h3>
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -257,42 +393,68 @@ export default function NfaMint() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger data-testid="select-category">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger data-testid="select-category">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="modelType">AI Model</Label>
+                  <Select value={modelType} onValueChange={setModelType}>
+                    <SelectTrigger data-testid="select-model">
+                      <SelectValue placeholder="Select AI model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODEL_TYPES.map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          <div className="flex items-center gap-2">
+                            <span>{model.label}</span>
+                            <Badge variant="outline" className="text-xs">{model.provider}</Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="modelType">AI Model</Label>
-                <Select value={modelType} onValueChange={setModelType}>
-                  <SelectTrigger data-testid="select-model">
-                    <SelectValue placeholder="Select AI model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MODEL_TYPES.map(model => (
-                      <SelectItem key={model.value} value={model.value}>
-                        <div className="flex items-center gap-2">
-                          <span>{model.label}</span>
-                          <Badge variant="outline" className="text-xs">{model.provider}</Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="persona">Persona (BAP-578 Extended Metadata)</Label>
+                <Textarea
+                  id="persona"
+                  placeholder='{"traits": ["helpful", "professional"], "tone": "friendly", "style": "concise"}'
+                  value={persona}
+                  onChange={(e) => setPersona(e.target.value)}
+                  rows={2}
+                  data-testid="input-persona"
+                />
+                <p className="text-xs text-muted-foreground">JSON describing the agent's personality traits</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="experience">Experience Description</Label>
+                <Input
+                  id="experience"
+                  placeholder="Expert in DeFi trading and market analysis..."
+                  value={experience}
+                  onChange={(e) => setExperience(e.target.value)}
+                  data-testid="input-experience"
+                />
               </div>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Brain className="h-5 w-5" />
@@ -310,8 +472,8 @@ export default function NfaMint() {
                     <p className="font-medium">Agent Type</p>
                     <p className="text-sm text-muted-foreground">
                       {agentType === "LEARNING" 
-                        ? "Can learn and evolve over time" 
-                        : "Fixed behavior, cannot be trained"}
+                        ? "Can learn and evolve over time with Merkle Tree verification" 
+                        : "Fixed behavior with JSON Light Memory"}
                     </p>
                   </div>
                 </div>
@@ -325,6 +487,33 @@ export default function NfaMint() {
                   <span className="text-sm">Learning</span>
                 </div>
               </div>
+
+              {agentType === "LEARNING" && (
+                <div className="space-y-2 p-4 rounded-lg border border-primary/20 bg-primary/5">
+                  <Label htmlFor="learningModule" className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Learning Module
+                  </Label>
+                  <Select value={learningModuleId} onValueChange={setLearningModuleId}>
+                    <SelectTrigger data-testid="select-learning-module">
+                      <SelectValue placeholder="Select a learning module" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {learningModules.map(module => (
+                        <SelectItem key={module.id} value={module.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{module.name}</span>
+                            <Badge variant="outline" className="text-xs">{module.moduleType}</Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Learning modules define how your agent processes and stores new knowledge
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="systemPrompt" className="flex items-center gap-2">
@@ -357,14 +546,11 @@ export default function NfaMint() {
                   onChange={(e) => setMetadataUri(e.target.value)}
                   data-testid="input-metadata-uri"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Optional IPFS or HTTPS link to extended metadata JSON
-                </p>
               </div>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
@@ -395,22 +581,44 @@ export default function NfaMint() {
                       )}
                     </Badge>
                   </div>
+                  {agentType === "LEARNING" && learningModuleId && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Learning Module</span>
+                      <Badge variant="outline">
+                        {learningModules.find(m => m.id === learningModuleId)?.name || "-"}
+                      </Badge>
+                    </div>
+                  )}
+                  {selectedTemplateId && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Template</span>
+                      <Badge variant="outline">
+                        {templates.find(t => t.id === selectedTemplateId)?.name || "-"}
+                      </Badge>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Proof-of-Prompt</span>
                     <Badge variant="outline" className="font-mono text-xs">
                       {systemPrompt ? "Configured" : "Empty"}
                     </Badge>
                   </div>
+                  {persona && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Persona</span>
+                      <Badge variant="outline" className="text-xs">Configured</Badge>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               <div className="flex items-start gap-2 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <Database className="h-5 w-5 text-amber-500 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-500">On-Chain Registration</p>
+                  <p className="font-medium text-amber-500">BAP-578 On-Chain Registration</p>
                   <p className="text-sm text-muted-foreground">
-                    Your agent will be registered as a BAP-578 Non-Fungible Agent on BSC.
-                    The Proof-of-Prompt and memory root will be stored immutably on-chain.
+                    Your agent will be registered as a BAP-578 Non-Fungible Agent on BNB Chain.
+                    The Proof-of-Prompt, memory root, and learning tree root will be stored on-chain.
                   </p>
                 </div>
               </div>
@@ -429,7 +637,7 @@ export default function NfaMint() {
             </Button>
           )}
           <div className="flex-1" />
-          {step < 3 ? (
+          {step < 4 ? (
             <Button
               onClick={() => setStep(step + 1)}
               disabled={step === 1 && !name.trim()}

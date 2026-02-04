@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, Clock, Shield } from "lucide-react";
+import { Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, Clock, Shield, Pause, XCircle, Wallet } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 interface NfaAgent {
@@ -22,6 +22,9 @@ interface NfaAgent {
   category: string | null;
   interactionCount: number;
   createdAt: string;
+  learningEnabled: boolean;
+  learningVersion: number;
+  balance: string;
 }
 
 interface NfaListing {
@@ -258,7 +261,7 @@ export default function NfaMarketplace() {
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
                         {agent.description || "No description provided"}
                       </p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Bot className="h-3 w-3" />
                           {agent.modelType}
@@ -267,7 +270,26 @@ export default function NfaMarketplace() {
                           <Zap className="h-3 w-3" />
                           {agent.interactionCount} interactions
                         </span>
+                        {agent.learningEnabled && agent.learningVersion > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            v{agent.learningVersion}
+                          </Badge>
+                        )}
                       </div>
+                      {agent.status !== "ACTIVE" && (
+                        <div className="mt-2">
+                          <Badge 
+                            variant={agent.status === "PAUSED" ? "secondary" : "destructive"}
+                            className={agent.status === "PAUSED" ? "bg-amber-500 text-white" : ""}
+                          >
+                            {agent.status === "PAUSED" ? (
+                              <><Pause className="h-3 w-3 mr-1" /> Paused</>
+                            ) : (
+                              <><XCircle className="h-3 w-3 mr-1" /> Terminated</>
+                            )}
+                          </Badge>
+                        </div>
+                      )}
                     </CardContent>
                     <CardFooter className="flex items-center justify-between pt-2 border-t">
                       <div className="flex items-center gap-1">
