@@ -21,13 +21,13 @@ export function Header() {
 
   const navItems = [
     { href: "/", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/" },
+    { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot, match: (loc: string) => loc.startsWith("/hatchery") },
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
     { href: "/nfa", label: "NFA", icon: Sparkles, match: (loc: string) => loc.startsWith("/nfa") },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
     { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
     { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
-    { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
     ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),
     { href: "/how-to", label: "How To", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
   ];
