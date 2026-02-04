@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { launchTokens, launchTrades } from "@shared/schema";
 import { 
   generateToken, 
   verifyWalletSignature, 
@@ -1053,6 +1055,28 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Get launch tokens error:", error);
       res.status(500).json({ message: "Failed to get tokens" });
+    }
+  });
+
+  // Admin: Clear all launch tokens (admin only)
+  app.delete("/api/launch/tokens/clear-all", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = req.walletAddress?.toLowerCase();
+      
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Clear all launch trades first (foreign key constraint)
+      await db.delete(launchTrades);
+      // Clear all launch tokens
+      const result = await db.delete(launchTokens);
+      
+      res.json({ success: true, message: "All launch tokens cleared" });
+    } catch (error) {
+      console.error("Clear tokens error:", error);
+      res.status(500).json({ message: "Failed to clear tokens" });
     }
   });
 
