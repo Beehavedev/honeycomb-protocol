@@ -1861,7 +1861,7 @@ export default function Predict() {
   };
 
   return (
-    <div className="w-full max-w-screen-xl mx-auto py-6 px-4">
+    <div className="py-6 px-6 md:px-8 lg:px-12">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
