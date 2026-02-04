@@ -21,10 +21,17 @@ import {
   type AgentTradingStats,
   type AgentGraduation, type InsertAgentGraduation,
   type AgentLeaderboard,
+  type Referral, type InsertReferral,
+  type ReferralConversion, type InsertReferralConversion,
+  type AchievementDef, type InsertAchievementDef,
+  type UserAchievement, type InsertUserAchievement,
+  type EarlyAdopter, type InsertEarlyAdopter,
+  type LeaderboardSnapshot,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
-  autonomousAgents, agentTokenLaunches, agentTrades, agentTradingStats, agentGraduations, agentLeaderboard
+  autonomousAgents, agentTokenLaunches, agentTrades, agentTradingStats, agentGraduations, agentLeaderboard,
+  referrals, referralConversions, achievementDefs, userAchievements, earlyAdopters, leaderboardSnapshots
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -180,6 +187,37 @@ export interface IStorage {
   // Agent Leaderboard
   getAgentLeaderboard(limit: number): Promise<AgentLeaderboard[]>;
   updateAgentLeaderboard(autonomousAgentId: string, stats: Partial<AgentLeaderboard>): Promise<AgentLeaderboard>;
+
+  // Growth & Gamification - Referrals
+  createReferral(data: InsertReferral): Promise<Referral>;
+  getReferralByCode(code: string): Promise<Referral | undefined>;
+  getReferralByAgent(agentId: string): Promise<Referral | undefined>;
+  incrementReferralCount(referralId: string): Promise<Referral>;
+  updateReferralTier(referralId: string, tier: string): Promise<Referral>;
+  getTopReferrers(limit: number): Promise<Referral[]>;
+
+  // Growth & Gamification - Referral Conversions
+  createReferralConversion(data: InsertReferralConversion): Promise<ReferralConversion>;
+  getReferralConversions(referralId: string): Promise<ReferralConversion[]>;
+  isAlreadyReferred(agentId: string): Promise<boolean>;
+
+  // Growth & Gamification - Achievements
+  createAchievementDef(data: InsertAchievementDef): Promise<AchievementDef>;
+  getAchievementDefs(): Promise<AchievementDef[]>;
+  getAchievementBySlug(slug: string): Promise<AchievementDef | undefined>;
+  getUserAchievements(agentId: string): Promise<UserAchievement[]>;
+  createUserAchievement(data: InsertUserAchievement): Promise<UserAchievement>;
+  updateAchievementProgress(agentId: string, achievementId: string, progress: number): Promise<UserAchievement>;
+  completeAchievement(agentId: string, achievementId: string): Promise<UserAchievement>;
+
+  // Growth & Gamification - Early Adopters
+  createEarlyAdopter(data: InsertEarlyAdopter): Promise<EarlyAdopter>;
+  getEarlyAdopter(agentId: string): Promise<EarlyAdopter | undefined>;
+  getEarlyAdopterCount(): Promise<number>;
+
+  // Growth & Gamification - Leaderboard Snapshots
+  getLeaderboardSnapshot(type: string, period: string): Promise<LeaderboardSnapshot | undefined>;
+  upsertLeaderboardSnapshot(type: string, period: string, data: string): Promise<LeaderboardSnapshot>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1191,6 +1229,167 @@ export class DatabaseStorage implements IStorage {
           autonomousAgentId,
           ...stats,
         })
+        .returning();
+      return created;
+    }
+  }
+
+  // ============ GROWTH & GAMIFICATION ============
+
+  // Referrals
+  async createReferral(data: InsertReferral): Promise<Referral> {
+    const [referral] = await db.insert(referrals).values(data).returning();
+    return referral;
+  }
+
+  async getReferralByCode(code: string): Promise<Referral | undefined> {
+    const [referral] = await db.select().from(referrals).where(eq(referrals.referralCode, code));
+    return referral;
+  }
+
+  async getReferralByAgent(agentId: string): Promise<Referral | undefined> {
+    const [referral] = await db.select().from(referrals).where(eq(referrals.referrerAgentId, agentId));
+    return referral;
+  }
+
+  async incrementReferralCount(referralId: string): Promise<Referral> {
+    const [referral] = await db.update(referrals)
+      .set({ referralCount: sql`${referrals.referralCount} + 1` })
+      .where(eq(referrals.id, referralId))
+      .returning();
+    return referral;
+  }
+
+  async updateReferralTier(referralId: string, tier: string): Promise<Referral> {
+    const [referral] = await db.update(referrals)
+      .set({ tier })
+      .where(eq(referrals.id, referralId))
+      .returning();
+    return referral;
+  }
+
+  async getTopReferrers(limit: number): Promise<Referral[]> {
+    return db.select().from(referrals)
+      .orderBy(desc(referrals.referralCount))
+      .limit(limit);
+  }
+
+  // Referral Conversions
+  async createReferralConversion(data: InsertReferralConversion): Promise<ReferralConversion> {
+    const [conversion] = await db.insert(referralConversions).values(data).returning();
+    return conversion;
+  }
+
+  async getReferralConversions(referralId: string): Promise<ReferralConversion[]> {
+    return db.select().from(referralConversions)
+      .where(eq(referralConversions.referralId, referralId))
+      .orderBy(desc(referralConversions.createdAt));
+  }
+
+  async isAlreadyReferred(agentId: string): Promise<boolean> {
+    const [existing] = await db.select().from(referralConversions)
+      .where(eq(referralConversions.referredAgentId, agentId));
+    return !!existing;
+  }
+
+  // Achievements
+  async createAchievementDef(data: InsertAchievementDef): Promise<AchievementDef> {
+    const [achievement] = await db.insert(achievementDefs).values(data).returning();
+    return achievement;
+  }
+
+  async getAchievementDefs(): Promise<AchievementDef[]> {
+    return db.select().from(achievementDefs).orderBy(achievementDefs.category);
+  }
+
+  async getAchievementBySlug(slug: string): Promise<AchievementDef | undefined> {
+    const [achievement] = await db.select().from(achievementDefs).where(eq(achievementDefs.slug, slug));
+    return achievement;
+  }
+
+  async getUserAchievements(agentId: string): Promise<UserAchievement[]> {
+    return db.select().from(userAchievements)
+      .where(eq(userAchievements.agentId, agentId))
+      .orderBy(desc(userAchievements.completedAt));
+  }
+
+  async createUserAchievement(data: InsertUserAchievement): Promise<UserAchievement> {
+    const [userAchievement] = await db.insert(userAchievements).values(data).returning();
+    return userAchievement;
+  }
+
+  async updateAchievementProgress(agentId: string, achievementId: string, progress: number): Promise<UserAchievement> {
+    const [existing] = await db.select().from(userAchievements)
+      .where(and(eq(userAchievements.agentId, agentId), eq(userAchievements.achievementId, achievementId)));
+    
+    if (existing) {
+      const [updated] = await db.update(userAchievements)
+        .set({ progress })
+        .where(eq(userAchievements.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userAchievements)
+        .values({ agentId, achievementId, progress })
+        .returning();
+      return created;
+    }
+  }
+
+  async completeAchievement(agentId: string, achievementId: string): Promise<UserAchievement> {
+    const [existing] = await db.select().from(userAchievements)
+      .where(and(eq(userAchievements.agentId, agentId), eq(userAchievements.achievementId, achievementId)));
+    
+    if (existing) {
+      const [updated] = await db.update(userAchievements)
+        .set({ completed: true, completedAt: new Date() })
+        .where(eq(userAchievements.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(userAchievements)
+        .values({ agentId, achievementId, progress: 1, completed: true, completedAt: new Date() })
+        .returning();
+      return created;
+    }
+  }
+
+  // Early Adopters
+  async createEarlyAdopter(data: InsertEarlyAdopter): Promise<EarlyAdopter> {
+    const [adopter] = await db.insert(earlyAdopters).values(data).returning();
+    return adopter;
+  }
+
+  async getEarlyAdopter(agentId: string): Promise<EarlyAdopter | undefined> {
+    const [adopter] = await db.select().from(earlyAdopters).where(eq(earlyAdopters.agentId, agentId));
+    return adopter;
+  }
+
+  async getEarlyAdopterCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(earlyAdopters);
+    return result[0]?.count || 0;
+  }
+
+  // Leaderboard Snapshots
+  async getLeaderboardSnapshot(type: string, period: string): Promise<LeaderboardSnapshot | undefined> {
+    const [snapshot] = await db.select().from(leaderboardSnapshots)
+      .where(and(eq(leaderboardSnapshots.type, type), eq(leaderboardSnapshots.period, period)));
+    return snapshot;
+  }
+
+  async upsertLeaderboardSnapshot(type: string, period: string, data: string): Promise<LeaderboardSnapshot> {
+    const [existing] = await db.select().from(leaderboardSnapshots)
+      .where(and(eq(leaderboardSnapshots.type, type), eq(leaderboardSnapshots.period, period)));
+    
+    if (existing) {
+      const [updated] = await db.update(leaderboardSnapshots)
+        .set({ data, updatedAt: new Date() })
+        .where(eq(leaderboardSnapshots.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(leaderboardSnapshots)
+        .values({ type, period, data })
         .returning();
       return created;
     }
