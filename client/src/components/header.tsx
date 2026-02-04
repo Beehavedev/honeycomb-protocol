@@ -27,7 +27,7 @@ export function Header() {
 
   const aiAgentItems = [
     { href: "/agents", label: t('nav.agents'), icon: Zap },
-    { href: "/hatchery", label: "AI Hatchery", icon: Bot },
+    { href: "/hatchery", label: "Hatchery", icon: Bot },
     { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
   ];
@@ -89,9 +89,9 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant={isAiAgentActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-ai-agent">
+              <Button variant={isAiAgentActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-ai-hatchery">
                 <Bot className="h-4 w-4" />
-                AI Agent
+                AI Hatchery
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
