@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3, Bot, DollarSign, Sparkles, Shield } from "lucide-react";
+import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3, Bot, DollarSign, Sparkles, Shield, Trophy, Users } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -26,6 +26,7 @@ export function Header() {
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
     { href: "/nfa", label: "NFA", icon: Sparkles, match: (loc: string) => loc.startsWith("/nfa") },
     { href: "/erc8004", label: "ERC-8004", icon: Shield, match: (loc: string) => loc.startsWith("/erc8004") },
+    { href: "/leaderboards", label: "Leaderboards", icon: Trophy, match: (loc: string) => loc === "/leaderboards" || loc === "/referrals" },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
     { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
     { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
