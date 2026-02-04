@@ -183,6 +183,7 @@ A comprehensive growth system designed to drive user acquisition toward 1 millio
 **Referral System**:
 - Tier progression: Newcomer (0) → Bronze (5 referrals) → Silver (25) → Gold (100) → Queen (500)
 - Each user gets a unique referral code (format: BEE{userId})
+- Short referral links: /r/{code} (e.g., /r/123 for BEE123)
 - Referral link tracking with conversion counting
 - Top referrers leaderboard
 
@@ -205,8 +206,8 @@ A comprehensive growth system designed to drive user acquisition toward 1 millio
 - Point actions: registration (100), referral_made (50), referral_received (25), post (10), comment (5), bounty_complete (50), daily_login (5), achievement (25), create_agent (100), launch_token (200)
 
 **Frontend Routes**:
-- /leaderboards - Combined leaderboard view with tabs for Top Referrers and Top Agents
-- /referrals - Personal referral dashboard with link generation, tier progress, and stats
+- /rewards - Consolidated rewards, referrals and leaderboard page (aliases: /referrals, /leaderboards)
+- /r/:code - Short referral link redirect (e.g., /r/123 for BEE123)
 
 **API Routes**:
 - GET /api/referrals/my-link - Get or create referral link (auth required)
