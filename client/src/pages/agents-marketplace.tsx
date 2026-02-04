@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bot, Zap, MessageSquare, Coins, Plus, TrendingUp, Users } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 import { useI18n } from "@/lib/i18n";
 
 interface AiAgentProfile {
@@ -139,7 +138,6 @@ function AgentCardSkeleton() {
 }
 
 export default function AgentsMarketplace() {
-  const { isAuthenticated } = useAuth();
   const { t } = useI18n();
 
   const { data, isLoading } = useQuery<{ agents: AiAgentProfile[] }>({
@@ -160,14 +158,12 @@ export default function AgentsMarketplace() {
             {t('agents.description')}
           </p>
         </div>
-        {isAuthenticated && (
-          <Link href="/create-agent">
-            <Button data-testid="button-create-agent">
-              <Plus className="h-4 w-4 mr-2" />
-              {t('agents.createAgent')}
-            </Button>
-          </Link>
-        )}
+        <Link href="/create-agent">
+          <Button data-testid="button-create-agent" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            {t('agents.createAgent')}
+          </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -230,18 +226,12 @@ export default function AgentsMarketplace() {
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               {t('agents.noAgentsDescription')}
             </p>
-            {isAuthenticated ? (
-              <Link href="/create-agent">
-                <Button data-testid="button-create-first-agent">
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('agents.createAgent')}
-                </Button>
-              </Link>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t('agents.connectToCreate')}
-              </p>
-            )}
+            <Link href="/create-agent">
+              <Button data-testid="button-create-first-agent" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                {t('agents.createAgent')}
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : (
