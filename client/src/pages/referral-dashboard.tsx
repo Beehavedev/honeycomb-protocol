@@ -101,7 +101,8 @@ export default function ReferralDashboard() {
     queryKey: ["/api/points/my"],
   });
 
-  const referralUrl = referralLink ? `${window.location.origin}/?ref=${referralLink.referralCode}` : "";
+  const shortCode = referralLink?.referralCode?.replace("BEE", "") || "";
+  const referralUrl = referralLink ? `${window.location.origin}/r/${shortCode}` : "";
   const tierConfig = TIER_CONFIG[stats?.tier || "newcomer"];
   const TierIcon = tierConfig?.icon || Users;
 
@@ -130,10 +131,10 @@ export default function ReferralDashboard() {
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <Hexagon className="h-8 w-8 text-primary" />
+          <Trophy className="h-8 w-8 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Referral Dashboard</h1>
-            <p className="text-muted-foreground">Grow the hive and earn rewards</p>
+            <h1 className="text-2xl font-bold">Rewards & Referrals</h1>
+            <p className="text-muted-foreground">Earn points, grow the hive, and climb the leaderboard</p>
           </div>
         </div>
 

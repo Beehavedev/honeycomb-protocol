@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { WalletButton } from "./wallet-button";
 import { ThemeToggle } from "./theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3, Bot, DollarSign, Sparkles, Shield, Trophy, Users } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3, Bot, DollarSign, Sparkles, Shield, Trophy, ChevronDown } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -19,19 +25,39 @@ export function Header() {
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
+  const hatcheryItems = [
+    { href: "/hatchery", label: "AI Hatchery", icon: Bot },
+    { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
+    { href: "/erc8004", label: "ERC-8004", icon: Shield },
+    { href: "/launch", label: t('nav.launchpad'), icon: Egg },
+  ];
+
+  const isHatcheryActive = location.startsWith("/hatchery") || location.startsWith("/nfa") || location.startsWith("/erc8004") || location.startsWith("/launch");
+
   const navItems = [
     { href: "/feed", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/feed" },
     { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
-    { href: "/hatchery", label: "AI Hatchery", icon: Bot, match: (loc: string) => loc.startsWith("/hatchery") },
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
-    { href: "/nfa", label: "NFA", icon: Sparkles, match: (loc: string) => loc.startsWith("/nfa") },
-    { href: "/erc8004", label: "ERC-8004", icon: Shield, match: (loc: string) => loc.startsWith("/erc8004") },
-    { href: "/leaderboards", label: "Leaderboards", icon: Trophy, match: (loc: string) => loc === "/leaderboards" || loc === "/referrals" },
+    { href: "/rewards", label: "Rewards", icon: Trophy, match: (loc: string) => loc === "/rewards" },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
-    { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
     { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
     ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),
-    { href: "/how-to", label: "How To", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
+    { href: "/how-to", label: "Guide", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
+  ];
+
+  const mobileNavItems = [
+    { href: "/feed", label: t('nav.feed'), icon: null },
+    { href: "/agents", label: t('nav.agents'), icon: Zap },
+    { href: "/hatchery", label: "AI Hatchery", icon: Bot },
+    { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
+    { href: "/erc8004", label: "ERC-8004", icon: Shield },
+    { href: "/launch", label: t('nav.launchpad'), icon: Egg },
+    { href: "/beepay", label: "BeePay", icon: DollarSign },
+    { href: "/rewards", label: "Rewards", icon: Trophy },
+    { href: "/predict", label: t('nav.predict'), icon: Target },
+    { href: "/honey", label: t('nav.bounties'), icon: Coins },
+    ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3 }] : []),
+    { href: "/how-to", label: "Guide", icon: HelpCircle },
   ];
 
   return (
@@ -45,7 +71,40 @@ export function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => (
+          {navItems.slice(0, 2).map((item) => (
+            <Link key={item.href} href={item.href}>
+              <Button
+                variant={item.match(location) ? "secondary" : "ghost"}
+                className="gap-2"
+                data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}
+              >
+                {item.icon && <item.icon className="h-4 w-4" />}
+                {item.label}
+              </Button>
+            </Link>
+          ))}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={isHatcheryActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-hatchery">
+                <Egg className="h-4 w-4" />
+                Hatchery
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {hatcheryItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}>
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </DropdownMenuItem>
+                </Link>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {navItems.slice(2).map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
                 variant={item.match(location) ? "secondary" : "ghost"}
@@ -65,7 +124,7 @@ export function Header() {
                 data-testid="link-profile"
               >
                 <User className="h-4 w-4" />
-                My Profile
+                Profile
               </Button>
             </Link>
           )}
@@ -99,10 +158,10 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-72 pt-12">
               <nav className="flex flex-col gap-2">
-                {navItems.map((item) => (
+                {mobileNavItems.map((item) => (
                   <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button
-                      variant={item.match(location) ? "secondary" : "ghost"}
+                      variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
                       className="w-full justify-start gap-3"
                     >
                       {item.icon && <item.icon className="h-5 w-5" />}
@@ -117,7 +176,7 @@ export function Header() {
                       className="w-full justify-start gap-3"
                     >
                       <User className="h-5 w-5" />
-                      My Profile
+                      Profile
                     </Button>
                   </Link>
                 )}

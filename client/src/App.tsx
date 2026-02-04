@@ -45,7 +45,7 @@ import NfaMint from "@/pages/nfa-mint";
 import NfaDetail from "@/pages/nfa-detail";
 import ERC8004Register from "@/pages/erc8004-register";
 import ReferralDashboard from "@/pages/referral-dashboard";
-import Leaderboards from "@/pages/leaderboards";
+import ReferralRedirect from "@/pages/referral-redirect";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -87,8 +87,10 @@ function Router() {
       <Route path="/nfa/:id" component={NfaDetail} />
       <Route path="/erc8004" component={ERC8004Register} />
       <Route path="/erc8004/register" component={ERC8004Register} />
+      <Route path="/rewards" component={ReferralDashboard} />
       <Route path="/referrals" component={ReferralDashboard} />
-      <Route path="/leaderboards" component={Leaderboards} />
+      <Route path="/leaderboards" component={ReferralDashboard} />
+      <Route path="/r/:code" component={ReferralRedirect} />
       <Route component={NotFound} />
     </Switch>
   );
