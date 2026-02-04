@@ -76,6 +76,7 @@ export default function LaunchDetail() {
   const [tradeTab, setTradeTab] = useState<"buy" | "sell">("buy");
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
+  const [useMaxSell, setUseMaxSell] = useState(false);
   const [copied, setCopied] = useState(false);
   const [lastTradeInfo, setLastTradeInfo] = useState<{ isBuy: boolean; nativeAmount: string; tokenAmount: string } | null>(null);
   const [pendingAction, setPendingAction] = useState<"buy" | "sell" | null>(null);
@@ -171,8 +172,28 @@ export default function LaunchDetail() {
   const isMarketInitialized = marketStateData?.initialized === true;
   const tokenNativeReserve = marketStateData?.nativeReserve ?? BigInt(0);
   
-  const buyAmountWei = buyAmount ? parseEther(buyAmount) : BigInt(0);
-  const sellAmountWei = sellAmount ? parseEther(sellAmount) : BigInt(0);
+  // Safely parse amounts - parseEther can crash on invalid input
+  let buyAmountWei = BigInt(0);
+  let sellAmountWei = BigInt(0);
+  try {
+    if (buyAmount && buyAmount.trim() !== '') {
+      buyAmountWei = parseEther(buyAmount);
+    }
+  } catch {
+    buyAmountWei = BigInt(0);
+  }
+  // Use raw tokenBalance when max is selected to avoid formatEther/parseEther conversion issues
+  if (useMaxSell && tokenBalance && typeof tokenBalance === 'bigint') {
+    sellAmountWei = tokenBalance;
+  } else {
+    try {
+      if (sellAmount && sellAmount.trim() !== '') {
+        sellAmountWei = parseEther(sellAmount);
+      }
+    } catch {
+      sellAmountWei = BigInt(0);
+    }
+  }
   
   const { data: buyQuote } = useQuoteBuy(tokenAddress, buyAmountWei > BigInt(0) ? buyAmountWei : undefined);
   const { data: sellQuote } = useQuoteSell(tokenAddress, sellAmountWei > BigInt(0) ? sellAmountWei : undefined);
@@ -225,6 +246,7 @@ export default function LaunchDetail() {
         });
         setBuyAmount("");
         setSellAmount("");
+        setUseMaxSell(false);
         setLastTradeInfo(null);
         refetch();
         refetchMarket();
@@ -941,7 +963,10 @@ export default function LaunchDetail() {
                           {tokenBalance !== undefined && typeof tokenBalance === 'bigint' && tokenBalance > BigInt(0) && (
                             <button
                               className="text-xs text-primary hover:underline"
-                              onClick={() => setSellAmount(formatEther(tokenBalance))}
+                              onClick={() => {
+                                setUseMaxSell(true);
+                                setSellAmount(Number(formatEther(tokenBalance)).toFixed(4));
+                              }}
                             >
                               Max: {Number(formatEther(tokenBalance)).toFixed(2)}
                             </button>
@@ -951,7 +976,10 @@ export default function LaunchDetail() {
                           type="number"
                           placeholder="0.0"
                           value={sellAmount}
-                          onChange={(e) => setSellAmount(e.target.value)}
+                          onChange={(e) => {
+                            setUseMaxSell(false);
+                            setSellAmount(e.target.value);
+                          }}
                           step="1"
                           min="0"
                           data-testid="input-sell-amount"
