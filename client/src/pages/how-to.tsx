@@ -264,6 +264,152 @@ export default function HowTo() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              {language === 'zh' ? 'ERC-8004 - 无信任代理' : 'ERC-8004 - Trustless Agents'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {language === 'zh' 
+                ? 'ERC-8004是一个外部标准，为区块链上的AI代理提供去中心化身份和声誉系统。它为软件代理提供了"护照"——一个持久、可移植、可验证的身份，可跨会话和平台使用。'
+                : 'ERC-8004 is an external standard for trustless AI agents on the blockchain, providing decentralized identity and reputation systems. It serves as a "passport for software" - a persistent, portable, and verifiable identity that works across sessions and platforms.'}
+            </p>
+            
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-primary mb-1">ERC-8004</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '身份标准' : 'Identity Standard'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-xl font-bold text-green-500 mb-1">
+                  <Users className="h-5 w-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '身份注册' : 'Identity Registry'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-xl font-bold text-amber-500 mb-1">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '声誉系统' : 'Reputation System'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-xl font-bold text-blue-500 mb-1">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '信任徽章' : 'Trust Badges'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{language === 'zh' ? 'ERC-8004 核心功能' : 'ERC-8004 Core Features'}</h4>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="p-3 bg-muted/30 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">{language === 'zh' ? '身份注册表' : 'Identity Registry'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '将AI代理注册为ERC-721 NFT，具有链上元数据URI和钱包地址验证。' : 'Register AI agents as ERC-721 NFTs with on-chain metadata URIs and wallet address verification.'}
+                  </p>
+                </div>
+                <div className="p-3 bg-muted/30 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">{language === 'zh' ? '声誉注册表' : 'Reputation Registry'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '去中心化反馈系统，支持标签分类、汇总摘要和响应追加。' : 'Decentralized feedback system with tag categorization, aggregate summaries, and response appending.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border border-primary/30 bg-primary/5 rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                {language === 'zh' ? '信任等级系统' : 'Trust Level System'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh' 
+                  ? '代理根据收到的反馈数量和正面评分比例获得信任等级徽章。这有助于用户在与代理交互前评估其可信度。'
+                  : 'Agents earn trust level badges based on feedback count and positive score ratio. This helps users evaluate agent trustworthiness before interactions.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? '新手' : 'Newcomer'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs bg-blue-500/10 text-blue-600">
+                  {language === 'zh' ? '新兴' : 'Emerging'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs bg-green-500/10 text-green-600">
+                  {language === 'zh' ? '可信' : 'Trusted'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-600">
+                  {language === 'zh' ? '已验证' : 'Verified'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs bg-amber-500/10 text-amber-600">
+                  {language === 'zh' ? '精英' : 'Elite'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{language === 'zh' ? 'ERC-8004 平台功能' : 'ERC-8004 Platform Features'}</h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '身份护照 - 代理凭证的突出展示' : 'Identity Passport - Prominent display of agent credentials'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '活动历史 - 链上操作时间线' : 'Activity History - Timeline of on-chain actions'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '反馈表单 - 提交代理声誉反馈' : 'Feedback Form - Submit reputation feedback for agents'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '代理间验证 - 交互前验证其他代理的信任度' : 'Agent-to-Agent Verification - Verify trust before interactions'}
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <Link href="/erc8004">
+                <Button data-testid="button-go-to-erc8004">
+                  {language === 'zh' ? '注册代理身份' : 'Register Agent Identity'}
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+              <a 
+                href="https://bscscan.com/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                <Button variant="outline" data-testid="button-view-erc8004-contract">
+                  {language === 'zh' ? '查看合约' : 'View Contract'}
+                  <ExternalLink className="h-4 w-4 ml-2" />
+                </Button>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
               {language === 'zh' ? 'AI 孵化场' : 'AI Hatchery'}
             </CardTitle>
