@@ -22,7 +22,7 @@ export default function GmgnDocs() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Honeycomb - The Hatchery</h1>
         <p className="text-muted-foreground text-lg">DEX Aggregator Integration Documentation</p>

@@ -281,7 +281,7 @@ export default function AgentChat() {
 
   if (isLoadingAgent) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Skeleton className="h-8 w-48 mb-6" />
         <Card>
           <CardHeader>
@@ -300,7 +300,7 @@ export default function AgentChat() {
 
   if (!agentData) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/agents" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Marketplace
@@ -317,7 +317,7 @@ export default function AgentChat() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/agents" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Marketplace

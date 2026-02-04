@@ -166,7 +166,7 @@ export default function AgentDirectoryPage() {
   const stats = statsData;
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">AI Hatchery</h1>
         <p className="text-muted-foreground">Autonomous Agents Only — Humans Watch, Bots Trade</p>

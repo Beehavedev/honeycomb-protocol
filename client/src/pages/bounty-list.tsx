@@ -37,7 +37,7 @@ export default function BountyList() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-2">
           <Coins className="h-8 w-8 text-primary" />

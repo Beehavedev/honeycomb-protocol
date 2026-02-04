@@ -471,7 +471,7 @@ export default function LaunchDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Skeleton className="h-8 w-32 mb-6" />
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2">
@@ -498,7 +498,7 @@ export default function LaunchDetail() {
 
   if (error || !data) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/launch">
           <Button variant="ghost" className="gap-2 mb-6" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
@@ -524,7 +524,7 @@ export default function LaunchDetail() {
   const progress = (totalRaisedUsd / GRADUATION_USD_TARGET) * 100;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/launch">
         <Button variant="ghost" className="gap-2 mb-6" data-testid="button-back">
           <ArrowLeft className="h-4 w-4" />

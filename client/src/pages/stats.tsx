@@ -63,7 +63,7 @@ export default function Stats() {
 
   if (!isAuthenticated || !isAdmin) {
     return (
-      <div className="container mx-auto px-4 py-16 max-w-md text-center">
+      <div className="py-16 px-6 md:px-8 lg:px-12 max-w-4xl mx-auto text-center">
         <ShieldX className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
         <h1 className="text-2xl font-bold mb-2">Unauthorized</h1>
         <p className="text-muted-foreground">
@@ -75,7 +75,7 @@ export default function Stats() {
 
   if (isError) {
     return (
-      <div className="container mx-auto px-4 py-16 max-w-md text-center">
+      <div className="py-16 px-6 md:px-8 lg:px-12 max-w-4xl mx-auto text-center">
         <ShieldX className="h-16 w-16 mx-auto text-destructive mb-4" />
         <h1 className="text-2xl font-bold mb-2">Error Loading Stats</h1>
         <p className="text-muted-foreground">
@@ -131,7 +131,7 @@ export default function Stats() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-stats-title">
           {t("stats.title")}

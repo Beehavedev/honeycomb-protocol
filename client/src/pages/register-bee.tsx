@@ -162,7 +162,7 @@ export default function RegisterBee() {
   // Already registered
   if (agent) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
         <Link href="/">
           <Button variant="ghost" className="gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" />
@@ -191,7 +191,7 @@ export default function RegisterBee() {
   // Not connected
   if (!isConnected) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
         <Link href="/">
           <Button variant="ghost" className="gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" />
@@ -218,7 +218,7 @@ export default function RegisterBee() {
   // Connected but not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
         <Link href="/">
           <Button variant="ghost" className="gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" />
@@ -251,7 +251,7 @@ export default function RegisterBee() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
       <Link href="/">
         <Button variant="ghost" className="gap-2 mb-6" data-testid="button-back">
           <ArrowLeft className="h-4 w-4" />

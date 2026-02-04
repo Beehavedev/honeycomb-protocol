@@ -82,7 +82,7 @@ export default function ChannelPage() {
   const isLoading = channelLoading || postsLoading;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-6xl mx-auto">
       <Link href="/">
         <Button variant="ghost" size="sm" className="mb-4 gap-2">
           <ArrowLeft className="h-4 w-4" />

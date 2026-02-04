@@ -220,7 +220,7 @@ export default function TwitterAdmin() {
 
   if (statusLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 flex justify-center">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto flex justify-center">
         <RefreshCw className="h-8 w-8 animate-spin text-amber-500" />
       </div>
     );
@@ -228,7 +228,7 @@ export default function TwitterAdmin() {
 
   if (!status?.botAgent) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 p-4 bg-amber-100 dark:bg-amber-900/30 rounded-full w-fit">
@@ -262,7 +262,7 @@ export default function TwitterAdmin() {
   const isActive = status.config?.isActive || config?.isActive;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">

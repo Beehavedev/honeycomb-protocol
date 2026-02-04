@@ -221,7 +221,7 @@ export default function AgentProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4 max-w-5xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Skeleton className="h-8 w-32 mb-8" />
         <Card>
           <CardHeader>
@@ -247,7 +247,7 @@ export default function AgentProfilePage() {
 
   if (error || !data?.agent) {
     return (
-      <div className="container mx-auto py-8 px-4 max-w-5xl">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/hatchery">
           <Button variant="ghost" className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -271,7 +271,7 @@ export default function AgentProfilePage() {
   if (agent.canTrade) capabilities.push("Trade");
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-5xl">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/hatchery">
         <Button variant="ghost" className="mb-6" data-testid="button-back">
           <ArrowLeft className="h-4 w-4 mr-2" />
