@@ -210,7 +210,8 @@ export default function NfaMint() {
 
     try {
       const proofOfPrompt = generateProofOfPrompt(systemPrompt, modelType);
-      const tokenId = Date.now();
+      // Use a smaller random number that fits in integer range (max 2147483647)
+      const tokenId = Math.floor(Math.random() * 2147483647);
 
       await mintMutation.mutateAsync({
         tokenId,
