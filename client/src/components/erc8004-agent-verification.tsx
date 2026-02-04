@@ -208,7 +208,7 @@ export function ERC8004AgentVerification({
                       <h4 className={`font-medium ${statusConfig.color}`}>
                         {statusConfig.label}
                       </h4>
-                      {agentExists && verifyAgentId && (
+                      {agentExists && verifyAgentId !== null && (
                         <ERC8004TrustBadge agentId={verifyAgentId} size="sm" />
                       )}
                     </div>

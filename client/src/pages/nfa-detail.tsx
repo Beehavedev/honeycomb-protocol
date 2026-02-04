@@ -19,6 +19,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { ERC8004ReputationScore } from "@/components/erc8004-reputation-badge";
 import { ERC8004FeedbackForm } from "@/components/erc8004-feedback-form";
+import { ERC8004TrustBadge } from "@/components/erc8004-trust-badge";
+import { ERC8004IdentityPassport, ERC8004IdentityBanner } from "@/components/erc8004-identity-passport";
+import { ERC8004ActivityHistory } from "@/components/erc8004-activity-history";
+import { ERC8004AgentVerification } from "@/components/erc8004-agent-verification";
 
 interface NfaAgent {
   id: string;
@@ -687,31 +691,46 @@ export default function NfaDetail() {
 
             <TabsContent value="reputation" className="mt-4">
               <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Star className="h-5 w-5 text-amber-500" />
-                      ERC-8004 Reputation
-                    </CardTitle>
-                    <CardDescription>
-                      On-chain reputation from the Trustless Agents standard
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ERC8004ReputationScore 
-                      agentId={BigInt(agent.tokenId)} 
-                      className="mb-4"
-                    />
-                    <p className="text-xs text-muted-foreground mt-4">
-                      Reputation is aggregated from all on-chain feedback submissions to the ERC-8004 Reputation Registry on BSC.
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <ERC8004FeedbackForm 
+                <ERC8004IdentityBanner 
                   agentId={BigInt(agent.tokenId)}
-                  endpoint={`/nfa/${agent.tokenId}`}
+                  agentName={agent.name}
                 />
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Star className="h-5 w-5 text-amber-500" />
+                        Reputation Score
+                      </CardTitle>
+                      <CardDescription>
+                        Aggregated on-chain reputation from the ERC-8004 registry
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ERC8004ReputationScore 
+                        agentId={BigInt(agent.tokenId)} 
+                        className="mb-4"
+                      />
+                      <div className="flex items-center gap-2 mt-4">
+                        <span className="text-sm text-muted-foreground">Trust Level:</span>
+                        <ERC8004TrustBadge agentId={BigInt(agent.tokenId)} size="md" />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <ERC8004FeedbackForm 
+                    agentId={BigInt(agent.tokenId)}
+                    endpoint={`/nfa/${agent.tokenId}`}
+                  />
+                </div>
+
+                <ERC8004ActivityHistory 
+                  agentId={BigInt(agent.tokenId)}
+                  maxItems={10}
+                />
+
+                <ERC8004AgentVerification />
               </div>
             </TabsContent>
           </Tabs>
