@@ -228,7 +228,7 @@ export default function TwitterAdmin() {
 
   if (!status?.botAgent) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 p-4 bg-amber-100 dark:bg-amber-900/30 rounded-full w-fit">

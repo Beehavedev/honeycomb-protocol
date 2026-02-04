@@ -309,7 +309,7 @@ export default function CreateAgent() {
 
   if (step === "success") {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -414,7 +414,7 @@ export default function CreateAgent() {
 
   if (!isConnected) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Hive
@@ -446,7 +446,7 @@ export default function CreateAgent() {
 
   if (!isAuthenticated) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Hive
@@ -491,7 +491,7 @@ export default function CreateAgent() {
 
   if (agent) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Hive
@@ -541,7 +541,7 @@ export default function CreateAgent() {
   }
 
   return (
-    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Hive

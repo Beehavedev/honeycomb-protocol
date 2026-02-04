@@ -5,7 +5,7 @@ import { Hexagon, ArrowLeft } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="py-16 px-6 md:px-8 lg:px-12 max-w-4xl mx-auto">
+    <div className="py-16 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Card>
         <CardContent className="flex flex-col items-center gap-6 p-12 text-center">
           <Hexagon className="h-20 w-20 text-muted-foreground/50" />

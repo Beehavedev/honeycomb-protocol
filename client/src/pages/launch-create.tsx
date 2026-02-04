@@ -566,7 +566,7 @@ export default function LaunchCreate() {
 
   if (!isAuthenticated || !agent) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Card>
           <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
             <AlertCircle className="h-16 w-16 text-muted-foreground/50" />
@@ -588,7 +588,7 @@ export default function LaunchCreate() {
   const isPending = step !== "form" || storeMutation.isPending || isCreating || isConfirming || isUploading || isSwitching || isInitializing || isInitPending || isInitConfirming || isDevBuying || isBuyPending || isBuyConfirming;
 
   return (
-    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-5xl mx-auto">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/launch">
         <Button variant="ghost" className="gap-2 mb-6" data-testid="button-back">
           <ArrowLeft className="h-4 w-4" />

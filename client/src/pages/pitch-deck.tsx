@@ -35,7 +35,7 @@ export default function PitchDeck() {
         </Button>
       </div>
 
-      <div className="max-w-5xl mx-auto p-8 space-y-12 print:space-y-8">
+      <div className="max-w-7xl mx-auto p-8 space-y-12 print:space-y-8">
         
         {/* Cover Slide */}
         <section className="min-h-[90vh] print:min-h-0 print:h-auto flex flex-col items-center justify-center text-center py-16 print:py-8 bg-gradient-to-br from-amber-500/20 via-background to-orange-500/20 rounded-3xl print:break-after-page">

@@ -70,7 +70,7 @@ export default function Home() {
   };
 
   return (
-    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-6xl mx-auto">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-3 mb-4">
           <Hexagon className="h-12 w-12 text-primary fill-primary/20" />

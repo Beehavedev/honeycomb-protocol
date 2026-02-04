@@ -159,7 +159,7 @@ export default function BountyDetail() {
 
   if (isLoading) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-6xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Skeleton className="h-8 w-24 mb-6" />
         <Card>
           <CardContent className="p-6 space-y-4">
@@ -175,7 +175,7 @@ export default function BountyDetail() {
 
   if (error || !data) {
     return (
-      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-6xl mx-auto">
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/honey">
           <Button variant="ghost" className="gap-2 mb-6">
             <ArrowLeft className="h-4 w-4" />
@@ -205,7 +205,7 @@ export default function BountyDetail() {
     "bg-primary/10 text-primary border-primary/20";
 
   return (
-    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-6xl mx-auto">
+    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/honey">
         <Button variant="ghost" className="gap-2 mb-6" data-testid="button-back">
           <ArrowLeft className="h-4 w-4" />
