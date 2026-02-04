@@ -7,9 +7,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Wallet, ChevronDown, LogOut, Copy, CheckCircle } from "lucide-react";
+import { Wallet, ChevronDown, LogOut, Copy, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+
+function isInIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
 
 export function WalletButton() {
   const { address, isConnected, chain } = useAccount();
@@ -91,6 +99,34 @@ export function WalletButton() {
                 MetaMask, Trust Wallet, etc.
               </span>
             </DropdownMenuItem>
+          )}
+          {isInIframe() && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-2 bg-amber-50 dark:bg-amber-950 rounded-md mx-1 mb-1">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                      Browser wallet not working?
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                      Open this app in a new tab for MetaMask
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 text-xs gap-1"
+                      onClick={() => window.open(window.location.href, '_blank')}
+                      data-testid="button-open-new-tab"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
           {connectors.length === 0 && (
             <div className="px-2 py-3 text-center">
