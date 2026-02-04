@@ -43,6 +43,7 @@ import BeepayBudget from "@/pages/beepay-budget";
 import NfaMarketplace from "@/pages/nfa-marketplace";
 import NfaMint from "@/pages/nfa-mint";
 import NfaDetail from "@/pages/nfa-detail";
+import ERC8004Register from "@/pages/erc8004-register";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -82,6 +83,8 @@ function Router() {
       <Route path="/nfa" component={NfaMarketplace} />
       <Route path="/nfa/mint" component={NfaMint} />
       <Route path="/nfa/:id" component={NfaDetail} />
+      <Route path="/erc8004" component={ERC8004Register} />
+      <Route path="/erc8004/register" component={ERC8004Register} />
       <Route component={NotFound} />
     </Switch>
   );

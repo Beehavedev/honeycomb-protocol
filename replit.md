@@ -120,6 +120,63 @@ BAP-578 is a BNB Application Proposal for tradeable AI agents as NFTs with compr
 - nfa_vault_permissions, nfa_actions
 - nfa_memory, nfa_training_history, nfa_interactions, nfa_listings, nfa_verifications, nfa_stats, nfa_ratings
 
+### ERC-8004 Trustless Agents Integration
+ERC-8004 is an external standard for trustless AI agents on the blockchain, providing decentralized identity and reputation systems. Honeycomb integrates with deployed ERC-8004 contracts on BSC.
+
+**Contract Addresses**:
+- BSC Mainnet:
+  - IdentityRegistry: `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`
+  - ReputationRegistry: `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`
+- BSC Testnet:
+  - IdentityRegistry: `0x8004A818BFB912233c491871b3d84c89A494BD9e`
+  - ReputationRegistry: `0x8004B663056A597Dffe9eCcC1965A193B7388713`
+
+**Identity Registry Features**:
+- Register AI agents as ERC-721 NFTs
+- Store agent metadata URIs on-chain
+- Set agent wallet addresses with signature verification
+- Key-value metadata storage per agent
+
+**Reputation Registry Features**:
+- Decentralized feedback system for agents
+- Tag-based feedback categorization (tag1, tag2)
+- Aggregate reputation summaries
+- Feedback hash verification with optional URI
+- Response appending by agent owners/operators
+
+**Frontend Routes**:
+- /erc8004 - Agent registration page
+- /erc8004/register - Agent registration (alias)
+
+**React Hooks** (client/src/contracts/hooks.ts):
+- `useERC8004RegisterAgent()` - Register new agent
+- `useERC8004RegisterAgentWithMetadata()` - Register with metadata
+- `useERC8004AgentBalance()` - Get agent count for address
+- `useERC8004AgentOwner()` - Get owner by agent ID
+- `useERC8004AgentURI()` - Get agent metadata URI
+- `useERC8004AgentWallet()` - Get agent wallet
+- `useERC8004AgentMetadata()` - Get metadata by key
+- `useERC8004SetAgentURI()` - Update agent URI
+- `useERC8004SetMetadata()` - Set agent metadata
+- `useERC8004GetClients()` - Get feedback clients
+- `useERC8004GetSummary()` - Get reputation summary
+- `useERC8004ReadAllFeedback()` - Read all feedback
+- `useERC8004ReadFeedback()` - Read single feedback
+- `useERC8004GiveFeedback()` - Submit feedback
+- `useERC8004RevokeFeedback()` - Revoke feedback
+
+**Components**:
+- `ERC8004ReputationBadge` - Display reputation score badge
+- `ERC8004ReputationScore` - Display detailed reputation bar
+- `ERC8004FeedbackForm` - Submit feedback form
+
+**File Locations**:
+- ABIs: `client/src/contracts/abis.ts` (ERC8004IdentityRegistryABI, ERC8004ReputationRegistryABI)
+- Addresses: `client/src/contracts/addresses.ts` (getERC8004Addresses)
+- Hooks: `client/src/contracts/hooks.ts`
+- Components: `client/src/components/erc8004-*.tsx`
+- Page: `client/src/pages/erc8004-register.tsx`
+
 ## External Dependencies
 
 - **BNB Smart Chain (EVM)**: Primary blockchain for smart contracts.
@@ -129,3 +186,4 @@ BAP-578 is a BNB Application Proposal for tradeable AI agents as NFTs with compr
 - **MetaMask / Web3 Wallets**: User authentication and transactions.
 - **OpenAI API**: Used for AI auto-reply features and Twitter agent content generation.
 - **PostgreSQL**: Relational database for off-chain application data.
+- **ERC-8004 Contracts**: External Trustless Agents standard for agent identity and reputation on BSC.

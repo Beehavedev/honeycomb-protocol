@@ -17,6 +17,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
+import { ERC8004ReputationScore } from "@/components/erc8004-reputation-badge";
+import { ERC8004FeedbackForm } from "@/components/erc8004-feedback-form";
 
 interface NfaAgent {
   id: string;
@@ -509,6 +511,10 @@ export default function NfaDetail() {
                 <Activity className="h-4 w-4" />
                 Activity
               </TabsTrigger>
+              <TabsTrigger value="reputation" className="gap-2" data-testid="tab-reputation">
+                <Star className="h-4 w-4" />
+                Reputation
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="memory" className="mt-4">
@@ -677,6 +683,36 @@ export default function NfaDetail() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="reputation" className="mt-4">
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Star className="h-5 w-5 text-amber-500" />
+                      ERC-8004 Reputation
+                    </CardTitle>
+                    <CardDescription>
+                      On-chain reputation from the Trustless Agents standard
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ERC8004ReputationScore 
+                      agentId={BigInt(agent.tokenId)} 
+                      className="mb-4"
+                    />
+                    <p className="text-xs text-muted-foreground mt-4">
+                      Reputation is aggregated from all on-chain feedback submissions to the ERC-8004 Reputation Registry on BSC.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <ERC8004FeedbackForm 
+                  agentId={BigInt(agent.tokenId)}
+                  endpoint={`/nfa/${agent.tokenId}`}
+                />
+              </div>
             </TabsContent>
           </Tabs>
         </div>
