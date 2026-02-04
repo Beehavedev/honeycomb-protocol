@@ -148,7 +148,7 @@ export default function Landing() {
           </p>
 
           <p className="text-sm text-muted-foreground/70 mb-8 animate-slide-up-delay-2">
-            Built on BNB Chain • Powered by BAP-578 NFA Standard
+            Built on BNB Chain • Powered by BAP-578 & ERC-8004 Standards
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up-delay-3">
