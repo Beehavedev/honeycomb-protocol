@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, Clock, Shield, Pause, XCircle, Wallet, User } from "lucide-react";
+import { Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, Clock, Shield, Pause, XCircle, Wallet, User, Loader2, Info } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAccount } from "wagmi";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface NfaAgent {
   id: string;
@@ -51,11 +53,30 @@ interface LeaderboardEntry {
 }
 
 export default function NfaMarketplace() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authenticate } = useAuth();
   const { address, isConnected } = useAccount();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("recent");
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  const ensureAuthenticated = async () => {
+    if (!isAuthenticated) {
+      try {
+        await authenticate();
+        return true;
+      } catch {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign the message to authenticate.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+    return true;
+  };
 
   const { data: listingsData, isLoading: listingsLoading } = useQuery<{ listings: NfaListing[] }>({
     queryKey: ["/api/nfa/marketplace/listings"],
@@ -69,6 +90,10 @@ export default function NfaMarketplace() {
     queryKey: ["/api/nfa/categories"],
   });
 
+  const { data: feeData } = useQuery<{ platformFeePercent: number; feeWallet: string }>({
+    queryKey: ["/api/nfa/marketplace/fees"],
+  });
+
   const { data: myAgentsData, isLoading: myAgentsLoading } = useQuery<{ agents: NfaAgent[] }>({
     queryKey: ["/api/nfa/agents", { owner: address }],
     queryFn: async () => {
@@ -79,10 +104,36 @@ export default function NfaMarketplace() {
     enabled: isConnected && !!address,
   });
 
+  const buyMutation = useMutation({
+    mutationFn: async (nfaId: string) => {
+      if (!await ensureAuthenticated()) throw new Error("Not authenticated");
+      setBuyingId(nfaId);
+      return apiRequest("POST", "/api/nfa/marketplace/buy", { nfaId });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/marketplace/listings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
+      toast({
+        title: "Purchase Successful!",
+        description: `You now own "${data.sale?.nfaName}". Platform fee: ${data.sale?.platformFee?.display} BNB (${feeData?.platformFeePercent || 1}%)`,
+      });
+      setBuyingId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Purchase Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+      setBuyingId(null);
+    },
+  });
+
   const listings = listingsData?.listings || [];
   const leaderboard = leaderboardData?.agents || [];
   const categories = categoriesData?.categories || [];
   const myAgents = myAgentsData?.agents || [];
+  const platformFeePercent = feeData?.platformFeePercent || 1;
 
   const filteredListings = listings.filter(item => {
     const matchesSearch = !searchQuery || 
@@ -268,6 +319,17 @@ export default function NfaMarketplace() {
           )}
 
           <TabsContent value="marketplace" className="mt-4">
+            {/* Fee Info Banner */}
+            <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-3">
+              <Info className="h-5 w-5 text-amber-500 flex-shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium">Platform Fee:</span>{" "}
+                <span className="text-muted-foreground">
+                  {platformFeePercent}% of each sale goes to the platform. Sellers receive {100 - platformFeePercent}% of the listing price.
+                </span>
+              </div>
+            </div>
+
             <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -388,16 +450,47 @@ export default function NfaMarketplace() {
                         </div>
                       )}
                     </CardContent>
-                    <CardFooter className="flex items-center justify-between pt-2 border-t">
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                        <span className="font-bold text-lg">{listing.priceDisplay}</span>
+                    <CardFooter className="flex flex-col gap-2 pt-2 border-t">
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1">
+                            <TrendingUp className="h-4 w-4 text-green-500" />
+                            <span className="font-bold text-lg">{listing.priceDisplay}</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            +{platformFeePercent}% platform fee
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link href={`/nfa/${agent.id}`}>
+                            <Button size="sm" variant="outline" data-testid={`button-view-${agent.id}`}>
+                              View
+                            </Button>
+                          </Link>
+                          {agent.ownerAddress.toLowerCase() !== address?.toLowerCase() && (
+                            <Button 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                buyMutation.mutate(agent.id);
+                              }}
+                              disabled={buyMutation.isPending || !isConnected}
+                              data-testid={`button-buy-${agent.id}`}
+                            >
+                              {buyingId === agent.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                              ) : (
+                                <ShoppingCart className="h-4 w-4 mr-1" />
+                              )}
+                              Buy
+                            </Button>
+                          )}
+                          {agent.ownerAddress.toLowerCase() === address?.toLowerCase() && (
+                            <Badge variant="secondary">Your Agent</Badge>
+                          )}
+                        </div>
                       </div>
-                      <Link href={`/nfa/${agent.id}`}>
-                        <Button size="sm" data-testid={`button-view-${agent.id}`}>
-                          View Agent
-                        </Button>
-                      </Link>
                     </CardFooter>
                   </Card>
                 ))}

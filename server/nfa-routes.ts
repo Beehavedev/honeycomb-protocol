@@ -569,9 +569,124 @@ nfaRouter.post("/marketplace/delist/:nfaId", authMiddleware, async (req: Request
   }
 });
 
+// Platform fee configuration - 1% fee on all NFA marketplace transactions
+const NFA_PLATFORM_FEE_PERCENT = 1;
+const NFA_FEE_WALLET = "0xEA42922A5c695bD947246988B7927fbD3fD889fF";
+
+// Buy an NFA from the marketplace
+nfaRouter.post("/marketplace/buy", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { nfaId } = req.body;
+    const buyerAddress = req.walletAddress!.toLowerCase();
+
+    // Get the listing
+    const listings = await db.select().from(nfaListings).where(
+      and(eq(nfaListings.nfaId, nfaId), eq(nfaListings.active, true))
+    );
+    if (listings.length === 0) {
+      return res.status(404).json({ error: "Listing not found or not active" });
+    }
+    const listing = listings[0];
+
+    // Get the agent
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, nfaId));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    const agent = agents[0];
+
+    // Cannot buy your own agent
+    if (agent.ownerAddress.toLowerCase() === buyerAddress) {
+      return res.status(400).json({ error: "Cannot buy your own agent" });
+    }
+
+    // Calculate fees (1% platform fee)
+    const priceWei = BigInt(listing.priceWei);
+    const platformFeeWei = (priceWei * BigInt(NFA_PLATFORM_FEE_PERCENT)) / BigInt(100);
+    const sellerReceivesWei = priceWei - platformFeeWei;
+
+    // Record the sale
+    await db
+      .update(nfaListings)
+      .set({
+        active: false,
+        soldAt: new Date(),
+        buyerAddress,
+      })
+      .where(eq(nfaListings.id, listing.id));
+
+    // Transfer ownership
+    await db
+      .update(nfaAgents)
+      .set({ ownerAddress: buyerAddress })
+      .where(eq(nfaAgents.id, nfaId));
+
+    // Update agent stats
+    await db
+      .update(nfaStats)
+      .set({
+        totalRevenue: sql`CAST(${nfaStats.totalRevenue} AS NUMERIC) + ${listing.priceDisplay}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(nfaStats.nfaId, nfaId));
+
+    // Log the action
+    await db.insert(nfaActions).values({
+      nfaId,
+      actionType: "TRANSFER",
+      executorAddress: buyerAddress,
+      actionData: JSON.stringify({
+        type: "MARKETPLACE_SALE",
+        from: agent.ownerAddress,
+        to: buyerAddress,
+        priceWei: listing.priceWei,
+        priceDisplay: listing.priceDisplay,
+        platformFeeWei: platformFeeWei.toString(),
+        platformFeePercent: NFA_PLATFORM_FEE_PERCENT,
+        sellerReceivesWei: sellerReceivesWei.toString(),
+        feeWallet: NFA_FEE_WALLET,
+      }),
+      txHash: null,
+      success: true,
+    });
+
+    res.json({ 
+      success: true,
+      sale: {
+        nfaId,
+        nfaName: agent.name,
+        sellerAddress: listing.sellerAddress,
+        buyerAddress,
+        priceWei: listing.priceWei,
+        priceDisplay: listing.priceDisplay,
+        platformFee: {
+          percent: NFA_PLATFORM_FEE_PERCENT,
+          wei: platformFeeWei.toString(),
+          display: (parseFloat(listing.priceDisplay) * NFA_PLATFORM_FEE_PERCENT / 100).toFixed(6),
+          wallet: NFA_FEE_WALLET,
+        },
+        sellerReceives: {
+          wei: sellerReceivesWei.toString(),
+          display: (parseFloat(listing.priceDisplay) * (100 - NFA_PLATFORM_FEE_PERCENT) / 100).toFixed(6),
+        },
+        soldAt: new Date().toISOString(),
+      }
+    });
+  } catch (error) {
+    console.error("Error processing purchase:", error);
+    res.status(500).json({ error: "Failed to process purchase" });
+  }
+});
+
+// Legacy endpoint for recording sales (keeping for backward compatibility)
 nfaRouter.post("/marketplace/sold", async (req: Request, res: Response) => {
   try {
     const { nfaId, buyerAddress, price } = req.body;
+
+    // Calculate 1% platform fee
+    const priceNum = parseFloat(price) || 0;
+    const platformFee = priceNum * NFA_PLATFORM_FEE_PERCENT / 100;
+    const sellerReceives = priceNum - platformFee;
 
     await db
       .update(nfaListings)
@@ -595,11 +710,28 @@ nfaRouter.post("/marketplace/sold", async (req: Request, res: Response) => {
       })
       .where(eq(nfaStats.nfaId, nfaId));
 
-    res.json({ success: true });
+    res.json({ 
+      success: true,
+      platformFee: {
+        percent: NFA_PLATFORM_FEE_PERCENT,
+        amount: platformFee.toFixed(6),
+        wallet: NFA_FEE_WALLET,
+      },
+      sellerReceives: sellerReceives.toFixed(6),
+    });
   } catch (error) {
     console.error("Error recording sale:", error);
     res.status(500).json({ error: "Failed to record sale" });
   }
+});
+
+// Get marketplace fee info
+nfaRouter.get("/marketplace/fees", async (req: Request, res: Response) => {
+  res.json({
+    platformFeePercent: NFA_PLATFORM_FEE_PERCENT,
+    feeWallet: NFA_FEE_WALLET,
+    description: "1% of all NFA marketplace transactions goes to the platform fee wallet",
+  });
 });
 
 // ==================== Ratings ====================
