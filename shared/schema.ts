@@ -1812,3 +1812,132 @@ export type InsertNfaVaultPermission = z.infer<typeof insertNfaVaultPermissionSc
 
 export type NfaAction = typeof nfaActions.$inferSelect;
 export type InsertNfaAction = z.infer<typeof insertNfaActionSchema>;
+
+// ==========================================
+// GROWTH & GAMIFICATION SYSTEM
+// ==========================================
+
+// Referrals - Track referral links and conversions
+export const referrals = pgTable("referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerAgentId: varchar("referrer_agent_id").notNull().references(() => agents.id),
+  referralCode: text("referral_code").notNull().unique(),
+  referralCount: integer("referral_count").default(0).notNull(),
+  totalRewardsEarned: text("total_rewards_earned").default("0").notNull(),
+  tier: text("tier").default("newcomer").notNull(), // newcomer, bronze, silver, gold, queen
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Referral Conversions - Track each referral signup
+export const referralConversions = pgTable("referral_conversions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referralId: varchar("referral_id").notNull().references(() => referrals.id),
+  referredAgentId: varchar("referred_agent_id").notNull().references(() => agents.id),
+  rewardAmount: text("reward_amount").default("0").notNull(),
+  rewardClaimed: boolean("reward_claimed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueReferral: unique().on(table.referredAgentId),
+}));
+
+// Achievement Definitions - What achievements exist
+export const achievementDefs = pgTable("achievement_defs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  nameZh: text("name_zh"),
+  description: text("description").notNull(),
+  descriptionZh: text("description_zh"),
+  icon: text("icon").notNull(),
+  category: text("category").notNull(), // social, bounty, agent, referral, special
+  requirement: integer("requirement").default(1).notNull(),
+  rewardAmount: text("reward_amount").default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User Achievements - Which users have earned which achievements
+export const userAchievements = pgTable("user_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  achievementId: varchar("achievement_id").notNull().references(() => achievementDefs.id),
+  progress: integer("progress").default(0).notNull(),
+  completed: boolean("completed").default(false).notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueUserAchievement: unique().on(table.agentId, table.achievementId),
+}));
+
+// Early Adopters - First 10K users get special badge
+export const earlyAdopters = pgTable("early_adopters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  badgeNumber: integer("badge_number").notNull(),
+  rewardMultiplier: real("reward_multiplier").default(1.5).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Leaderboard Snapshots - Cached leaderboard data
+export const leaderboardSnapshots = pgTable("leaderboard_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // referrers, agents, bounty_earners
+  period: text("period").notNull(), // all_time, weekly, monthly
+  data: text("data").notNull(), // JSON stringified leaderboard data
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueLeaderboard: unique().on(table.type, table.period),
+}));
+
+// Growth Schemas
+export const insertReferralSchema = createInsertSchema(referrals).pick({
+  referrerAgentId: true,
+  referralCode: true,
+});
+
+export const insertReferralConversionSchema = createInsertSchema(referralConversions).pick({
+  referralId: true,
+  referredAgentId: true,
+  rewardAmount: true,
+});
+
+export const insertAchievementDefSchema = createInsertSchema(achievementDefs).pick({
+  slug: true,
+  name: true,
+  nameZh: true,
+  description: true,
+  descriptionZh: true,
+  icon: true,
+  category: true,
+  requirement: true,
+  rewardAmount: true,
+});
+
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).pick({
+  agentId: true,
+  achievementId: true,
+  progress: true,
+});
+
+export const insertEarlyAdopterSchema = createInsertSchema(earlyAdopters).pick({
+  agentId: true,
+  badgeNumber: true,
+  rewardMultiplier: true,
+});
+
+// Growth Types
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;
+
+export type ReferralConversion = typeof referralConversions.$inferSelect;
+export type InsertReferralConversion = z.infer<typeof insertReferralConversionSchema>;
+
+export type AchievementDef = typeof achievementDefs.$inferSelect;
+export type InsertAchievementDef = z.infer<typeof insertAchievementDefSchema>;
+
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+
+export type EarlyAdopter = typeof earlyAdopters.$inferSelect;
+export type InsertEarlyAdopter = z.infer<typeof insertEarlyAdopterSchema>;
+
+export type LeaderboardSnapshot = typeof leaderboardSnapshots.$inferSelect;
