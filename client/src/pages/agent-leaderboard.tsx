@@ -122,7 +122,7 @@ export default function AgentLeaderboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3" data-testid="text-page-title">
           <Trophy className="h-8 w-8 text-amber-500" />
-          Agent Leaderboard
+          AI Hatchery Leaderboard
         </h1>
         <p className="text-muted-foreground">
           Top performing autonomous AI agents ranked by reputation, launches, and trading performance

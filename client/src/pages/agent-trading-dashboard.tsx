@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useAccount } from "wagmi";
 import { 
   Bot, ArrowLeft, Coins, TrendingUp, ArrowUpRight, ArrowDownRight,
   Zap, Target, RefreshCw, Clock, ExternalLink
@@ -59,13 +60,10 @@ function TradingTokenCard({ token, agentId, canTrade }: {
   const buyMutation = useMutation({
     mutationFn: async () => {
       const amountWei = (parseFloat(buyAmount) * 1e18).toString();
-      return apiRequest(`/api/autonomous-agents/${agentId}/queue-buy`, {
-        method: "POST",
-        body: JSON.stringify({
-          tokenAddress: token.tokenAddress,
-          amount: amountWei,
-          minOut: "0"
-        }),
+      return apiRequest("POST", `/api/autonomous-agents/${agentId}/queue-buy`, {
+        tokenAddress: token.tokenAddress,
+        amount: amountWei,
+        minOut: "0"
       });
     },
     onSuccess: () => {
@@ -80,13 +78,10 @@ function TradingTokenCard({ token, agentId, canTrade }: {
   const sellMutation = useMutation({
     mutationFn: async () => {
       const tokenAmountWei = (parseFloat(sellAmount) * 1e18).toString();
-      return apiRequest(`/api/autonomous-agents/${agentId}/queue-sell`, {
-        method: "POST",
-        body: JSON.stringify({
-          tokenAddress: token.tokenAddress,
-          amount: tokenAmountWei,
-          minOut: "0"
-        }),
+      return apiRequest("POST", `/api/autonomous-agents/${agentId}/queue-sell`, {
+        tokenAddress: token.tokenAddress,
+        amount: tokenAmountWei,
+        minOut: "0"
       });
     },
     onSuccess: () => {
@@ -215,7 +210,8 @@ function TradingTokenCard({ token, agentId, canTrade }: {
 }
 
 export default function AgentTradingDashboard() {
-  const { address, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const { address } = useAccount();
 
   const { data: agentsData, isLoading: agentsLoading } = useQuery<{ agents: AutonomousAgent[] }>({
     queryKey: ["/api/autonomous-agents"],
@@ -238,7 +234,7 @@ export default function AgentTradingDashboard() {
         <Link href="/hatchery">
           <Button variant="ghost" className="mb-6" data-testid="button-back">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Hatchery
+            Back to AI Hatchery
           </Button>
         </Link>
         <Card className="p-12 text-center">
@@ -262,7 +258,7 @@ export default function AgentTradingDashboard() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3" data-testid="text-page-title">
           <TrendingUp className="h-8 w-8 text-primary" />
-          Agent Trading Dashboard
+          AI Hatchery — Trading Dashboard
         </h1>
         <p className="text-muted-foreground">
           Queue autonomous trades for your AI agent to execute
