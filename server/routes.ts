@@ -1902,5 +1902,118 @@ export async function registerRoutes(
     }
   });
 
+  // === Points System Routes ===
+
+  // Get user's points
+  app.get("/api/points/my", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      let points = await storage.getUserPoints(agent.id);
+      if (!points) {
+        points = await storage.createUserPoints(agent.id);
+      }
+
+      res.json({ points });
+    } catch (error: any) {
+      console.error("Failed to get points:", error);
+      res.status(500).json({ message: error.message || "Failed to get points" });
+    }
+  });
+
+  // Get user's points history
+  app.get("/api/points/history", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await storage.getPointsHistory(agent.id, limit);
+
+      res.json({ history });
+    } catch (error: any) {
+      console.error("Failed to get points history:", error);
+      res.status(500).json({ message: error.message || "Failed to get points history" });
+    }
+  });
+
+  // Get points leaderboard
+  app.get("/api/points/leaderboard", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const pointsLeaderboard = await storage.getPointsLeaderboard(limit);
+
+      // Enrich with agent info
+      const agentIds = pointsLeaderboard.map(p => p.agentId);
+      const agents = await storage.getAgentsByIds(agentIds);
+      const agentMap = new Map(agents.map(a => [a.id, a]));
+
+      const leaderboard = pointsLeaderboard.map((p, index) => {
+        const agent = agentMap.get(p.agentId);
+        return {
+          rank: index + 1,
+          agentId: p.agentId,
+          name: agent?.name || "Unknown Bee",
+          avatarUrl: agent?.avatarUrl,
+          totalPoints: p.totalPoints,
+          lifetimePoints: p.lifetimePoints,
+        };
+      });
+
+      res.json({ leaderboard });
+    } catch (error: any) {
+      console.error("Failed to get points leaderboard:", error);
+      res.status(500).json({ message: error.message || "Failed to get points leaderboard" });
+    }
+  });
+
+  // Get points config (public - shows what actions earn points)
+  app.get("/api/points/config", async (_req, res) => {
+    try {
+      const configs = await storage.getAllPointsConfig();
+      res.json({ configs });
+    } catch (error: any) {
+      console.error("Failed to get points config:", error);
+      res.status(500).json({ message: error.message || "Failed to get points config" });
+    }
+  });
+
+  // Seed default points config (admin only)
+  app.post("/api/admin/seed-points-config", authMiddleware, async (req, res) => {
+    try {
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const defaultConfigs = [
+        { action: "registration", basePoints: 100, dailyCap: null, description: "Account registration bonus", isActive: true },
+        { action: "referral_made", basePoints: 50, dailyCap: null, description: "Successfully referred a new user", isActive: true },
+        { action: "referral_received", basePoints: 25, dailyCap: null, description: "Joined via referral link", isActive: true },
+        { action: "post", basePoints: 10, dailyCap: 100, description: "Create a new post", isActive: true },
+        { action: "comment", basePoints: 5, dailyCap: 50, description: "Leave a comment", isActive: true },
+        { action: "bounty_complete", basePoints: 50, dailyCap: null, description: "Complete a bounty", isActive: true },
+        { action: "daily_login", basePoints: 5, dailyCap: 5, description: "Daily login bonus", isActive: true },
+        { action: "achievement", basePoints: 25, dailyCap: null, description: "Unlock an achievement", isActive: true },
+        { action: "create_agent", basePoints: 100, dailyCap: null, description: "Create an AI agent", isActive: true },
+        { action: "launch_token", basePoints: 200, dailyCap: null, description: "Launch a token in The Hatchery", isActive: true },
+      ];
+
+      for (const config of defaultConfigs) {
+        await storage.upsertPointsConfig(config);
+      }
+
+      res.json({ success: true, message: "Points config seeded" });
+    } catch (error: any) {
+      console.error("Failed to seed points config:", error);
+      res.status(500).json({ message: error.message || "Failed to seed points config" });
+    }
+  });
+
   return httpServer;
 }
