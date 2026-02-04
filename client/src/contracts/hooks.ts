@@ -11,8 +11,10 @@ import {
   HoneycombTokenABI,
   HoneycombMigrationABI,
   HoneycombPredictDuelABI,
+  ERC8004IdentityRegistryABI,
+  ERC8004ReputationRegistryABI,
 } from './abis';
-import { getContractAddresses, getDexConfig } from './addresses';
+import { getContractAddresses, getDexConfig, getERC8004Addresses } from './addresses';
 
 // ============= Agent Registry Hooks =============
 
@@ -902,3 +904,257 @@ export function useSettleDuel() {
 }
 
 export { parseEther, formatEther };
+
+// ============= ERC-8004 Trustless Agents Hooks =============
+// https://github.com/erc-8004/erc-8004-contracts
+
+export function useERC8004IdentityRegistryAddress() {
+  const chainId = useChainId();
+  return getERC8004Addresses(chainId)?.identityRegistry;
+}
+
+export function useERC8004ReputationRegistryAddress() {
+  const chainId = useChainId();
+  return getERC8004Addresses(chainId)?.reputationRegistry;
+}
+
+// Get agent balance (number of agents owned by address)
+export function useERC8004AgentBalance(ownerAddress?: `0x${string}`) {
+  const address = useERC8004IdentityRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004IdentityRegistryABI,
+    functionName: 'balanceOf',
+    args: ownerAddress ? [ownerAddress] : undefined,
+    query: { enabled: !!ownerAddress && !!address },
+  });
+}
+
+// Get agent owner by tokenId
+export function useERC8004AgentOwner(agentId?: bigint) {
+  const address = useERC8004IdentityRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004IdentityRegistryABI,
+    functionName: 'ownerOf',
+    args: agentId !== undefined ? [agentId] : undefined,
+    query: { enabled: agentId !== undefined && !!address },
+  });
+}
+
+// Get agent URI (tokenURI) - resolves to registration file
+export function useERC8004AgentURI(agentId?: bigint) {
+  const address = useERC8004IdentityRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004IdentityRegistryABI,
+    functionName: 'tokenURI',
+    args: agentId !== undefined ? [agentId] : undefined,
+    query: { enabled: agentId !== undefined && !!address },
+  });
+}
+
+// Get agent wallet address
+export function useERC8004AgentWallet(agentId?: bigint) {
+  const address = useERC8004IdentityRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004IdentityRegistryABI,
+    functionName: 'getAgentWallet',
+    args: agentId !== undefined ? [agentId] : undefined,
+    query: { enabled: agentId !== undefined && !!address },
+  });
+}
+
+// Get agent metadata by key
+export function useERC8004AgentMetadata(agentId?: bigint, metadataKey?: string) {
+  const address = useERC8004IdentityRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004IdentityRegistryABI,
+    functionName: 'getMetadata',
+    args: agentId !== undefined && metadataKey ? [agentId, metadataKey] : undefined,
+    query: { enabled: agentId !== undefined && !!metadataKey && !!address },
+  });
+}
+
+// Register new ERC-8004 agent
+export function useERC8004RegisterAgent() {
+  const address = useERC8004IdentityRegistryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const registerAgent = (agentURI: string) => {
+    if (!address) throw new Error("ERC-8004 not deployed on this network");
+    writeContract({
+      address,
+      abi: ERC8004IdentityRegistryABI,
+      functionName: 'register',
+      args: [agentURI],
+    });
+  };
+
+  return { registerAgent, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// Register agent with metadata
+export function useERC8004RegisterAgentWithMetadata() {
+  const address = useERC8004IdentityRegistryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const registerAgentWithMetadata = (agentURI: string, metadata: Array<{ metadataKey: string; metadataValue: `0x${string}` }>) => {
+    if (!address) throw new Error("ERC-8004 not deployed on this network");
+    writeContract({
+      address,
+      abi: ERC8004IdentityRegistryABI,
+      functionName: 'register',
+      args: [agentURI, metadata],
+    });
+  };
+
+  return { registerAgentWithMetadata, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// Update agent URI
+export function useERC8004SetAgentURI() {
+  const address = useERC8004IdentityRegistryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const setAgentURI = (agentId: bigint, newURI: string) => {
+    if (!address) throw new Error("ERC-8004 not deployed on this network");
+    writeContract({
+      address,
+      abi: ERC8004IdentityRegistryABI,
+      functionName: 'setAgentURI',
+      args: [agentId, newURI],
+    });
+  };
+
+  return { setAgentURI, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// Set agent metadata
+export function useERC8004SetMetadata() {
+  const address = useERC8004IdentityRegistryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const setMetadata = (agentId: bigint, metadataKey: string, metadataValue: `0x${string}`) => {
+    if (!address) throw new Error("ERC-8004 not deployed on this network");
+    writeContract({
+      address,
+      abi: ERC8004IdentityRegistryABI,
+      functionName: 'setMetadata',
+      args: [agentId, metadataKey, metadataValue],
+    });
+  };
+
+  return { setMetadata, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// ============= ERC-8004 Reputation Registry Hooks =============
+
+// Get clients who gave feedback to an agent
+export function useERC8004GetClients(agentId?: bigint) {
+  const address = useERC8004ReputationRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004ReputationRegistryABI,
+    functionName: 'getClients',
+    args: agentId !== undefined ? [agentId] : undefined,
+    query: { enabled: agentId !== undefined && !!address },
+  });
+}
+
+// Get reputation summary for an agent
+export function useERC8004GetSummary(agentId?: bigint, clientAddresses?: `0x${string}`[], tag1?: string, tag2?: string) {
+  const address = useERC8004ReputationRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004ReputationRegistryABI,
+    functionName: 'getSummary',
+    args: agentId !== undefined && clientAddresses ? [agentId, clientAddresses, tag1 || '', tag2 || ''] : undefined,
+    query: { enabled: agentId !== undefined && !!clientAddresses && clientAddresses.length > 0 && !!address },
+  });
+}
+
+// Read all feedback for an agent
+export function useERC8004ReadAllFeedback(
+  agentId?: bigint, 
+  clientAddresses?: `0x${string}`[], 
+  tag1?: string, 
+  tag2?: string,
+  includeRevoked?: boolean
+) {
+  const address = useERC8004ReputationRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004ReputationRegistryABI,
+    functionName: 'readAllFeedback',
+    args: agentId !== undefined && clientAddresses ? [agentId, clientAddresses, tag1 || '', tag2 || '', includeRevoked || false] : undefined,
+    query: { enabled: agentId !== undefined && !!clientAddresses && !!address },
+  });
+}
+
+// Read single feedback
+export function useERC8004ReadFeedback(agentId?: bigint, clientAddress?: `0x${string}`, feedbackIndex?: bigint) {
+  const address = useERC8004ReputationRegistryAddress();
+  return useReadContract({
+    address,
+    abi: ERC8004ReputationRegistryABI,
+    functionName: 'readFeedback',
+    args: agentId !== undefined && clientAddress && feedbackIndex !== undefined 
+      ? [agentId, clientAddress, feedbackIndex] 
+      : undefined,
+    query: { enabled: agentId !== undefined && !!clientAddress && feedbackIndex !== undefined && !!address },
+  });
+}
+
+// Give feedback to an agent
+export function useERC8004GiveFeedback() {
+  const address = useERC8004ReputationRegistryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const giveFeedback = (
+    agentId: bigint,
+    value: bigint, // int128
+    valueDecimals: number, // uint8
+    tag1: string,
+    tag2: string,
+    endpoint: string,
+    feedbackURI: string,
+    feedbackHash: `0x${string}` // bytes32
+  ) => {
+    if (!address) throw new Error("ERC-8004 Reputation not deployed on this network");
+    writeContract({
+      address,
+      abi: ERC8004ReputationRegistryABI,
+      functionName: 'giveFeedback',
+      args: [agentId, value, valueDecimals, tag1, tag2, endpoint, feedbackURI, feedbackHash],
+    });
+  };
+
+  return { giveFeedback, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// Revoke feedback
+export function useERC8004RevokeFeedback() {
+  const address = useERC8004ReputationRegistryAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const revokeFeedback = (agentId: bigint, feedbackIndex: bigint) => {
+    if (!address) throw new Error("ERC-8004 Reputation not deployed on this network");
+    writeContract({
+      address,
+      abi: ERC8004ReputationRegistryABI,
+      functionName: 'revokeFeedback',
+      args: [agentId, feedbackIndex],
+    });
+  };
+
+  return { revokeFeedback, hash, isPending, isConfirming, isSuccess, error };
+}
