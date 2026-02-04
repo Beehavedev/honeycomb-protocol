@@ -28,11 +28,21 @@ export function WalletButton() {
 
   useEffect(() => {
     if (error) {
-      toast({
-        title: "Wallet connection failed",
-        description: error.message || "Please try again.",
-        variant: "destructive",
-      });
+      // Don't show confusing provider errors when in iframe - user should open in new tab
+      const isProviderError = error.message?.includes("Provider not found") || 
+                              error.message?.includes("No provider");
+      if (isInIframe() && isProviderError) {
+        toast({
+          title: "Open in New Tab for MetaMask",
+          description: "Browser wallets don't work in embedded views. Use WalletConnect or open in a new tab.",
+        });
+      } else {
+        toast({
+          title: "Wallet connection failed",
+          description: error.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   }, [error, toast]);
 
