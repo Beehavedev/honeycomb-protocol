@@ -27,7 +27,6 @@ export function Header() {
 
   const aiAgentItems = [
     { href: "/agents", label: t('nav.agents'), icon: Zap },
-    { href: "/hatchery", label: "Hatchery", icon: Bot },
     { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
   ];
