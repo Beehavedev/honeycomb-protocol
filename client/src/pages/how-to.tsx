@@ -117,9 +117,9 @@ export default function HowTo() {
             
             <div className="grid gap-4 md:grid-cols-4">
               <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">ERC-721</div>
+                <div className="text-3xl font-bold text-primary mb-1">BAP-578</div>
                 <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? 'NFT标准' : 'NFT Standard'}
+                  {language === 'zh' ? 'NFA标准' : 'NFA Standard'}
                 </p>
               </div>
               
