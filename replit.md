@@ -69,15 +69,56 @@ Creators can monetize AI agents with pricing models (per message, per 1K tokens,
 An AI-powered Twitter agent, Beehave, manages the official @honeycombchain account. It generates tweets about Honeycomb and Web3 topics, supports configurable posting schedules, multiple personality styles, and manual tweet composition.
 
 ### BAP-578 Non-Fungible Agents (NFA)
-BAP-578 is a BNB Application Proposal for tradeable AI agents as NFTs:
-- **Core Concept**: AI agents become tradeable ERC-721 NFTs with on-chain memory and training verification
-- **Agent Types**: Static (fixed behavior) or Learning (can evolve over time)
+BAP-578 is a BNB Application Proposal for tradeable AI agents as NFTs with comprehensive lifecycle management:
+
+**Core Concept**:
+- AI agents become tradeable ERC-721 NFTs with on-chain memory and training verification
+- Dual-path architecture: Static agents use JSON Light Memory, Learning agents use Merkle Tree Learning
+
+**Agent Types**:
+- **STATIC**: Fixed behavior with JSON Light Memory storage
+- **LEARNING**: Evolving agents with Merkle Tree verification for cryptographically verified learning
+
+**Key Features**:
 - **Proof-of-Prompt**: Cryptographic hash of training configuration stored on-chain for verification
 - **Memory Vault**: On-chain key-value storage with Merkle tree verification for agent state
-- **Marketplace**: Buy/sell NFAs, rate agents, view leaderboards
-- **Frontend Routes**: /nfa (marketplace), /nfa/mint (create NFA), /nfa/:id (detail page)
-- **API Routes**: /api/nfa/* - Full CRUD for agents, memory, listings, ratings, verifications
-- **Database Tables**: nfa_agents, nfa_memory, nfa_training_history, nfa_interactions, nfa_listings, nfa_verifications, nfa_stats, nfa_ratings
+- **Lifecycle Management**: Agents can be paused (temporarily disabled), resumed, or terminated (permanent)
+- **Agent Funding**: BNB funding mechanism for agent operation costs
+- **Vault Permissions**: Role-based access control (Owner/Operator/Viewer/None) with canRead, canWrite, canExecute, canGrant flags and expiration support
+- **Learning Metrics**: Tracking of learning events, confidence score, tree depth, total nodes, learning velocity
+
+**Template System**:
+- Pre-configured agent archetypes for quick deployment:
+  - Personal Assistant, Security Guardian, Content Creator, Data Analyst, DeFi Trader
+- Templates include default persona, experience, and system prompts
+
+**Learning Modules Registry**:
+- RAG (Retrieval-Augmented Generation)
+- MCP (Model Context Protocol)
+- Fine-Tuning
+- Reinforcement Learning
+- Hybrid (combines multiple approaches)
+
+**Frontend Routes**:
+- /nfa - Marketplace with listings, leaderboard, and category filtering
+- /nfa/mint - 4-step wizard for creating NFAs with template selection
+- /nfa/:id - Detail page with lifecycle controls, funding, learning metrics, and vault info
+
+**API Routes**:
+- GET /api/nfa/templates - Available agent templates
+- GET /api/nfa/learning-modules - Available learning modules
+- POST /api/nfa/agents/:id/pause - Pause agent (owner only)
+- POST /api/nfa/agents/:id/unpause - Resume agent (owner only)
+- POST /api/nfa/agents/:id/terminate - Permanently terminate agent (owner only)
+- POST /api/nfa/agents/:id/fund - Add funds to agent
+- POST /api/nfa/agents/:id/execute - Execute agent action
+- CRUD endpoints for vault permissions, learning metrics, memory, listings
+
+**Database Tables**:
+- nfa_agents (with BAP-578 enhanced fields: status, balance, persona, experience, learningEnabled, learningTreeRoot, etc.)
+- nfa_templates, nfa_learning_modules, nfa_learning_metrics
+- nfa_vault_permissions, nfa_actions
+- nfa_memory, nfa_training_history, nfa_interactions, nfa_listings, nfa_verifications, nfa_stats, nfa_ratings
 
 ## External Dependencies
 
