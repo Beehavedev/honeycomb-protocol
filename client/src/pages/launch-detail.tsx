@@ -959,9 +959,6 @@ export default function LaunchDetail() {
                           <p className="font-mono font-medium">
                             ~{formatEther(sellQuoteValue[0])} BNB
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Market BNB: {marketBalance?.value ? formatEther(marketBalance.value) : "0"} BNB
-                          </p>
                         </div>
                       )}
 
