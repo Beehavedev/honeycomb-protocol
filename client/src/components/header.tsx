@@ -25,42 +25,53 @@ export function Header() {
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
+  // Feed dropdown items
+  const feedItems = [
+    { href: "/feed", label: t('nav.feed'), icon: null },
+    { href: "/create", label: "New Cell", icon: Plus },
+  ];
+  const isFeedActive = location === "/feed" || location === "/create";
+
+  // AI Agent dropdown items
   const aiAgentItems = [
     { href: "/agents", label: t('nav.agents'), icon: Zap },
-    { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
+    { href: "/honey", label: t('nav.bounties'), icon: Coins },
   ];
+  const isAiAgentActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/honey");
 
-  const isAiAgentActive = location.startsWith("/agents") || location.startsWith("/hatchery") || location.startsWith("/nfa") || location.startsWith("/erc8004");
+  // The Hatchery dropdown items
+  const hatcheryItems = [
+    { href: "/launch", label: t('nav.launchpad'), icon: Egg },
+    { href: "/hatchery", label: "AI Hatchery", icon: Bot },
+    { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
+  ];
+  const isHatcheryActive = location.startsWith("/launch") || location.startsWith("/hatchery") || location.startsWith("/nfa");
 
-  const navItems = [
-    { href: "/feed", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/feed" },
-    { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
+  // Standalone nav items
+  const standaloneItems = [
     { href: "/beepay", label: "BeePay", icon: DollarSign, match: (loc: string) => loc.startsWith("/beepay") },
-    { href: "/rewards", label: "Rewards", icon: Trophy, match: (loc: string) => loc === "/rewards" },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
-    { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
-    ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),
+    { href: "/rewards", label: "Rewards", icon: Trophy, match: (loc: string) => loc === "/rewards" },
     { href: "/how-to", label: "Guide", icon: HelpCircle, match: (loc: string) => loc === "/how-to" },
+    ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),
   ];
 
   const mobileNavItems = [
     { href: "/feed", label: t('nav.feed'), icon: null },
+    { href: "/create", label: "New Cell", icon: Plus },
     { href: "/agents", label: t('nav.agents'), icon: Zap },
+    { href: "/erc8004", label: "ERC-8004", icon: Shield },
+    { href: "/honey", label: t('nav.bounties'), icon: Coins },
+    { href: "/launch", label: t('nav.launchpad'), icon: Egg },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/nfa", label: "NFA Marketplace", icon: Sparkles },
-    { href: "/erc8004", label: "ERC-8004", icon: Shield },
-    { href: "/launch", label: t('nav.launchpad'), icon: Egg },
     { href: "/beepay", label: "BeePay", icon: DollarSign },
-    { href: "/rewards", label: "Rewards", icon: Trophy },
     { href: "/predict", label: t('nav.predict'), icon: Target },
-    { href: "/honey", label: t('nav.bounties'), icon: Coins },
-    ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3 }] : []),
+    { href: "/rewards", label: "Rewards", icon: Trophy },
     { href: "/how-to", label: "Guide", icon: HelpCircle },
+    ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3 }] : []),
   ];
-
-  // Adjust navItems slice to show Feed first then dropdown
-  const navItemsAfterDropdown = navItems.slice(1);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -73,24 +84,32 @@ export function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.slice(0, 1).map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={item.match(location) ? "secondary" : "ghost"}
-                className="gap-2"
-                data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}
-              >
-                {item.icon && <item.icon className="h-4 w-4" />}
-                {item.label}
-              </Button>
-            </Link>
-          ))}
-
+          {/* Feed Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant={isAiAgentActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-ai-hatchery">
-                <Bot className="h-4 w-4" />
-                AI Hatchery
+              <Button variant={isFeedActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-feed">
+                Feed
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {feedItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}>
+                    {item.icon && <item.icon className="h-4 w-4" />}
+                    {item.label}
+                  </DropdownMenuItem>
+                </Link>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* AI Agent Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={isAiAgentActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-ai-agent">
+                <Zap className="h-4 w-4" />
+                AI Agent
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
@@ -106,7 +125,29 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {navItemsAfterDropdown.map((item) => (
+          {/* The Hatchery Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={isHatcheryActive ? "secondary" : "ghost"} className="gap-1" data-testid="dropdown-hatchery">
+                <Egg className="h-4 w-4" />
+                The Hatchery
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {hatcheryItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid={`link-${item.label.toLowerCase().replace(" ", "-")}`}>
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </DropdownMenuItem>
+                </Link>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Standalone Items */}
+          {standaloneItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
                 variant={item.match(location) ? "secondary" : "ghost"}
