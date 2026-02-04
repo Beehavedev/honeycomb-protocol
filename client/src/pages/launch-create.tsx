@@ -485,12 +485,23 @@ export default function LaunchCreate() {
           }
         } catch (error) {
           console.error("Error recording token:", error);
-          toast({
-            title: "Token launched!",
-            description: "Your token was created but recording failed. Check launchpad.",
-          });
-          queryClient.invalidateQueries({ queryKey: ["/api/launch/tokens"] });
-          navigate("/launch");
+          // Still try to initialize market even if recording failed
+          if (createdTokenAddress && devBuyAmountWei && devBuyAmountWei > BigInt(0)) {
+            toast({
+              title: "Token created!",
+              description: "Recording failed but initializing market...",
+            });
+            setIsInitializing(true);
+            console.log("Initializing market for token (after record error):", createdTokenAddress);
+            initializeMarket(createdTokenAddress);
+          } else {
+            toast({
+              title: "Token launched!",
+              description: "Your token was created but recording failed. Check launchpad.",
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/launch/tokens"] });
+            navigate("/launch");
+          }
         }
       }
     };

@@ -1091,7 +1091,7 @@ export async function registerRoutes(
       });
       
       // Record launch activity
-      const agent = await storage.getAgentByWallet(walletAddress);
+      const agent = await storage.getAgentByAddress(walletAddress);
       await storage.createLaunchActivity({
         type: 'launch',
         tokenAddress,
@@ -1145,7 +1145,7 @@ export async function registerRoutes(
         }
         
         // Record activity
-        const agent = await storage.getAgentByWallet(trader);
+        const agent = await storage.getAgentByAddress(trader);
         await storage.createLaunchActivity({
           type: isBuy ? 'buy' : 'sell',
           tokenAddress,
@@ -1235,7 +1235,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Comment too long (max 500 characters)" });
       }
       
-      const agent = await storage.getAgentByWallet(walletAddress);
+      const agent = await storage.getAgentByAddress(walletAddress);
       
       const comment = await storage.createLaunchComment({
         tokenAddress: req.params.address,
