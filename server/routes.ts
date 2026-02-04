@@ -16,6 +16,7 @@ import { registerChatRoutes } from "./replit_integrations/chat/routes";
 import { registerAiAgentRoutes } from "./ai-agent-routes";
 import { registerDuelsRoutes } from "./duels-routes";
 import { registerTwitterRoutes } from "./twitter-routes";
+import { registerAutonomousAgentRoutes } from "./autonomous-agent-routes";
 import {
   registerAgentRequestSchema,
   createPostRequestSchema,
@@ -1566,6 +1567,9 @@ export async function registerRoutes(
 
   // Register Twitter automation routes
   registerTwitterRoutes(app);
+
+  // Register autonomous AI agent routes
+  registerAutonomousAgentRoutes(app);
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
   app.post("/api/admin/set-cooldown", async (req, res) => {

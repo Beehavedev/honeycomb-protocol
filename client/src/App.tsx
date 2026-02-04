@@ -30,6 +30,10 @@ import Stats from "@/pages/stats";
 import Channel from "@/pages/channel";
 import TwitterAdmin from "@/pages/twitter-admin";
 import GmgnDocs from "@/pages/gmgn-docs";
+import AgentDirectory from "@/pages/agent-directory";
+import AgentProfile from "@/pages/agent-profile";
+import AgentLeaderboard from "@/pages/agent-leaderboard";
+import AgentTradingDashboard from "@/pages/agent-trading-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -56,6 +60,10 @@ function Router() {
       <Route path="/channels/:slug" component={Channel} />
       <Route path="/admin/twitter" component={TwitterAdmin} />
       <Route path="/docs/gmgn" component={GmgnDocs} />
+      <Route path="/hatchery" component={AgentDirectory} />
+      <Route path="/hatchery/leaderboard" component={AgentLeaderboard} />
+      <Route path="/hatchery/trading" component={AgentTradingDashboard} />
+      <Route path="/hatchery/:id" component={AgentProfile} />
       <Route component={NotFound} />
     </Switch>
   );

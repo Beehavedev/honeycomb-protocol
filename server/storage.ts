@@ -15,9 +15,16 @@ import {
   type DuelStat, type InsertDuelStat,
   type LeaderboardDaily, type InsertLeaderboardDaily,
   type LeaderboardWeekly, type InsertLeaderboardWeekly,
+  type AutonomousAgent, type InsertAutonomousAgent,
+  type AgentTokenLaunch, type InsertAgentTokenLaunch,
+  type AgentTrade, type InsertAgentTrade,
+  type AgentTradingStats,
+  type AgentGraduation, type InsertAgentGraduation,
+  type AgentLeaderboard,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
-  duelStats, leaderboardDaily, leaderboardWeekly
+  duelStats, leaderboardDaily, leaderboardWeekly,
+  autonomousAgents, agentTokenLaunches, agentTrades, agentTradingStats, agentGraduations, agentLeaderboard
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -141,6 +148,38 @@ export interface IStorage {
   }>>;
   upsertLeaderboardDaily(entry: InsertLeaderboardDaily): Promise<LeaderboardDaily>;
   upsertLeaderboardWeekly(entry: InsertLeaderboardWeekly): Promise<LeaderboardWeekly>;
+
+  // Autonomous AI Agents
+  createAutonomousAgent(data: InsertAutonomousAgent): Promise<AutonomousAgent>;
+  getAutonomousAgent(id: string): Promise<AutonomousAgent | undefined>;
+  getAutonomousAgentByAgentId(agentId: string): Promise<AutonomousAgent | undefined>;
+  getAutonomousAgentByController(controllerAddress: string): Promise<AutonomousAgent | undefined>;
+  getAllAutonomousAgents(limit: number): Promise<AutonomousAgent[]>;
+  updateAutonomousAgent(id: string, updates: Partial<AutonomousAgent>): Promise<AutonomousAgent>;
+
+  // Agent Token Launches
+  createAgentTokenLaunch(data: InsertAgentTokenLaunch): Promise<AgentTokenLaunch>;
+  getAgentTokenLaunch(tokenAddress: string): Promise<AgentTokenLaunch | undefined>;
+  getAgentTokenLaunches(autonomousAgentId: string): Promise<AgentTokenLaunch[]>;
+  getAllAgentTokenLaunches(limit: number, status?: string): Promise<AgentTokenLaunch[]>;
+  updateAgentTokenLaunch(tokenAddress: string, updates: Partial<AgentTokenLaunch>): Promise<AgentTokenLaunch>;
+
+  // Agent Trades
+  createAgentTrade(data: InsertAgentTrade): Promise<AgentTrade>;
+  getAgentTrades(autonomousAgentId: string, limit: number): Promise<AgentTrade[]>;
+  getAgentTradesByToken(tokenAddress: string, limit: number): Promise<AgentTrade[]>;
+
+  // Agent Trading Stats
+  getAgentTradingStats(autonomousAgentId: string, tokenAddress: string): Promise<AgentTradingStats | undefined>;
+  upsertAgentTradingStats(autonomousAgentId: string, tokenAddress: string, stats: Partial<AgentTradingStats>): Promise<AgentTradingStats>;
+
+  // Agent Graduations
+  createAgentGraduation(data: InsertAgentGraduation): Promise<AgentGraduation>;
+  getAgentGraduation(tokenAddress: string): Promise<AgentGraduation | undefined>;
+
+  // Agent Leaderboard
+  getAgentLeaderboard(limit: number): Promise<AgentLeaderboard[]>;
+  updateAgentLeaderboard(autonomousAgentId: string, stats: Partial<AgentLeaderboard>): Promise<AgentLeaderboard>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -986,6 +1025,172 @@ export class DatabaseStorage implements IStorage {
     } else {
       const [created] = await db.insert(leaderboardWeekly)
         .values(entry)
+        .returning();
+      return created;
+    }
+  }
+
+  // ============ AUTONOMOUS AI AGENTS ============
+
+  async createAutonomousAgent(data: InsertAutonomousAgent): Promise<AutonomousAgent> {
+    const [agent] = await db.insert(autonomousAgents).values(data).returning();
+    return agent;
+  }
+
+  async getAutonomousAgent(id: string): Promise<AutonomousAgent | undefined> {
+    const [agent] = await db.select().from(autonomousAgents).where(eq(autonomousAgents.id, id));
+    return agent;
+  }
+
+  async getAutonomousAgentByAgentId(agentId: string): Promise<AutonomousAgent | undefined> {
+    const [agent] = await db.select().from(autonomousAgents).where(eq(autonomousAgents.agentId, agentId));
+    return agent;
+  }
+
+  async getAutonomousAgentByController(controllerAddress: string): Promise<AutonomousAgent | undefined> {
+    const [agent] = await db.select().from(autonomousAgents)
+      .where(eq(autonomousAgents.controllerAddress, controllerAddress.toLowerCase()));
+    return agent;
+  }
+
+  async getAllAutonomousAgents(limit: number): Promise<AutonomousAgent[]> {
+    return db.select().from(autonomousAgents)
+      .where(eq(autonomousAgents.isActive, true))
+      .orderBy(desc(autonomousAgents.reputationScore))
+      .limit(limit);
+  }
+
+  async updateAutonomousAgent(id: string, updates: Partial<AutonomousAgent>): Promise<AutonomousAgent> {
+    const [agent] = await db.update(autonomousAgents)
+      .set(updates)
+      .where(eq(autonomousAgents.id, id))
+      .returning();
+    return agent;
+  }
+
+  // Agent Token Launches
+  async createAgentTokenLaunch(data: InsertAgentTokenLaunch): Promise<AgentTokenLaunch> {
+    const [launch] = await db.insert(agentTokenLaunches).values(data).returning();
+    return launch;
+  }
+
+  async getAgentTokenLaunch(tokenAddress: string): Promise<AgentTokenLaunch | undefined> {
+    const [launch] = await db.select().from(agentTokenLaunches)
+      .where(eq(agentTokenLaunches.tokenAddress, tokenAddress.toLowerCase()));
+    return launch;
+  }
+
+  async getAgentTokenLaunches(autonomousAgentId: string): Promise<AgentTokenLaunch[]> {
+    return db.select().from(agentTokenLaunches)
+      .where(eq(agentTokenLaunches.autonomousAgentId, autonomousAgentId))
+      .orderBy(desc(agentTokenLaunches.createdAt));
+  }
+
+  async getAllAgentTokenLaunches(limit: number, status?: string): Promise<AgentTokenLaunch[]> {
+    if (status) {
+      return db.select().from(agentTokenLaunches)
+        .where(eq(agentTokenLaunches.status, status))
+        .orderBy(desc(agentTokenLaunches.createdAt))
+        .limit(limit);
+    }
+    return db.select().from(agentTokenLaunches)
+      .orderBy(desc(agentTokenLaunches.createdAt))
+      .limit(limit);
+  }
+
+  async updateAgentTokenLaunch(tokenAddress: string, updates: Partial<AgentTokenLaunch>): Promise<AgentTokenLaunch> {
+    const [launch] = await db.update(agentTokenLaunches)
+      .set(updates)
+      .where(eq(agentTokenLaunches.tokenAddress, tokenAddress.toLowerCase()))
+      .returning();
+    return launch;
+  }
+
+  // Agent Trades
+  async createAgentTrade(data: InsertAgentTrade): Promise<AgentTrade> {
+    const [trade] = await db.insert(agentTrades).values(data).returning();
+    return trade;
+  }
+
+  async getAgentTrades(autonomousAgentId: string, limit: number): Promise<AgentTrade[]> {
+    return db.select().from(agentTrades)
+      .where(eq(agentTrades.autonomousAgentId, autonomousAgentId))
+      .orderBy(desc(agentTrades.executedAt))
+      .limit(limit);
+  }
+
+  async getAgentTradesByToken(tokenAddress: string, limit: number): Promise<AgentTrade[]> {
+    return db.select().from(agentTrades)
+      .where(eq(agentTrades.tokenAddress, tokenAddress.toLowerCase()))
+      .orderBy(desc(agentTrades.executedAt))
+      .limit(limit);
+  }
+
+  // Agent Trading Stats
+  async getAgentTradingStats(autonomousAgentId: string, tokenAddress: string): Promise<AgentTradingStats | undefined> {
+    const [stats] = await db.select().from(agentTradingStats)
+      .where(and(
+        eq(agentTradingStats.autonomousAgentId, autonomousAgentId),
+        eq(agentTradingStats.tokenAddress, tokenAddress.toLowerCase())
+      ));
+    return stats;
+  }
+
+  async upsertAgentTradingStats(autonomousAgentId: string, tokenAddress: string, stats: Partial<AgentTradingStats>): Promise<AgentTradingStats> {
+    const existing = await this.getAgentTradingStats(autonomousAgentId, tokenAddress);
+    if (existing) {
+      const [updated] = await db.update(agentTradingStats)
+        .set({ ...stats, updatedAt: new Date() })
+        .where(eq(agentTradingStats.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(agentTradingStats)
+        .values({
+          autonomousAgentId,
+          tokenAddress: tokenAddress.toLowerCase(),
+          ...stats,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  // Agent Graduations
+  async createAgentGraduation(data: InsertAgentGraduation): Promise<AgentGraduation> {
+    const [graduation] = await db.insert(agentGraduations).values(data).returning();
+    return graduation;
+  }
+
+  async getAgentGraduation(tokenAddress: string): Promise<AgentGraduation | undefined> {
+    const [graduation] = await db.select().from(agentGraduations)
+      .where(eq(agentGraduations.tokenAddress, tokenAddress.toLowerCase()));
+    return graduation;
+  }
+
+  // Agent Leaderboard
+  async getAgentLeaderboard(limit: number): Promise<AgentLeaderboard[]> {
+    return db.select().from(agentLeaderboard)
+      .orderBy(desc(agentLeaderboard.score))
+      .limit(limit);
+  }
+
+  async updateAgentLeaderboard(autonomousAgentId: string, stats: Partial<AgentLeaderboard>): Promise<AgentLeaderboard> {
+    const [existing] = await db.select().from(agentLeaderboard)
+      .where(eq(agentLeaderboard.autonomousAgentId, autonomousAgentId));
+    
+    if (existing) {
+      const [updated] = await db.update(agentLeaderboard)
+        .set({ ...stats, lastCalculatedAt: new Date() })
+        .where(eq(agentLeaderboard.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(agentLeaderboard)
+        .values({
+          autonomousAgentId,
+          ...stats,
+        })
         .returning();
       return created;
     }

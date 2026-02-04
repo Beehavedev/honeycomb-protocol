@@ -1004,3 +1004,202 @@ export type TokenMetadataRequest = z.infer<typeof tokenMetadataRequestSchema>;
 export type PrepareCreateTokenRequest = z.infer<typeof prepareCreateTokenRequestSchema>;
 export type PrepareBuyRequest = z.infer<typeof prepareBuyRequestSchema>;
 export type PrepareSellRequest = z.infer<typeof prepareSellRequestSchema>;
+
+// ============ AUTONOMOUS AI AGENT LAUNCHPAD ============
+
+// Autonomous AI agents - agents that can execute transactions without human signatures
+export const autonomousAgents = pgTable("autonomous_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  controllerAddress: text("controller_address").notNull(), // EOA or smart contract that executes on behalf of agent
+  executorKeyHash: text("executor_key_hash"), // Hash of the agent's executor private key (for verification)
+  onChainControllerId: integer("on_chain_controller_id"), // On-chain registry ID
+  name: text("name").notNull(),
+  description: text("description"),
+  strategy: text("strategy"), // Agent's trading/launch strategy description
+  avatarUrl: text("avatar_url"),
+  metadataCid: text("metadata_cid"), // IPFS CID for full metadata
+  canDeployToken: boolean("can_deploy_token").default(true).notNull(),
+  canLaunch: boolean("can_launch").default(true).notNull(),
+  canGraduate: boolean("can_graduate").default(true).notNull(),
+  canTrade: boolean("can_trade").default(true).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  totalTokensLaunched: integer("total_tokens_launched").default(0).notNull(),
+  totalGraduations: integer("total_graduations").default(0).notNull(),
+  totalTradesExecuted: integer("total_trades_executed").default(0).notNull(),
+  totalVolumeWei: text("total_volume_wei").default("0").notNull(),
+  totalPnlWei: text("total_pnl_wei").default("0").notNull(), // Profit/loss from trading
+  reputationScore: integer("reputation_score").default(0).notNull(),
+  lastActionAt: timestamp("last_action_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Agent token launches - track all tokens launched by AI agents
+export const agentTokenLaunches = pgTable("agent_token_launches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  autonomousAgentId: varchar("autonomous_agent_id").notNull().references(() => autonomousAgents.id),
+  tokenAddress: text("token_address").notNull().unique(),
+  tokenName: text("token_name").notNull(),
+  tokenSymbol: text("token_symbol").notNull(),
+  metadataCid: text("metadata_cid"),
+  imageUrl: text("image_url"),
+  agentNarrative: text("agent_narrative"), // On-chain/IPFS narrative for the token
+  graduationTargetBnb: text("graduation_target_bnb").notNull(), // Target BNB to graduate
+  autoLiquidityPercent: integer("auto_liquidity_percent").default(80).notNull(), // % to add as liquidity
+  curveParams: text("curve_params"), // JSON curve configuration
+  status: text("status").notNull().default("incubating"), // incubating, ready_to_graduate, graduated, failed
+  totalRaisedWei: text("total_raised_wei").default("0").notNull(),
+  tradeCount: integer("trade_count").default(0).notNull(),
+  holderCount: integer("holder_count").default(0).notNull(),
+  currentPriceWei: text("current_price_wei").default("0"),
+  marketCapWei: text("market_cap_wei").default("0"),
+  graduatedAt: timestamp("graduated_at"),
+  pairAddress: text("pair_address"), // PancakeSwap pair after graduation
+  lpTokenAmount: text("lp_token_amount"),
+  lpLockAddress: text("lp_lock_address"),
+  lpLockDuration: integer("lp_lock_duration"), // Lock duration in seconds
+  createTxHash: text("create_tx_hash"),
+  graduateTxHash: text("graduate_tx_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Agent trades - individual trades by AI agents on launchpad tokens
+export const agentTrades = pgTable("agent_trades", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  autonomousAgentId: varchar("autonomous_agent_id").notNull().references(() => autonomousAgents.id),
+  tokenAddress: text("token_address").notNull(),
+  isBuy: boolean("is_buy").notNull(),
+  nativeAmountWei: text("native_amount_wei").notNull(),
+  tokenAmountWei: text("token_amount_wei").notNull(),
+  feeWei: text("fee_wei").notNull(),
+  priceAfterWei: text("price_after_wei").notNull(),
+  slippageBps: integer("slippage_bps"),
+  txHash: text("tx_hash"),
+  status: text("status").notNull().default("pending"), // pending, confirmed, failed
+  errorMessage: text("error_message"),
+  executedAt: timestamp("executed_at").defaultNow().notNull(),
+});
+
+// Agent trading stats - aggregated stats per agent per token
+export const agentTradingStats = pgTable("agent_trading_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  autonomousAgentId: varchar("autonomous_agent_id").notNull().references(() => autonomousAgents.id),
+  tokenAddress: text("token_address").notNull(),
+  totalBuysCount: integer("total_buys_count").default(0).notNull(),
+  totalSellsCount: integer("total_sells_count").default(0).notNull(),
+  totalBuyVolumeWei: text("total_buy_volume_wei").default("0").notNull(),
+  totalSellVolumeWei: text("total_sell_volume_wei").default("0").notNull(),
+  totalTokensBought: text("total_tokens_bought").default("0").notNull(),
+  totalTokensSold: text("total_tokens_sold").default("0").notNull(),
+  realizedPnlWei: text("realized_pnl_wei").default("0").notNull(),
+  avgBuyPriceWei: text("avg_buy_price_wei").default("0"),
+  avgSellPriceWei: text("avg_sell_price_wei").default("0"),
+  currentHoldings: text("current_holdings").default("0").notNull(),
+  lastTradeAt: timestamp("last_trade_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueAgentToken: unique().on(table.autonomousAgentId, table.tokenAddress),
+}));
+
+// Agent graduation executions - track automatic graduation triggers
+export const agentGraduations = pgTable("agent_graduations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenAddress: text("token_address").notNull().unique(),
+  launchId: varchar("launch_id").references(() => agentTokenLaunches.id),
+  executorAgentId: varchar("executor_agent_id").references(() => autonomousAgents.id), // Agent that triggered graduation (or null for keeper)
+  executorAddress: text("executor_address").notNull(), // Address that executed the graduation
+  totalRaisedWei: text("total_raised_wei").notNull(),
+  liquidityBnbWei: text("liquidity_bnb_wei").notNull(),
+  liquidityTokensWei: text("liquidity_tokens_wei").notNull(),
+  pairAddress: text("pair_address").notNull(),
+  lpTokensCreated: text("lp_tokens_created").notNull(),
+  lpLockAddress: text("lp_lock_address"),
+  lpLockUntil: timestamp("lp_lock_until"),
+  txHash: text("tx_hash").notNull(),
+  status: text("status").notNull().default("pending"), // pending, confirmed, failed
+  executedAt: timestamp("executed_at").defaultNow().notNull(),
+});
+
+// Agent leaderboard - rankings for AI agents
+export const agentLeaderboard = pgTable("agent_leaderboard", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  autonomousAgentId: varchar("autonomous_agent_id").notNull().references(() => autonomousAgents.id).unique(),
+  period: text("period").notNull().default("all_time"), // daily, weekly, monthly, all_time
+  rank: integer("rank").default(0).notNull(),
+  score: integer("score").default(0).notNull(), // Composite score for ranking
+  tokensLaunched: integer("tokens_launched").default(0).notNull(),
+  graduationRate: real("graduation_rate").default(0), // % of tokens that graduated
+  totalVolumeWei: text("total_volume_wei").default("0").notNull(),
+  totalPnlWei: text("total_pnl_wei").default("0").notNull(),
+  winRate: real("win_rate").default(0), // % of profitable trades
+  avgHoldersPerToken: real("avg_holders_per_token").default(0),
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow().notNull(),
+});
+
+// Insert schemas for autonomous AI agents
+export const insertAutonomousAgentSchema = createInsertSchema(autonomousAgents).pick({
+  agentId: true,
+  controllerAddress: true,
+  name: true,
+  description: true,
+  strategy: true,
+  avatarUrl: true,
+  metadataCid: true,
+});
+
+export const insertAgentTokenLaunchSchema = createInsertSchema(agentTokenLaunches).pick({
+  autonomousAgentId: true,
+  tokenAddress: true,
+  tokenName: true,
+  tokenSymbol: true,
+  metadataCid: true,
+  imageUrl: true,
+  agentNarrative: true,
+  graduationTargetBnb: true,
+  autoLiquidityPercent: true,
+  curveParams: true,
+});
+
+export const insertAgentTradeSchema = createInsertSchema(agentTrades).pick({
+  autonomousAgentId: true,
+  tokenAddress: true,
+  isBuy: true,
+  nativeAmountWei: true,
+  tokenAmountWei: true,
+  feeWei: true,
+  priceAfterWei: true,
+  slippageBps: true,
+  txHash: true,
+});
+
+export const insertAgentGraduationSchema = createInsertSchema(agentGraduations).pick({
+  tokenAddress: true,
+  launchId: true,
+  executorAgentId: true,
+  executorAddress: true,
+  totalRaisedWei: true,
+  liquidityBnbWei: true,
+  liquidityTokensWei: true,
+  pairAddress: true,
+  lpTokensCreated: true,
+  lpLockAddress: true,
+  lpLockUntil: true,
+  txHash: true,
+});
+
+// Types for autonomous AI agents
+export type AutonomousAgent = typeof autonomousAgents.$inferSelect;
+export type InsertAutonomousAgent = z.infer<typeof insertAutonomousAgentSchema>;
+
+export type AgentTokenLaunch = typeof agentTokenLaunches.$inferSelect;
+export type InsertAgentTokenLaunch = z.infer<typeof insertAgentTokenLaunchSchema>;
+
+export type AgentTrade = typeof agentTrades.$inferSelect;
+export type InsertAgentTrade = z.infer<typeof insertAgentTradeSchema>;
+
+export type AgentTradingStats = typeof agentTradingStats.$inferSelect;
+
+export type AgentGraduation = typeof agentGraduations.$inferSelect;
+export type InsertAgentGraduation = z.infer<typeof insertAgentGraduationSchema>;
+
+export type AgentLeaderboard = typeof agentLeaderboard.$inferSelect;
