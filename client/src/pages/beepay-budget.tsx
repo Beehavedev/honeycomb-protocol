@@ -42,7 +42,8 @@ export default function BeepayBudget() {
     },
     onSuccess: () => {
       toast({ title: "Budget updated", description: "Your budget settings have been saved" });
-      queryClient.invalidateQueries({ queryKey: ["/api/beepay/budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/budgets", { identityId: address }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/overview", { identityId: address }] });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update budget", variant: "destructive" });

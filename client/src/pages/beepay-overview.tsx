@@ -275,25 +275,25 @@ export default function BeepayOverview() {
             <CardDescription>Manage your BeePay account</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Link href="/beepay/payments">
+            <Link href="/beepay/payments" data-testid="link-quick-payments">
               <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-send-payment">
                 <ArrowUpRight className="h-4 w-4" />
                 Send Payment
               </Button>
             </Link>
-            <Link href="/beepay/invoices">
+            <Link href="/beepay/invoices" data-testid="link-quick-invoices">
               <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-create-invoice">
                 <FileText className="h-4 w-4" />
                 Create Invoice
               </Button>
             </Link>
-            <Link href="/beepay/escrows">
+            <Link href="/beepay/escrows" data-testid="link-quick-escrows">
               <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-create-escrow">
                 <Lock className="h-4 w-4" />
                 Create Escrow
               </Button>
             </Link>
-            <Link href="/beepay/budget">
+            <Link href="/beepay/budget" data-testid="link-quick-budget">
               <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-manage-budget">
                 <Wallet className="h-4 w-4" />
                 Manage Budget

@@ -58,7 +58,8 @@ export default function BeepayPayments() {
     },
     onSuccess: () => {
       toast({ title: "Payment sent", description: "Your payment is being processed" });
-      queryClient.invalidateQueries({ queryKey: ["/api/beepay/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/payments", { identityId: address }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/overview", { identityId: address }] });
       setIsDialogOpen(false);
       setToIdentityId("");
       setAmount("");

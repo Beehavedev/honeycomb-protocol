@@ -58,7 +58,8 @@ export default function BeepayInvoices() {
     },
     onSuccess: () => {
       toast({ title: "Invoice created", description: "Your invoice has been created" });
-      queryClient.invalidateQueries({ queryKey: ["/api/beepay/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/invoices", { identityId: address }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/overview", { identityId: address }] });
       setIsDialogOpen(false);
       setBuyerIdentityId("");
       setAmount("");

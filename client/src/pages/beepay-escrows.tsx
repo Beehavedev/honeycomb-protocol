@@ -58,7 +58,8 @@ export default function BeepayEscrows() {
     },
     onSuccess: () => {
       toast({ title: "Escrow created", description: "Your escrow has been created" });
-      queryClient.invalidateQueries({ queryKey: ["/api/beepay/escrows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/escrows", { identityId: address }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/beepay/overview", { identityId: address }] });
       setIsDialogOpen(false);
       setPayeeId("");
       setAmount("");
