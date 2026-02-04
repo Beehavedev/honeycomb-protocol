@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Bot, Brain, Zap, ArrowLeft, Star, ShoppingCart, Activity, 
   Database, Fingerprint, TrendingUp, MessageSquare, Shield, History,
-  DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3
+  DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3,
+  Send, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -119,6 +120,8 @@ export default function NfaDetail() {
   const [listPrice, setListPrice] = useState("");
   const [fundAmount, setFundAmount] = useState("");
   const [newRating, setNewRating] = useState(5);
+  const [messageInput, setMessageInput] = useState("");
+  const [agentResponse, setAgentResponse] = useState<string | null>(null);
 
   const { data: agentData, isLoading } = useQuery<{
     agent: NfaAgent;
@@ -265,6 +268,26 @@ export default function NfaDetail() {
     },
   });
 
+  const executeMutation = useMutation({
+    mutationFn: async (message: string) => {
+      if (!await ensureAuthenticated()) throw new Error("Not authenticated");
+      const response = await apiRequest("POST", `/api/nfa/agents/${nfaId}/execute`, {
+        actionType: "CHAT",
+        actionData: { message },
+      });
+      return response;
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId, "interactions"] });
+      setAgentResponse(data.action?.actionData ? JSON.parse(data.action.actionData)?.message || "Action executed successfully!" : "Action logged!");
+      setMessageInput("");
+      toast({ title: "Message Sent", description: "Your action has been logged." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Execute Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-4 max-w-4xl">
@@ -406,6 +429,64 @@ export default function NfaDetail() {
                   <p className="text-xs text-muted-foreground mb-1">Experience</p>
                   <p className="text-sm">{agent.experience}</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Interact with Agent */}
+          <Card className="bg-gradient-to-br from-amber-500/5 to-amber-600/10 border-amber-500/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-amber-500" />
+                Interact with Agent
+              </CardTitle>
+              <CardDescription>
+                Send a message to interact with this AI agent
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {agent.status !== "ACTIVE" ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <Pause className="h-8 w-8 mx-auto mb-2" />
+                  <p>This agent is {agent.status.toLowerCase()} and cannot receive messages</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Type your message..."
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && messageInput.trim()) {
+                          executeMutation.mutate(messageInput);
+                        }
+                      }}
+                      disabled={executeMutation.isPending}
+                      data-testid="input-agent-message"
+                    />
+                    <Button
+                      onClick={() => messageInput.trim() && executeMutation.mutate(messageInput)}
+                      disabled={!messageInput.trim() || executeMutation.isPending}
+                      data-testid="button-send-message"
+                    >
+                      {executeMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {agentResponse && (
+                    <div className="p-3 rounded-lg bg-muted/50 border">
+                      <p className="text-xs text-muted-foreground mb-1">Agent Response</p>
+                      <p className="text-sm">{agentResponse}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Messages are logged on-chain. {!isOwner && "You need execute permission to interact."}
+                  </p>
+                </>
               )}
             </CardContent>
           </Card>
