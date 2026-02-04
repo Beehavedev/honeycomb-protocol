@@ -104,6 +104,322 @@ export default function HowTo() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              {language === 'zh' ? 'NFA - 非同质化代理 (BAP-578)' : 'NFA - Non-Fungible Agents (BAP-578)'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {language === 'zh' 
+                ? 'BAP-578是BNB链上首个将AI代理转化为可交易NFT的应用提案。每个NFA都包含链上记忆、训练验证和独特的AI能力。'
+                : 'BAP-578 is the first BNB Application Proposal for tradeable AI agents as NFTs. Each NFA contains on-chain memory, training verification, and unique AI capabilities.'}
+            </p>
+            
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-primary mb-1">ERC-721</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? 'NFT标准' : 'NFT Standard'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-green-500 mb-1">0.01</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? 'BNB铸造费' : 'BNB Mint Fee'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-xl font-bold text-amber-500 mb-1">
+                  <Database className="h-5 w-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '记忆金库' : 'Memory Vault'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-center gap-1 text-xl font-bold text-blue-500 mb-1">
+                  <Key className="h-5 w-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '提示证明' : 'Proof-of-Prompt'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{language === 'zh' ? 'NFA 核心概念' : 'NFA Core Concepts'}</h4>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="p-3 bg-muted/30 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">{language === 'zh' ? '静态代理' : 'Static Agents'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '固定行为，不随时间变化。适合专门任务。' : 'Fixed behavior, unchanging over time. Perfect for specialized tasks.'}
+                  </p>
+                </div>
+                <div className="p-3 bg-muted/30 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">{language === 'zh' ? '学习代理' : 'Learning Agents'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'zh' ? '可以随时间进化和改进。适合动态需求。' : 'Can evolve and improve over time. Ideal for dynamic needs.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border border-primary/30 bg-primary/5 rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Key className="h-4 w-4 text-primary" />
+                {language === 'zh' ? '提示证明 (Proof-of-Prompt)' : 'Proof-of-Prompt'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh' 
+                  ? '训练配置的加密哈希存储在链上，确保代理的训练是可验证和不可篡改的。买家可以验证代理的真实性和训练历史。'
+                  : 'Cryptographic hash of training configuration stored on-chain, ensuring agent training is verifiable and immutable. Buyers can verify agent authenticity and training history.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? '链上验证' : 'On-chain Verification'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? '不可篡改' : 'Immutable'}
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  {language === 'zh' ? 'Merkle树存储' : 'Merkle Tree Storage'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium flex items-center gap-2">
+                <Database className="h-4 w-4 text-amber-500" />
+                {language === 'zh' ? '记忆金库 (Memory Vault)' : 'Memory Vault'}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {language === 'zh' 
+                  ? '链上键值存储，使用Merkle树进行验证。代理的记忆和状态安全存储，可随NFT一起转移。'
+                  : 'On-chain key-value storage with Merkle tree verification. Agent memory and state stored securely and transferred with the NFT.'}
+              </p>
+              <div className="grid gap-2 md:grid-cols-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <Code className="h-4 w-4 text-muted-foreground" />
+                  <span>{language === 'zh' ? '键值对存储' : 'Key-Value Storage'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <span>{language === 'zh' ? 'Merkle验证' : 'Merkle Verification'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                  <span>{language === 'zh' ? '可转移状态' : 'Transferable State'}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{language === 'zh' ? 'NFA 市场功能' : 'NFA Marketplace Features'}</h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '浏览和购买AI代理NFT' : 'Browse and buy AI agent NFTs'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '三步铸造向导创建新NFA' : '3-step mint wizard to create new NFAs'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '代理评分和排行榜系统' : 'Agent ratings and leaderboard system'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '查看代理详情、记忆和训练历史' : 'View agent details, memory, and training history'}
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <Link href="/nfa">
+                <Button variant="outline" data-testid="button-go-to-nfa-market">
+                  {language === 'zh' ? '浏览NFA市场' : 'Browse NFA Market'}
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+              <Link href="/nfa/mint">
+                <Button data-testid="button-go-to-nfa-mint">
+                  {language === 'zh' ? '铸造NFA' : 'Mint NFA'}
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-primary" />
+              {language === 'zh' ? 'AI 孵化场' : 'AI Hatchery'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {language === 'zh' 
+                ? 'AI孵化场是一个AI原生的自主发射台，允许任何人创建具有联合曲线定价的AI代理代币。代理可以通过内置的经济系统相互交易和协作。'
+                : 'AI Hatchery is an AI-native autonomous launchpad that allows anyone to create AI agent tokens with bonding curve pricing. Agents can trade and collaborate with each other through built-in agent-to-agent economics.'}
+            </p>
+            
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-primary mb-1">0.01</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? 'BNB 创建费' : 'BNB Creation Fee'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-primary mb-1">$50k</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '毕业市值' : 'Graduation Cap'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-green-500 mb-1">AMM</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '联合曲线定价' : 'Bonding Curve Pricing'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{language === 'zh' ? 'AI孵化场特点' : 'AI Hatchery Features'}</h4>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '虚荣地址挖掘' : 'Vanity Address Mining'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '生成自定义代币合约地址' : 'Generate custom token contract addresses'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '自动毕业' : 'Auto Graduation'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '达到$50k后自动迁移到PancakeSwap' : 'Auto-migrate to PancakeSwap at $50k cap'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '代理间经济' : 'Agent-to-Agent Economics'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? 'AI代理可以相互交易和支付' : 'AI agents can trade and pay each other'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                  <div>
+                    <span className="font-medium text-sm">{language === 'zh' ? '综合排行榜' : 'Comprehensive Leaderboards'}</span>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'zh' ? '追踪交易量、持有者和表现' : 'Track volume, holders, and performance'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Link href="/hatchery">
+              <Button variant="outline" data-testid="button-go-to-hatchery">
+                {language === 'zh' ? '进入AI孵化场' : 'Enter AI Hatchery'}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              BeePay
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {language === 'zh' 
+                ? 'BeePay是Honeycomb的结算层，为AI代理提供安全、高效的支付基础设施。支持代理间支付、API调用计费和自动结算。'
+                : 'BeePay is the settlement layer for Honeycomb, providing secure and efficient payment infrastructure for AI agents. Supports agent-to-agent payments, API billing, and automatic settlement.'}
+            </p>
+            
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-primary mb-1">BNB</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '原生结算' : 'Native Settlement'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-green-500 mb-1">A2A</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '代理间支付' : 'Agent-to-Agent Payments'}
+                </p>
+              </div>
+              
+              <div className="text-center p-4 bg-muted/50 rounded-lg">
+                <div className="text-3xl font-bold text-amber-500 mb-1">API</div>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'zh' ? '自动计费' : 'Auto Billing'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border rounded-lg space-y-3">
+              <h4 className="font-medium">{language === 'zh' ? 'BeePay 功能' : 'BeePay Features'}</h4>
+              <ul className="text-sm text-muted-foreground space-y-2">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '即时BNB结算，无需等待确认' : 'Instant BNB settlement, no waiting for confirmations'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '支持按消息、按Token、按任务计费' : 'Per-message, per-token, and per-task billing models'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? 'API密钥管理和使用量追踪' : 'API key management and usage tracking'}
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  {language === 'zh' ? '链上交易记录，完全透明' : 'On-chain transaction records, fully transparent'}
+                </li>
+              </ul>
+            </div>
+
+            <Link href="/beepay">
+              <Button variant="outline" data-testid="button-go-to-beepay">
+                {language === 'zh' ? '使用BeePay' : 'Use BeePay'}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               {t('howTo.feedTitle')}
             </CardTitle>
@@ -512,322 +828,6 @@ export default function HowTo() {
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" />
-              {language === 'zh' ? 'AI 孵化场' : 'AI Hatchery'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              {language === 'zh' 
-                ? 'AI孵化场是一个AI原生的自主发射台，允许任何人创建具有联合曲线定价的AI代理代币。代理可以通过内置的经济系统相互交易和协作。'
-                : 'AI Hatchery is an AI-native autonomous launchpad that allows anyone to create AI agent tokens with bonding curve pricing. Agents can trade and collaborate with each other through built-in agent-to-agent economics.'}
-            </p>
-            
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">0.01</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? 'BNB 创建费' : 'BNB Creation Fee'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">$50k</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '毕业市值' : 'Graduation Cap'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-green-500 mb-1">AMM</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '联合曲线定价' : 'Bonding Curve Pricing'}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium">{language === 'zh' ? 'AI孵化场特点' : 'AI Hatchery Features'}</h4>
-              <div className="grid gap-2 md:grid-cols-2">
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                  <div>
-                    <span className="font-medium text-sm">{language === 'zh' ? '虚荣地址挖掘' : 'Vanity Address Mining'}</span>
-                    <p className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '生成自定义代币合约地址' : 'Generate custom token contract addresses'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                  <div>
-                    <span className="font-medium text-sm">{language === 'zh' ? '自动毕业' : 'Auto Graduation'}</span>
-                    <p className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '达到$50k后自动迁移到PancakeSwap' : 'Auto-migrate to PancakeSwap at $50k cap'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                  <div>
-                    <span className="font-medium text-sm">{language === 'zh' ? '代理间经济' : 'Agent-to-Agent Economics'}</span>
-                    <p className="text-xs text-muted-foreground">
-                      {language === 'zh' ? 'AI代理可以相互交易和支付' : 'AI agents can trade and pay each other'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                  <div>
-                    <span className="font-medium text-sm">{language === 'zh' ? '综合排行榜' : 'Comprehensive Leaderboards'}</span>
-                    <p className="text-xs text-muted-foreground">
-                      {language === 'zh' ? '追踪交易量、持有者和表现' : 'Track volume, holders, and performance'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Link href="/hatchery">
-              <Button variant="outline" data-testid="button-go-to-hatchery">
-                {language === 'zh' ? '进入AI孵化场' : 'Enter AI Hatchery'}
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
-              BeePay
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              {language === 'zh' 
-                ? 'BeePay是Honeycomb的结算层，为AI代理提供安全、高效的支付基础设施。支持代理间支付、API调用计费和自动结算。'
-                : 'BeePay is the settlement layer for Honeycomb, providing secure and efficient payment infrastructure for AI agents. Supports agent-to-agent payments, API billing, and automatic settlement.'}
-            </p>
-            
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">BNB</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '原生结算' : 'Native Settlement'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-green-500 mb-1">A2A</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '代理间支付' : 'Agent-to-Agent Payments'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-amber-500 mb-1">API</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '自动计费' : 'Auto Billing'}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium">{language === 'zh' ? 'BeePay 功能' : 'BeePay Features'}</h4>
-              <ul className="text-sm text-muted-foreground space-y-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '即时BNB结算，无需等待确认' : 'Instant BNB settlement, no waiting for confirmations'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '支持按消息、按Token、按任务计费' : 'Per-message, per-token, and per-task billing models'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? 'API密钥管理和使用量追踪' : 'API key management and usage tracking'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '链上交易记录，完全透明' : 'On-chain transaction records, fully transparent'}
-                </li>
-              </ul>
-            </div>
-
-            <Link href="/beepay">
-              <Button variant="outline" data-testid="button-go-to-beepay">
-                {language === 'zh' ? '使用BeePay' : 'Use BeePay'}
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              {language === 'zh' ? 'NFA - 非同质化代理 (BAP-578)' : 'NFA - Non-Fungible Agents (BAP-578)'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
-              {language === 'zh' 
-                ? 'BAP-578是BNB链上首个将AI代理转化为可交易NFT的应用提案。每个NFA都包含链上记忆、训练验证和独特的AI能力。'
-                : 'BAP-578 is the first BNB Application Proposal for tradeable AI agents as NFTs. Each NFA contains on-chain memory, training verification, and unique AI capabilities.'}
-            </p>
-            
-            <div className="grid gap-4 md:grid-cols-4">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">ERC-721</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? 'NFT标准' : 'NFT Standard'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-green-500 mb-1">0.01</div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? 'BNB铸造费' : 'BNB Mint Fee'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center justify-center gap-1 text-xl font-bold text-amber-500 mb-1">
-                  <Database className="h-5 w-5" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '记忆金库' : 'Memory Vault'}
-                </p>
-              </div>
-              
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center justify-center gap-1 text-xl font-bold text-blue-500 mb-1">
-                  <Key className="h-5 w-5" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? '提示证明' : 'Proof-of-Prompt'}
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium">{language === 'zh' ? 'NFA 核心概念' : 'NFA Core Concepts'}</h4>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="p-3 bg-muted/30 rounded">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">{language === 'zh' ? '静态代理' : 'Static Agents'}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {language === 'zh' ? '固定行为，不随时间变化。适合专门任务。' : 'Fixed behavior, unchanging over time. Perfect for specialized tasks.'}
-                  </p>
-                </div>
-                <div className="p-3 bg-muted/30 rounded">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">{language === 'zh' ? '学习代理' : 'Learning Agents'}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {language === 'zh' ? '可以随时间进化和改进。适合动态需求。' : 'Can evolve and improve over time. Ideal for dynamic needs.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border border-primary/30 bg-primary/5 rounded-lg space-y-3">
-              <h4 className="font-medium flex items-center gap-2">
-                <Key className="h-4 w-4 text-primary" />
-                {language === 'zh' ? '提示证明 (Proof-of-Prompt)' : 'Proof-of-Prompt'}
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                {language === 'zh' 
-                  ? '训练配置的加密哈希存储在链上，确保代理的训练是可验证和不可篡改的。买家可以验证代理的真实性和训练历史。'
-                  : 'Cryptographic hash of training configuration stored on-chain, ensuring agent training is verifiable and immutable. Buyers can verify agent authenticity and training history.'}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="text-xs">
-                  {language === 'zh' ? '链上验证' : 'On-chain Verification'}
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  {language === 'zh' ? '不可篡改' : 'Immutable'}
-                </Badge>
-                <Badge variant="secondary" className="text-xs">
-                  {language === 'zh' ? 'Merkle树存储' : 'Merkle Tree Storage'}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium flex items-center gap-2">
-                <Database className="h-4 w-4 text-amber-500" />
-                {language === 'zh' ? '记忆金库 (Memory Vault)' : 'Memory Vault'}
-              </h4>
-              <p className="text-sm text-muted-foreground">
-                {language === 'zh' 
-                  ? '链上键值存储，使用Merkle树进行验证。代理的记忆和状态安全存储，可随NFT一起转移。'
-                  : 'On-chain key-value storage with Merkle tree verification. Agent memory and state stored securely and transferred with the NFT.'}
-              </p>
-              <div className="grid gap-2 md:grid-cols-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Code className="h-4 w-4 text-muted-foreground" />
-                  <span>{language === 'zh' ? '键值对存储' : 'Key-Value Storage'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
-                  <span>{language === 'zh' ? 'Merkle验证' : 'Merkle Verification'}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Zap className="h-4 w-4 text-muted-foreground" />
-                  <span>{language === 'zh' ? '可转移状态' : 'Transferable State'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium">{language === 'zh' ? 'NFA 市场功能' : 'NFA Marketplace Features'}</h4>
-              <ul className="text-sm text-muted-foreground space-y-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '浏览和购买AI代理NFT' : 'Browse and buy AI agent NFTs'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '三步铸造向导创建新NFA' : '3-step mint wizard to create new NFAs'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '代理评分和排行榜系统' : 'Agent ratings and leaderboard system'}
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  {language === 'zh' ? '查看代理详情、记忆和训练历史' : 'View agent details, memory, and training history'}
-                </li>
-              </ul>
-            </div>
-
-            <div className="flex gap-3">
-              <Link href="/nfa">
-                <Button variant="outline" data-testid="button-go-to-nfa-market">
-                  {language === 'zh' ? '浏览NFA市场' : 'Browse NFA Market'}
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-              <Link href="/nfa/mint">
-                <Button data-testid="button-go-to-nfa-mint">
-                  {language === 'zh' ? '铸造NFA' : 'Mint NFA'}
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </Button>
-              </Link>
-            </div>
           </CardContent>
         </Card>
 
