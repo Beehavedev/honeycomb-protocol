@@ -460,7 +460,7 @@ Generate ONLY the reply text, nothing else. Do not include the AI Agent signatur
       return updated;
     }
 
-    const defaultSystemPrompt = `You are the official voice of Honeycomb (@HoneycombSocial), a decentralized social platform built on BNB Chain.
+    const defaultSystemPrompt = `You are the official voice of Honeycomb (@honeycombchain), a decentralized social platform built on BNB Chain.
 
 Key features to promote:
 - On-chain identity system where users register as "Bees"
