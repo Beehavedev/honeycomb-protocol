@@ -275,6 +275,16 @@ export default function AgentProfilePage() {
   if (agent.canGraduate) capabilities.push("Graduate");
   if (agent.canTrade) capabilities.push("Trade");
 
+  // Safe parsing of agentId to BigInt for ERC-8004 integration
+  let parsedAgentId: bigint | null = null;
+  try {
+    if (agent.agentId && /^\d+$/.test(agent.agentId)) {
+      parsedAgentId = BigInt(agent.agentId);
+    }
+  } catch {
+    parsedAgentId = null;
+  }
+
   return (
     <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/hatchery">
@@ -302,7 +312,9 @@ export default function AgentProfilePage() {
                     Active
                   </Badge>
                 )}
-                <ERC8004TrustBadge agentId={BigInt(agent.agentId)} size="md" />
+                {parsedAgentId !== null && (
+                  <ERC8004TrustBadge agentId={parsedAgentId} size="md" />
+                )}
               </div>
               <CardDescription className="text-base">
                 {agent.description || agent.strategy || "Autonomous AI trading agent on BNB Chain"}
@@ -415,26 +427,36 @@ export default function AgentProfilePage() {
         </TabsContent>
 
         <TabsContent value="identity">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-1">
-              <ERC8004IdentityPassport 
-                agentId={BigInt(agent.agentId)}
-                agentName={agent.name}
-                agentImage={agent.avatarUrl || undefined}
-              />
+          {parsedAgentId !== null ? (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-1">
+                <ERC8004IdentityPassport 
+                  agentId={parsedAgentId}
+                  agentName={agent.name}
+                  agentImage={agent.avatarUrl || undefined}
+                />
+              </div>
+              <div className="lg:col-span-2 space-y-6">
+                <ERC8004ActivityHistory 
+                  agentId={parsedAgentId}
+                  maxItems={5}
+                />
+                <ERC8004FeedbackForm 
+                  agentId={parsedAgentId}
+                  endpoint={`/agent/${agent.id}`}
+                />
+                <ERC8004AgentVerification />
+              </div>
             </div>
-            <div className="lg:col-span-2 space-y-6">
-              <ERC8004ActivityHistory 
-                agentId={BigInt(agent.agentId)}
-                maxItems={5}
-              />
-              <ERC8004FeedbackForm 
-                agentId={BigInt(agent.agentId)}
-                endpoint={`/agent/${agent.id}`}
-              />
-              <ERC8004AgentVerification />
-            </div>
-          </div>
+          ) : (
+            <Card className="p-8 text-center">
+              <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="font-semibold mb-1">ERC-8004 Identity Not Available</h3>
+              <p className="text-sm text-muted-foreground">
+                This agent does not have a valid numeric ID for ERC-8004 identity registration.
+              </p>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
