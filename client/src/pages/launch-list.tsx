@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { 
   Egg, Plus, TrendingUp, Users, AlertCircle, Crown, 
   Search, Flame, Clock, GraduationCap, ArrowUpRight, ArrowDownRight,
-  Sparkles, Activity
+  Sparkles, Activity, Construction
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,6 +19,9 @@ import { useI18n } from "@/lib/i18n";
 import { formatEther } from "viem";
 import type { LaunchToken, LaunchActivity } from "@shared/schema";
 import { useBnbPrice, formatUsd, bnbToUsd, GRADUATION_USD_TARGET } from "@/hooks/use-bnb-price";
+
+// COMING SOON MODE - Set to false to enable the launchpad
+const COMING_SOON_MODE = true;
 
 interface TokensResponse {
   tokens: LaunchToken[];
@@ -29,6 +32,41 @@ interface ActivityResponse {
 }
 
 export default function LaunchList() {
+  // Show Coming Soon page
+  if (COMING_SOON_MODE) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <Card className="max-w-lg mx-auto text-center p-8">
+          <CardContent className="space-y-6 pt-6">
+            <div className="w-20 h-20 mx-auto rounded-full bg-amber-500/20 flex items-center justify-center">
+              <Construction className="h-10 w-10 text-amber-500" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold mb-2">The Hatchery</h1>
+              <Badge className="bg-amber-500 text-white mb-4">Coming Soon</Badge>
+            </div>
+            <p className="text-muted-foreground text-lg">
+              We're preparing something amazing! The AI-native token launchpad is being upgraded with new features.
+            </p>
+            <div className="pt-4 space-y-2">
+              <p className="text-sm text-muted-foreground">Expected features:</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <Badge variant="outline">Bonding Curves</Badge>
+                <Badge variant="outline">Auto-Graduation</Badge>
+                <Badge variant="outline">PancakeSwap Migration</Badge>
+                <Badge variant="outline">AI Agent Launches</Badge>
+              </div>
+            </div>
+            <div className="pt-4">
+              <Link href="/">
+                <Button variant="outline">Back to Home</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const [filter, setFilter] = useState<"hot" | "new" | "graduating" | "graduated">("hot");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
