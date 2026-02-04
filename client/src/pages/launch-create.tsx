@@ -41,7 +41,13 @@ const createTokenSchema = z.object({
   website: z.string().url("Invalid URL").optional().or(z.literal("")),
   twitter: z.string().optional().or(z.literal("")),
   telegram: z.string().optional().or(z.literal("")),
-  devBuyAmount: z.string().optional().or(z.literal("")),
+  devBuyAmount: z.string().min(1, "Initial buy is required").refine(
+    (val) => {
+      const num = parseFloat(val);
+      return !isNaN(num) && num >= 0.1;
+    },
+    { message: "Minimum initial buy is 0.1 BNB" }
+  ),
 });
 
 type CreateTokenForm = z.infer<typeof createTokenSchema>;
@@ -91,7 +97,7 @@ export default function LaunchCreate() {
       website: "",
       twitter: "",
       telegram: "",
-      devBuyAmount: "",
+      devBuyAmount: "0.1",
     },
   });
 
@@ -795,12 +801,12 @@ export default function LaunchCreate() {
                 name="devBuyAmount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Initial Dev Buy (Optional)</FormLabel>
+                    <FormLabel>Initial Dev Buy (Required)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         step="0.01"
-                        min="0"
+                        min="0.1"
                         placeholder="0.1"
                         {...field}
                         disabled={isPending}
@@ -808,7 +814,7 @@ export default function LaunchCreate() {
                       />
                     </FormControl>
                     <FormDescription>
-                      Amount of BNB to buy immediately after token creation. Leave empty for no initial buy.
+                      Minimum 0.1 BNB required to launch and initialize the market. This initializes trading on the bonding curve.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

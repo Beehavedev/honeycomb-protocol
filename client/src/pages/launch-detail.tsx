@@ -44,7 +44,6 @@ import {
   useCanMigrate,
   useMigrateToken,
   useMigrationDeployed,
-  useInitializeMarket,
   useCooldownSeconds,
   useLastTradeTime,
   useSimulateSell,
@@ -138,7 +137,7 @@ export default function LaunchDetail() {
   const migrationDeployed = useMigrationDeployed();
   
   // Market initialization for tokens that weren't properly initialized
-  const { initializeMarket, isPending: isInitializing, isSuccess: initSuccess, error: initError } = useInitializeMarket();
+  // Market initialization is now automatic with dev buy - no longer needed
   
   // Cooldown checking
   const { data: cooldownSeconds } = useCooldownSeconds();
@@ -340,33 +339,6 @@ export default function LaunchDetail() {
     };
   }, [isBuying, isSelling, buyHash, sellHash, resetBuy, resetSell, toast]);
 
-  // Handle market initialization success
-  useEffect(() => {
-    if (initSuccess) {
-      toast({
-        title: "Market initialized!",
-        description: "Token is now ready for trading.",
-      });
-      refetchMarket();
-    }
-  }, [initSuccess, toast, refetchMarket]);
-
-  // Handle market initialization error
-  useEffect(() => {
-    if (initError) {
-      toast({
-        title: "Initialization failed",
-        description: initError.message || "Failed to initialize market.",
-        variant: "destructive",
-      });
-    }
-  }, [initError, toast]);
-
-  const executeInitialize = () => {
-    if (!tokenAddress) return;
-    console.log("Manually initializing market for token:", tokenAddress);
-    initializeMarket(tokenAddress);
-  };
 
   const executeBuy = () => {
     if (!tokenAddress || buyAmountWei <= BigInt(0)) return;
@@ -873,34 +845,22 @@ export default function LaunchDetail() {
                 <div className="text-center py-6 space-y-4">
                   <AlertCircle className="h-12 w-12 mx-auto text-amber-500" />
                   <div>
-                    <h3 className="font-semibold text-lg">Market Not Initialized</h3>
+                    <h3 className="font-semibold text-lg">Market Pending</h3>
                     <p className="text-muted-foreground text-sm mt-1">
-                      This token's market needs to be initialized before trading can begin.
+                      This token's market is being initialized. Please wait a moment and refresh.
                     </p>
                   </div>
                   <Button
-                    onClick={executeInitialize}
-                    disabled={isInitializing || !isOnDeployedNetwork}
+                    onClick={() => {
+                      refetchMarket();
+                      toast({ title: "Refreshing market state..." });
+                    }}
                     className="gap-2"
-                    data-testid="button-initialize-market"
+                    data-testid="button-refresh-market"
                   >
-                    {isInitializing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Initializing...
-                      </>
-                    ) : (
-                      <>
-                        <Egg className="h-4 w-4" />
-                        Initialize Market
-                      </>
-                    )}
+                    <Loader2 className="h-4 w-4" />
+                    Refresh Status
                   </Button>
-                  {!isOnDeployedNetwork && (
-                    <p className="text-xs text-muted-foreground">
-                      Switch to BNB Chain to initialize.
-                    </p>
-                  )}
                 </div>
               ) : (
                 <>
