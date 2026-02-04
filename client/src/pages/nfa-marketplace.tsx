@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,7 @@ import {
   Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp, 
   Clock, Shield, Pause, XCircle, Wallet, Loader2, Filter, Grid3X3, 
   LayoutList, Sparkles, Activity, ChevronDown, Verified, Flame, Eye,
-  ArrowUpRight, Heart, MoreHorizontal, RefreshCw
+  ArrowUpRight, Heart, MoreHorizontal, RefreshCw, User
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAccount } from "wagmi";
@@ -90,7 +91,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
   const colorClass = CATEGORY_COLORS[agent.category || ""] || "from-primary/20 to-primary/10 border-primary/30";
   
   return (
-    <Card className="group overflow-hidden border-0 bg-card/50 backdrop-blur hover:bg-card/80 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1" data-testid={`card-nfa-${agent.id}`}>
+    <Card className="group overflow-hidden hover-elevate" data-testid={`card-nfa-${agent.id}`}>
       <div className={`relative aspect-square bg-gradient-to-br ${colorClass} p-6 flex items-center justify-center overflow-hidden`}>
         <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         
@@ -313,7 +314,7 @@ export default function NfaMarketplace() {
     queryKey: ["/api/nfa/marketplace/fees"],
   });
 
-  const { data: myAgentsData } = useQuery<{ agents: NfaAgent[] }>({
+  const { data: myAgentsData, isLoading: myAgentsLoading } = useQuery<{ agents: NfaAgent[] }>({
     queryKey: ["/api/nfa/agents", { owner: address }],
     queryFn: async () => {
       const res = await fetch(`/api/nfa/agents?owner=${address}`);
@@ -498,6 +499,107 @@ export default function NfaMarketplace() {
       )}
 
       <div className="container mx-auto px-4 py-8">
+        <Tabs defaultValue={isConnected ? "my-nfas" : "explore"} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            {isConnected && (
+              <TabsTrigger value="my-nfas" className="gap-2" data-testid="tab-my-nfas">
+                <User className="h-4 w-4" />
+                My NFAs
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="explore" className="gap-2" data-testid="tab-marketplace">
+              <ShoppingCart className="h-4 w-4" />
+              Explore
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard" className="gap-2" data-testid="tab-leaderboard">
+              <Trophy className="h-4 w-4" />
+              Leaderboard
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="gap-2" data-testid="tab-categories">
+              <Brain className="h-4 w-4" />
+              Categories
+            </TabsTrigger>
+          </TabsList>
+
+          {isConnected && (
+            <TabsContent value="my-nfas">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Your Non-Fungible Agents</h2>
+                <p className="text-muted-foreground text-sm">Manage and list your minted NFAs</p>
+              </div>
+              
+              {myAgentsLoading ? (
+                <div className="text-center py-12 text-muted-foreground">Loading your agents...</div>
+              ) : myAgents.length === 0 ? (
+                <Card className="text-center py-12">
+                  <CardContent>
+                    <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No NFAs Yet</h3>
+                    <p className="text-muted-foreground mb-4">
+                      You haven't minted any Non-Fungible Agents yet.
+                    </p>
+                    <Link href="/nfa/mint">
+                      <Button data-testid="button-mint-first-nfa">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Mint Your First NFA
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {myAgents.map(agent => (
+                    <Link key={agent.id} href={`/nfa/${agent.id}`}>
+                      <Card className="hover-elevate cursor-pointer h-full">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <CardTitle className="text-lg truncate">{agent.name}</CardTitle>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Badge variant={agent.status === "ACTIVE" ? "default" : agent.status === "PAUSED" ? "secondary" : "destructive"}>
+                                {agent.status}
+                              </Badge>
+                              {agent.agentType === "LEARNING" && (
+                                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                                  <Brain className="h-3 w-3 mr-1" />
+                                  Learning
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <CardDescription className="line-clamp-2">
+                            {agent.description || "No description"}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              {agent.interactionCount} interactions
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Wallet className="h-3 w-3" />
+                              {parseFloat(agent.balance) / 1e18} BNB
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline">{agent.modelType}</Badge>
+                            {agent.category && <Badge variant="outline">{agent.category}</Badge>}
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-0">
+                          <Button variant="outline" className="w-full" data-testid={`button-view-nfa-${agent.id}`}>
+                            View & Manage
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
+
+          <TabsContent value="explore">
         <div className="flex flex-col lg:flex-row gap-6">
           {showFilters && (
             <aside className="w-full lg:w-64 flex-shrink-0">
@@ -772,6 +874,104 @@ export default function NfaMarketplace() {
             </aside>
           )}
         </div>
+          </TabsContent>
+
+          <TabsContent value="leaderboard">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-500" />
+                  Top Performing Agents
+                </CardTitle>
+                <CardDescription>
+                  Ranked by total interactions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {leaderboard.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No agents ranked yet
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {leaderboard.map((entry, index) => (
+                      <div
+                        key={entry.agent.id}
+                        className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
+                        data-testid={`leaderboard-entry-${index}`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                          index === 0 ? "bg-amber-500 text-white" :
+                          index === 1 ? "bg-gray-400 text-white" :
+                          index === 2 ? "bg-amber-700 text-white" :
+                          "bg-muted text-muted-foreground"
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{entry.agent.name}</p>
+                          <p className="text-xs text-muted-foreground">{entry.agent.modelType}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{entry.stats?.totalInteractions || 0}</p>
+                          <p className="text-xs text-muted-foreground">interactions</p>
+                        </div>
+                        {entry.stats?.rating && entry.stats.rating > 0 && (
+                          <div className="flex items-center gap-1 text-amber-500">
+                            <Star className="h-4 w-4 fill-current" />
+                            <span className="font-medium">{entry.stats.rating.toFixed(1)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="categories">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categories.length === 0 ? (
+                <Card className="col-span-full p-12 text-center">
+                  <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold">No Categories Yet</h3>
+                  <p className="text-muted-foreground">
+                    Categories will appear as agents are minted
+                  </p>
+                </Card>
+              ) : (
+                categories.map(cat => (
+                  <Card
+                    key={cat.category}
+                    className="hover-elevate cursor-pointer"
+                    onClick={() => {
+                      setCategoryFilter(cat.category);
+                    }}
+                    data-testid={`category-${cat.category}`}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <Brain className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold capitalize">{cat.category}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {cat.count} agent{cat.count !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="outline">{cat.count}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
