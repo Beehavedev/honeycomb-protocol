@@ -119,7 +119,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
           {agent.status !== "ACTIVE" && (
             <Badge variant={agent.status === "PAUSED" ? "secondary" : "destructive"} className="gap-1">
               {agent.status === "PAUSED" ? <Pause className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-              {agent.status}
+              {agent.status === "PAUSED" ? t('nfa.paused') : t('nfa.terminated')}
             </Badge>
           )}
         </div>
@@ -169,7 +169,7 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
         </div>
 
         <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">
-          {agent.description || "An autonomous AI agent ready to serve."}
+          {agent.description || t('nfa.defaultDescription')}
         </p>
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -195,12 +195,12 @@ function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
             <p className="text-xs text-muted-foreground">{t('nfa.price')}</p>
             <div className="flex items-baseline gap-1">
               <span className="text-lg font-bold">{listing.priceDisplay}</span>
-              <span className="text-xs text-muted-foreground">+{platformFee}% fee</span>
+              <span className="text-xs text-muted-foreground">{t('nfa.fee').replace('{percent}', String(platformFee))}</span>
             </div>
           </div>
           <Link href={`/nfa/${agent.id}`}>
             <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-view-${agent.id}`}>
-              View <ArrowUpRight className="h-3 w-3" />
+              {t('nfa.view')} <ArrowUpRight className="h-3 w-3" />
             </Button>
           </Link>
         </div>
@@ -249,6 +249,7 @@ function TrendingCard({ agent, stats, rank }: { agent: NfaAgent; stats: Leaderbo
 }
 
 function ActivityItem({ agent, price, type, time }: { agent: NfaAgent; price: string; type: "sale" | "listing"; time: string }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
       <Avatar className="h-10 w-10 border">
@@ -259,12 +260,12 @@ function ActivityItem({ agent, price, type, time }: { agent: NfaAgent; price: st
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{agent.name}</p>
         <p className="text-xs text-muted-foreground">
-          {type === "sale" ? "Sold for" : "Listed for"} <span className="font-medium text-foreground">{price}</span>
+          {type === "sale" ? t('nfa.soldFor') : t('nfa.listedFor')} <span className="font-medium text-foreground">{price}</span>
         </p>
       </div>
       <div className="text-right">
         <Badge variant={type === "sale" ? "default" : "outline"} className="text-xs">
-          {type === "sale" ? "Sale" : "Listed"}
+          {type === "sale" ? t('nfa.sale') : t('nfa.listed')}
         </Badge>
         <p className="text-xs text-muted-foreground mt-1">{time}</p>
       </div>
@@ -306,8 +307,8 @@ export default function NfaMarketplace() {
         return true;
       } catch {
         toast({
-          title: "Authentication Required",
-          description: "Please sign the message to authenticate.",
+          title: t('nfa.authRequired'),
+          description: t('nfa.authRequiredDesc'),
           variant: "destructive",
         });
         return false;
@@ -336,7 +337,7 @@ export default function NfaMarketplace() {
     queryKey: ["/api/nfa/agents", { owner: address }],
     queryFn: async () => {
       const res = await fetch(`/api/nfa/agents?owner=${address}`);
-      if (!res.ok) throw new Error("Failed to fetch agents");
+      if (!res.ok) throw new Error(t('nfa.failedToFetch'));
       return res.json();
     },
     enabled: isConnected && !!address,
@@ -344,7 +345,7 @@ export default function NfaMarketplace() {
 
   const buyMutation = useMutation({
     mutationFn: async ({ nfaId, tokenId, priceWei }: { nfaId: string; tokenId: number; priceWei: string }) => {
-      if (!await ensureAuthenticated()) throw new Error("Not authenticated");
+      if (!await ensureAuthenticated()) throw new Error(t('nfa.notAuthenticated'));
       setBuyingId(nfaId);
       
       if (isMarketplaceDeployed && marketplaceAddresses) {
@@ -469,7 +470,7 @@ export default function NfaMarketplace() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{listings.length}</p>
-                  <p className="text-xs text-muted-foreground">Total Listed</p>
+                  <p className="text-xs text-muted-foreground">{t('nfa.totalListed')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -481,7 +482,7 @@ export default function NfaMarketplace() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{(totalVolume / 1e18).toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">Total Volume (BNB)</p>
+                  <p className="text-xs text-muted-foreground">{t('nfa.totalVolume')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -493,7 +494,7 @@ export default function NfaMarketplace() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{(avgPrice / 1e18).toFixed(3)}</p>
-                  <p className="text-xs text-muted-foreground">Avg. Price (BNB)</p>
+                  <p className="text-xs text-muted-foreground">{t('nfa.avgPrice')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -507,7 +508,7 @@ export default function NfaMarketplace() {
                   <p className="text-2xl font-bold">
                     {listings.filter(l => l.agent.agentType === "LEARNING").length}
                   </p>
-                  <p className="text-xs text-muted-foreground">Learning Agents</p>
+                  <p className="text-xs text-muted-foreground">{t('nfa.learningAgents')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -520,10 +521,10 @@ export default function NfaMarketplace() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-orange-500" />
-              <h2 className="text-xl font-bold">Trending Agents</h2>
+              <h2 className="text-xl font-bold">{t('nfa.trendingAgents')}</h2>
             </div>
             <Button variant="ghost" size="sm" className="gap-1">
-              View All <ArrowUpRight className="h-3 w-3" />
+              {t('nfa.viewAll')} <ArrowUpRight className="h-3 w-3" />
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -565,24 +566,24 @@ export default function NfaMarketplace() {
           {isConnected && (
             <TabsContent value="my-nfas">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold">Your Non-Fungible Agents</h2>
-                <p className="text-muted-foreground text-sm">Manage and list your minted NFAs</p>
+                <h2 className="text-xl font-semibold">{t('nfa.yourNfas')}</h2>
+                <p className="text-muted-foreground text-sm">{t('nfa.manageNfas')}</p>
               </div>
               
               {myAgentsLoading ? (
-                <div className="text-center py-12 text-muted-foreground">Loading your agents...</div>
+                <div className="text-center py-12 text-muted-foreground">{t('nfa.loadingAgents')}</div>
               ) : myAgents.length === 0 ? (
                 <Card className="text-center py-12">
                   <CardContent>
                     <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No NFAs Yet</h3>
+                    <h3 className="text-lg font-semibold mb-2">{t('nfa.noNfasYet')}</h3>
                     <p className="text-muted-foreground mb-4">
-                      You haven't minted any Non-Fungible Agents yet.
+                      {t('nfa.noNfasDesc')}
                     </p>
                     <Link href="/nfa/mint">
                       <Button data-testid="button-mint-first-nfa">
                         <Plus className="h-4 w-4 mr-2" />
-                        Mint Your First NFA
+                        {t('nfa.mintFirstNfa')}
                       </Button>
                     </Link>
                   </CardContent>
@@ -597,25 +598,25 @@ export default function NfaMarketplace() {
                             <CardTitle className="text-lg truncate">{agent.name}</CardTitle>
                             <div className="flex gap-1 flex-shrink-0">
                               <Badge variant={agent.status === "ACTIVE" ? "default" : agent.status === "PAUSED" ? "secondary" : "destructive"}>
-                                {agent.status}
+                                {agent.status === "ACTIVE" ? t('nfa.active') : agent.status === "PAUSED" ? t('nfa.paused') : t('nfa.terminated')}
                               </Badge>
                               {agent.agentType === "LEARNING" && (
                                 <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
                                   <Brain className="h-3 w-3 mr-1" />
-                                  Learning
+                                  {t('nfa.learning')}
                                 </Badge>
                               )}
                             </div>
                           </div>
                           <CardDescription className="line-clamp-2">
-                            {agent.description || "No description"}
+                            {agent.description || t('nfa.noDescription')}
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Zap className="h-3 w-3" />
-                              {agent.interactionCount} interactions
+                              {agent.interactionCount} {t('nfa.interactions')}
                             </span>
                             <span className="flex items-center gap-1">
                               <Wallet className="h-3 w-3" />
@@ -629,7 +630,7 @@ export default function NfaMarketplace() {
                         </CardContent>
                         <CardFooter className="pt-0">
                           <Button variant="outline" className="w-full" data-testid={`button-view-nfa-${agent.id}`}>
-                            View & Manage
+                            {t('nfa.viewAndManage')}
                           </Button>
                         </CardFooter>
                       </Card>
@@ -649,7 +650,7 @@ export default function NfaMarketplace() {
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold flex items-center gap-2">
                       <Filter className="h-4 w-4" />
-                      Filters
+                      {t('nfa.filters')}
                     </h3>
                     <Button 
                       variant="ghost" 
@@ -661,18 +662,18 @@ export default function NfaMarketplace() {
                         setPriceRange([0, 100]);
                       }}
                     >
-                      Reset
+                      {t('nfa.reset')}
                     </Button>
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Category</Label>
+                    <Label className="text-sm font-medium">{t('nfa.category')}</Label>
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                       <SelectTrigger data-testid="select-category">
-                        <SelectValue placeholder="All Categories" />
+                        <SelectValue placeholder={t('nfa.allCategories')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="all">{t('nfa.allCategories')}</SelectItem>
                         {categories.map(cat => (
                           <SelectItem key={cat.category} value={cat.category}>
                             <span className="capitalize">{cat.category.replace("-", " ")}</span>
@@ -684,7 +685,7 @@ export default function NfaMarketplace() {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Agent Type</Label>
+                    <Label className="text-sm font-medium">{t('nfa.agentType')}</Label>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Checkbox 
@@ -692,13 +693,13 @@ export default function NfaMarketplace() {
                           checked={agentTypeFilter.includes("LEARNING")}
                           onCheckedChange={(checked) => {
                             setAgentTypeFilter(prev => 
-                              checked ? [...prev, "LEARNING"] : prev.filter(t => t !== "LEARNING")
+                              checked ? [...prev, "LEARNING"] : prev.filter(type => type !== "LEARNING")
                             );
                           }}
                         />
                         <Label htmlFor="learning" className="text-sm flex items-center gap-1 cursor-pointer">
                           <Brain className="h-3 w-3 text-green-500" />
-                          Learning
+                          {t('nfa.learning')}
                         </Label>
                       </div>
                       <div className="flex items-center gap-2">
@@ -707,20 +708,20 @@ export default function NfaMarketplace() {
                           checked={agentTypeFilter.includes("STATIC")}
                           onCheckedChange={(checked) => {
                             setAgentTypeFilter(prev => 
-                              checked ? [...prev, "STATIC"] : prev.filter(t => t !== "STATIC")
+                              checked ? [...prev, "STATIC"] : prev.filter(type => type !== "STATIC")
                             );
                           }}
                         />
                         <Label htmlFor="static" className="text-sm flex items-center gap-1 cursor-pointer">
                           <Zap className="h-3 w-3 text-blue-500" />
-                          Static
+                          {t('nfa.static')}
                         </Label>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Status</Label>
+                    <Label className="text-sm font-medium">{t('nfa.status')}</Label>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Checkbox 
@@ -728,11 +729,11 @@ export default function NfaMarketplace() {
                           checked={statusFilter.includes("ACTIVE")}
                           onCheckedChange={(checked) => {
                             setStatusFilter(prev => 
-                              checked ? [...prev, "ACTIVE"] : prev.filter(t => t !== "ACTIVE")
+                              checked ? [...prev, "ACTIVE"] : prev.filter(type => type !== "ACTIVE")
                             );
                           }}
                         />
-                        <Label htmlFor="active" className="text-sm cursor-pointer">Active</Label>
+                        <Label htmlFor="active" className="text-sm cursor-pointer">{t('nfa.active')}</Label>
                       </div>
                       <div className="flex items-center gap-2">
                         <Checkbox 
@@ -740,11 +741,11 @@ export default function NfaMarketplace() {
                           checked={statusFilter.includes("PAUSED")}
                           onCheckedChange={(checked) => {
                             setStatusFilter(prev => 
-                              checked ? [...prev, "PAUSED"] : prev.filter(t => t !== "PAUSED")
+                              checked ? [...prev, "PAUSED"] : prev.filter(type => type !== "PAUSED")
                             );
                           }}
                         />
-                        <Label htmlFor="paused" className="text-sm cursor-pointer">Paused</Label>
+                        <Label htmlFor="paused" className="text-sm cursor-pointer">{t('nfa.paused')}</Label>
                       </div>
                     </div>
                   </div>
@@ -753,14 +754,14 @@ export default function NfaMarketplace() {
 
                   {isConnected && myAgents.length > 0 && (
                     <div className="space-y-3">
-                      <Label className="text-sm font-medium">Your NFAs</Label>
+                      <Label className="text-sm font-medium">{t('nfa.yourNfasCount')}</Label>
                       <p className="text-xs text-muted-foreground">
-                        You own {myAgents.length} agent{myAgents.length !== 1 ? "s" : ""}
+                        {t('nfa.youOwnAgents').replace('{count}', String(myAgents.length))}
                       </p>
                       <Link href="/nfa/mint">
                         <Button variant="outline" size="sm" className="w-full gap-2">
                           <Plus className="h-3 w-3" />
-                          Mint Another
+                          {t('nfa.mintAnother')}
                         </Button>
                       </Link>
                     </div>
@@ -795,13 +796,13 @@ export default function NfaMarketplace() {
                 
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger className="w-[160px]" data-testid="select-sort">
-                    <SelectValue placeholder="Sort by" />
+                    <SelectValue placeholder={t('nfa.sortBy')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="recent">Recently Listed</SelectItem>
-                    <SelectItem value="price-low">Price: Low to High</SelectItem>
-                    <SelectItem value="price-high">Price: High to Low</SelectItem>
-                    <SelectItem value="interactions">Most Popular</SelectItem>
+                    <SelectItem value="recent">{t('nfa.recentlyListed')}</SelectItem>
+                    <SelectItem value="price-low">{t('nfa.priceLowHigh')}</SelectItem>
+                    <SelectItem value="price-high">{t('nfa.priceHighLow')}</SelectItem>
+                    <SelectItem value="interactions">{t('nfa.mostPopular')}</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -828,11 +829,11 @@ export default function NfaMarketplace() {
 
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {sortedListings.length} result{sortedListings.length !== 1 ? "s" : ""}
+                {t('nfa.results').replace('{count}', String(sortedListings.length))}
               </p>
               <Badge variant="outline" className="gap-1">
                 <Shield className="h-3 w-3" />
-                {platformFeePercent}% Platform Fee
+                {platformFeePercent}% {t('nfa.platformFee')}
               </Badge>
             </div>
 
@@ -856,18 +857,18 @@ export default function NfaMarketplace() {
                     <Bot className="h-12 w-12 text-muted-foreground" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-xl font-semibold">No NFAs Found</h3>
+                    <h3 className="text-xl font-semibold">{t('nfa.noNfasFound')}</h3>
                     <p className="text-muted-foreground max-w-sm">
                       {searchQuery || categoryFilter !== "all" 
-                        ? "Try adjusting your filters or search query"
-                        : "Be the first to list your AI agent on the marketplace"
+                        ? t('nfa.adjustFilters')
+                        : t('nfa.beFirstToList2')
                       }
                     </p>
                   </div>
                   <Link href="/nfa/mint">
                     <Button className="gap-2 mt-2" data-testid="button-mint-first">
                       <Plus className="h-4 w-4" />
-                      Create Your First NFA
+                      {t('nfa.createFirstNfa')}
                     </Button>
                   </Link>
                 </div>
@@ -899,7 +900,7 @@ export default function NfaMarketplace() {
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-4">
                     <Activity className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold">Recent Activity</h3>
+                    <h3 className="font-semibold">{t('nfa.recentActivity')}</h3>
                   </div>
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-3 pr-4">
@@ -926,16 +927,16 @@ export default function NfaMarketplace() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-amber-500" />
-                  Top Performing Agents
+                  {t('nfa.topPerformingAgents')}
                 </CardTitle>
                 <CardDescription>
-                  Ranked by total interactions
+                  {t('nfa.rankedByInteractions')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {leaderboard.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No agents ranked yet
+                    {t('nfa.noAgentsRanked')}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -980,9 +981,9 @@ export default function NfaMarketplace() {
               {categories.length === 0 ? (
                 <Card className="col-span-full p-12 text-center">
                   <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold">No Categories Yet</h3>
+                  <h3 className="text-lg font-semibold">{t('nfa.noCategoriesYet')}</h3>
                   <p className="text-muted-foreground">
-                    Categories will appear as agents are minted
+                    {t('nfa.categoriesAppear')}
                   </p>
                 </Card>
               ) : (
