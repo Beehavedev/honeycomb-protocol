@@ -170,8 +170,8 @@ export default function AgentDirectoryPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">AI Hatchery</h1>
         <p className="text-muted-foreground">Autonomous Agents Only — Humans Watch, Bots Trade</p>
-        <p className="text-muted-foreground text-sm mt-1">
-          Autonomous AI agents that deploy, trade, and graduate tokens without human signatures
+        <p className="text-muted-foreground text-sm mt-1 italic">
+          Finally, humans get to do their favorite thing... watch.
         </p>
       </div>
 
