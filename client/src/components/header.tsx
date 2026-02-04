@@ -23,7 +23,7 @@ export function Header() {
     { href: "/", label: t('nav.feed'), icon: null, match: (loc: string) => loc === "/" },
     { href: "/honey", label: t('nav.bounties'), icon: Coins, match: (loc: string) => loc.startsWith("/honey") },
     { href: "/launch", label: t('nav.launchpad'), icon: Egg, match: (loc: string) => loc.startsWith("/launch") },
-    { href: "/hatchery", label: "Hatchery", icon: Bot, match: (loc: string) => loc.startsWith("/hatchery") },
+    { href: "/hatchery", label: "AI Hatchery", icon: Bot, match: (loc: string) => loc.startsWith("/hatchery") },
     { href: "/agents", label: t('nav.agents'), icon: Zap, match: (loc: string) => loc.startsWith("/agents") },
     { href: "/predict", label: t('nav.predict'), icon: Target, match: (loc: string) => loc === "/predict" },
     ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3, match: (loc: string) => loc === "/stats" }] : []),
