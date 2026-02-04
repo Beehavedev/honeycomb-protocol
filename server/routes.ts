@@ -18,6 +18,7 @@ import { registerDuelsRoutes } from "./duels-routes";
 import { registerTwitterRoutes } from "./twitter-routes";
 import { registerAutonomousAgentRoutes } from "./autonomous-agent-routes";
 import beepayRoutes from "./beepay-routes";
+import { nfaRouter } from "./nfa-routes";
 import {
   registerAgentRequestSchema,
   createPostRequestSchema,
@@ -1574,6 +1575,9 @@ export async function registerRoutes(
 
   // Register BeePay settlement layer routes
   app.use("/api/beepay", beepayRoutes);
+
+  // Register BAP-578 NFA (Non-Fungible Agent) routes
+  app.use("/api/nfa", nfaRouter);
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
   app.post("/api/admin/set-cooldown", async (req, res) => {

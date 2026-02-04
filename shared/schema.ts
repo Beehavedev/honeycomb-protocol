@@ -1454,3 +1454,185 @@ export type BeepayWebhook = typeof beepayWebhooks.$inferSelect;
 export type InsertBeepayWebhook = z.infer<typeof insertBeepayWebhookSchema>;
 
 export type BeepayPullAuth = typeof beepayPullAuths.$inferSelect;
+
+// ==================== BAP-578 Non-Fungible Agents (NFA) ====================
+
+// NFA Agent tokens
+export const nfaAgents = pgTable("nfa_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tokenId: integer("token_id").notNull().unique(),
+  ownerAddress: text("owner_address").notNull(),
+  agentId: varchar("agent_id").references(() => agents.id), // Link to existing agent if any
+  name: text("name").notNull(),
+  description: text("description"),
+  modelType: text("model_type").notNull(), // e.g., "gpt-4", "claude-3"
+  agentType: text("agent_type").notNull().default("STATIC"), // STATIC or LEARNING
+  status: text("status").notNull().default("ACTIVE"), // ACTIVE, PAUSED, TERMINATED
+  proofOfPrompt: text("proof_of_prompt").notNull(), // Hash of training config
+  memoryRoot: text("memory_root"), // Current memory merkle root
+  trainingVersion: integer("training_version").default(1).notNull(),
+  interactionCount: integer("interaction_count").default(0).notNull(),
+  metadataUri: text("metadata_uri"), // IPFS URI for extended metadata
+  category: text("category"),
+  systemPrompt: text("system_prompt"), // Off-chain storage of system prompt
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastActiveAt: timestamp("last_active_at").defaultNow().notNull(),
+});
+
+// NFA Memory entries (off-chain memory storage)
+export const nfaMemory = pgTable("nfa_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id),
+  memoryKey: text("memory_key").notNull(),
+  memoryValue: text("memory_value").notNull(),
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// NFA Training history
+export const nfaTrainingHistory = pgTable("nfa_training_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id),
+  version: integer("version").notNull(),
+  trainingHash: text("training_hash").notNull(),
+  trainingData: text("training_data"), // JSON data or IPFS CID
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// NFA Interactions log
+export const nfaInteractions = pgTable("nfa_interactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id),
+  callerAddress: text("caller_address").notNull(),
+  interactionType: text("interaction_type").notNull(), // "chat", "task", "query"
+  inputHash: text("input_hash"),
+  outputHash: text("output_hash"),
+  tokensUsed: integer("tokens_used"),
+  cost: text("cost"), // Cost in wei
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// NFA Marketplace listings
+export const nfaListings = pgTable("nfa_listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id).unique(),
+  sellerAddress: text("seller_address").notNull(),
+  priceWei: text("price_wei").notNull(),
+  priceDisplay: text("price_display").notNull(),
+  active: boolean("active").default(true).notNull(),
+  listedAt: timestamp("listed_at").defaultNow().notNull(),
+  soldAt: timestamp("sold_at"),
+  buyerAddress: text("buyer_address"),
+});
+
+// NFA Verification badges
+export const nfaVerifications = pgTable("nfa_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id).unique(),
+  status: text("status").notNull().default("UNVERIFIED"), // UNVERIFIED, PENDING, VERIFIED, REJECTED
+  verifierAddress: text("verifier_address"),
+  badge: text("badge"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// NFA Stats for leaderboards
+export const nfaStats = pgTable("nfa_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id).unique(),
+  totalInteractions: integer("total_interactions").default(0).notNull(),
+  totalRevenue: text("total_revenue").default("0").notNull(), // In wei
+  rating: real("rating").default(0),
+  ratingCount: integer("rating_count").default(0).notNull(),
+  weeklyInteractions: integer("weekly_interactions").default(0).notNull(),
+  monthlyInteractions: integer("monthly_interactions").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// NFA Ratings
+export const nfaRatings = pgTable("nfa_ratings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  nfaId: varchar("nfa_id").notNull().references(() => nfaAgents.id),
+  raterAddress: text("rater_address").notNull(),
+  rating: integer("rating").notNull(), // 1-5
+  review: text("review"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueRating: unique().on(table.nfaId, table.raterAddress),
+}));
+
+// BAP-578 Insert Schemas
+export const insertNfaAgentSchema = createInsertSchema(nfaAgents).pick({
+  tokenId: true,
+  ownerAddress: true,
+  agentId: true,
+  name: true,
+  description: true,
+  modelType: true,
+  agentType: true,
+  proofOfPrompt: true,
+  memoryRoot: true,
+  metadataUri: true,
+  category: true,
+  systemPrompt: true,
+});
+
+export const insertNfaMemorySchema = createInsertSchema(nfaMemory).pick({
+  nfaId: true,
+  memoryKey: true,
+  memoryValue: true,
+});
+
+export const insertNfaTrainingHistorySchema = createInsertSchema(nfaTrainingHistory).pick({
+  nfaId: true,
+  version: true,
+  trainingHash: true,
+  trainingData: true,
+});
+
+export const insertNfaInteractionSchema = createInsertSchema(nfaInteractions).pick({
+  nfaId: true,
+  callerAddress: true,
+  interactionType: true,
+  inputHash: true,
+  outputHash: true,
+  tokensUsed: true,
+  cost: true,
+});
+
+export const insertNfaListingSchema = createInsertSchema(nfaListings).pick({
+  nfaId: true,
+  sellerAddress: true,
+  priceWei: true,
+  priceDisplay: true,
+});
+
+export const insertNfaRatingSchema = createInsertSchema(nfaRatings).pick({
+  nfaId: true,
+  raterAddress: true,
+  rating: true,
+  review: true,
+});
+
+// BAP-578 Types
+export type NfaAgent = typeof nfaAgents.$inferSelect;
+export type InsertNfaAgent = z.infer<typeof insertNfaAgentSchema>;
+
+export type NfaMemory = typeof nfaMemory.$inferSelect;
+export type InsertNfaMemory = z.infer<typeof insertNfaMemorySchema>;
+
+export type NfaTrainingHistory = typeof nfaTrainingHistory.$inferSelect;
+export type InsertNfaTrainingHistory = z.infer<typeof insertNfaTrainingHistorySchema>;
+
+export type NfaInteraction = typeof nfaInteractions.$inferSelect;
+export type InsertNfaInteraction = z.infer<typeof insertNfaInteractionSchema>;
+
+export type NfaListing = typeof nfaListings.$inferSelect;
+export type InsertNfaListing = z.infer<typeof insertNfaListingSchema>;
+
+export type NfaVerification = typeof nfaVerifications.$inferSelect;
+export type NfaStats = typeof nfaStats.$inferSelect;
+
+export type NfaRating = typeof nfaRatings.$inferSelect;
+export type InsertNfaRating = z.infer<typeof insertNfaRatingSchema>;

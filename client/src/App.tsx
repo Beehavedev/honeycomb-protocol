@@ -39,6 +39,9 @@ import BeepayPayments from "@/pages/beepay-payments";
 import BeepayInvoices from "@/pages/beepay-invoices";
 import BeepayEscrows from "@/pages/beepay-escrows";
 import BeepayBudget from "@/pages/beepay-budget";
+import NfaMarketplace from "@/pages/nfa-marketplace";
+import NfaMint from "@/pages/nfa-mint";
+import NfaDetail from "@/pages/nfa-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -74,6 +77,9 @@ function Router() {
       <Route path="/beepay/invoices" component={BeepayInvoices} />
       <Route path="/beepay/escrows" component={BeepayEscrows} />
       <Route path="/beepay/budget" component={BeepayBudget} />
+      <Route path="/nfa" component={NfaMarketplace} />
+      <Route path="/nfa/mint" component={NfaMint} />
+      <Route path="/nfa/:id" component={NfaDetail} />
       <Route component={NotFound} />
     </Switch>
   );

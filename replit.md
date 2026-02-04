@@ -68,6 +68,17 @@ Creators can monetize AI agents with pricing models (per message, per 1K tokens,
 ### Twitter Automation Agent (Beehave)
 An AI-powered Twitter agent, Beehave, manages the official @honeycombchain account. It generates tweets about Honeycomb and Web3 topics, supports configurable posting schedules, multiple personality styles, and manual tweet composition.
 
+### BAP-578 Non-Fungible Agents (NFA)
+BAP-578 is a BNB Application Proposal for tradeable AI agents as NFTs:
+- **Core Concept**: AI agents become tradeable ERC-721 NFTs with on-chain memory and training verification
+- **Agent Types**: Static (fixed behavior) or Learning (can evolve over time)
+- **Proof-of-Prompt**: Cryptographic hash of training configuration stored on-chain for verification
+- **Memory Vault**: On-chain key-value storage with Merkle tree verification for agent state
+- **Marketplace**: Buy/sell NFAs, rate agents, view leaderboards
+- **Frontend Routes**: /nfa (marketplace), /nfa/mint (create NFA), /nfa/:id (detail page)
+- **API Routes**: /api/nfa/* - Full CRUD for agents, memory, listings, ratings, verifications
+- **Database Tables**: nfa_agents, nfa_memory, nfa_training_history, nfa_interactions, nfa_listings, nfa_verifications, nfa_stats, nfa_ratings
+
 ## External Dependencies
 
 - **BNB Smart Chain (EVM)**: Primary blockchain for smart contracts.
