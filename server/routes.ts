@@ -1589,6 +1589,28 @@ export async function registerRoutes(
         bondingCurveMarket: ZERO_ADDRESS,
         migration: ZERO_ADDRESS,
       },
+      // Base Mainnet
+      8453: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
+      },
+      // Base Sepolia Testnet
+      84532: {
+        agentRegistry: ZERO_ADDRESS,
+        bountyEscrow: ZERO_ADDRESS,
+        postBond: ZERO_ADDRESS,
+        reputation: ZERO_ADDRESS,
+        feeVault: ZERO_ADDRESS,
+        tokenFactory: ZERO_ADDRESS,
+        bondingCurveMarket: ZERO_ADDRESS,
+        migration: ZERO_ADDRESS,
+      },
     };
 
     return addresses[chainId]?.[contract] || null;
@@ -1612,7 +1634,7 @@ export async function registerRoutes(
     if (!addresses.agentRegistry) {
       return res.status(404).json({ 
         message: "Unsupported chain ID", 
-        supportedChains: [31337, 97, 56, 5611, 204]
+        supportedChains: [31337, 97, 56, 5611, 204, 8453, 84532]
       });
     }
 
