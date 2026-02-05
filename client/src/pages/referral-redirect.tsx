@@ -7,7 +7,9 @@ export default function ReferralRedirect() {
 
   useEffect(() => {
     if (code) {
-      const fullCode = `BEE${code}`;
+      // Handle both formats: /r/38A10A57 or /r/BEE38A10A57
+      const cleanCode = code.toUpperCase().replace(/^BEE/, "");
+      const fullCode = `BEE${cleanCode}`;
       localStorage.setItem("referralCode", fullCode);
       setLocation("/");
     }

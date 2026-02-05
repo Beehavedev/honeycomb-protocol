@@ -201,6 +201,13 @@ export async function registerRoutes(
         await storage.addPoints(agent.id, "registration", regConfig.basePoints);
       }
 
+      // Auto-create referral entry for new user (so they appear on leaderboard)
+      const referralCode = `BEE${agent.id.substring(0, 11).toUpperCase().replace(/-/g, "")}`;
+      await storage.createReferral({
+        referrerAgentId: agent.id,
+        referralCode,
+      });
+
       res.status(201).json({ agent });
     } catch (error) {
       console.error("Register agent error:", error);
