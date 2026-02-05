@@ -2105,6 +2105,9 @@ export const supportedChains = pgTable("supported_chains", {
   isDefault: boolean("is_default").default(false).notNull(),
   bridgeContractAddress: text("bridge_contract_address"), // For cross-chain bridge
   factoryContractAddress: text("factory_contract_address"), // Token factory on this chain
+  dexRouterAddress: text("dex_router_address"), // DEX router for token migration
+  dexName: text("dex_name"), // "PancakeSwap", "Uniswap V3", etc.
+  wethAddress: text("weth_address"), // Wrapped native token (WBNB, WETH)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -2180,6 +2183,9 @@ export const insertSupportedChainSchema = createInsertSchema(supportedChains).pi
   isActive: true,
   bridgeContractAddress: true,
   factoryContractAddress: true,
+  dexRouterAddress: true,
+  dexName: true,
+  wethAddress: true,
 });
 
 export const insertCrossChainAgentSchema = createInsertSchema(crossChainAgents).pick({
