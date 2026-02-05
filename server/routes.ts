@@ -2389,5 +2389,43 @@ export async function registerRoutes(
     }
   });
 
+  // Post announcement thread to Twitter (admin only)
+  app.post("/api/admin/twitter/post-announcement", authMiddleware, async (req, res) => {
+    try {
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { tweets } = req.body;
+      if (!tweets || !Array.isArray(tweets) || tweets.length === 0) {
+        return res.status(400).json({ message: "tweets array is required" });
+      }
+
+      const { TwitterService } = await import("./twitter-service");
+      const twitterService = new TwitterService();
+
+      if (!twitterService.isConfigured()) {
+        return res.status(500).json({ message: "Twitter API not configured" });
+      }
+
+      const result = await twitterService.postThread(tweets, true);
+
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          message: `Thread posted successfully with ${result.tweetIds?.length} tweets`,
+          tweetIds: result.tweetIds,
+          threadUrl: `https://twitter.com/honeycombchain/status/${result.tweetIds?.[0]}`
+        });
+      } else {
+        res.status(500).json({ message: result.error || "Failed to post thread" });
+      }
+    } catch (error: any) {
+      console.error("Post announcement error:", error);
+      res.status(500).json({ message: error.message || "Failed to post announcement" });
+    }
+  });
+
   return httpServer;
 }

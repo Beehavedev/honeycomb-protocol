@@ -150,6 +150,64 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     }
   }
 
+  async postThread(tweets: string[], addAgentSignature: boolean = false): Promise<{ success: boolean; tweetIds?: string[]; error?: string }> {
+    if (!this.twitterClient) {
+      return { success: false, error: "Twitter API not configured" };
+    }
+
+    if (tweets.length === 0) {
+      return { success: false, error: "No tweets provided" };
+    }
+
+    try {
+      const tweetIds: string[] = [];
+      let lastTweetId: string | undefined;
+
+      for (let i = 0; i < tweets.length; i++) {
+        let content = tweets[i];
+        
+        // Add signature only to last tweet if enabled
+        if (addAgentSignature && i === tweets.length - 1) {
+          const signature = "\n\n🤖 @honeycombchain";
+          if (content.length + signature.length <= 280) {
+            content = content + signature;
+          }
+        }
+
+        if (i === 0) {
+          // First tweet
+          const result = await this.twitterClient.v2.tweet(content);
+          if (result.data?.id) {
+            lastTweetId = result.data.id;
+            tweetIds.push(result.data.id);
+          } else {
+            return { success: false, error: "Failed to post first tweet" };
+          }
+        } else {
+          // Reply to previous tweet
+          const result = await this.twitterClient.v2.reply(content, lastTweetId!);
+          if (result.data?.id) {
+            lastTweetId = result.data.id;
+            tweetIds.push(result.data.id);
+          } else {
+            return { success: false, error: `Failed to post tweet ${i + 1}` };
+          }
+        }
+
+        // Small delay between tweets to avoid rate limiting
+        if (i < tweets.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      return { success: true, tweetIds };
+    } catch (error: any) {
+      console.error("Twitter thread error:", error);
+      const errorMessage = error.data?.detail || error.message || "Failed to post thread";
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async searchTweets(query: string, maxResults: number = 10): Promise<{ success: boolean; tweets?: any[]; error?: string }> {
     if (!this.twitterClient) {
       return { success: false, error: "Twitter API not configured" };
