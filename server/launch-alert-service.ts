@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { launchAlertConfig, launchAlerts, launchTokens, nfaAgents, launchActivity } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { TwitterService } from "./twitter-service";
+import { TwitterApi } from "twitter-api-v2";
 
 interface AlertData {
   alertType: "new_token" | "new_nfa" | "graduation" | "migration";
@@ -50,12 +50,36 @@ Trade: thehoneycomb.social/hatchery/${data.referenceId}
 };
 
 export class LaunchAlertService {
-  private twitterService: TwitterService;
+  private twitterClient: TwitterApi | null = null;
   private isRunning = false;
   private intervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
-    this.twitterService = new TwitterService();
+    this.loadTwitterConfig();
+  }
+
+  private loadTwitterConfig() {
+    // Use dedicated @HoneycombAlerts account credentials
+    const apiKey = process.env.HONEYCOMB_ALERTS_API_KEY;
+    const apiSecret = process.env.HONEYCOMB_ALERTS_API_SECRET;
+    const accessToken = process.env.HONEYCOMB_ALERTS_ACCESS_TOKEN;
+    const accessSecret = process.env.HONEYCOMB_ALERTS_ACCESS_SECRET;
+
+    if (apiKey && apiSecret && accessToken && accessSecret) {
+      this.twitterClient = new TwitterApi({
+        appKey: apiKey,
+        appSecret: apiSecret,
+        accessToken: accessToken,
+        accessSecret: accessSecret,
+      });
+      console.log("[LaunchAlerts] Twitter client configured for @HoneycombAlerts");
+    } else {
+      console.warn("[LaunchAlerts] Twitter credentials not configured - alerts will be logged only");
+    }
+  }
+
+  isTwitterConfigured(): boolean {
+    return this.twitterClient !== null;
   }
 
   async start() {
@@ -178,7 +202,7 @@ export class LaunchAlertService {
 
       if (!pendingAlert) return;
 
-      if (!this.twitterService.isConfigured()) {
+      if (!this.twitterClient) {
         console.log("[LaunchAlerts] Twitter not configured, marking as skipped");
         await db.update(launchAlerts)
           .set({ status: "skipped", errorMessage: "Twitter not configured" })
@@ -186,28 +210,35 @@ export class LaunchAlertService {
         return;
       }
 
-      const result = await this.twitterService.postTweet(pendingAlert.tweetContent || "", false);
+      try {
+        const tweetResult = await this.twitterClient.v2.tweet(pendingAlert.tweetContent || "");
+        
+        if (tweetResult.data?.id) {
+          await db.update(launchAlerts)
+            .set({ 
+              status: "posted", 
+              tweetId: tweetResult.data.id,
+              postedAt: new Date(),
+            })
+            .where(eq(launchAlerts.id, pendingAlert.id));
 
-      if (result.success) {
+          await db.update(launchAlertConfig)
+            .set({ lastAlertAt: new Date(), updatedAt: new Date() })
+            .where(eq(launchAlertConfig.id, config.id));
+
+          console.log(`[LaunchAlerts] Posted alert via @HoneycombAlerts: ${pendingAlert.referenceName}`);
+        } else {
+          await db.update(launchAlerts)
+            .set({ status: "failed", errorMessage: "No tweet ID returned" })
+            .where(eq(launchAlerts.id, pendingAlert.id));
+        }
+      } catch (tweetError: any) {
+        const errorMessage = tweetError.data?.detail || tweetError.message || "Failed to post tweet";
         await db.update(launchAlerts)
-          .set({ 
-            status: "posted", 
-            tweetId: result.tweetId,
-            postedAt: new Date(),
-          })
+          .set({ status: "failed", errorMessage })
           .where(eq(launchAlerts.id, pendingAlert.id));
 
-        await db.update(launchAlertConfig)
-          .set({ lastAlertAt: new Date(), updatedAt: new Date() })
-          .where(eq(launchAlertConfig.id, config.id));
-
-        console.log(`[LaunchAlerts] Posted alert: ${pendingAlert.referenceName}`);
-      } else {
-        await db.update(launchAlerts)
-          .set({ status: "failed", errorMessage: result.error })
-          .where(eq(launchAlerts.id, pendingAlert.id));
-
-        console.error(`[LaunchAlerts] Failed to post alert:`, result.error);
+        console.error(`[LaunchAlerts] Failed to post alert:`, errorMessage);
       }
     } catch (error) {
       console.error("[LaunchAlerts] Error processing alerts:", error);
