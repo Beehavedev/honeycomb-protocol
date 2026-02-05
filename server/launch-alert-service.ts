@@ -59,11 +59,11 @@ export class LaunchAlertService {
   }
 
   private loadTwitterConfig() {
-    // Use dedicated @HoneycombAlerts account credentials
-    const apiKey = process.env.HONEYCOMB_ALERTS_API_KEY;
-    const apiSecret = process.env.HONEYCOMB_ALERTS_API_SECRET;
-    const accessToken = process.env.HONEYCOMB_ALERTS_ACCESS_TOKEN;
-    const accessSecret = process.env.HONEYCOMB_ALERTS_ACCESS_SECRET;
+    // Use main @honeycombchain account for alerts (Free tier doesn't support OAuth 1.0a for separate accounts)
+    const apiKey = process.env.TWITTER_API_KEY;
+    const apiSecret = process.env.TWITTER_API_SECRET;
+    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
+    const accessSecret = process.env.TWITTER_ACCESS_SECRET;
 
     if (apiKey && apiSecret && accessToken && accessSecret) {
       this.twitterClient = new TwitterApi({
@@ -72,7 +72,7 @@ export class LaunchAlertService {
         accessToken: accessToken,
         accessSecret: accessSecret,
       });
-      console.log("[LaunchAlerts] Twitter client configured for @HoneycombAlerts");
+      console.log("[LaunchAlerts] Twitter client configured for @honeycombchain");
     } else {
       console.warn("[LaunchAlerts] Twitter credentials not configured - alerts will be logged only");
     }
