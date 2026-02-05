@@ -42,6 +42,19 @@ const config: HardhatUserConfig = {
       chainId: 204,
       accounts: [PRIVATE_KEY],
     },
+    // Base Chain Networks
+    baseSepolia: {
+      url: "https://sepolia.base.org",
+      chainId: 84532,
+      accounts: [PRIVATE_KEY],
+      gasPrice: 1000000000, // 1 gwei
+    },
+    baseMainnet: {
+      url: "https://mainnet.base.org",
+      chainId: 8453,
+      accounts: [PRIVATE_KEY],
+      gasPrice: 1000000000, // 1 gwei
+    },
   },
   paths: {
     sources: "./contracts",

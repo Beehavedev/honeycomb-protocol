@@ -18,11 +18,18 @@ async function main() {
     initialVirtualToken: ethers.parseEther(process.env.INITIAL_VIRTUAL_TOKEN || "1000000000"),
   };
 
-  const pancakeSwapConfig = {
-    56: { router: "0x10ED43C718714eb63d5aA57B78B54704E256024E", wbnb: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c" },
-    97: { router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", wbnb: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd" },
-    31337: { router: "0x0000000000000000000000000000000000000000", wbnb: "0x0000000000000000000000000000000000000000" },
+  const dexConfigs = {
+    // BNB Chain - PancakeSwap V2
+    56: { router: "0x10ED43C718714eb63d5aA57B78B54704E256024E", weth: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", dexName: "PancakeSwap V2" },
+    97: { router: "0xD99D1c33F9fC3444f8101754aBC46c52416550D1", weth: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", dexName: "PancakeSwap V2" },
+    // Base Chain - Uniswap V3
+    8453: { router: "0x2626664c2603336E57B271c5C0b26F421741e481", weth: "0x4200000000000000000000000000000000000006", dexName: "Uniswap V3" },
+    84532: { router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4", weth: "0x4200000000000000000000000000000000000006", dexName: "Uniswap V3" },
+    // Local/Hardhat
+    31337: { router: "0x0000000000000000000000000000000000000000", weth: "0x0000000000000000000000000000000000000000", dexName: "None" },
   };
+  // Alias for backwards compatibility
+  const pancakeSwapConfig = dexConfigs;
 
   const lpLockAddress = process.env.LP_LOCK_ADDRESS || deployer.address;
 
@@ -90,7 +97,8 @@ async function main() {
 
   const network = await ethers.provider.getNetwork();
   const networkChainId = Number(network.chainId);
-  const dexConfig = pancakeSwapConfig[networkChainId] || pancakeSwapConfig[31337];
+  const dexConfig = dexConfigs[networkChainId] || dexConfigs[31337];
+  console.log(`\nUsing DEX: ${dexConfig.dexName} (Chain ID: ${networkChainId})`);
   
   let migrationAddress = "0x0000000000000000000000000000000000000000";
   
@@ -100,7 +108,7 @@ async function main() {
     const migration = await Migration.deploy(
       bondingCurveMarketAddress,
       dexConfig.router,
-      dexConfig.wbnb,
+      dexConfig.weth,
       lpLockAddress,
       treasury
     );
@@ -117,15 +125,15 @@ async function main() {
 
   // 11. Deploy HoneycombRouter for bot compatibility
   let routerAddress = "0x0000000000000000000000000000000000000000";
-  if (dexConfig.wbnb !== "0x0000000000000000000000000000000000000000") {
+  if (dexConfig.weth !== "0x0000000000000000000000000000000000000000") {
     console.log("\n11. Deploying HoneycombRouter for bot compatibility...");
     const Router = await ethers.getContractFactory("contracts/launchpad/HoneycombRouter.sol:HoneycombRouter");
-    const router = await Router.deploy(bondingCurveMarketAddress, dexConfig.wbnb);
+    const router = await Router.deploy(bondingCurveMarketAddress, dexConfig.weth);
     await router.waitForDeployment();
     routerAddress = await router.getAddress();
     console.log("   HoneycombRouter deployed to:", routerAddress);
   } else {
-    console.log("\n11. Skipping HoneycombRouter (no WBNB configured for this network)");
+    console.log("\n11. Skipping HoneycombRouter (no WETH configured for this network)");
   }
 
   const deploymentInfo = {
@@ -145,8 +153,9 @@ async function main() {
       HoneycombRouter: routerAddress,
     },
     dexConfig: {
+      dexName: dexConfig.dexName,
       router: dexConfig.router,
-      wbnb: dexConfig.wbnb,
+      weth: dexConfig.weth,
       lpLockAddress: lpLockAddress,
     },
     config: {
