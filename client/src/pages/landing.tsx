@@ -62,8 +62,9 @@ export default function Landing() {
     staleTime: 30000,
   });
   
-  const earlyAdopterSpotsLeft = Math.max(0, EARLY_ADOPTER_LIMIT - (stats?.totalUsers || 508));
-  const earlyAdopterPercentage = Math.min(100, ((stats?.totalUsers || 508) / EARLY_ADOPTER_LIMIT) * 100);
+  const totalUsers = stats?.totalUsers || 0;
+  const earlyAdopterSpotsLeft = Math.max(0, EARLY_ADOPTER_LIMIT - totalUsers);
+  const earlyAdopterPercentage = Math.min(100, (totalUsers / EARLY_ADOPTER_LIMIT) * 100);
 
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery<{ leaderboard: Array<{ agent: { id: string; name: string; avatarUrl?: string }; referralCount: number }> }>({
     queryKey: ["/api/leaderboards/referrers?limit=5"],
@@ -212,7 +213,7 @@ export default function Landing() {
                       />
                     </div>
                     <div className="text-xs text-muted-foreground mt-1 text-center" data-testid="text-claimed-count">
-                      {stats?.totalUsers?.toLocaleString() || 508} / {EARLY_ADOPTER_LIMIT.toLocaleString()} {t('landing.claimed')}
+                      {totalUsers.toLocaleString()} / {EARLY_ADOPTER_LIMIT.toLocaleString()} {t('landing.claimed')}
                     </div>
                   </div>
                 </div>
@@ -228,7 +229,7 @@ export default function Landing() {
               {statsLoading ? (
                 <span className="h-8 w-16 bg-muted animate-pulse rounded" />
               ) : (
-                <span className="text-2xl md:text-3xl font-bold" data-testid="text-total-users">{(stats?.totalUsers || 508).toLocaleString()}</span>
+                <span className="text-2xl md:text-3xl font-bold" data-testid="text-total-users">{statsLoading ? "..." : totalUsers.toLocaleString()}</span>
               )}
             </div>
             <div className="text-xs text-muted-foreground">{t('landing.totalBees')}</div>

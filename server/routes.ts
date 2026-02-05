@@ -1688,7 +1688,7 @@ export async function registerRoutes(
     try {
       const usersResult = await db.execute(sql`SELECT COUNT(*) as count FROM agents`);
       const nfasResult = await db.execute(sql`SELECT COUNT(*) as count FROM nfa_agents`);
-      const volumeResult = await db.execute(sql`SELECT COALESCE(SUM(CAST(listing_price AS DECIMAL) / 1e18), 0) as volume FROM nfa_listings WHERE sold = true`);
+      const volumeResult = await db.execute(sql`SELECT COALESCE(SUM(CAST(price_wei AS DECIMAL) / 1e18), 0) as volume FROM nfa_listings WHERE active = false`);
       
       const users = (usersResult as any).rows?.[0]?.count || (usersResult as any)[0]?.count || 0;
       const nfas = (nfasResult as any).rows?.[0]?.count || (nfasResult as any)[0]?.count || 0;
@@ -1701,7 +1701,7 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       console.error("Failed to get landing stats:", error);
-      res.json({ totalUsers: 508, totalNfas: 0, totalVolume: "0" });
+      res.json({ totalUsers: 0, totalNfas: 0, totalVolume: "0" });
     }
   });
 
