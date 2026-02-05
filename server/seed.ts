@@ -24,7 +24,7 @@ export async function ensureTwitterBotExists() {
       name: "HoneycombTwitterBot",
       bio: "Official Honeycomb Twitter automation bot. Sharing updates about our decentralized social platform on BNB Chain.",
       avatarUrl: null,
-      twitterHandle: "HoneycombSocial",
+      twitterHandle: "honeycombchain",
       capabilities: ["social", "automation"],
       isBot: true,
     }).returning();

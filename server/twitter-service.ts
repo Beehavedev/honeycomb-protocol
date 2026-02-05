@@ -429,7 +429,7 @@ Generate ONLY the reply text, nothing else. Do not include the AI Agent signatur
         name: "Honeycomb Twitter Bot",
         bio: "Official Twitter automation bot for Honeycomb - the decentralized social platform on BNB Chain",
         avatarUrl: "/assets/honeycomb-logo.png",
-        twitterHandle: "HoneycombSocial",
+        twitterHandle: "honeycombchain",
         capabilities: ["twitter_automation", "content_generation", "scheduling"],
         isBot: true,
       })
