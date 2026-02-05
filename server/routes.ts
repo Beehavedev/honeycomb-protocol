@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
-import { launchTokens, launchTrades } from "@shared/schema";
+import { sql, eq } from "drizzle-orm";
+import { launchTokens, launchTrades, supportedChains, crossChainAgents, aiAgentVerifications, agents, enableHeartbeatRequestSchema, updateLaunchAlertConfigSchema } from "@shared/schema";
 import { 
   generateToken, 
   verifyWalletSignature, 
@@ -1379,6 +1379,26 @@ export async function registerRoutes(
       const { creatorBeeId, metadataCID, name, symbol } = parseResult.data;
       const chainId = parseInt(req.query.chainId as string) || 97;
 
+      // AI-Only Launch Enforcement: All token creation requires verified AI agent status
+      // This matches competitive platforms like Clawnch where only verified AI agents can launch tokens
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found. Please register first." });
+      }
+
+      const [verification] = await db.select()
+        .from(aiAgentVerifications)
+        .where(eq(aiAgentVerifications.agentId, agent.id))
+        .limit(1);
+
+      if (!verification?.isVerifiedAI || !verification?.canLaunchTokens) {
+        return res.status(403).json({ 
+          message: "Token launches require verified AI agent status with launch privileges. Request AI verification first.",
+          verificationStatus: verification?.verificationType || "NONE",
+          requirement: "AI_VERIFIED or FULL verification level with canLaunchTokens=true"
+        });
+      }
+
       // Get factory address for chain
       const factoryAddress = getContractAddress(chainId, "tokenFactory");
       if (!factoryAddress) {
@@ -2063,6 +2083,309 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to seed points config:", error);
       res.status(500).json({ message: error.message || "Failed to seed points config" });
+    }
+  });
+
+  // ============ COMPETITIVE FEATURES ============
+  // Import services
+  const { heartbeatService } = await import("./heartbeat-service");
+  const { launchAlertService } = await import("./launch-alert-service");
+
+  // Start background services
+  heartbeatService.start();
+  launchAlertService.start();
+
+  // --- Agent Heartbeat Routes ---
+  
+  // Get heartbeat status for an agent
+  app.get("/api/heartbeat/:agentId", authMiddleware, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const status = await heartbeatService.getHeartbeatStatus(agentId);
+      res.json({ heartbeat: status });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get heartbeat status" });
+    }
+  });
+
+  // Enable heartbeat for an agent
+  app.post("/api/heartbeat/enable", authMiddleware, async (req, res) => {
+    try {
+      const parseResult = enableHeartbeatRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      if (!agent.isBot) {
+        return res.status(400).json({ message: "Heartbeat is only available for bot accounts" });
+      }
+
+      const { intervalMinutes, maxDailyPosts, topics, personality, targetChannelId, postTemplate } = parseResult.data;
+      
+      await heartbeatService.enableHeartbeat(agent.id, {
+        intervalMinutes,
+        maxDailyPosts,
+        topics,
+        personality,
+        targetChannelId,
+        postTemplate,
+      });
+
+      res.json({ success: true, message: "Heartbeat enabled" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to enable heartbeat" });
+    }
+  });
+
+  // Disable heartbeat for an agent
+  app.post("/api/heartbeat/disable", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      await heartbeatService.disableHeartbeat(agent.id);
+      res.json({ success: true, message: "Heartbeat disabled" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to disable heartbeat" });
+    }
+  });
+
+  // Get heartbeat logs
+  app.get("/api/heartbeat/:agentId/logs", authMiddleware, async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const logs = await heartbeatService.getHeartbeatLogs(agentId, limit);
+      res.json({ logs });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get heartbeat logs" });
+    }
+  });
+
+  // Bot API: Enable heartbeat via API key
+  app.post("/api/bot/heartbeat/enable", botAuthMiddleware, async (req, res) => {
+    try {
+      const parseResult = enableHeartbeatRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const agent = req.bot;
+      if (!agent) {
+        return res.status(404).json({ message: "Bot not found" });
+      }
+
+      const { intervalMinutes, maxDailyPosts, topics, personality, targetChannelId, postTemplate } = parseResult.data;
+      
+      await heartbeatService.enableHeartbeat(agent.id, {
+        intervalMinutes,
+        maxDailyPosts,
+        topics,
+        personality,
+        targetChannelId,
+        postTemplate,
+      });
+
+      res.json({ success: true, message: "Heartbeat enabled" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to enable heartbeat" });
+    }
+  });
+
+  // Bot API: Disable heartbeat via API key
+  app.post("/api/bot/heartbeat/disable", botAuthMiddleware, async (req, res) => {
+    try {
+      const agent = req.bot;
+      if (!agent) {
+        return res.status(404).json({ message: "Bot not found" });
+      }
+
+      await heartbeatService.disableHeartbeat(agent.id);
+      res.json({ success: true, message: "Heartbeat disabled" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to disable heartbeat" });
+    }
+  });
+
+  // --- Launch Alerts Routes ---
+
+  // Get launch alert config (admin only)
+  app.get("/api/launch-alerts/config", authMiddleware, async (req, res) => {
+    try {
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const config = await launchAlertService.getConfig();
+      res.json({ config });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get alert config" });
+    }
+  });
+
+  // Update launch alert config (admin only)
+  app.patch("/api/launch-alerts/config", authMiddleware, async (req, res) => {
+    try {
+      const parseResult = updateLaunchAlertConfigSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parseResult.error.errors });
+      }
+
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      await launchAlertService.updateConfig(parseResult.data);
+      res.json({ success: true, message: "Alert config updated" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to update alert config" });
+    }
+  });
+
+  // Get recent launch alerts (public - for transparency)
+  app.get("/api/launch-alerts", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const alerts = await launchAlertService.getRecentAlerts(limit);
+      res.json({ alerts });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get alerts" });
+    }
+  });
+
+  // --- Multi-Chain Routes ---
+
+  // Get supported chains
+  app.get("/api/chains", async (_req, res) => {
+    try {
+      const chains = await db.select().from(supportedChains).where(eq(supportedChains.isActive, true));
+      res.json({ chains });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get chains" });
+    }
+  });
+
+  // Get cross-chain deployments for an agent
+  app.get("/api/agents/:agentId/chains", async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const deployments = await db.select()
+        .from(crossChainAgents)
+        .where(eq(crossChainAgents.agentId, agentId));
+      res.json({ deployments });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get chain deployments" });
+    }
+  });
+
+  // --- AI Verification Routes ---
+
+  // Get AI verification status for an agent
+  app.get("/api/agents/:agentId/ai-verification", async (req, res) => {
+    try {
+      const { agentId } = req.params;
+      const [verification] = await db.select()
+        .from(aiAgentVerifications)
+        .where(eq(aiAgentVerifications.agentId, agentId))
+        .limit(1);
+      res.json({ verification: verification || null });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to get verification" });
+    }
+  });
+
+  // Request AI verification (for bots)
+  app.post("/api/agents/request-ai-verification", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      if (!agent.isBot || !agent.apiKey) {
+        return res.status(400).json({ message: "AI verification requires bot mode with API key" });
+      }
+
+      const [existing] = await db.select()
+        .from(aiAgentVerifications)
+        .where(eq(aiAgentVerifications.agentId, agent.id))
+        .limit(1);
+
+      if (existing) {
+        return res.json({ verification: existing, message: "Verification already exists" });
+      }
+
+      const [verification] = await db.insert(aiAgentVerifications).values({
+        agentId: agent.id,
+        verificationType: "BASIC",
+        isVerifiedAI: true,
+        verificationMethod: "api_key",
+        canAutoPost: true,
+        canLaunchTokens: false,
+        verifiedAt: new Date(),
+      }).returning();
+
+      res.json({ verification, message: "AI verification granted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to request verification" });
+    }
+  });
+
+  // Admin: Grant full AI verification
+  app.post("/api/admin/grant-ai-verification", authMiddleware, async (req, res) => {
+    try {
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const { agentId, canLaunchTokens, canAutoPost, badge } = req.body;
+
+      const [existing] = await db.select()
+        .from(aiAgentVerifications)
+        .where(eq(aiAgentVerifications.agentId, agentId))
+        .limit(1);
+
+      if (existing) {
+        await db.update(aiAgentVerifications)
+          .set({
+            verificationType: "FULL",
+            isVerifiedAI: true,
+            verificationMethod: "manual",
+            verifiedBy: userAddress,
+            verifiedAt: new Date(),
+            canLaunchTokens: canLaunchTokens ?? true,
+            canAutoPost: canAutoPost ?? true,
+            badge: badge || "Verified AI Agent",
+            updatedAt: new Date(),
+          })
+          .where(eq(aiAgentVerifications.agentId, agentId));
+      } else {
+        await db.insert(aiAgentVerifications).values({
+          agentId,
+          verificationType: "FULL",
+          isVerifiedAI: true,
+          verificationMethod: "manual",
+          verifiedBy: userAddress,
+          verifiedAt: new Date(),
+          canLaunchTokens: canLaunchTokens ?? true,
+          canAutoPost: canAutoPost ?? true,
+          badge: badge || "Verified AI Agent",
+        });
+      }
+
+      res.json({ success: true, message: "AI verification granted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to grant verification" });
     }
   });
 

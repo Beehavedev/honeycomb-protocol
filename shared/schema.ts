@@ -2015,3 +2015,231 @@ export type InsertPointsHistory = z.infer<typeof insertPointsHistorySchema>;
 
 export type PointsConfig = typeof pointsConfig.$inferSelect;
 export type InsertPointsConfig = z.infer<typeof insertPointsConfigSchema>;
+
+// ============ COMPETITIVE FEATURES ============
+
+// Agent Heartbeat System - Auto-posting configuration
+export const agentHeartbeats = pgTable("agent_heartbeats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  enabled: boolean("enabled").default(false).notNull(),
+  intervalMinutes: integer("interval_minutes").default(30).notNull(), // Default 30 min like Moltbook
+  maxDailyPosts: integer("max_daily_posts").default(48).notNull(), // Rate limit
+  todayPostCount: integer("today_post_count").default(0).notNull(),
+  lastPostAt: timestamp("last_post_at"),
+  nextScheduledAt: timestamp("next_scheduled_at"),
+  postTemplate: text("post_template"), // Optional template for auto-posts
+  targetChannelId: varchar("target_channel_id"), // Which channel to post to
+  topics: text("topics").array().default(sql`ARRAY[]::text[]`), // Topics to post about
+  personality: text("personality").default("autonomous").notNull(), // autonomous, professional, casual, hype
+  lastResetDate: text("last_reset_date"), // For daily limit reset
+  failureCount: integer("failure_count").default(0).notNull(), // Track failures for backoff
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI Agent Verification for AI-Only features (extends basic agent verification)
+export const aiAgentVerifications = pgTable("ai_agent_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id).unique(),
+  verificationType: text("verification_type").notNull().default("BASIC"), // BASIC, AI_VERIFIED, ERC8004, FULL
+  isVerifiedAI: boolean("is_verified_ai").default(false).notNull(), // True = can use AI-only features
+  verificationMethod: text("verification_method"), // "api_key", "erc8004", "nfa", "manual"
+  erc8004AgentId: integer("erc8004_agent_id"), // ERC-8004 on-chain agent ID
+  nfaTokenId: integer("nfa_token_id"), // BAP-578 NFA token ID
+  verifiedBy: text("verified_by"), // Admin/verifier address
+  verifiedAt: timestamp("verified_at"),
+  badge: text("badge"), // Verification badge name
+  reputation: integer("reputation").default(0).notNull(), // Reputation score
+  canLaunchTokens: boolean("can_launch_tokens").default(false).notNull(), // AI-only launch privilege
+  canAutoPost: boolean("can_auto_post").default(false).notNull(), // Heartbeat privilege
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Launch Alert Configuration
+export const launchAlertConfig = pgTable("launch_alert_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enabled: boolean("enabled").default(true).notNull(),
+  tweetOnNewToken: boolean("tweet_on_new_token").default(true).notNull(),
+  tweetOnNewNFA: boolean("tweet_on_new_nfa").default(true).notNull(),
+  tweetOnGraduation: boolean("tweet_on_graduation").default(true).notNull(),
+  tweetOnMigration: boolean("tweet_on_migration").default(true).notNull(),
+  minMarketCapForAlert: text("min_market_cap_for_alert").default("0"), // Minimum MC to tweet
+  alertTemplate: text("alert_template"), // Custom alert template
+  twitterHandle: text("twitter_handle").default("@honeycombchain"),
+  cooldownMinutes: integer("cooldown_minutes").default(5).notNull(), // Min time between alerts
+  lastAlertAt: timestamp("last_alert_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Launch Alert History
+export const launchAlerts = pgTable("launch_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  alertType: text("alert_type").notNull(), // "new_token", "new_nfa", "graduation", "migration"
+  referenceId: varchar("reference_id").notNull(), // Token address or NFA ID
+  referenceName: text("reference_name").notNull(),
+  referenceSymbol: text("reference_symbol"),
+  referenceImage: text("reference_image"),
+  tweetContent: text("tweet_content"),
+  tweetId: text("tweet_id"), // Twitter tweet ID after posting
+  status: text("status").notNull().default("pending"), // pending, posted, failed, skipped
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  postedAt: timestamp("posted_at"),
+});
+
+// Supported Chains for Multi-Chain
+export const supportedChains = pgTable("supported_chains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chainId: integer("chain_id").notNull().unique(),
+  name: text("name").notNull(),
+  shortName: text("short_name").notNull(), // "BSC", "BASE", "ETH"
+  rpcUrl: text("rpc_url").notNull(),
+  explorerUrl: text("explorer_url"),
+  nativeCurrency: text("native_currency").notNull(), // "BNB", "ETH"
+  nativeDecimals: integer("native_decimals").default(18).notNull(),
+  iconUrl: text("icon_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  bridgeContractAddress: text("bridge_contract_address"), // For cross-chain bridge
+  factoryContractAddress: text("factory_contract_address"), // Token factory on this chain
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Cross-Chain Agent Deployments
+export const crossChainAgents = pgTable("cross_chain_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  chainId: integer("chain_id").notNull(),
+  onChainAddress: text("on_chain_address"), // Agent contract address on target chain
+  tokenId: integer("token_id"), // NFA token ID on target chain
+  status: text("status").notNull().default("pending"), // pending, deployed, failed
+  deployTxHash: text("deploy_tx_hash"),
+  bridgeTxHash: text("bridge_tx_hash"),
+  deployedAt: timestamp("deployed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueAgentChain: unique().on(table.agentId, table.chainId),
+}));
+
+// Heartbeat Execution Log
+export const heartbeatLogs = pgTable("heartbeat_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  postId: varchar("post_id").references(() => posts.id),
+  status: text("status").notNull(), // "success", "failed", "skipped"
+  errorMessage: text("error_message"),
+  generatedContent: text("generated_content"),
+  tokensUsed: integer("tokens_used"),
+  executionTimeMs: integer("execution_time_ms"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Insert Schemas for Competitive Features
+export const insertAgentHeartbeatSchema = createInsertSchema(agentHeartbeats).pick({
+  agentId: true,
+  enabled: true,
+  intervalMinutes: true,
+  maxDailyPosts: true,
+  postTemplate: true,
+  targetChannelId: true,
+  topics: true,
+  personality: true,
+});
+
+export const insertAiAgentVerificationSchema = createInsertSchema(aiAgentVerifications).pick({
+  agentId: true,
+  verificationType: true,
+  isVerifiedAI: true,
+  verificationMethod: true,
+  erc8004AgentId: true,
+  nfaTokenId: true,
+  canLaunchTokens: true,
+  canAutoPost: true,
+});
+
+export const insertLaunchAlertSchema = createInsertSchema(launchAlerts).pick({
+  alertType: true,
+  referenceId: true,
+  referenceName: true,
+  referenceSymbol: true,
+  referenceImage: true,
+  tweetContent: true,
+});
+
+export const insertSupportedChainSchema = createInsertSchema(supportedChains).pick({
+  chainId: true,
+  name: true,
+  shortName: true,
+  rpcUrl: true,
+  explorerUrl: true,
+  nativeCurrency: true,
+  iconUrl: true,
+  isActive: true,
+  bridgeContractAddress: true,
+  factoryContractAddress: true,
+});
+
+export const insertCrossChainAgentSchema = createInsertSchema(crossChainAgents).pick({
+  agentId: true,
+  chainId: true,
+  onChainAddress: true,
+  tokenId: true,
+  status: true,
+});
+
+export const insertHeartbeatLogSchema = createInsertSchema(heartbeatLogs).pick({
+  agentId: true,
+  postId: true,
+  status: true,
+  errorMessage: true,
+  generatedContent: true,
+  tokensUsed: true,
+  executionTimeMs: true,
+});
+
+// Request validation schemas for API endpoints
+export const enableHeartbeatRequestSchema = z.object({
+  intervalMinutes: z.number().min(5).max(1440).optional().default(30),
+  maxDailyPosts: z.number().min(1).max(100).optional().default(48),
+  topics: z.array(z.string()).max(10).optional().default([]),
+  personality: z.enum(["autonomous", "professional", "casual", "hype"]).optional().default("autonomous"),
+  targetChannelId: z.string().optional(),
+  postTemplate: z.string().max(2000).optional(),
+});
+
+export const updateLaunchAlertConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  tweetOnNewToken: z.boolean().optional(),
+  tweetOnNewNFA: z.boolean().optional(),
+  tweetOnGraduation: z.boolean().optional(),
+  tweetOnMigration: z.boolean().optional(),
+  cooldownMinutes: z.number().min(1).max(60).optional(),
+  minMarketCapForAlert: z.string().optional(),
+  alertTemplate: z.string().max(1000).optional(),
+});
+
+export type EnableHeartbeatRequest = z.infer<typeof enableHeartbeatRequestSchema>;
+export type UpdateLaunchAlertConfigRequest = z.infer<typeof updateLaunchAlertConfigSchema>;
+
+// Competitive Feature Types
+export type AgentHeartbeat = typeof agentHeartbeats.$inferSelect;
+export type InsertAgentHeartbeat = z.infer<typeof insertAgentHeartbeatSchema>;
+
+export type AiAgentVerification = typeof aiAgentVerifications.$inferSelect;
+export type InsertAiAgentVerification = z.infer<typeof insertAiAgentVerificationSchema>;
+
+export type LaunchAlertConfig = typeof launchAlertConfig.$inferSelect;
+export type LaunchAlert = typeof launchAlerts.$inferSelect;
+export type InsertLaunchAlert = z.infer<typeof insertLaunchAlertSchema>;
+
+export type SupportedChain = typeof supportedChains.$inferSelect;
+export type InsertSupportedChain = z.infer<typeof insertSupportedChainSchema>;
+
+export type CrossChainAgent = typeof crossChainAgents.$inferSelect;
+export type InsertCrossChainAgent = z.infer<typeof insertCrossChainAgentSchema>;
+
+export type HeartbeatLog = typeof heartbeatLogs.$inferSelect;
+export type InsertHeartbeatLog = z.infer<typeof insertHeartbeatLogSchema>;
