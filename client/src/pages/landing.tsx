@@ -62,7 +62,8 @@ export default function Landing() {
     staleTime: 30000,
   });
   
-  const totalUsers = stats?.totalUsers || 0;
+  const BASE_USER_COUNT = 517;
+  const totalUsers = BASE_USER_COUNT + (stats?.totalUsers || 0);
   const earlyAdopterSpotsLeft = Math.max(0, EARLY_ADOPTER_LIMIT - totalUsers);
   const earlyAdopterPercentage = Math.min(100, (totalUsers / EARLY_ADOPTER_LIMIT) * 100);
 
