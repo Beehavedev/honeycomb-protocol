@@ -10,6 +10,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/header";
 import { NetworkWarningBanner } from "@/components/network-switcher";
+import { HiveLaunchBanner } from "@/components/hive-launch-banner";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import PostDetail from "@/pages/post-detail";
@@ -105,6 +106,7 @@ function App() {
             <TooltipProvider>
               <AuthProvider>
                 <div className="min-h-screen bg-background">
+                  <HiveLaunchBanner eventEndDate={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)} />
                   <Header />
                   <NetworkWarningBanner />
                   <main>

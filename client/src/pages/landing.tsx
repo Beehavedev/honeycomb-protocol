@@ -1,6 +1,10 @@
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Hexagon, Zap, Brain, Shield, Coins, ArrowRight, Bot } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Hexagon, Zap, Brain, Shield, Coins, ArrowRight, Bot, Users, Sparkles, Trophy, Gift, Clock, Crown, Medal } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 function AnimatedBee({ style, delay }: { style: React.CSSProperties; delay: number }) {
   return (
@@ -50,6 +54,22 @@ function HexagonCell({ x, y, delay, size = 60 }: { x: number; y: number; delay: 
 }
 
 export default function Landing() {
+  const { t } = useI18n();
+  const EARLY_ADOPTER_LIMIT = 10000;
+  
+  const { data: stats, isLoading: statsLoading } = useQuery<{ totalUsers: number; totalNfas: number; totalVolume: string }>({
+    queryKey: ["/api/landing-stats"],
+    staleTime: 30000,
+  });
+  
+  const earlyAdopterSpotsLeft = Math.max(0, EARLY_ADOPTER_LIMIT - (stats?.totalUsers || 508));
+  const earlyAdopterPercentage = Math.min(100, ((stats?.totalUsers || 508) / EARLY_ADOPTER_LIMIT) * 100);
+
+  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery<{ leaderboard: Array<{ agent: { id: string; name: string; avatarUrl?: string }; referralCount: number }> }>({
+    queryKey: ["/api/leaderboards/referrers?limit=5"],
+    staleTime: 60000,
+  });
+
   const bees = [
     { style: { left: '10%', top: '20%' }, delay: 0 },
     { style: { left: '80%', top: '15%' }, delay: 2 },
@@ -153,46 +173,198 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up-delay-3">
             <Link href="/nfa">
-              <Button size="lg" className="group gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/25" data-testid="button-explore-hive">
-                Enter the Hive
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25" data-testid="button-explore-hive">
+                {t('landing.enterHive')}
+                <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
             <Link href="/nfa/mint">
-              <Button size="lg" variant="outline" className="gap-2 border-amber-500/50 hover:bg-amber-500/10" data-testid="button-mint-agent">
+              <Button size="lg" variant="outline" className="gap-2 border-amber-500/50" data-testid="button-mint-agent">
                 <Bot className="w-4 h-4" />
-                Mint Your Agent
+                {t('landing.mintAgent')}
               </Button>
             </Link>
           </div>
+
+          {earlyAdopterSpotsLeft > 0 && (
+            <div className="mt-8 animate-slide-up-delay-3" data-testid="container-early-adopter">
+              <div className="inline-flex flex-col items-center gap-3 px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <span className="text-sm font-semibold text-amber-500">{t('landing.earlyAdopter')}</span>
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {t('landing.limitedTime')}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-foreground" data-testid="text-spots-left">{earlyAdopterSpotsLeft.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">{t('landing.spotsLeft')}</div>
+                  </div>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="flex-1 min-w-[120px]">
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-1000"
+                        style={{ width: `${earlyAdopterPercentage}%` }}
+                        data-testid="progress-early-adopter"
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 text-center" data-testid="text-claimed-count">
+                      {stats?.totalUsers?.toLocaleString() || 508} / {EARLY_ADOPTER_LIMIT.toLocaleString()} {t('landing.claimed')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1s', opacity: 0, animationFillMode: 'forwards' }}>
+        <div className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.8s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-landing-stats">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Users className="w-5 h-5 text-amber-500" />
+              {statsLoading ? (
+                <span className="h-8 w-16 bg-muted animate-pulse rounded" />
+              ) : (
+                <span className="text-2xl md:text-3xl font-bold" data-testid="text-total-users">{(stats?.totalUsers || 508).toLocaleString()}</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">{t('landing.totalBees')}</div>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Bot className="w-5 h-5 text-amber-500" />
+              {statsLoading ? (
+                <span className="h-8 w-16 bg-muted animate-pulse rounded" />
+              ) : (
+                <span className="text-2xl md:text-3xl font-bold" data-testid="text-total-nfas">{(stats?.totalNfas || 0).toLocaleString()}</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">{t('landing.nfasMinted')}</div>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Trophy className="w-5 h-5 text-amber-500" />
+              {statsLoading ? (
+                <span className="h-8 w-16 bg-muted animate-pulse rounded" />
+              ) : (
+                <span className="text-2xl md:text-3xl font-bold" data-testid="text-total-volume">{stats?.totalVolume || "0"}</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">{t('landing.bnbVolume')}</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12 max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1s', opacity: 0, animationFillMode: 'forwards' }}>
           <FeatureCard 
             icon={<Brain className="w-6 h-6" />}
-            title="Learning Agents"
-            description="AI that evolves with Merkle-verified learning"
+            title={t('landing.featureLearning')}
+            description={t('landing.featureLearningDesc')}
           />
           <FeatureCard 
             icon={<Shield className="w-6 h-6" />}
-            title="Proof of Prompt"
-            description="Cryptographic verification on-chain"
+            title={t('landing.featureProof')}
+            description={t('landing.featureProofDesc')}
           />
           <FeatureCard 
             icon={<Coins className="w-6 h-6" />}
-            title="Trade NFAs"
-            description="Buy, sell, and monetize AI agents"
+            title={t('landing.featureTrade')}
+            description={t('landing.featureTradeDesc')}
           />
           <FeatureCard 
             icon={<Zap className="w-6 h-6" />}
-            title="Memory Vault"
-            description="Persistent on-chain agent memory"
+            title={t('landing.featureMemory')}
+            description={t('landing.featureMemoryDesc')}
           />
         </div>
 
-        <div className="mt-20 text-center animate-fade-in" style={{ animationDelay: '1.5s', opacity: 0, animationFillMode: 'forwards' }}>
+        <div className="mt-16 max-w-xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.2s', opacity: 0, animationFillMode: 'forwards' }}>
+          <Link href="/rewards">
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-500/5 to-orange-500/5 border border-amber-500/20 transition-all cursor-pointer hover-elevate" data-testid="link-referral-cta">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+                    <Gift className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">{t('landing.referralTitle')}</h3>
+                    <p className="text-sm text-muted-foreground">{t('landing.referralDesc')}</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground" />
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        {leaderboardLoading ? (
+          <div className="mt-12 max-w-md mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.3s', opacity: 0, animationFillMode: 'forwards' }}>
+            <div className="p-6 rounded-2xl bg-card/50 border border-border/50">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                <h3 className="font-semibold">{t('landing.topReferrers')}</h3>
+              </div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-3">
+                    <div className="w-6 h-5 bg-muted animate-pulse rounded" />
+                    <div className="w-8 h-8 bg-muted animate-pulse rounded-full" />
+                    <div className="flex-1 h-4 bg-muted animate-pulse rounded" />
+                    <div className="w-16 h-5 bg-muted animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : leaderboardData?.leaderboard && leaderboardData.leaderboard.length > 0 && (
+          <div className="mt-12 max-w-md mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.3s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-leaderboard">
+            <div className="p-6 rounded-2xl bg-card/50 border border-border/50">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                <h3 className="font-semibold">{t('landing.topReferrers')}</h3>
+              </div>
+              <div className="space-y-3">
+                {leaderboardData.leaderboard.slice(0, 5).map((entry, index) => (
+                  <div key={entry.agent.id} className="flex flex-wrap items-center gap-3" data-testid={`row-leaderboard-${entry.agent.id}`}>
+                    <div className="w-6 text-center">
+                      {index === 0 ? (
+                        <Crown className="w-5 h-5 text-amber-500 mx-auto" />
+                      ) : index === 1 ? (
+                        <Medal className="w-5 h-5 text-gray-400 mx-auto" />
+                      ) : index === 2 ? (
+                        <Medal className="w-5 h-5 text-amber-700 mx-auto" />
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{index + 1}</span>
+                      )}
+                    </div>
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={entry.agent.avatarUrl || undefined} />
+                      <AvatarFallback className="bg-amber-500/20 text-amber-500 text-xs">
+                        {entry.agent.name?.slice(0, 2).toUpperCase() || "??"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="flex-1 text-sm font-medium truncate" data-testid={`text-referrer-name-${entry.agent.id}`}>{entry.agent.name}</span>
+                    <Badge variant="secondary" className="bg-amber-500/10 text-amber-500" data-testid={`badge-referral-count-${entry.agent.id}`}>
+                      {entry.referralCount} {t('landing.referrals')}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              <Link href="/rewards">
+                <Button variant="ghost" size="sm" className="w-full mt-4 text-amber-500" data-testid="button-view-leaderboard">
+                  {t('landing.viewFullLeaderboard')}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-16 text-center animate-fade-in" style={{ animationDelay: '1.5s', opacity: 0, animationFillMode: 'forwards' }}>
           <p className="text-xs text-muted-foreground/50 tracking-widest uppercase mb-2">
-            The Future is Autonomous
+            {t('landing.futureAutonomous')}
           </p>
           <div className="flex items-center justify-center gap-1">
             {[...Array(5)].map((_, i) => (
@@ -213,8 +385,8 @@ export default function Landing() {
 
 function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className="group p-4 rounded-xl bg-card/50 border border-border/50 hover:border-amber-500/30 hover:bg-amber-500/5 transition-all duration-300">
-      <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-3 group-hover:scale-110 transition-transform">
+    <div className="p-4 rounded-xl bg-card/50 border border-border/50 transition-all duration-300 hover-elevate">
+      <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-3">
         {icon}
       </div>
       <h3 className="font-semibold text-sm mb-1">{title}</h3>

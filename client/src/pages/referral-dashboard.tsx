@@ -10,6 +10,7 @@ import {
   Users, Link, Copy, Share2, Trophy, Crown, Award, 
   TrendingUp, Star, ChevronRight, Check, Hexagon, Coins
 } from "lucide-react";
+import { SiX, SiTelegram } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -138,6 +139,18 @@ export default function ReferralDashboard() {
     } else {
       copyToClipboard();
     }
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(t('rewards.shareTextTwitter'));
+    const url = encodeURIComponent(referralUrl);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank");
+  };
+
+  const shareToTelegram = () => {
+    const text = encodeURIComponent(t('rewards.shareTextTelegram'));
+    const url = encodeURIComponent(referralUrl);
+    window.open(`https://t.me/share/url?url=${url}&text=${text}`, "_blank");
   };
 
   const isLoading = linkLoading || statsLoading || eaLoading;
@@ -279,12 +292,29 @@ export default function ReferralDashboard() {
                   >
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                  <Button onClick={shareReferral} data-testid="button-share-referral">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    {t('rewards.share')}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button 
+                    onClick={shareToTwitter} 
+                    className="flex-1 bg-black text-white"
+                    data-testid="button-share-twitter"
+                  >
+                    <SiX className="h-4 w-4 mr-2" />
+                    {t('rewards.shareTwitter')}
+                  </Button>
+                  <Button 
+                    onClick={shareToTelegram} 
+                    className="flex-1 bg-[#0088cc] text-white"
+                    data-testid="button-share-telegram"
+                  >
+                    <SiTelegram className="h-4 w-4 mr-2" />
+                    {t('rewards.shareTelegram')}
+                  </Button>
+                  <Button variant="outline" onClick={shareReferral} data-testid="button-share-referral">
+                    <Share2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-3">
                   {t('rewards.code')}: <code className="bg-muted px-1 py-0.5 rounded">{referralLink?.referralCode}</code>
                 </p>
               </CardContent>

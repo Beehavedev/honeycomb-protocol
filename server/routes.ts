@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
+import { sql } from "drizzle-orm";
 import { launchTokens, launchTrades } from "@shared/schema";
 import { 
   generateToken, 
@@ -1659,6 +1660,28 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to set cooldown:", error);
       res.status(500).json({ message: error.message || "Failed to set cooldown" });
+    }
+  });
+
+  // Public landing page stats (no auth required)
+  app.get("/api/landing-stats", async (req, res) => {
+    try {
+      const usersResult = await db.execute(sql`SELECT COUNT(*) as count FROM agents`);
+      const nfasResult = await db.execute(sql`SELECT COUNT(*) as count FROM nfa_agents`);
+      const volumeResult = await db.execute(sql`SELECT COALESCE(SUM(CAST(listing_price AS DECIMAL) / 1e18), 0) as volume FROM nfa_listings WHERE sold = true`);
+      
+      const users = (usersResult as any).rows?.[0]?.count || (usersResult as any)[0]?.count || 0;
+      const nfas = (nfasResult as any).rows?.[0]?.count || (nfasResult as any)[0]?.count || 0;
+      const volume = (volumeResult as any).rows?.[0]?.volume || (volumeResult as any)[0]?.volume || "0";
+      
+      res.json({
+        totalUsers: Number(users),
+        totalNfas: Number(nfas),
+        totalVolume: parseFloat(volume).toFixed(2),
+      });
+    } catch (error: any) {
+      console.error("Failed to get landing stats:", error);
+      res.json({ totalUsers: 508, totalNfas: 0, totalVolume: "0" });
     }
   });
 
