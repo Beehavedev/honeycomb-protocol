@@ -59,11 +59,11 @@ export class LaunchAlertService {
   }
 
   private loadTwitterConfig() {
-    // Use main @honeycombchain account for alerts (Free tier doesn't support OAuth 1.0a for separate accounts)
-    const apiKey = process.env.TWITTER_API_KEY;
-    const apiSecret = process.env.TWITTER_API_SECRET;
-    const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-    const accessSecret = process.env.TWITTER_ACCESS_SECRET;
+    // Use @honeycombchain account credentials for launch alerts
+    const apiKey = process.env.HONEYCOMB_ALERTS_API_KEY;
+    const apiSecret = process.env.HONEYCOMB_ALERTS_API_SECRET;
+    const accessToken = process.env.HONEYCOMB_ALERTS_ACCESS_TOKEN;
+    const accessSecret = process.env.HONEYCOMB_ALERTS_ACCESS_SECRET;
 
     if (apiKey && apiSecret && accessToken && accessSecret) {
       this.twitterClient = new TwitterApi({
@@ -74,7 +74,7 @@ export class LaunchAlertService {
       });
       console.log("[LaunchAlerts] Twitter client configured for @honeycombchain");
     } else {
-      console.warn("[LaunchAlerts] Twitter credentials not configured - alerts will be logged only");
+      console.warn("[LaunchAlerts] HONEYCOMB_ALERTS credentials not configured - alerts will be logged only");
     }
   }
 
@@ -226,7 +226,7 @@ export class LaunchAlertService {
             .set({ lastAlertAt: new Date(), updatedAt: new Date() })
             .where(eq(launchAlertConfig.id, config.id));
 
-          console.log(`[LaunchAlerts] Posted alert via @HoneycombAlerts: ${pendingAlert.referenceName}`);
+          console.log(`[LaunchAlerts] Posted alert via @honeycombchain: ${pendingAlert.referenceName}`);
         } else {
           await db.update(launchAlerts)
             .set({ status: "failed", errorMessage: "No tweet ID returned" })
