@@ -729,7 +729,9 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
             {isWinner && (
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 via-yellow-400/20 to-green-500/10 animate-pulse" />
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 text-4xl animate-bounce">🏆</div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 animate-bounce">
+                  <Trophy className="h-10 w-10 text-amber-400" />
+                </div>
               </div>
             )}
             {/* Loser animation overlay */}
@@ -1888,9 +1890,12 @@ export default function Predict() {
           <CreateDuelForm onSuccess={(txHash) => {
             setShowCreate(false);
             setActiveTab("open");
-            if (txHash) setHighlightedDuelTx(txHash);
-            setTimeout(() => setHighlightedDuelTx(null), 10000);
-            refetchDuels();
+            if (txHash) {
+              setHighlightedDuelTx(txHash);
+              setTimeout(() => setHighlightedDuelTx(null), 15000);
+            }
+            setTimeout(() => refetchDuels(), 500);
+            setTimeout(() => refetchDuels(), 2000);
           }} />
         </div>
       )}
