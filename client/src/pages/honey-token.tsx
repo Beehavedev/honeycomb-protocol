@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
+import { formatEther, parseEther } from "viem";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useHoneyTokenAddress,
+  useHoneyStakingAddress,
+  useHoneyBalance,
+  useHoneyAllowance,
+  useHoneyTotalSupply,
+  useHoneyTotalBurned,
+  useHoneyCirculatingSupply,
+  useHoneyApprove,
+  useStakingGetStakeInfo,
+  useStakingGetUserTier,
+  useStakingPendingReward,
+  useStakingGlobalStats,
+  useStakeHoney,
+  useUnstakeHoney,
+  useClaimStakingRewards,
+} from "@/contracts/hooks";
 import {
   Flame,
   Lock,
@@ -24,6 +45,9 @@ import {
   Layers,
   Target,
   Hexagon,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 
 const TIER_ICONS: Record<string, any> = {
@@ -79,10 +103,36 @@ interface TokenStats {
   tiers: TierInfo[];
 }
 
+const TIER_NAMES = ["None", "Drone", "Worker", "Guardian", "Queen"] as const;
+const LOCK_PERIOD_NAMES = ["Flexible", "7 Days", "30 Days", "90 Days", "180 Days"] as const;
+
 export default function HoneyToken() {
   const { address } = useAccount();
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [unstakeAmount, setUnstakeAmount] = useState("");
+  const [lockPeriod, setLockPeriod] = useState("0");
+
+  const honeyTokenAddr = useHoneyTokenAddress();
+  const honeyStakingAddr = useHoneyStakingAddress();
+  const isContractDeployed = !!honeyTokenAddr;
+
+  const { data: onChainBalance } = useHoneyBalance(address);
+  const { data: onChainAllowance } = useHoneyAllowance(address, honeyStakingAddr);
+  const { data: onChainTotalSupply } = useHoneyTotalSupply();
+  const { data: onChainTotalBurned } = useHoneyTotalBurned();
+  const { data: onChainCirculating } = useHoneyCirculatingSupply();
+  const { data: onChainStakeInfo } = useStakingGetStakeInfo(address);
+  const { data: onChainTier } = useStakingGetUserTier(address);
+  const { data: onChainPending } = useStakingPendingReward(address);
+  const { data: onChainGlobalStats } = useStakingGlobalStats();
+
+  const { approve, isPending: approving, isConfirming: approvingConfirm, isSuccess: approveSuccess } = useHoneyApprove();
+  const { stake, isPending: staking, isConfirming: stakingConfirm, isSuccess: stakeSuccess } = useStakeHoney();
+  const { unstake, isPending: unstaking, isConfirming: unstakingConfirm, isSuccess: unstakeSuccess } = useUnstakeHoney();
+  const { claimRewards, isPending: claiming, isConfirming: claimingConfirm, isSuccess: claimSuccess } = useClaimStakingRewards();
 
   const { data: tokenStats, isLoading: statsLoading } = useQuery<TokenStats>({
     queryKey: ["/api/honey/stats"],
@@ -106,12 +156,12 @@ export default function HoneyToken() {
     enabled: !!address,
   });
 
-  const { data: pointsBalance } = useQuery({
+  const { data: pointsBalance } = useQuery<{ totalPoints?: number; estimatedHoney?: string; conversionRate?: number }>({
     queryKey: ["/api/honey/points/balance"],
     enabled: !!isAuthenticated,
   });
 
-  const { data: burns } = useQuery({
+  const { data: burns } = useQuery<{ burns: { id: number; amountDisplay: string; source: string; createdAt: string }[] }>({
     queryKey: ["/api/honey/burns"],
   });
 
@@ -119,6 +169,90 @@ export default function HoneyToken() {
   const tiers = tokenStats?.tiers || [];
   const feeSplit = tokenInfo?.feeSplit;
   const feeSchedule = tokenInfo?.feeSchedule || [];
+
+  const effectiveCirculating = isContractDeployed && onChainCirculating
+    ? formatEther(onChainCirculating as bigint)
+    : stats?.circulatingSupply || "0";
+  const effectiveTotalBurned = isContractDeployed && onChainTotalBurned
+    ? formatEther(onChainTotalBurned as bigint)
+    : stats?.totalBurned || "0";
+  const effectiveTotalStaked = isContractDeployed && onChainGlobalStats
+    ? formatEther((onChainGlobalStats as [bigint, bigint, bigint, bigint])[0])
+    : stats?.totalStaked || "0";
+  const effectiveTotalStakers = isContractDeployed && onChainGlobalStats
+    ? Number((onChainGlobalStats as [bigint, bigint, bigint, bigint])[1])
+    : stats?.totalStakers || 0;
+  const effectiveRewardPool = isContractDeployed && onChainGlobalStats
+    ? formatEther((onChainGlobalStats as [bigint, bigint, bigint, bigint])[2])
+    : stats?.rewardPoolBalance || "0";
+
+  const userOnChainTierIndex = isContractDeployed && onChainTier !== undefined ? Number(onChainTier) : null;
+  const userTierName = userOnChainTierIndex !== null ? TIER_NAMES[userOnChainTierIndex]?.toLowerCase() : (userTier as any)?.tier;
+  const userStakedAmount = isContractDeployed && onChainStakeInfo
+    ? (onChainStakeInfo as [bigint, bigint, bigint, number, number, bigint, bigint])[0]
+    : null;
+  const userUnlockAt = isContractDeployed && onChainStakeInfo
+    ? Number((onChainStakeInfo as [bigint, bigint, bigint, number, number, bigint, bigint])[2])
+    : null;
+  const userPendingRewards = isContractDeployed && onChainPending
+    ? (onChainPending as bigint)
+    : null;
+  const userHoneyBalance = isContractDeployed && onChainBalance
+    ? (onChainBalance as bigint)
+    : null;
+  const currentAllowance = isContractDeployed && onChainAllowance
+    ? (onChainAllowance as bigint)
+    : null;
+
+  const needsApproval = (amount: bigint) => {
+    if (!currentAllowance) return true;
+    return currentAllowance < amount;
+  };
+
+  useEffect(() => {
+    if (stakeSuccess) {
+      toast({ title: "Staked successfully", description: `Your $HONEY has been staked.` });
+      setStakeAmount("");
+    }
+  }, [stakeSuccess]);
+
+  useEffect(() => {
+    if (unstakeSuccess) {
+      toast({ title: "Unstaked successfully", description: `Your $HONEY has been unstaked.` });
+      setUnstakeAmount("");
+    }
+  }, [unstakeSuccess]);
+
+  useEffect(() => {
+    if (claimSuccess) {
+      toast({ title: "Rewards claimed", description: `Your staking rewards have been claimed.` });
+    }
+  }, [claimSuccess]);
+
+  useEffect(() => {
+    if (approveSuccess) {
+      toast({ title: "Approval confirmed", description: `You can now stake your $HONEY.` });
+    }
+  }, [approveSuccess]);
+
+  const handleStake = () => {
+    if (!stakeAmount || !honeyStakingAddr) return;
+    const amount = parseEther(stakeAmount);
+    if (needsApproval(amount)) {
+      approve(honeyStakingAddr, amount);
+    } else {
+      stake(amount, Number(lockPeriod));
+    }
+  };
+
+  const handleUnstake = () => {
+    if (!unstakeAmount) return;
+    unstake(parseEther(unstakeAmount));
+  };
+
+  const handleClaim = () => {
+    claimRewards();
+  };
 
   const distribution = [
     { label: "Community Rewards", pct: 35, color: "bg-amber-400" },
@@ -143,10 +277,9 @@ export default function HoneyToken() {
           </div>
         </div>
 
-        {address && userTier && (userTier as any).tier !== "none" && (() => {
-          const tierName = String((userTier as any).tier || "");
-          const TierIcon = TIER_ICONS[tierName] || Star;
-          const badgeColor = tiers.find(t => t.tier === tierName)?.badgeColor || "#F59E0B";
+        {address && userTierName && userTierName !== "none" && (() => {
+          const TierIcon = TIER_ICONS[userTierName] || Star;
+          const badgeColor = tiers.find(t => t.tier === userTierName)?.badgeColor || "#F59E0B";
           return (
             <Badge
               className="self-start md:self-auto gap-1.5"
@@ -154,7 +287,7 @@ export default function HoneyToken() {
               data-testid="badge-user-tier"
             >
               <TierIcon className="h-3.5 w-3.5" />
-              {tierName.charAt(0).toUpperCase() + tierName.slice(1)} Tier
+              {userTierName.charAt(0).toUpperCase() + userTierName.slice(1)} Tier
             </Badge>
           );
         })()}
@@ -168,9 +301,9 @@ export default function HoneyToken() {
               <p className="text-xs text-muted-foreground">Circulating Supply</p>
             </div>
             <p className="text-lg font-bold" data-testid="text-circulating-supply">
-              {statsLoading ? "..." : formatWeiToHoney(stats?.circulatingSupply || "0")}
+              {statsLoading ? "..." : formatNumber(parseFloat(effectiveCirculating))}
             </p>
-            <p className="text-xs text-muted-foreground">of 1B max</p>
+            <p className="text-xs text-muted-foreground">of 1B max{isContractDeployed && <Badge variant="outline" className="ml-1 text-[10px] no-default-active-elevate">On-chain</Badge>}</p>
           </CardContent>
         </Card>
         <Card>
@@ -180,9 +313,9 @@ export default function HoneyToken() {
               <p className="text-xs text-muted-foreground">Total Staked</p>
             </div>
             <p className="text-lg font-bold" data-testid="text-total-staked">
-              {statsLoading ? "..." : formatWeiToHoney(stats?.totalStaked || "0")}
+              {statsLoading ? "..." : formatNumber(parseFloat(effectiveTotalStaked))}
             </p>
-            <p className="text-xs text-muted-foreground">{stats?.totalStakers || 0} stakers</p>
+            <p className="text-xs text-muted-foreground">{effectiveTotalStakers} stakers</p>
           </CardContent>
         </Card>
         <Card>
@@ -192,7 +325,7 @@ export default function HoneyToken() {
               <p className="text-xs text-muted-foreground">Total Burned</p>
             </div>
             <p className="text-lg font-bold" data-testid="text-total-burned">
-              {statsLoading ? "..." : formatWeiToHoney(stats?.totalBurned || "0")}
+              {statsLoading ? "..." : formatNumber(parseFloat(effectiveTotalBurned))}
             </p>
             <p className="text-xs text-muted-foreground">Deflationary</p>
           </CardContent>
@@ -322,7 +455,6 @@ export default function HoneyToken() {
           </Card>
 
           {isAuthenticated && pointsBalance && (() => {
-            const pb = pointsBalance as { totalPoints?: number; estimatedHoney?: string; conversionRate?: number };
             return (
               <Card className="border-amber-500/30">
                 <CardHeader>
@@ -334,16 +466,16 @@ export default function HoneyToken() {
                 <CardContent>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1">
-                      <p className="text-3xl font-bold" data-testid="text-user-points">{pb.totalPoints || 0} pts</p>
+                      <p className="text-3xl font-bold" data-testid="text-user-points">{pointsBalance.totalPoints || 0} pts</p>
                       <p className="text-sm text-muted-foreground">
-                        {"Estimated: ~"}{pb.estimatedHoney || "0"}{" HONEY"}
-                        <span className="ml-1 text-xs">{"(Rate: "}{pb.conversionRate || 100}{" pts = 1 HONEY)"}</span>
+                        {"Estimated: ~"}{pointsBalance.estimatedHoney || "0"}{" HONEY"}
+                        <span className="ml-1 text-xs">{"(Rate: "}{pointsBalance.conversionRate || 100}{" pts = 1 HONEY)"}</span>
                       </p>
                     </div>
                     <Button
                       variant="default"
                       className="bg-amber-500 text-white"
-                      disabled={(pb.totalPoints || 0) < 100}
+                      disabled={(pointsBalance.totalPoints || 0) < 100}
                       data-testid="button-convert-points"
                     >
                       Convert to $HONEY
@@ -356,6 +488,143 @@ export default function HoneyToken() {
         </TabsContent>
 
         <TabsContent value="staking" className="space-y-6">
+          {address && isContractDeployed && (
+            <Card className="border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Coins className="h-5 w-5 text-amber-500" />
+                  Your Staking Position
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Wallet Balance</p>
+                    <p className="text-lg font-bold" data-testid="text-wallet-balance">
+                      {userHoneyBalance ? formatNumber(parseFloat(formatEther(userHoneyBalance))) : "0"} HONEY
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Staked Amount</p>
+                    <p className="text-lg font-bold" data-testid="text-staked-amount">
+                      {userStakedAmount ? formatNumber(parseFloat(formatEther(userStakedAmount))) : "0"} HONEY
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pending Rewards</p>
+                    <p className="text-lg font-bold text-green-500" data-testid="text-pending-rewards">
+                      {userPendingRewards ? formatNumber(parseFloat(formatEther(userPendingRewards))) : "0"} HONEY
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Current Tier</p>
+                    <p className="text-lg font-bold text-amber-500" data-testid="text-current-tier">
+                      {userTierName ? userTierName.charAt(0).toUpperCase() + userTierName.slice(1) : "None"}
+                    </p>
+                  </div>
+                </div>
+
+                {userUnlockAt !== null && userUnlockAt > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Lock className="h-4 w-4" />
+                    <span>
+                      {Date.now() / 1000 > userUnlockAt
+                        ? "Unlocked - ready to withdraw"
+                        : `Locked until ${new Date(userUnlockAt * 1000).toLocaleDateString()}`}
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Stake $HONEY</h4>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Amount to stake"
+                        value={stakeAmount}
+                        onChange={(e) => setStakeAmount(e.target.value)}
+                        data-testid="input-stake-amount"
+                      />
+                      <Select value={lockPeriod} onValueChange={setLockPeriod}>
+                        <SelectTrigger className="w-[140px]" data-testid="select-lock-period">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOCK_PERIOD_NAMES.map((name, i) => (
+                            <SelectItem key={i} value={String(i)}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      className="w-full bg-amber-500 text-white"
+                      disabled={!stakeAmount || approving || approvingConfirm || staking || stakingConfirm}
+                      onClick={handleStake}
+                      data-testid="button-stake"
+                    >
+                      {approving || approvingConfirm ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Approving...</>
+                      ) : staking || stakingConfirm ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Staking...</>
+                      ) : stakeAmount && needsApproval(parseEther(stakeAmount || "0")) ? (
+                        "Approve & Stake"
+                      ) : (
+                        "Stake HONEY"
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium">Unstake & Claim</h4>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Amount to unstake"
+                        value={unstakeAmount}
+                        onChange={(e) => setUnstakeAmount(e.target.value)}
+                        data-testid="input-unstake-amount"
+                      />
+                      <Button
+                        variant="outline"
+                        disabled={!unstakeAmount || unstaking || unstakingConfirm}
+                        onClick={handleUnstake}
+                        data-testid="button-unstake"
+                      >
+                        {unstaking || unstakingConfirm ? <Loader2 className="h-4 w-4 animate-spin" /> : "Unstake"}
+                      </Button>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={!userPendingRewards || userPendingRewards === BigInt(0) || claiming || claimingConfirm}
+                      onClick={handleClaim}
+                      data-testid="button-claim-rewards"
+                    >
+                      {claiming || claimingConfirm ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Claiming...</>
+                      ) : (
+                        <>Claim Rewards ({userPendingRewards ? formatNumber(parseFloat(formatEther(userPendingRewards))) : "0"} HONEY)</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {address && !isContractDeployed && (
+            <Card className="border-dashed border-amber-500/30">
+              <CardContent className="p-6 text-center">
+                <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-3" />
+                <p className="font-medium">Staking Contract Not Yet Deployed</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  The $HONEY token and staking contracts will be deployed to BNB Chain soon. Staking functionality will activate once deployed.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -371,7 +640,7 @@ export default function HoneyToken() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {tiers.map((tier) => {
                   const TierIcon = TIER_ICONS[tier.tier] || Star;
-                  const isCurrentTier = address && (userTier as any)?.tier === tier.tier;
+                  const isCurrentTier = address && userTierName === tier.tier;
 
                   return (
                     <Card
@@ -469,24 +738,24 @@ export default function HoneyToken() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold" data-testid="text-staking-tvl">
-                    {formatWeiToHoney(stats?.totalStaked || "0")}
+                    {formatNumber(parseFloat(effectiveTotalStaked))}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Value Locked</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{stats?.totalStakers || 0}</p>
+                  <p className="text-2xl font-bold">{effectiveTotalStakers}</p>
                   <p className="text-xs text-muted-foreground">Active Stakers</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {formatWeiToHoney(stats?.rewardPoolBalance || "0")}
+                    {formatNumber(parseFloat(effectiveRewardPool))}
                   </p>
                   <p className="text-xs text-muted-foreground">Reward Pool</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-amber-500">
-                    {stats?.totalStaked && stats?.circulatingSupply
-                      ? ((parseFloat(stats.totalStaked) / parseFloat(stats.circulatingSupply)) * 100).toFixed(1)
+                    {parseFloat(effectiveTotalStaked) > 0 && parseFloat(effectiveCirculating) > 0
+                      ? ((parseFloat(effectiveTotalStaked) / parseFloat(effectiveCirculating)) * 100).toFixed(1)
                       : "0"}%
                   </p>
                   <p className="text-xs text-muted-foreground">Staked Ratio</p>
@@ -735,7 +1004,7 @@ export default function HoneyToken() {
             <CardContent>
               <div className="text-center mb-6">
                 <p className="text-4xl font-bold text-red-500" data-testid="text-burn-total">
-                  {formatWeiToHoney(stats?.totalBurned || "0")}
+                  {formatNumber(parseFloat(effectiveTotalBurned))}
                 </p>
                 <p className="text-sm text-muted-foreground">Total $HONEY Burned</p>
               </div>
@@ -758,11 +1027,11 @@ export default function HoneyToken() {
                 ))}
               </div>
 
-              {(burns as any)?.burns?.length > 0 && (
+              {burns?.burns && burns.burns.length > 0 && (
                 <div className="mt-6">
                   <h4 className="text-sm font-medium mb-3">Recent Burns</h4>
                   <div className="space-y-2">
-                    {(burns as any).burns.slice(0, 10).map((burn: any) => (
+                    {burns.burns.slice(0, 10).map((burn) => (
                       <div key={burn.id} className="flex items-center justify-between text-sm p-2 rounded-md bg-muted/30">
                         <div className="flex items-center gap-2">
                           <Flame className="h-3 w-3 text-red-400" />

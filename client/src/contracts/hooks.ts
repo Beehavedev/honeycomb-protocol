@@ -13,6 +13,8 @@ import {
   HoneycombPredictDuelABI,
   ERC8004IdentityRegistryABI,
   ERC8004ReputationRegistryABI,
+  HoneyTokenABI,
+  HoneyStakingABI,
 } from './abis';
 import { getContractAddresses, getDexConfig, getERC8004Addresses } from './addresses';
 
@@ -1157,4 +1159,314 @@ export function useERC8004RevokeFeedback() {
   };
 
   return { revokeFeedback, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// ============= $HONEY Token Hooks =============
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+
+export function useHoneyTokenAddress() {
+  const chainId = useChainId();
+  const addr = getContractAddresses(chainId)?.honeyToken;
+  return addr && addr !== ZERO_ADDRESS ? addr : undefined;
+}
+
+export function useHoneyStakingAddress() {
+  const chainId = useChainId();
+  const addr = getContractAddresses(chainId)?.honeyStaking;
+  return addr && addr !== ZERO_ADDRESS ? addr : undefined;
+}
+
+export function useHoneyBalance(account?: `0x${string}`) {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'balanceOf',
+    args: account ? [account] : undefined,
+    query: { enabled: !!account && !!address },
+  });
+}
+
+export function useHoneyAllowance(owner?: `0x${string}`, spender?: `0x${string}`) {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'allowance',
+    args: owner && spender ? [owner, spender] : undefined,
+    query: { enabled: !!owner && !!spender && !!address },
+  });
+}
+
+export function useHoneyTotalSupply() {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'totalSupply',
+    query: { enabled: !!address },
+  });
+}
+
+export function useHoneyTotalBurned() {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'totalBurned',
+    query: { enabled: !!address },
+  });
+}
+
+export function useHoneyCirculatingSupply() {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'circulatingSupply',
+    query: { enabled: !!address },
+  });
+}
+
+export function useHoneyMaxSupply() {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'MAX_SUPPLY',
+    query: { enabled: !!address },
+  });
+}
+
+export function useHoneyTradingEnabled() {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'tradingEnabled',
+    query: { enabled: !!address },
+  });
+}
+
+export function useHoneyRemainingMintable() {
+  const address = useHoneyTokenAddress();
+  return useReadContract({
+    address,
+    abi: HoneyTokenABI,
+    functionName: 'remainingMintable',
+    query: { enabled: !!address },
+  });
+}
+
+export function useHoneyApprove() {
+  const address = useHoneyTokenAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const approve = (spender: `0x${string}`, amount: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyTokenABI,
+      functionName: 'approve',
+      args: [spender, amount],
+    });
+  };
+
+  return { approve, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useHoneyTransfer() {
+  const address = useHoneyTokenAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const transfer = (to: `0x${string}`, amount: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyTokenABI,
+      functionName: 'transfer',
+      args: [to, amount],
+    });
+  };
+
+  return { transfer, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useHoneyBurn() {
+  const address = useHoneyTokenAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const burn = (amount: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyTokenABI,
+      functionName: 'burn',
+      args: [amount],
+    });
+  };
+
+  return { burn, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// ============= $HONEY Staking Hooks =============
+
+export function useStakingGetStakeInfo(user?: `0x${string}`) {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'getStakeInfo',
+    args: user ? [user] : undefined,
+    query: { enabled: !!user && !!address },
+  });
+}
+
+export function useStakingGetUserTier(user?: `0x${string}`) {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'getUserTier',
+    args: user ? [user] : undefined,
+    query: { enabled: !!user && !!address },
+  });
+}
+
+export function useStakingGetFeeDiscount(user?: `0x${string}`) {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'getUserFeeDiscount',
+    args: user ? [user] : undefined,
+    query: { enabled: !!user && !!address },
+  });
+}
+
+export function useStakingGetPointsMultiplier(user?: `0x${string}`) {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'getUserPointsMultiplier',
+    args: user ? [user] : undefined,
+    query: { enabled: !!user && !!address },
+  });
+}
+
+export function useStakingPendingReward(user?: `0x${string}`) {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'pendingReward',
+    args: user ? [user] : undefined,
+    query: { enabled: !!user && !!address },
+  });
+}
+
+export function useStakingGlobalStats() {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'getGlobalStats',
+    query: { enabled: !!address },
+  });
+}
+
+export function useStakingTotalStaked() {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'totalStaked',
+    query: { enabled: !!address },
+  });
+}
+
+export function useStakingRewardPool() {
+  const address = useHoneyStakingAddress();
+  return useReadContract({
+    address,
+    abi: HoneyStakingABI,
+    functionName: 'rewardPool',
+    query: { enabled: !!address },
+  });
+}
+
+export function useStakeHoney() {
+  const address = useHoneyStakingAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const stake = (amount: bigint, lockPeriod: number) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyStakingABI,
+      functionName: 'stake',
+      args: [amount, lockPeriod],
+    });
+  };
+
+  return { stake, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useUnstakeHoney() {
+  const address = useHoneyStakingAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const unstake = (amount: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyStakingABI,
+      functionName: 'unstake',
+      args: [amount],
+    });
+  };
+
+  return { unstake, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useClaimStakingRewards() {
+  const address = useHoneyStakingAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const claimRewards = () => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyStakingABI,
+      functionName: 'claimRewards',
+    });
+  };
+
+  return { claimRewards, hash, isPending, isConfirming, isSuccess, error };
+}
+
+export function useFundRewardPool() {
+  const address = useHoneyStakingAddress();
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const fundRewardPool = (amount: bigint) => {
+    if (!address) return;
+    writeContract({
+      address,
+      abi: HoneyStakingABI,
+      functionName: 'fundRewardPool',
+      args: [amount],
+    });
+  };
+
+  return { fundRewardPool, hash, isPending, isConfirming, isSuccess, error };
 }
