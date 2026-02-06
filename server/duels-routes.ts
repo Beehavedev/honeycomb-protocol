@@ -38,7 +38,7 @@ const SETTLE_DUEL_ABI = [{
 const settlingLocks = new Set<string>();
 
 const FEE_PERCENTAGE = 10;
-const DUEL_EXPIRY_MINUTES = 5; // Auto-cancel open duels after 5 minutes
+const DUEL_EXPIRY_MINUTES = 30; // Auto-cancel open duels after 30 minutes
 
 // Price cache to avoid CoinGecko rate limits (free tier: 10-30 req/min)
 const priceCache = new Map<string, { price: number; timestamp: number }>();

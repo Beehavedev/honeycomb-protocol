@@ -1847,6 +1847,26 @@ export default function Predict() {
       try {
         setJoiningDuelId(duel.id);
         
+        // Pre-flight check: verify duel is still open before sending on-chain tx
+        try {
+          const checkRes = await fetch(`/api/duels/${duel.id}`);
+          if (checkRes.ok) {
+            const freshDuel = await checkRes.json();
+            if (freshDuel.status !== "open") {
+              toast({ 
+                title: "Bet unavailable", 
+                description: "This bet was already taken or cancelled. Try another one!",
+                variant: "destructive" 
+              });
+              setJoiningDuelId(null);
+              refetchDuels();
+              return;
+            }
+          }
+        } catch (e) {
+          // Continue anyway if check fails - contract will validate
+        }
+        
         // If user doesn't have an agent, auto-register first
         if (!joinerHasAgent) {
           toast({ title: "Registering...", description: "First time betting - registering your wallet..." });
