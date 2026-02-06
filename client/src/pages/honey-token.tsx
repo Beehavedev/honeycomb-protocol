@@ -88,8 +88,21 @@ export default function HoneyToken() {
     queryKey: ["/api/honey/stats"],
   });
 
+  const { data: tokenInfo } = useQuery<{
+    feeSplit: Record<string, { percentage: number; label: string; description: string }>;
+    feeSchedule: { feature: string; bnbFee: string; honeyFee: string; description: string }[];
+    useCases: string[];
+  }>({
+    queryKey: ["/api/honey/info"],
+  });
+
   const { data: userTier } = useQuery({
     queryKey: ["/api/honey/tier", address],
+    queryFn: async () => {
+      const res = await fetch(`/api/honey/tier/${address}`);
+      if (!res.ok) throw new Error("Failed to fetch tier");
+      return res.json();
+    },
     enabled: !!address,
   });
 
@@ -104,6 +117,8 @@ export default function HoneyToken() {
 
   const stats = tokenStats?.stats;
   const tiers = tokenStats?.tiers || [];
+  const feeSplit = tokenInfo?.feeSplit;
+  const feeSchedule = tokenInfo?.feeSchedule || [];
 
   const distribution = [
     { label: "Community Rewards", pct: 35, color: "bg-amber-400" },
@@ -245,7 +260,7 @@ export default function HoneyToken() {
                   </div>
                   <div>
                     <p className="font-medium text-sm">Deflationary</p>
-                    <p className="text-xs text-muted-foreground">Platform fees buy back and burn $HONEY, reducing supply over time</p>
+                    <p className="text-xs text-muted-foreground">25% of all platform fees buy back and burn $HONEY, reducing supply over time</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -518,25 +533,87 @@ export default function HoneyToken() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Flame className="h-5 w-5 text-red-500" />
-                Revenue Flywheel
+                Platform Fee Split
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                All platform fees flow into the $HONEY ecosystem through buy-back, burn, and reward distribution.
+            <CardContent className="space-y-6">
+              <p className="text-sm text-muted-foreground">
+                Every platform fee is split three ways to sustain growth, reward holders, and create deflationary pressure.
               </p>
+
+              {(() => {
+                const revPct = feeSplit?.platformRevenue?.percentage ?? 60;
+                const burnPct = feeSplit?.buybackBurn?.percentage ?? 25;
+                const stakePct = feeSplit?.stakingRewards?.percentage ?? 15;
+                const revLabel = feeSplit?.platformRevenue?.label ?? "Platform Revenue";
+                const burnLabel = feeSplit?.buybackBurn?.label ?? "Buyback & Burn";
+                const stakeLabel = feeSplit?.stakingRewards?.label ?? "Staking Rewards";
+                const revDesc = feeSplit?.platformRevenue?.description ?? "Direct revenue to the Honeycomb treasury for operations, growth, and team";
+                const burnDesc = feeSplit?.buybackBurn?.description ?? "Used to buy HONEY on the open market and permanently burn it, reducing supply";
+                const stakeDesc = feeSplit?.stakingRewards?.description ?? "Distributed proportionally to HONEY stakers based on their tier and lock duration";
+
+                return (
+                  <>
+                    <div className="flex h-8 rounded-md overflow-hidden">
+                      <div className="bg-amber-500 flex items-center justify-center text-xs font-medium text-white" style={{ width: `${revPct}%` }}>{revPct}%</div>
+                      <div className="bg-red-500 flex items-center justify-center text-xs font-medium text-white" style={{ width: `${burnPct}%` }}>{burnPct}%</div>
+                      <div className="bg-green-500 flex items-center justify-center text-xs font-medium text-white" style={{ width: `${stakePct}%` }}>{stakePct}%</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-md bg-amber-500/10 border border-amber-500/20 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm bg-amber-500" />
+                          <p className="font-medium text-sm">{revLabel}</p>
+                        </div>
+                        <p className="text-2xl font-bold text-amber-500">{revPct}%</p>
+                        <p className="text-xs text-muted-foreground">{revDesc}</p>
+                      </div>
+                      <div className="p-4 rounded-md bg-red-500/10 border border-red-500/20 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm bg-red-500" />
+                          <p className="font-medium text-sm">{burnLabel}</p>
+                        </div>
+                        <p className="text-2xl font-bold text-red-500">{burnPct}%</p>
+                        <p className="text-xs text-muted-foreground">{burnDesc}</p>
+                      </div>
+                      <div className="p-4 rounded-md bg-green-500/10 border border-green-500/20 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-sm bg-green-500" />
+                          <p className="font-medium text-sm">{stakeLabel}</p>
+                        </div>
+                        <p className="text-2xl font-bold text-green-500">{stakePct}%</p>
+                        <p className="text-xs text-muted-foreground">{stakeDesc}</p>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+
               <div className="space-y-3">
-                {[
-                  { source: "Prediction Duel Fees (10%)", split: "50% buy-back & burn, 50% rewards pool" },
-                  { source: "Token Launch Fees", split: "30% burn, 40% rewards, 30% treasury" },
-                  { source: "NFA Marketplace (1% fee)", split: "100% buy-back & burn" },
-                  { source: "AI Agent Marketplace Fees", split: "50% burn, 50% creator rewards" },
-                ].map((item) => (
-                  <div key={item.source} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-3 bg-muted/30 rounded-md">
-                    <p className="text-sm font-medium flex-1">{item.source}</p>
-                    <p className="text-xs text-muted-foreground">{item.split}</p>
-                  </div>
-                ))}
+                <h4 className="text-sm font-medium">Fee Schedule by Feature</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" data-testid="table-fee-schedule">
+                    <thead>
+                      <tr className="border-b text-muted-foreground">
+                        <th className="text-left py-2 pr-4 font-medium">Feature</th>
+                        <th className="text-center py-2 px-2 font-medium">BNB Fee</th>
+                        <th className="text-center py-2 px-2 font-medium">HONEY Fee</th>
+                        <th className="text-left py-2 pl-4 font-medium hidden sm:table-cell">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feeSchedule.map((row) => (
+                        <tr key={row.feature} className="border-b border-muted/50">
+                          <td className="py-2 pr-4 font-medium">{row.feature}</td>
+                          <td className="py-2 px-2 text-center text-muted-foreground">{row.bnbFee}</td>
+                          <td className="py-2 px-2 text-center text-amber-500 font-medium">{row.honeyFee}</td>
+                          <td className="py-2 pl-4 text-muted-foreground hidden sm:table-cell">{row.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -666,8 +743,8 @@ export default function HoneyToken() {
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">Burn Mechanics</h4>
                 {[
-                  { mechanic: "Buy-back & Burn", description: "Platform fees auto-buy HONEY and burn" },
-                  { mechanic: "Stake-to-Earn", description: "Locked HONEY reduces circulating supply" },
+                  { mechanic: "Buy-back & Burn (25% of fees)", description: "25% of all platform fees auto-buy HONEY on the open market and burn" },
+                  { mechanic: "Stake-to-Earn", description: "Locked HONEY reduces circulating supply while earning rewards" },
                   { mechanic: "Bond Burns", description: "Unclaimed post bonds burned after 90 days" },
                   { mechanic: "Achievement Sinks", description: "Premium features require HONEY spending" },
                 ].map((item) => (
