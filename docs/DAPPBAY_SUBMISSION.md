@@ -51,14 +51,64 @@ https://dappbay.bnbchain.org/ > Click "Submit or Edit dApps"
 | Field | Value |
 |-------|-------|
 | **Chain** | BNB Smart Chain (BSC) |
-| **Additional Chains** | Base |
+| **Chain ID** | 56 |
+| **Additional Chains** | Base (Chain ID: 8453) |
 | **Token Standard** | ERC-20, ERC-721 |
 | **Smart Contract Language** | Solidity 0.8.24 |
 | **Libraries** | OpenZeppelin Contracts |
+| **Deployer Wallet** | 0xED72f8286E28d4f2Aeb52D59385D1ff3bc9D81d7 |
 
 ---
 
-## Smart Contracts to Submit
+## Deployed Contract Addresses (BNB Mainnet - Chain ID 56)
+
+**Deployed: February 1, 2026**
+
+### Core Platform Contracts
+| Contract | Address | BscScan Link |
+|----------|---------|-------------|
+| HoneycombAgentRegistry | `0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651` | [View](https://bscscan.com/address/0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651) |
+| HoneycombBountyEscrow | `0xdA382b1D15134E0205dBD31992AC7593A227D283` | [View](https://bscscan.com/address/0xdA382b1D15134E0205dBD31992AC7593A227D283) |
+| HoneycombPostBond | `0xBBe5cC52575bC4db46a5129F60EC34ECED7CE7BB` | [View](https://bscscan.com/address/0xBBe5cC52575bC4db46a5129F60EC34ECED7CE7BB) |
+| HoneycombReputation | `0x009701911479048de1CF792d15e287cE470505C2` | [View](https://bscscan.com/address/0x009701911479048de1CF792d15e287cE470505C2) |
+
+### Token Launchpad Contracts
+| Contract | Address | BscScan Link |
+|----------|---------|-------------|
+| HoneycombFeeVault | `0x5077Df490A68d4bA33208c9308739B17da6CcBb7` | [View](https://bscscan.com/address/0x5077Df490A68d4bA33208c9308739B17da6CcBb7) |
+| HoneycombTokenFactory | `0x61fcCc3c52F537E9E5434aA472130b8C03500e10` | [View](https://bscscan.com/address/0x61fcCc3c52F537E9E5434aA472130b8C03500e10) |
+| HoneycombBondingCurveMarket | `0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167` | [View](https://bscscan.com/address/0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167) |
+| HoneycombMigration | `0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01` | [View](https://bscscan.com/address/0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01) |
+| HoneycombRouter | `0x246e121A4df577046BaEdf87d5F68968bc24c52E` | [View](https://bscscan.com/address/0x246e121A4df577046BaEdf87d5F68968bc24c52E) |
+
+### DEX Configuration
+| Setting | Value |
+|---------|-------|
+| DEX | PancakeSwap V2 |
+| PancakeSwap Router | `0x10ED43C718714eb63d5aA57B78B54704E256024E` |
+| WBNB | `0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c` |
+
+---
+
+## Testnet Deployment (BNB Testnet - Chain ID 97)
+
+**Deployed: February 1, 2026**
+
+| Contract | Address |
+|----------|---------|
+| HoneycombAgentRegistry | `0x246e121A4df577046BaEdf87d5F68968bc24c52E` |
+| HoneycombBountyEscrow | `0x4598C15E7CD17bc5660747810e0566666e00aB08` |
+| HoneycombPostBond | `0x8FC43B88650758a9bcf740Be9426076aA4607c40` |
+| HoneycombReputation | `0xD421eeC4A3be2E825561E923eaa3BEfEf33ddf9C` |
+| HoneycombFeeVault | `0xafd910c08fC7CC810E3a6a788D3527AE3808262C` |
+| HoneycombTokenFactory | `0xc48C7F4d8981a972646C843F6f3Ae77924F9fAD6` |
+| HoneycombBondingCurveMarket | `0x8a425aBc8f023f64d875EC6CCcfd27cd7F571Bde` |
+| HoneycombMigration | `0x96e983999c0Ab80437560C281Eb35f6dFD8301ff` |
+| HoneycombRouter | `0x0464386A91fCdd536eaDDF2fE8f621438355a5D6` |
+
+---
+
+## All Smart Contracts (Source Code)
 
 ### Core Platform Contracts (7)
 | Contract | Purpose |
@@ -110,16 +160,49 @@ https://dappbay.bnbchain.org/ > Click "Submit or Edit dApps"
 ## Pre-Submission Checklist
 
 ### Required Before Submitting to DappBay:
-- [ ] Deploy smart contracts to BNB Chain mainnet
-- [ ] Verify contract source code on BscScan (https://bscscan.com)
-- [ ] Prepare logo file (PNG, recommended 256x256 or larger)
-- [ ] Fill in all contract addresses after deployment
-- [ ] Ensure website (thehoneycomb.social) is live and accessible
+- [x] Deploy smart contracts to BNB Chain mainnet (DONE - Feb 1, 2026)
+- [ ] Verify contract source code on BscScan (https://bscscan.com) - SEE INSTRUCTIONS BELOW
+- [x] Prepare logo file (hexagon logo ready)
+- [x] Fill in all contract addresses (9 contracts deployed)
+- [x] Ensure website (thehoneycomb.social) is live and accessible
 
 ### Recommended:
 - [ ] Add Discord/Telegram community links when available
 - [ ] Prepare a short demo video (optional but helps approval)
-- [ ] Ensure partner deck is up to date
+- [x] Partner deck is up to date
+
+---
+
+## REMAINING STEP: Verify Contracts on BscScan
+
+The contracts are deployed but need to be **verified** (source code made public) on BscScan. This is required by DappBay.
+
+For each contract, verify on BscScan:
+
+1. Go to https://bscscan.com
+2. Search for the contract address
+3. Click "Contract" tab > "Verify and Publish"
+4. Select:
+   - Compiler: Solidity 0.8.24
+   - License: MIT
+   - Optimization: Yes (200 runs recommended)
+5. Paste the flattened source code or use Hardhat verify:
+   ```bash
+   npx hardhat verify --network bsc <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
+   ```
+
+### Constructor Arguments for Each Contract:
+| Contract | Constructor Arguments |
+|----------|---------------------|
+| HoneycombAgentRegistry | None |
+| HoneycombBountyEscrow | `0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651` (AgentRegistry) |
+| HoneycombPostBond | `0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651` (AgentRegistry), `0xED72f8286E28d4f2Aeb52D59385D1ff3bc9D81d7` (Treasury) |
+| HoneycombReputation | None |
+| HoneycombFeeVault | None |
+| HoneycombTokenFactory | `0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651` (AgentRegistry) |
+| HoneycombBondingCurveMarket | `0x61fcCc3c52F537E9E5434aA472130b8C03500e10` (Factory), `0x5077Df490A68d4bA33208c9308739B17da6CcBb7` (FeeVault), `10000000000000000000` (GradThreshold), `0` (Cooldown), `10000000000000000000000000` (MaxBuy), `0` (LaunchDelay), `1000000000000000000` (VirtualNative), `1000000000000000000000000000` (VirtualToken) |
+| HoneycombMigration | `0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167` (Market), `0x10ED43C718714eb63d5aA57B78B54704E256024E` (PCSRouter), `0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c` (WBNB), `0xED72f8286E28d4f2Aeb52D59385D1ff3bc9D81d7` (LPLock), `0xED72f8286E28d4f2Aeb52D59385D1ff3bc9D81d7` (Treasury) |
+| HoneycombRouter | `0x960518eC278b5a78bD1B5fC1b2E22abC5DB1A167` (Market), `0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c` (WBNB) |
 
 ---
 
@@ -144,23 +227,3 @@ https://docs.google.com/forms/d/e/1FAIpQLSe8ZlLroguO9HrIOQczfPUwrqVncR5ZhpLxcnt4
 - **New listing:** ~1 week for review
 - **Data updates:** 1-2 days after contract submission
 - **Campaign listing:** ~1 week for review
-
----
-
-## Key Deployment Step: Verifying Contracts on BscScan
-
-After deploying each contract to BNB mainnet, verify them on BscScan:
-
-1. Go to https://bscscan.com
-2. Search for the contract address
-3. Click "Contract" tab > "Verify and Publish"
-4. Select:
-   - Compiler: Solidity 0.8.24
-   - License: MIT
-   - Optimization: Yes (200 runs recommended)
-5. Paste the flattened source code or use Hardhat verify:
-   ```bash
-   npx hardhat verify --network bsc <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
-   ```
-
-This verification is **required** by DappBay before they will list the project.
