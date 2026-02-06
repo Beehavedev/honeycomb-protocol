@@ -942,45 +942,17 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
   const isBscMainnet = chainId === 56;
   const canUseOnChain = isContractDeployed && isBscMainnet && address;
 
-  // Mutation to sync on-chain creation with database
-  const syncCreateMutation = useMutation({
-    mutationFn: async (params: { 
-      onChainDuelId: string; 
-      txHash: string;
-      assetId: string;
-      assetName: string;
-      durationSec: string;
-      stakeWei: string;
-      stakeDisplay: string;
-      creatorOnChainAgentId: string;
-      direction: string;
-    }) => {
-      return apiRequest("POST", "/api/duels/sync-create", params);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-    },
-  });
-
   // Effect to handle on-chain success - sync with database
+  // Uses direct fetch instead of useMutation to avoid unmount cancellation
   useEffect(() => {
     if (createSuccess && createHash && createReceipt) {
-      // Parse the DuelCreated event from transaction logs to get the actual duel ID
-      // DuelCreated event signature: DuelCreated(uint256 indexed duelId, uint256 indexed creatorAgentId, address indexed creator, ...)
-      // The first topic (topic[0]) is the event signature hash
-      // The second topic (topic[1]) is the indexed duelId
-      let onChainDuelId = "1"; // fallback
+      let onChainDuelId = "1";
       
       try {
-        // Find the DuelCreated event in the logs
         for (const log of createReceipt.logs) {
-          // The log should have at least 4 topics for indexed params
           if (log.topics && log.topics.length >= 2) {
-            // The duelId is the second topic (first indexed param)
-            // Topics[0] = event signature, Topics[1] = duelId (indexed), Topics[2] = creatorAgentId (indexed), Topics[3] = creator (indexed)
             const duelIdHex = log.topics[1];
             if (duelIdHex) {
-              // Parse the hex value to get the duel ID
               const parsedId = BigInt(duelIdHex).toString();
               if (parsedId !== "0") {
                 onChainDuelId = parsedId;
@@ -996,11 +968,11 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
       playBetSound();
       toast({ 
         title: "Duel created on-chain!", 
-        description: `${stake} BNB sent to escrow. Your duel is now waiting for an opponent to join.` 
+        description: `${stake} BNB sent to escrow. Syncing your duel...` 
       });
       
       const asset = assets?.find(a => a.assetId === assetId);
-      syncCreateMutation.mutate({
+      const syncParams = {
         onChainDuelId,
         txHash: createHash,
         assetId,
@@ -1010,7 +982,43 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
         stakeDisplay: `${stake} BNB`,
         creatorOnChainAgentId: onChainAgentId?.toString() || "0",
         direction,
-      });
+      };
+      
+      // Use direct fetch to avoid mutation being cancelled when component unmounts
+      const token = localStorage.getItem("honeycomb_jwt");
+      fetch("/api/duels/sync-create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(syncParams),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            toast({ 
+              title: "Duel is live!", 
+              description: "Your duel is now waiting for an opponent to join." 
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            console.error("Sync-create failed:", res.status, errData);
+            toast({ 
+              title: "Sync failed", 
+              description: errData.message || "Duel was created on-chain but failed to save. Please contact support.",
+              variant: "destructive" 
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Sync-create network error:", err);
+          toast({ 
+            title: "Network error", 
+            description: "Duel was created on-chain but failed to sync. Please refresh the page.",
+            variant: "destructive" 
+          });
+        });
       
       onSuccess(createHash);
     }
