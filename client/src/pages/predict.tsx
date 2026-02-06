@@ -124,16 +124,11 @@ function useBinancePrice(assetId: string, enabled: boolean = true) {
         if (res.ok && data.klines && data.klines.length > 0) {
           const closePrices = data.klines.map((k: any) => k.close);
           setPriceHistory(closePrices);
-          setPrice(closePrices[closePrices.length - 1]);
+          if (!price) setPrice(closePrices[closePrices.length - 1]);
           setError(null);
-        } else {
-          setError(data.message || "error.priceData");
         }
-        setLoading(false);
       } catch (e) {
         console.error("Price history fetch error:", e);
-        setError("error.priceFeed");
-        setLoading(false);
       }
     };
 
@@ -157,6 +152,9 @@ function useBinancePrice(assetId: string, enabled: boolean = true) {
       }
     };
 
+    // Fetch ticker first (fast, usually cached) to show price immediately
+    fetchCurrentPrice().then(() => setLoading(false));
+    // Load klines in background for chart history
     fetchKlines();
     intervalId = setInterval(fetchCurrentPrice, 3000); // Update every 3 seconds
 

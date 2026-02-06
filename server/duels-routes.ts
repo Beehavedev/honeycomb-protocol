@@ -40,9 +40,9 @@ const settlingLocks = new Set<string>();
 const FEE_PERCENTAGE = 10;
 const DUEL_EXPIRY_MINUTES = 30; // Auto-cancel open duels after 30 minutes
 
-// Price cache to avoid CoinGecko rate limits (free tier: 10-30 req/min)
+// Price cache to avoid rate limits
 const priceCache = new Map<string, { price: number; timestamp: number }>();
-const CACHE_TTL_MS = 10000; // 10 seconds cache
+const CACHE_TTL_MS = 15000; // 15 seconds cache (prices don't move that fast)
 
 // CoinGecko ID mapping for price data (Binance is geo-blocked from server)
 const COINGECKO_IDS: Record<string, string> = {
@@ -115,9 +115,36 @@ function startDuelExpiryChecker() {
   }, 60000); // Check every minute
 }
 
+// Pre-warm price cache on startup for common assets
+async function warmPriceCache() {
+  const assets = ["BNB", "BTC", "ETH"];
+  for (const assetId of assets) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(
+        `https://min-api.cryptocompare.com/data/price?fsym=${assetId}&tsyms=USD`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.USD && typeof data.USD === 'number') {
+          priceCache.set(assetId, { price: data.USD, timestamp: Date.now() });
+        }
+      }
+    } catch (e) {
+      // Non-critical, will be fetched on first request
+    }
+  }
+  console.log(`[PriceCache] Warmed cache for ${priceCache.size} assets`);
+}
+
 export function registerDuelsRoutes(app: Express) {
   // Start the background job for auto-cancelling expired duels
   startDuelExpiryChecker();
+  // Pre-warm price cache
+  warmPriceCache();
   
   app.get("/api/duels/assets", async (_req, res) => {
     try {
@@ -286,9 +313,13 @@ export function registerDuelsRoutes(app: Express) {
       const symbol = BINANCE_SYMBOLS[assetId] || `${assetId}USDT`;
       
       // CoinGecko market chart - get last 1 day with 5 min intervals
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       const response = await fetch(
-        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1`
+        `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1`,
+        { signal: controller.signal }
       );
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         return res.status(400).json({ message: `Failed to fetch history for ${assetId}` });
@@ -350,73 +381,64 @@ export function registerDuelsRoutes(app: Express) {
       
       let price: number | null = null;
       
-      // Try CryptoCompare first (fastest, most reliable)
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const response = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${assetId}&tsyms=USD`,
-          { signal: controller.signal }
-        );
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.USD && typeof data.USD === 'number') {
-            price = data.USD;
-          }
-        }
-      } catch (e) {
-        // CryptoCompare failed, try next source
-      }
-      
-      // Try Kraken as backup
-      if (price === null) {
-        const krakenSymbol = KRAKEN_SYMBOLS[assetId];
-        if (krakenSymbol) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            const response = await fetch(
-              `https://api.kraken.com/0/public/Ticker?pair=${krakenSymbol}`,
-              { signal: controller.signal }
-            );
-            clearTimeout(timeoutId);
-            
-            if (response.ok) {
-              const data = await response.json();
-              const resultKey = Object.keys(data?.result || {})[0];
-              if (resultKey && data.result[resultKey]?.c?.[0]) {
-                price = parseFloat(data.result[resultKey].c[0]);
-              }
-            }
-          } catch (e) {
-            // Kraken failed, try next source
-          }
-        }
-      }
-      
-      // Try CoinGecko as last resort
-      if (price === null && coinId) {
+      // Fetch from all sources in parallel (race for fastest response)
+      const krakenSymbol = KRAKEN_SYMBOLS[assetId];
+      const fetchCryptoCompare = async (): Promise<number | null> => {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const response = await fetch(
+            `https://min-api.cryptocompare.com/data/price?fsym=${assetId}&tsyms=USD`,
+            { signal: controller.signal }
+          );
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.USD && typeof data.USD === 'number') return data.USD;
+          }
+        } catch (e) {}
+        return null;
+      };
+      const fetchKraken = async (): Promise<number | null> => {
+        if (!krakenSymbol) return null;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+          const response = await fetch(
+            `https://api.kraken.com/0/public/Ticker?pair=${krakenSymbol}`,
+            { signal: controller.signal }
+          );
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            const data = await response.json();
+            const resultKey = Object.keys(data?.result || {})[0];
+            if (resultKey && data.result[resultKey]?.c?.[0]) {
+              return parseFloat(data.result[resultKey].c[0]);
+            }
+          }
+        } catch (e) {}
+        return null;
+      };
+      const fetchCoinGecko = async (): Promise<number | null> => {
+        if (!coinId) return null;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
           const response = await fetch(
             `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`,
             { signal: controller.signal }
           );
           clearTimeout(timeoutId);
-          
           if (response.ok) {
             const data = await response.json();
-            if (data[coinId]?.usd) {
-              price = data[coinId].usd;
-            }
+            if (data[coinId]?.usd) return data[coinId].usd;
           }
-        } catch (e) {
-          // CoinGecko failed
-        }
-      }
+        } catch (e) {}
+        return null;
+      };
+
+      const results = await Promise.all([fetchCryptoCompare(), fetchKraken(), fetchCoinGecko()]);
+      price = results.find(p => p !== null) ?? null;
       
       // If still no price, use cached value even if stale
       if (price === null && cached) {
