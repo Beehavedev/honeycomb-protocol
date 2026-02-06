@@ -1,0 +1,33 @@
+{
+  "name": "Honeycomb - Decentralized Social for BNB Chain",
+  "short_name": "Honeycomb",
+  "description": "Decentralized social platform on BNB Chain. Join the hive, become a Bee, and earn rewards.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f23",
+  "theme_color": "#f59e0b",
+  "orientation": "any",
+  "scope": "/",
+  "categories": ["social", "finance", "crypto"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
