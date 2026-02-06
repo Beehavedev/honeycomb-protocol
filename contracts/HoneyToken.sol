@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title HoneyToken
  * @notice $HONEY - The native utility token of the Honeycomb platform on BNB Smart Chain
- * @dev BEP-20 token with 1 billion total supply, owner-controlled minting,
+ * @dev BEP-20 token with 1 billion fixed supply (no minting after deployment),
  *      anti-bot protections, and deflationary burn mechanics
  *
  * Use cases:
@@ -22,8 +22,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *   - Points Conversion: Convert earned points to $HONEY
  */
 contract HoneyToken is ERC20, ERC20Burnable, Ownable {
-    uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18; // 1 billion tokens
-    uint256 public constant INITIAL_SUPPLY = 150_000_000 * 10**18; // 15% initial (liquidity)
+    uint256 public constant TOTAL_SUPPLY = 1_000_000_000 * 10**18; // 1 billion tokens
 
     uint256 public maxTransactionAmount;
     uint256 public maxWalletAmount;
@@ -34,7 +33,6 @@ contract HoneyToken is ERC20, ERC20Burnable, Ownable {
     mapping(address => uint256) public lastTransferTime;
 
     mapping(address => bool) public isExcludedFromLimits;
-    mapping(address => bool) public isMinter;
 
     uint256 public totalBurned;
 
@@ -42,25 +40,17 @@ contract HoneyToken is ERC20, ERC20Burnable, Ownable {
     error MaxTransactionExceeded();
     error MaxWalletExceeded();
     error CooldownActive();
-    error MaxSupplyExceeded();
-    error NotMinter();
     error ZeroAddress();
 
     event TradingEnabled(uint256 timestamp);
     event LimitsUpdated(uint256 maxTx, uint256 maxWallet);
     event LimitsRemoved(uint256 timestamp);
-    event MinterUpdated(address indexed minter, bool status);
     event TokensBurned(address indexed burner, uint256 amount, uint256 totalBurned);
     event CooldownUpdated(uint256 cooldownSeconds);
 
-    modifier onlyMinter() {
-        if (!isMinter[msg.sender] && msg.sender != owner()) revert NotMinter();
-        _;
-    }
-
     constructor() ERC20("Honey Token", "HONEY") Ownable(msg.sender) {
-        maxTransactionAmount = MAX_SUPPLY * 1 / 100; // 1% of supply
-        maxWalletAmount = MAX_SUPPLY * 2 / 100; // 2% of supply
+        maxTransactionAmount = TOTAL_SUPPLY * 1 / 100; // 1% of supply
+        maxWalletAmount = TOTAL_SUPPLY * 2 / 100; // 2% of supply
         cooldownTime = 30; // 30 seconds between transfers
         limitsEnabled = true;
 
@@ -68,17 +58,7 @@ contract HoneyToken is ERC20, ERC20Burnable, Ownable {
         isExcludedFromLimits[address(this)] = true;
         isExcludedFromLimits[address(0)] = true;
 
-        _mint(msg.sender, INITIAL_SUPPLY);
-    }
-
-    /**
-     * @notice Mint new tokens (owner or authorized minters only)
-     * @dev Used for community rewards, staking emissions, points conversion
-     */
-    function mint(address to, uint256 amount) external onlyMinter {
-        if (to == address(0)) revert ZeroAddress();
-        if (totalSupply() + amount > MAX_SUPPLY) revert MaxSupplyExceeded();
-        _mint(to, amount);
+        _mint(msg.sender, TOTAL_SUPPLY);
     }
 
     /**
@@ -133,16 +113,6 @@ contract HoneyToken is ERC20, ERC20Burnable, Ownable {
     }
 
     /**
-     * @notice Set minter authorization
-     * @dev Staking contract and rewards distributor need minting rights
-     */
-    function setMinter(address _minter, bool _status) external onlyOwner {
-        if (_minter == address(0)) revert ZeroAddress();
-        isMinter[_minter] = _status;
-        emit MinterUpdated(_minter, _status);
-    }
-
-    /**
      * @notice Exclude address from limits (DEX pairs, contracts)
      */
     function setExcludedFromLimits(address _address, bool _excluded) external onlyOwner {
@@ -179,13 +149,6 @@ contract HoneyToken is ERC20, ERC20Burnable, Ownable {
      */
     function circulatingSupply() external view returns (uint256) {
         return totalSupply();
-    }
-
-    /**
-     * @notice Get remaining mintable supply
-     */
-    function remainingMintable() external view returns (uint256) {
-        return MAX_SUPPLY - totalSupply();
     }
 
     function decimals() public pure override returns (uint8) {

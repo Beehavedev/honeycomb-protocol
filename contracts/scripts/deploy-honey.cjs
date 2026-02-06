@@ -18,7 +18,7 @@ async function main() {
   console.log("HoneyToken deployed to:", honeyTokenAddress);
 
   const initialSupply = await honeyToken.totalSupply();
-  console.log("Initial supply minted:", ethers.formatEther(initialSupply), "HONEY");
+  console.log("Total supply minted:", ethers.formatEther(initialSupply), "HONEY (fixed supply, no minting)");
 
   console.log("\n=== Step 2: Deploy HoneyStaking ===");
   const HoneyStaking = await ethers.getContractFactory("HoneyStaking");
@@ -28,11 +28,6 @@ async function main() {
   console.log("HoneyStaking deployed to:", honeyStakingAddress);
 
   console.log("\n=== Step 3: Configure Permissions ===");
-
-  console.log("Setting HoneyStaking as authorized minter...");
-  const setMinterTx = await honeyToken.setMinter(honeyStakingAddress, true);
-  await setMinterTx.wait();
-  console.log("HoneyStaking granted minter role");
 
   console.log("Excluding HoneyStaking from transfer limits...");
   const excludeTx = await honeyToken.setExcludedFromLimits(honeyStakingAddress, true);
@@ -67,11 +62,9 @@ async function main() {
       HoneyStaking: honeyStakingAddress,
     },
     config: {
-      initialSupply: ethers.formatEther(initialSupply),
-      maxSupply: "1,000,000,000",
+      totalSupply: "1,000,000,000 (fixed, no minting)",
       stakingRewardRate: STAKING_REWARD_RATE,
       tradingEnabled: ENABLE_TRADING,
-      stakingIsMinter: true,
       stakingExcludedFromLimits: true,
     },
     tiers: {

@@ -16,7 +16,7 @@ const HONEY_TOKEN_INFO = {
   symbol: "HONEY",
   decimals: 18,
   maxSupply: "1000000000",
-  initialSupply: "150000000",
+  totalSupply: "1000000000",
   chains: [56, 97],
   distribution: {
     communityRewards: { percentage: 35, amount: "350000000", label: "Community Rewards Pool" },
@@ -74,7 +74,7 @@ export function registerHoneyRoutes(app: Express) {
           totalStaked: "0",
           totalBurned: "0",
           totalStakers: 0,
-          circulatingSupply: "150000000000000000000000000",
+          circulatingSupply: "1000000000000000000000000000",
           rewardPoolBalance: "0",
           priceUsd: "0",
           priceBnb: "0",

@@ -1229,12 +1229,12 @@ export function useHoneyCirculatingSupply() {
   });
 }
 
-export function useHoneyMaxSupply() {
+export function useHoneyTotalSupplyConst() {
   const address = useHoneyTokenAddress();
   return useReadContract({
     address,
     abi: HoneyTokenABI,
-    functionName: 'MAX_SUPPLY',
+    functionName: 'TOTAL_SUPPLY',
     query: { enabled: !!address },
   });
 }
@@ -1245,16 +1245,6 @@ export function useHoneyTradingEnabled() {
     address,
     abi: HoneyTokenABI,
     functionName: 'tradingEnabled',
-    query: { enabled: !!address },
-  });
-}
-
-export function useHoneyRemainingMintable() {
-  const address = useHoneyTokenAddress();
-  return useReadContract({
-    address,
-    abi: HoneyTokenABI,
-    functionName: 'remainingMintable',
     query: { enabled: !!address },
   });
 }
