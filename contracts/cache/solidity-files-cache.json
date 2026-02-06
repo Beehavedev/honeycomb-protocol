@@ -916,8 +916,8 @@
       ]
     },
     "/home/runner/workspace/contracts/HoneycombPredictDuel.sol": {
-      "lastModificationDate": 1770032652708,
-      "contentHash": "d35156372b89ebe69c4d071bede46937",
+      "lastModificationDate": 1770104173387,
+      "contentHash": "b8f36a05b7fda2366483537a8f863b83",
       "sourceName": "contracts/HoneycombPredictDuel.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -953,7 +953,8 @@
       ],
       "artifacts": [
         "HoneycombPredictDuel",
-        "IAgentRegistry"
+        "IAgentRegistry",
+        "IVRFConsumer"
       ]
     },
     "/home/runner/workspace/contracts/HoneycombAIAgentRegistry.sol": {
@@ -994,6 +995,93 @@
       ],
       "artifacts": [
         "HoneycombAIAgentRegistry"
+      ]
+    },
+    "/home/runner/workspace/contracts/launchpad/AutonomousAgentController.sol": {
+      "lastModificationDate": 1770184165633,
+      "contentHash": "4520e08d4bdc7cf758f0287ccb0223c1",
+      "sourceName": "contracts/launchpad/AutonomousAgentController.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/AccessControl.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "AutonomousAgentController",
+        "IBondingCurveMarket",
+        "IERC20",
+        "IMigration",
+        "ITokenFactory"
+      ]
+    },
+    "/home/runner/workspace/contracts/launchpad/AutoGraduator.sol": {
+      "lastModificationDate": 1770184203493,
+      "contentHash": "19a3280bf1642e145f515b6917475f49",
+      "sourceName": "contracts/launchpad/AutoGraduator.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/access/Ownable.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "AutoGraduator",
+        "IBondingCurveMarket",
+        "IMigration",
+        "ITokenFactory"
       ]
     }
   }
