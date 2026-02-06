@@ -8,7 +8,7 @@ const CHECK_URL = "https://api.etherscan.io/v2/api?chainid=56";
 const deploymentPath = path.join(__dirname, "../deployments/56.json");
 const deployment = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
 
-const BUILD_INFO_DIR = "/tmp/original-build-info";
+const BUILD_INFO_DIR = path.join(__dirname, "../contracts/artifacts/build-info-verified");
 
 const buildInfoFiles = {
   core: JSON.parse(fs.readFileSync(path.join(BUILD_INFO_DIR, "7f5d58b9f3222951c6702cd737fc9790.json"), "utf8")),
