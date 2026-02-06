@@ -1383,6 +1383,7 @@ export default function Predict() {
   const [highlightedDuelTx, setHighlightedDuelTx] = useState<string | null>(null);
   const { address } = useAccount();
   const chainId = useChainId();
+  const { signMessageAsync } = useSignMessage();
   const { toast } = useToast();
   const { t } = useI18n();
   const predictDuelAddress = usePredictDuelAddress();
@@ -1444,35 +1445,74 @@ export default function Predict() {
   // Track which duel we're joining for sync
   const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
 
-  // Mutation to sync on-chain join with database
-  const syncJoinMutation = useMutation({
-    mutationFn: async (params: { duelId: string; txHash: string; joinerOnChainAgentId: string }) => {
-      return apiRequest("POST", `/api/duels/${params.duelId}/sync-join`, {
-        txHash: params.txHash,
-        joinerOnChainAgentId: params.joinerOnChainAgentId,
-      });
-    },
-    onSuccess: () => {
-      toast({ title: "Joined duel!", description: "BNB sent to escrow. The duel is now live!" });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-      setJoiningDuelId(null);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to sync join", description: error.message, variant: "destructive" });
-      setJoiningDuelId(null);
-    },
-  });
-
   // Effect to handle on-chain join success
   useEffect(() => {
     if (joinSuccess && joinHash && joiningDuelId) {
       playBetSound();
-      // Sync with database after successful on-chain join
-      syncJoinMutation.mutate({
-        duelId: joiningDuelId,
+      const syncParams = {
         txHash: joinHash,
         joinerOnChainAgentId: userOnChainAgentId?.toString() || "0",
-      });
+      };
+      const duelId = joiningDuelId;
+
+      const doSyncJoin = async (retried = false) => {
+        const token = localStorage.getItem("honeycomb_jwt");
+        try {
+          const res = await fetch(`/api/duels/${duelId}/sync-join`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(syncParams),
+          });
+
+          if (res.ok) {
+            toast({ title: "Joined duel!", description: "BNB sent to escrow. The duel is now live!" });
+            queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+            setJoiningDuelId(null);
+          } else if (res.status === 401 && !retried && address) {
+            console.log("Token expired during sync-join, re-authenticating...");
+            try {
+              const nonceRes = await fetch("/api/auth/nonce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address }),
+              });
+              const { nonce } = await nonceRes.json();
+              const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+              const signature = await signMessageAsync({ message });
+              const verifyRes = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, signature, nonce }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.token) {
+                localStorage.setItem("honeycomb_jwt", verifyData.token);
+                await doSyncJoin(true);
+              } else {
+                toast({ title: "Auth failed", description: "Please sign in again.", variant: "destructive" });
+                setJoiningDuelId(null);
+              }
+            } catch (authErr) {
+              console.error("Re-auth failed during join:", authErr);
+              toast({ title: "Session expired", description: "Your BNB is safe in the on-chain escrow. Please refresh the page.", variant: "destructive" });
+              setJoiningDuelId(null);
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            console.error("Sync-join failed:", res.status, errData);
+            toast({ title: "Sync failed", description: errData.message || "Joined on-chain but failed to save. Please refresh.", variant: "destructive" });
+            setJoiningDuelId(null);
+          }
+        } catch (err) {
+          console.error("Sync-join network error:", err);
+          toast({ title: "Network error", description: "Joined on-chain but failed to sync. Please refresh.", variant: "destructive" });
+          setJoiningDuelId(null);
+        }
+      };
+      doSyncJoin();
     }
   }, [joinSuccess, joinHash, joiningDuelId]);
 
@@ -1512,31 +1552,64 @@ export default function Predict() {
     }
   }, [joinError]);
 
-  // Mutation to sync settlement with database
-  const syncSettleMutation = useMutation({
-    mutationFn: async (params: { duelId: string; txHash: string }) => {
-      return apiRequest("POST", `/api/duels/${params.duelId}/sync-settle`, {
-        txHash: params.txHash,
-      });
-    },
-    onSuccess: () => {
-      toast({ title: t('predict.settled') || "Bet Settled!", description: t('predict.payoutSent') || "Payout sent to winner (90%), fee sent to treasury (10%)" });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-      setSettlingDuelId(null);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to sync settlement", description: error.message, variant: "destructive" });
-      setSettlingDuelId(null);
-    },
-  });
-
   // Effect to handle settlement success
   useEffect(() => {
     if (settleSuccess && settleHash && settlingDuelId) {
-      syncSettleMutation.mutate({
-        duelId: settlingDuelId,
-        txHash: settleHash,
-      });
+      const duelId = settlingDuelId;
+      const doSyncSettle = async (retried = false) => {
+        const token = localStorage.getItem("honeycomb_jwt");
+        try {
+          const res = await fetch(`/api/duels/${duelId}/sync-settle`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ txHash: settleHash }),
+          });
+
+          if (res.ok) {
+            toast({ title: t('predict.settled') || "Bet Settled!", description: t('predict.payoutSent') || "Payout sent to winner (90%), fee sent to treasury (10%)" });
+            queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+            setSettlingDuelId(null);
+          } else if (res.status === 401 && !retried && address) {
+            try {
+              const nonceRes = await fetch("/api/auth/nonce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address }),
+              });
+              const { nonce } = await nonceRes.json();
+              const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+              const signature = await signMessageAsync({ message });
+              const verifyRes = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, signature, nonce }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.token) {
+                localStorage.setItem("honeycomb_jwt", verifyData.token);
+                await doSyncSettle(true);
+              } else {
+                toast({ title: "Auth failed", description: "Please sign in again.", variant: "destructive" });
+                setSettlingDuelId(null);
+              }
+            } catch (authErr) {
+              toast({ title: "Session expired", description: "Settled on-chain. Please refresh to see results.", variant: "destructive" });
+              setSettlingDuelId(null);
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            toast({ title: "Sync failed", description: errData.message || "Settled on-chain but failed to save. Please refresh.", variant: "destructive" });
+            setSettlingDuelId(null);
+          }
+        } catch (err) {
+          toast({ title: "Network error", description: "Settled on-chain but sync failed. Please refresh.", variant: "destructive" });
+          setSettlingDuelId(null);
+        }
+      };
+      doSyncSettle();
     }
   }, [settleSuccess, settleHash, settlingDuelId]);
 
@@ -2037,7 +2110,7 @@ export default function Predict() {
                       onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}
                       onReclaim={activeTab === "cancelled" ? () => handleReclaimStake(duel) : undefined}
                       isJoining={joinMutation.isPending || isJoiningOnChain}
-                      isSettling={isSettlingOnChain || syncSettleMutation.isPending}
+                      isSettling={isSettlingOnChain}
                       isCancelling={isCancellingOnChain || syncCancelMutation.isPending}
                       isReclaiming={reclaimingDuelId === duel.id && (isCancellingOnChain || syncReclaimMutation.isPending)}
                     />
