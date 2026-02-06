@@ -505,7 +505,7 @@ function LeaderboardPanel() {
   );
 }
 
-function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSettling, isCancelling, isReclaiming }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; onReclaim?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean; isReclaiming?: boolean }) {
+function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSettling, isCancelling, isReclaiming, isHighlighted }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; onReclaim?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean; isReclaiming?: boolean; isHighlighted?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
   const isCreator = Boolean(address && address.toLowerCase() === duel.creatorAddress.toLowerCase());
@@ -571,7 +571,7 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
   }, [duel.status, duel.winnerAddress, isWinner, isLoser]);
 
   return (
-    <Card className="hover-elevate overflow-visible" data-testid={`duel-card-${duel.id}`}>
+    <Card className={`hover-elevate overflow-visible ${isHighlighted ? "ring-2 ring-primary animate-pulse" : ""}`} data-testid={`duel-card-${duel.id}`}>
       <CardContent className="p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -890,7 +890,7 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
   );
 }
 
-function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
+function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void }) {
   const { address } = useAccount();
   const chainId = useChainId();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
@@ -994,7 +994,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
       playBetSound();
       toast({ 
         title: "Duel created on-chain!", 
-        description: `BNB sent to escrow. Transaction: ${createHash.slice(0, 10)}...` 
+        description: `${stake} BNB sent to escrow. Your duel is now waiting for an opponent to join.` 
       });
       
       const asset = assets?.find(a => a.assetId === assetId);
@@ -1010,7 +1010,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
         direction,
       });
       
-      onSuccess();
+      onSuccess(createHash);
     }
   }, [createSuccess, createHash, createReceipt]);
 
@@ -1337,6 +1337,7 @@ function CreateDuelForm({ onSuccess }: { onSuccess: () => void }) {
 export default function Predict() {
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState("open");
+  const [highlightedDuelTx, setHighlightedDuelTx] = useState<string | null>(null);
   const { address } = useAccount();
   const chainId = useChainId();
   const { toast } = useToast();
@@ -1884,7 +1885,13 @@ export default function Predict() {
 
       {showCreate && (
         <div className="mb-6">
-          <CreateDuelForm onSuccess={() => setShowCreate(false)} />
+          <CreateDuelForm onSuccess={(txHash) => {
+            setShowCreate(false);
+            setActiveTab("open");
+            if (txHash) setHighlightedDuelTx(txHash);
+            setTimeout(() => setHighlightedDuelTx(null), 10000);
+            refetchDuels();
+          }} />
         </div>
       )}
 
@@ -1958,6 +1965,7 @@ export default function Predict() {
                     <DuelCard
                       key={duel.id}
                       duel={duel}
+                      isHighlighted={!!(highlightedDuelTx && duel.createTxHash === highlightedDuelTx)}
                       onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
                       onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
                       onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}
