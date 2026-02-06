@@ -3,7 +3,7 @@ import { verifyMessage } from "viem";
 import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 
-const JWT_SECRET = process.env.SESSION_SECRET || "honeycomb-secret-key";
+const JWT_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const JWT_EXPIRY = "24h";
 
 export interface JwtPayload {
