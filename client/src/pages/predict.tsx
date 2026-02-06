@@ -1632,60 +1632,127 @@ export default function Predict() {
     }
   }, [settleError]);
 
-  // Mutation to sync cancel with database
-  const syncCancelMutation = useMutation({
-    mutationFn: async (params: { duelId: string; txHash: string }) => {
-      return apiRequest("POST", `/api/duels/${params.duelId}/sync-cancel`, {
-        txHash: params.txHash,
-      });
-    },
-    onSuccess: () => {
-      toast({ title: t('predict.cancelled'), description: t('predict.cancelledDesc') });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-      setCancellingDuelId(null);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to sync cancellation", description: error.message, variant: "destructive" });
-      setCancellingDuelId(null);
-    },
-  });
+  // Track syncing state for cancel/reclaim
+  const [isSyncingCancel, setIsSyncingCancel] = useState(false);
+  const [isSyncingReclaim, setIsSyncingReclaim] = useState(false);
 
-  // Mutation to sync stake reclaim with database
-  const syncReclaimMutation = useMutation({
-    mutationFn: async (params: { duelId: string; txHash: string }) => {
-      return apiRequest("POST", `/api/duels/${params.duelId}/sync-reclaim`, {
-        txHash: params.txHash,
-      });
-    },
-    onSuccess: () => {
-      toast({ title: t('duel.reclaimStake'), description: t('duel.stakeReclaimed') });
-      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
-      setReclaimingDuelId(null);
-    },
-    onError: (error: Error) => {
-      toast({ title: "Failed to sync reclaim", description: error.message, variant: "destructive" });
-      setReclaimingDuelId(null);
-    },
-  });
-
-  // Effect to handle cancel/reclaim success
-  // Priority: reclaim takes precedence since we clear state on initiation
+  // Effect to handle cancel/reclaim success - uses direct fetch to survive re-renders
   useEffect(() => {
     if (cancelSuccess && cancelHash) {
-      // Check if this is a reclaim (already cancelled) or a normal cancel (was open)
-      // Only one of these should be set at a time due to mutual exclusion
       if (reclaimingDuelId) {
-        syncReclaimMutation.mutate({
-          duelId: reclaimingDuelId,
-          txHash: cancelHash,
-        });
-        // Mutation onSuccess will clear reclaimingDuelId
+        const duelId = reclaimingDuelId;
+        setIsSyncingReclaim(true);
+        const doSyncReclaim = async (retried = false) => {
+          const token = localStorage.getItem("honeycomb_jwt");
+          try {
+            const res = await fetch(`/api/duels/${duelId}/sync-reclaim`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ txHash: cancelHash }),
+            });
+            if (res.ok) {
+              toast({ title: t('duel.reclaimStake'), description: t('duel.stakeReclaimed') });
+              queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+              setReclaimingDuelId(null);
+            } else if (res.status === 401 && !retried && address) {
+              try {
+                const nonceRes = await fetch("/api/auth/nonce", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ address }),
+                });
+                const { nonce } = await nonceRes.json();
+                const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+                const signature = await signMessageAsync({ message });
+                const verifyRes = await fetch("/api/auth/verify", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ address, signature, nonce }),
+                });
+                const verifyData = await verifyRes.json();
+                if (verifyData.token) {
+                  localStorage.setItem("honeycomb_jwt", verifyData.token);
+                  await doSyncReclaim(true);
+                } else {
+                  toast({ title: "Auth failed", description: "Please sign in again.", variant: "destructive" });
+                  setReclaimingDuelId(null);
+                }
+              } catch (authErr) {
+                toast({ title: "Session expired", description: "Reclaimed on-chain. Please refresh.", variant: "destructive" });
+                setReclaimingDuelId(null);
+              }
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              toast({ title: "Failed to sync reclaim", description: errData.message || "Please refresh.", variant: "destructive" });
+              setReclaimingDuelId(null);
+            }
+          } catch (err) {
+            toast({ title: "Network error", description: "Reclaimed on-chain but sync failed. Please refresh.", variant: "destructive" });
+            setReclaimingDuelId(null);
+          }
+          setIsSyncingReclaim(false);
+        };
+        doSyncReclaim();
       } else if (cancellingDuelId) {
-        syncCancelMutation.mutate({
-          duelId: cancellingDuelId,
-          txHash: cancelHash,
-        });
-        // Mutation onSuccess will clear cancellingDuelId
+        const duelId = cancellingDuelId;
+        setIsSyncingCancel(true);
+        const doSyncCancel = async (retried = false) => {
+          const token = localStorage.getItem("honeycomb_jwt");
+          try {
+            const res = await fetch(`/api/duels/${duelId}/sync-cancel`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ txHash: cancelHash }),
+            });
+            if (res.ok) {
+              toast({ title: t('predict.cancelled'), description: t('predict.cancelledDesc') });
+              queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+              setCancellingDuelId(null);
+            } else if (res.status === 401 && !retried && address) {
+              try {
+                const nonceRes = await fetch("/api/auth/nonce", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ address }),
+                });
+                const { nonce } = await nonceRes.json();
+                const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+                const signature = await signMessageAsync({ message });
+                const verifyRes = await fetch("/api/auth/verify", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ address, signature, nonce }),
+                });
+                const verifyData = await verifyRes.json();
+                if (verifyData.token) {
+                  localStorage.setItem("honeycomb_jwt", verifyData.token);
+                  await doSyncCancel(true);
+                } else {
+                  toast({ title: "Auth failed", description: "Please sign in again.", variant: "destructive" });
+                  setCancellingDuelId(null);
+                }
+              } catch (authErr) {
+                toast({ title: "Session expired", description: "Cancelled on-chain. Please refresh.", variant: "destructive" });
+                setCancellingDuelId(null);
+              }
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              toast({ title: "Failed to sync cancellation", description: errData.message || "Please refresh.", variant: "destructive" });
+              setCancellingDuelId(null);
+            }
+          } catch (err) {
+            toast({ title: "Network error", description: "Cancelled on-chain but sync failed. Please refresh.", variant: "destructive" });
+            setCancellingDuelId(null);
+          }
+          setIsSyncingCancel(false);
+        };
+        doSyncCancel();
       }
     }
   }, [cancelSuccess, cancelHash, cancellingDuelId, reclaimingDuelId]);
@@ -2109,8 +2176,8 @@ export default function Predict() {
                       onReclaim={activeTab === "cancelled" ? () => handleReclaimStake(duel) : undefined}
                       isJoining={joinMutation.isPending || isJoiningOnChain}
                       isSettling={isSettlingOnChain}
-                      isCancelling={isCancellingOnChain || syncCancelMutation.isPending}
-                      isReclaiming={reclaimingDuelId === duel.id && (isCancellingOnChain || syncReclaimMutation.isPending)}
+                      isCancelling={isCancellingOnChain || isSyncingCancel}
+                      isReclaiming={reclaimingDuelId === duel.id && (isCancellingOnChain || isSyncingReclaim)}
                     />
                   ))}
                 </div>
