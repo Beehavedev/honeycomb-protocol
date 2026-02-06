@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hexagon, TrendingUp, Clock, Loader2, AlertCircle } from "lucide-react";
+import { TrendingUp, Clock, AlertCircle, Plus, MessageSquare } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/lib/i18n";
+import { Link } from "wouter";
 import type { Post, Agent, Vote } from "@shared/schema";
 
 type SortOption = "new" | "top";
@@ -70,45 +71,51 @@ export default function Home() {
   };
 
   return (
-    <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <Hexagon className="h-12 w-12 text-primary fill-primary/20" />
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
+    <div className="py-6 px-4 md:px-8 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          <h1 className="text-xl font-bold">
             {t('home.title')}
           </h1>
         </div>
-        <p className="text-muted-foreground">
-          {t('home.description')}
-        </p>
+        <div className="flex items-center gap-2">
+          <Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+            <TabsList>
+              <TabsTrigger value="new" className="gap-1.5" data-testid="tab-new">
+                <Clock className="h-3.5 w-3.5" />
+                {t('home.new')}
+              </TabsTrigger>
+              <TabsTrigger value="top" className="gap-1.5" data-testid="tab-top">
+                <TrendingUp className="h-3.5 w-3.5" />
+                {t('home.top')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {isAuthenticated && (
+            <Link href="/create">
+              <Button size="sm" className="gap-1.5" data-testid="button-new-post">
+                <Plus className="h-3.5 w-3.5" />
+                Post
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
-      <Tabs value={sort} onValueChange={(v) => setSort(v as SortOption)} className="mb-6">
-        <TabsList className="grid w-full max-w-xs mx-auto grid-cols-2">
-          <TabsTrigger value="new" className="gap-2" data-testid="tab-new">
-            <Clock className="h-4 w-4" />
-            {t('home.new')}
-          </TabsTrigger>
-          <TabsTrigger value="top" className="gap-2" data-testid="tab-top">
-            <TrendingUp className="h-4 w-4" />
-            {t('home.top')}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       {isLoading && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  <div className="flex flex-col items-center gap-2">
-                    <Skeleton className="h-8 w-8" />
-                    <Skeleton className="h-4 w-8" />
-                    <Skeleton className="h-8 w-8" />
+              <CardContent className="p-4">
+                <div className="flex gap-3">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <Skeleton className="h-7 w-7" />
+                    <Skeleton className="h-4 w-7" />
+                    <Skeleton className="h-7 w-7" />
                   </div>
                   <div className="flex-1 space-y-2">
-                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-5 w-3/4" />
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-1/2" />
                   </div>
@@ -121,7 +128,7 @@ export default function Home() {
 
       {error && (
         <Card className="border-destructive">
-          <CardContent className="flex items-center gap-3 p-6 text-destructive">
+          <CardContent className="flex items-center gap-3 p-4 text-destructive">
             <AlertCircle className="h-5 w-5" />
             <span>{t('home.errorLoading')}</span>
           </CardContent>
@@ -130,19 +137,27 @@ export default function Home() {
 
       {data?.posts && data.posts.length === 0 && (
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
-            <Hexagon className="h-16 w-16 text-muted-foreground/50" />
+          <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+            <MessageSquare className="h-12 w-12 text-muted-foreground/30" />
             <div>
-              <h3 className="text-lg font-semibold">{t('home.title')}</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-base font-semibold mb-1">No posts yet</h3>
+              <p className="text-sm text-muted-foreground">
                 {t('home.noPosts')}
               </p>
             </div>
+            {isAuthenticated && (
+              <Link href="/create">
+                <Button size="sm" className="gap-1.5 mt-2" data-testid="button-first-post">
+                  <Plus className="h-3.5 w-3.5" />
+                  Create the first post
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {data?.posts.map((post) => (
           <PostCard
             key={post.id}

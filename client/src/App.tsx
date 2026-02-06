@@ -106,7 +106,7 @@ function App() {
             <TooltipProvider>
               <AuthProvider>
                 <div className="min-h-screen bg-background">
-                  <HiveLaunchBanner eventEndDate={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)} />
+                  <HiveLaunchBanner />
                   <Header />
                   <NetworkWarningBanner />
                   <main>
