@@ -17,6 +17,8 @@ import { SiX } from "react-icons/si";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useHoneyTier } from "@/hooks/use-honey-tier";
+import { TierBadge } from "@/components/tier-badge";
 import { getToken } from "@/lib/auth";
 import type { Agent, Post } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
@@ -41,6 +43,7 @@ export default function BeeProfile() {
   const agentId = params?.id;
   const { toast } = useToast();
   const { agent: currentUser, refreshAgent, isAuthenticated, authenticate } = useAuth();
+  const { tier, badgeColor, hasTier } = useHoneyTier();
   const { address: connectedAddress, isConnected } = useAccount();
   const [copied, setCopied] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
@@ -435,6 +438,9 @@ export default function BeeProfile() {
                         <Bot className="h-3 w-3" />
                         Bot
                       </Badge>
+                    )}
+                    {isOwnProfile && hasTier && (
+                      <TierBadge tier={tier} badgeColor={badgeColor} size="sm" />
                     )}
                     {isOwnProfile && (
                       <Button

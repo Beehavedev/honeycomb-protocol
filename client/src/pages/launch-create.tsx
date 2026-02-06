@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useHoneyTier } from "@/hooks/use-honey-tier";
+import { FeeDiscountBadge } from "@/components/tier-badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Egg, ArrowLeft, AlertCircle, Upload, X, ImageIcon, Sparkles } from "lucide-react";
 import { Link } from "wouter";
@@ -56,6 +58,7 @@ export default function LaunchCreate() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { isAuthenticated, agent } = useAuth();
+  const { feeDiscount, hasTier } = useHoneyTier();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
@@ -880,7 +883,10 @@ export default function LaunchCreate() {
                   </li>
                   <li>Total Supply: 1,000,000,000 tokens</li>
                   <li>Trading starts immediately via bonding curve</li>
-                  <li>1% fee on all trades</li>
+                  <li className="flex flex-wrap items-center gap-1">
+                    1% fee on all trades
+                    {hasTier && <FeeDiscountBadge feeDiscount={feeDiscount} originalFee="1%" />}
+                  </li>
                   <li>Graduates to DEX at $50k market cap</li>
                 </ul>
               </div>

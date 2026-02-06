@@ -2249,3 +2249,133 @@ export type InsertCrossChainAgent = z.infer<typeof insertCrossChainAgentSchema>;
 
 export type HeartbeatLog = typeof heartbeatLogs.$inferSelect;
 export type InsertHeartbeatLog = z.infer<typeof insertHeartbeatLogSchema>;
+
+// ============ $HONEY TOKEN SYSTEM ============
+
+export const honeyStakingRecords = pgTable("honey_staking_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  agentId: varchar("agent_id"),
+  amountWei: text("amount_wei").notNull(),
+  amountDisplay: text("amount_display").notNull(),
+  lockPeriod: text("lock_period").notNull(), // flexible, 7d, 30d, 90d, 180d
+  tier: text("tier").notNull(), // none, drone, worker, guardian, queen
+  feeDiscount: integer("fee_discount").default(0).notNull(), // basis points
+  pointsMultiplier: integer("points_multiplier").default(100).notNull(), // 100 = 1x
+  stakedAt: timestamp("staked_at").defaultNow().notNull(),
+  unlockAt: timestamp("unlock_at"),
+  txHash: text("tx_hash"),
+  chainId: integer("chain_id").default(56).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const honeyPointsConversion = pgTable("honey_points_conversion", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  pointsSpent: integer("points_spent").notNull(),
+  honeyReceived: text("honey_received").notNull(), // wei amount
+  honeyDisplay: text("honey_display").notNull(),
+  conversionRate: real("conversion_rate").notNull(), // points per 1 HONEY
+  txHash: text("tx_hash"),
+  status: text("status").default("pending").notNull(), // pending, completed, failed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const honeyBurnLog = pgTable("honey_burn_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  amountWei: text("amount_wei").notNull(),
+  amountDisplay: text("amount_display").notNull(),
+  source: text("source").notNull(), // duel_fee, launch_fee, nfa_fee, manual
+  txHash: text("tx_hash"),
+  chainId: integer("chain_id").default(56).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const honeyTokenStats = pgTable("honey_token_stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  totalStaked: text("total_staked").default("0").notNull(),
+  totalBurned: text("total_burned").default("0").notNull(),
+  totalStakers: integer("total_stakers").default(0).notNull(),
+  circulatingSupply: text("circulating_supply").default("0").notNull(),
+  rewardPoolBalance: text("reward_pool_balance").default("0").notNull(),
+  priceUsd: text("price_usd").default("0").notNull(),
+  priceBnb: text("price_bnb").default("0").notNull(),
+  marketCap: text("market_cap").default("0").notNull(),
+  holders: integer("holders").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const honeyTierConfig = pgTable("honey_tier_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tier: text("tier").notNull().unique(), // drone, worker, guardian, queen
+  displayName: text("display_name").notNull(),
+  minStake: text("min_stake").notNull(), // human readable
+  minStakeWei: text("min_stake_wei").notNull(),
+  feeDiscount: integer("fee_discount").notNull(), // basis points
+  pointsMultiplier: integer("points_multiplier").notNull(), // 100 = 1x
+  benefits: text("benefits").notNull(), // JSON array of benefit strings
+  badgeColor: text("badge_color").notNull(), // hex color for badge
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+// $HONEY Schemas
+export const insertHoneyStakingSchema = createInsertSchema(honeyStakingRecords).pick({
+  walletAddress: true,
+  agentId: true,
+  amountWei: true,
+  amountDisplay: true,
+  lockPeriod: true,
+  tier: true,
+  feeDiscount: true,
+  pointsMultiplier: true,
+  txHash: true,
+  chainId: true,
+});
+
+export const insertHoneyPointsConversionSchema = createInsertSchema(honeyPointsConversion).pick({
+  agentId: true,
+  walletAddress: true,
+  pointsSpent: true,
+  honeyReceived: true,
+  honeyDisplay: true,
+  conversionRate: true,
+  txHash: true,
+  status: true,
+});
+
+export const insertHoneyBurnLogSchema = createInsertSchema(honeyBurnLog).pick({
+  walletAddress: true,
+  amountWei: true,
+  amountDisplay: true,
+  source: true,
+  txHash: true,
+  chainId: true,
+});
+
+export const insertHoneyTierConfigSchema = createInsertSchema(honeyTierConfig).pick({
+  tier: true,
+  displayName: true,
+  minStake: true,
+  minStakeWei: true,
+  feeDiscount: true,
+  pointsMultiplier: true,
+  benefits: true,
+  badgeColor: true,
+});
+
+// $HONEY Types
+export type HoneyStakingRecord = typeof honeyStakingRecords.$inferSelect;
+export type InsertHoneyStaking = z.infer<typeof insertHoneyStakingSchema>;
+
+export type HoneyPointsConversion = typeof honeyPointsConversion.$inferSelect;
+export type InsertHoneyPointsConversion = z.infer<typeof insertHoneyPointsConversionSchema>;
+
+export type HoneyBurnLog = typeof honeyBurnLog.$inferSelect;
+export type InsertHoneyBurnLog = z.infer<typeof insertHoneyBurnLogSchema>;
+
+export type HoneyTokenStat = typeof honeyTokenStats.$inferSelect;
+export type HoneyTierConfigType = typeof honeyTierConfig.$inferSelect;
+export type InsertHoneyTierConfig = z.infer<typeof insertHoneyTierConfigSchema>;

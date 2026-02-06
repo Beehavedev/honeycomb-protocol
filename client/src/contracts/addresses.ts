@@ -12,6 +12,8 @@ export interface ContractAddresses {
   migration: `0x${string}`;
   router: `0x${string}`;
   predictDuel: `0x${string}`;
+  honeyToken: `0x${string}`;
+  honeyStaking: `0x${string}`;
 }
 
 // ERC-8004 Trustless Agents contract addresses (external standard)
@@ -60,6 +62,8 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     migration: ZERO_ADDRESS,
     router: ZERO_ADDRESS,
     predictDuel: ZERO_ADDRESS,
+    honeyToken: ZERO_ADDRESS,
+    honeyStaking: ZERO_ADDRESS,
   },
   // BSC Testnet - Deployed February 1, 2026 (v2 with router & no cooldown)
   97: {
@@ -73,6 +77,8 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     migration: "0x96e983999c0Ab80437560C281Eb35f6dFD8301ff",
     router: "0x0464386A91fCdd536eaDDF2fE8f621438355a5D6",
     predictDuel: ZERO_ADDRESS, // TODO: Deploy and update
+    honeyToken: ZERO_ADDRESS, // TODO: Deploy $HONEY token
+    honeyStaking: ZERO_ADDRESS, // TODO: Deploy staking contract
   },
   // BSC Mainnet - Deployed February 1, 2026
   56: {
@@ -86,6 +92,8 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     migration: "0xa95a5d8237A1932b315c50eFB92e3086EB8eAf01",
     router: "0x246e121A4df577046BaEdf87d5F68968bc24c52E",
     predictDuel: "0x8A3698513850b6dEFA68dD59f4D7DC5E8c2e2650", // Deployed February 2, 2026
+    honeyToken: ZERO_ADDRESS, // TODO: Deploy $HONEY token
+    honeyStaking: ZERO_ADDRESS, // TODO: Deploy staking contract
   },
   // opBNB Testnet
   5611: {
@@ -99,6 +107,8 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     migration: ZERO_ADDRESS,
     router: ZERO_ADDRESS,
     predictDuel: ZERO_ADDRESS,
+    honeyToken: ZERO_ADDRESS,
+    honeyStaking: ZERO_ADDRESS,
   },
   // opBNB Mainnet
   204: {
@@ -112,6 +122,8 @@ export const CONTRACT_ADDRESSES: Record<number, ContractAddresses> = {
     migration: ZERO_ADDRESS,
     router: ZERO_ADDRESS,
     predictDuel: ZERO_ADDRESS,
+    honeyToken: ZERO_ADDRESS,
+    honeyStaking: ZERO_ADDRESS,
   },
 };
 

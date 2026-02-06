@@ -26,7 +26,7 @@ export function Header() {
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
-  const isExploreActive = location === "/feed" || location === "/create" || location.startsWith("/honey") || location === "/predict";
+  const isExploreActive = location === "/feed" || location === "/create" || location.startsWith("/honey") || location === "/predict" || location === "/token";
   const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery") || location.startsWith("/nfa");
   const isLaunchActive = location.startsWith("/launch") || location.startsWith("/beepay");
 
@@ -39,6 +39,7 @@ export function Header() {
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
     { href: "/honey", label: t('nav.bounties'), icon: Coins },
     { href: "/predict", label: t('nav.predict'), icon: Target },
+    { href: "/token", label: "$HONEY", icon: Coins },
     { href: "/launch", label: t('nav.launchpad'), icon: Egg },
     { href: "/beepay", label: "BeePay", icon: DollarSign },
     { href: "/rewards", label: "Rewards", icon: Trophy },
@@ -83,6 +84,13 @@ export function Header() {
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-predict">
                     <Target className="h-4 w-4" />
                     {t('nav.predict')}
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuSeparator />
+                <Link href="/token">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-honey-token">
+                    <Coins className="h-4 w-4" />
+                    $HONEY Token
                   </DropdownMenuItem>
                 </Link>
               </DropdownMenuContent>

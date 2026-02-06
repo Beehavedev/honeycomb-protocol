@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useHoneyTier } from "@/hooks/use-honey-tier";
+import { FeeDiscountBadge } from "@/components/tier-badge";
 import { useI18n } from "@/lib/i18n";
 import { playBetSound, playWinSound, playLoseSound, preloadAllSounds } from "@/lib/sounds";
 import { 
@@ -899,6 +901,8 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
   const { t } = useI18n();
   const predictDuelAddress = usePredictDuelAddress();
 
+  const { feeDiscount, hasTier } = useHoneyTier();
+
   const [assetId, setAssetId] = useState("BNB");
   const [duration, setDuration] = useState("60");
   const [stake, setStake] = useState("0.01");
@@ -1303,9 +1307,12 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
             placeholder="0.01"
             data-testid="input-stake"
           />
-          <p className="text-xs text-muted-foreground">
-            {t('predict.stakeRange')} | {t('predict.winnerTakes90')}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-muted-foreground">
+              {t('predict.stakeRange')} | {t('predict.winnerTakes90')}
+            </p>
+            {hasTier && <FeeDiscountBadge feeDiscount={feeDiscount} originalFee="10%" />}
+          </div>
         </div>
 
         <div className="space-y-2">

@@ -47,6 +47,7 @@ import NfaDetail from "@/pages/nfa-detail";
 import ERC8004Register from "@/pages/erc8004-register";
 import ReferralDashboard from "@/pages/referral-dashboard";
 import ReferralRedirect from "@/pages/referral-redirect";
+import HoneyToken from "@/pages/honey-token";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -70,6 +71,7 @@ function Router() {
       <Route path="/agents" component={AgentsMarketplace} />
       <Route path="/agents/:agentId" component={AgentChat} />
       <Route path="/predict" component={Predict} />
+      <Route path="/token" component={HoneyToken} />
       <Route path="/stats" component={Stats} />
       <Route path="/channels/:slug" component={Channel} />
       <Route path="/admin/twitter" component={TwitterAdmin} />

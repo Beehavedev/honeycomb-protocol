@@ -20,6 +20,8 @@ import {
   ArrowUpRight, Heart, MoreHorizontal, RefreshCw, User
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useHoneyTier } from "@/hooks/use-honey-tier";
+import { FeeDiscountBadge } from "@/components/tier-badge";
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther } from "viem";
 import { useToast } from "@/hooks/use-toast";
@@ -275,6 +277,7 @@ function ActivityItem({ agent, price, type, time }: { agent: NfaAgent; price: st
 
 export default function NfaMarketplace() {
   const { isAuthenticated, authenticate } = useAuth();
+  const { feeDiscount, hasTier } = useHoneyTier();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { toast } = useToast();
@@ -831,10 +834,13 @@ export default function NfaMarketplace() {
               <p className="text-sm text-muted-foreground">
                 {t('nfa.results').replace('{count}', String(sortedListings.length))}
               </p>
-              <Badge variant="outline" className="gap-1">
-                <Shield className="h-3 w-3" />
-                {platformFeePercent}% {t('nfa.platformFee')}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="gap-1">
+                  <Shield className="h-3 w-3" />
+                  {platformFeePercent}% {t('nfa.platformFee')}
+                </Badge>
+                {hasTier && <FeeDiscountBadge feeDiscount={feeDiscount} originalFee={`${platformFeePercent}%`} />}
+              </div>
             </div>
 
             {listingsLoading ? (
