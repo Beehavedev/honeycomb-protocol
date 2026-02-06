@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useSignMessage } from "wagmi";
 import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -895,6 +895,7 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
 function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void }) {
   const { address } = useAccount();
   const chainId = useChainId();
+  const { signMessageAsync } = useSignMessage();
   const { isAuthenticated, authenticate, isAuthenticating } = useAuth();
   const { toast } = useToast();
   const { t } = useI18n();
@@ -985,22 +986,53 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
       };
       
       // Use direct fetch to avoid mutation being cancelled when component unmounts
-      const token = localStorage.getItem("honeycomb_jwt");
-      fetch("/api/duels/sync-create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(syncParams),
-      })
-        .then(async (res) => {
+      const doSync = async (retried = false) => {
+        const token = localStorage.getItem("honeycomb_jwt");
+        try {
+          const res = await fetch("/api/duels/sync-create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(syncParams),
+          });
+          
           if (res.ok) {
             toast({ 
               title: "Duel is live!", 
               description: "Your duel is now waiting for an opponent to join." 
             });
             queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
+          } else if (res.status === 401 && !retried && address) {
+            // Token expired - re-authenticate and retry
+            console.log("Token expired during sync, re-authenticating...");
+            try {
+              const nonceRes = await fetch("/api/auth/nonce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address }),
+              });
+              const { nonce } = await nonceRes.json();
+              const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+              const signature = await signMessageAsync({ message });
+              const verifyRes = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, signature, nonce }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.token) {
+                localStorage.setItem("honeycomb_jwt", verifyData.token);
+                // Retry sync with new token
+                await doSync(true);
+              } else {
+                toast({ title: "Auth failed", description: "Please sign in again and recreate the duel.", variant: "destructive" });
+              }
+            } catch (authErr) {
+              console.error("Re-auth failed:", authErr);
+              toast({ title: "Session expired", description: "Please sign in again. Your BNB is safe in the on-chain escrow.", variant: "destructive" });
+            }
           } else {
             const errData = await res.json().catch(() => ({}));
             console.error("Sync-create failed:", res.status, errData);
@@ -1010,15 +1042,16 @@ function CreateDuelForm({ onSuccess }: { onSuccess: (txHash?: string) => void })
               variant: "destructive" 
             });
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           console.error("Sync-create network error:", err);
           toast({ 
             title: "Network error", 
             description: "Duel was created on-chain but failed to sync. Please refresh the page.",
             variant: "destructive" 
           });
-        });
+        }
+      };
+      doSync();
       
       onSuccess(createHash);
     }
