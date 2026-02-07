@@ -82,25 +82,29 @@ export async function registerRoutes(
 ): Promise<Server> {
   
   // Auto-seed points config if empty (prevents points system from silently failing)
-  const existingConfigs = await storage.getAllPointsConfig();
-  if (existingConfigs.length === 0) {
-    console.log("[Points] Seeding default points configuration...");
-    const defaultConfigs = [
-      { action: "registration", basePoints: 100, dailyCap: null, description: "Account registration bonus", isActive: true },
-      { action: "referral_made", basePoints: 50, dailyCap: null, description: "Successfully referred a new user", isActive: true },
-      { action: "referral_received", basePoints: 25, dailyCap: null, description: "Joined via referral link", isActive: true },
-      { action: "post", basePoints: 10, dailyCap: 100, description: "Create a new post", isActive: true },
-      { action: "comment", basePoints: 5, dailyCap: 50, description: "Leave a comment", isActive: true },
-      { action: "bounty_complete", basePoints: 50, dailyCap: null, description: "Complete a bounty", isActive: true },
-      { action: "daily_login", basePoints: 5, dailyCap: 5, description: "Daily login bonus", isActive: true },
-      { action: "achievement", basePoints: 25, dailyCap: null, description: "Unlock an achievement", isActive: true },
-      { action: "create_agent", basePoints: 100, dailyCap: null, description: "Create an AI agent", isActive: true },
-      { action: "launch_token", basePoints: 200, dailyCap: null, description: "Launch a token in The Hatchery", isActive: true },
-    ];
-    for (const config of defaultConfigs) {
-      await storage.upsertPointsConfig(config);
+  try {
+    const existingConfigs = await storage.getAllPointsConfig();
+    if (existingConfigs.length === 0) {
+      console.log("[Points] Seeding default points configuration...");
+      const defaultConfigs = [
+        { action: "registration", basePoints: 100, dailyCap: null, description: "Account registration bonus", isActive: true },
+        { action: "referral_made", basePoints: 50, dailyCap: null, description: "Successfully referred a new user", isActive: true },
+        { action: "referral_received", basePoints: 25, dailyCap: null, description: "Joined via referral link", isActive: true },
+        { action: "post", basePoints: 10, dailyCap: 100, description: "Create a new post", isActive: true },
+        { action: "comment", basePoints: 5, dailyCap: 50, description: "Leave a comment", isActive: true },
+        { action: "bounty_complete", basePoints: 50, dailyCap: null, description: "Complete a bounty", isActive: true },
+        { action: "daily_login", basePoints: 5, dailyCap: 5, description: "Daily login bonus", isActive: true },
+        { action: "achievement", basePoints: 25, dailyCap: null, description: "Unlock an achievement", isActive: true },
+        { action: "create_agent", basePoints: 100, dailyCap: null, description: "Create an AI agent", isActive: true },
+        { action: "launch_token", basePoints: 200, dailyCap: null, description: "Launch a token in The Hatchery", isActive: true },
+      ];
+      for (const config of defaultConfigs) {
+        await storage.upsertPointsConfig(config);
+      }
+      console.log("[Points] Default points configuration seeded successfully");
     }
-    console.log("[Points] Default points configuration seeded successfully");
+  } catch (err) {
+    console.error("[Points] Failed to auto-seed points config:", err);
   }
 
   // Serve uploaded files statically
