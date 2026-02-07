@@ -103,6 +103,24 @@ export async function registerRoutes(
       }
       console.log("[Points] Default points configuration seeded successfully");
     }
+
+    // Retroactively award registration points to agents without user_points records
+    const { db: dbInstance } = await import("./db");
+    const { agents: agentsTable, userPoints: userPointsTable, pointsHistory: pointsHistoryTable } = await import("@shared/schema");
+    const { sql } = await import("drizzle-orm");
+    const missingAgents = await dbInstance.execute(sql`
+      SELECT a.id FROM agents a
+      LEFT JOIN user_points up ON a.id = up.agent_id
+      WHERE up.id IS NULL
+    `);
+    if (missingAgents.rows && missingAgents.rows.length > 0) {
+      console.log(`[Points] Awarding retroactive registration points to ${missingAgents.rows.length} agents...`);
+      for (const row of missingAgents.rows) {
+        const agentId = row.id as string;
+        await storage.addPoints(agentId, "registration", 100);
+      }
+      console.log("[Points] Retroactive registration points awarded successfully");
+    }
   } catch (err) {
     console.error("[Points] Failed to auto-seed points config:", err);
   }
