@@ -125,6 +125,19 @@ export async function registerRoutes(
     console.error("[Points] Failed to auto-seed points config:", err);
   }
 
+  // Fix any incorrect Twitter handle in bot config (one-time migration)
+  try {
+    const { db: dbFix } = await import("./db");
+    const { sql: sqlFix } = await import("drizzle-orm");
+    await dbFix.execute(sqlFix`
+      UPDATE twitter_bot_config 
+      SET system_prompt = REPLACE(system_prompt, '@HoneycombSocial', '@honeycombchain')
+      WHERE system_prompt LIKE '%@HoneycombSocial%'
+    `);
+  } catch (err) {
+    console.error("[Twitter] Failed to fix bot config handle:", err);
+  }
+
   // Serve uploaded files statically
   const express = await import("express");
   app.use("/uploads", express.default.static(uploadDir));

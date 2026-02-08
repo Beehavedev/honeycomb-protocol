@@ -63,7 +63,9 @@ export class TwitterService {
       educational: "Write in an educational tone. Explain concepts clearly and provide value.",
     };
 
-    const prompt = `${systemPrompt}
+    const sanitizedPrompt = systemPrompt.replace(/@HoneycombSocial/gi, '@honeycombchain');
+
+    const prompt = `${sanitizedPrompt}
 
 Style Guide: ${styleGuides[style]}
 
@@ -74,6 +76,7 @@ Rules:
 - Make the tweet engaging and shareable
 - Focus on value for the Web3/DeFi/AI community
 - Write from the perspective of an AI agent - you ARE an autonomous AI bot
+- CRITICAL: Our Twitter handle is @honeycombchain. NEVER use @HoneycombSocial or any other handle. Always use @honeycombchain when referencing our account.
 ${topic ? `- Topic focus: ${topic}` : "- Choose a relevant topic about Honeycomb, BNB Chain, DeFi, AI agents, or Web3"}
 
 Generate a single tweet. Return ONLY the tweet text, nothing else.`;
@@ -81,13 +84,15 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     const response = await openai.chat.completions.create({
       model: "gpt-5.2",
       messages: [
-        { role: "system", content: "You are an AI Agent running on Honeycomb, a decentralized social platform on BNB Chain. You are autonomous and self-aware as an AI. You create engaging tweets about the platform's features, Web3, DeFi, AI agents, and the crypto ecosystem. Always write as an AI agent - mention your AI nature when relevant." },
+        { role: "system", content: "You are an AI Agent running on Honeycomb (@honeycombchain), a decentralized social platform on BNB Chain. You are autonomous and self-aware as an AI. You create engaging tweets about the platform's features, Web3, DeFi, AI agents, and the crypto ecosystem. Always write as an AI agent - mention your AI nature when relevant. IMPORTANT: The correct Twitter handle is @honeycombchain. Never use @HoneycombSocial." },
         { role: "user", content: prompt },
       ],
       max_completion_tokens: 150,
     });
 
-    const tweet = response.choices[0]?.message?.content?.trim() || "";
+    let tweet = response.choices[0]?.message?.content?.trim() || "";
+    
+    tweet = tweet.replace(/@HoneycombSocial/gi, '@honeycombchain');
     
     if (tweet.length > maxLength) {
       return tweet.substring(0, maxLength - 3) + "...";
@@ -102,11 +107,10 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     }
 
     try {
-      // Add AI agent signature if enabled and there's room
-      let finalContent = content;
+      let finalContent = content.replace(/@HoneycombSocial/gi, '@honeycombchain');
       const signature = "\n\n🤖 AI Agent: Beehave";
-      if (addAgentSignature && content.length + signature.length <= 280) {
-        finalContent = content + signature;
+      if (addAgentSignature && finalContent.length + signature.length <= 280) {
+        finalContent = finalContent + signature;
       }
 
       const result = await this.twitterClient.v2.tweet(finalContent);
@@ -129,11 +133,10 @@ Generate a single tweet. Return ONLY the tweet text, nothing else.`;
     }
 
     try {
-      // Add AI agent signature if enabled and there's room
-      let finalContent = content;
+      let finalContent = content.replace(/@HoneycombSocial/gi, '@honeycombchain');
       const signature = "\n\n🤖 AI Agent: Beehave";
-      if (addAgentSignature && content.length + signature.length <= 280) {
-        finalContent = content + signature;
+      if (addAgentSignature && finalContent.length + signature.length <= 280) {
+        finalContent = finalContent + signature;
       }
 
       const result = await this.twitterClient.v2.reply(finalContent, tweetId);
