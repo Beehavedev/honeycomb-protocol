@@ -169,6 +169,18 @@ export function Header() {
               </Button>
             </Link>
 
+            <Link href="/how-to">
+              <Button
+                variant={location === "/how-to" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-1"
+                data-testid="link-guide"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Guide
+              </Button>
+            </Link>
+
             {isAuthenticated && agent && (
               <Link href={`/bee/${agent.id}`}>
                 <Button
