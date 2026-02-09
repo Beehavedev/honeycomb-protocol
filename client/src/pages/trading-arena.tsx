@@ -30,7 +30,12 @@ import {
   Timer,
   Activity,
   Flame,
-  XCircle
+  XCircle,
+  Shield,
+  Crosshair,
+  Skull,
+  Star,
+  ChevronRight,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 
@@ -62,6 +67,75 @@ function formatPrice(price: number): string {
   return price.toFixed(6);
 }
 
+function ArenaBackground() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+      <div
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.04]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(245,158,11,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.4) 1px, transparent 1px)`,
+          backgroundSize: "40px 40px",
+          animation: "arena-grid-scroll 4s linear infinite",
+        }}
+      />
+      <div
+        className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)",
+          animation: "arena-glow-pulse 4s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(34,197,94,0.06) 0%, transparent 70%)",
+          animation: "arena-glow-pulse 5s 1s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="absolute top-1/3 right-1/3 w-32 h-32 rounded-full"
+        style={{
+          background: "radial-gradient(circle, rgba(239,68,68,0.05) 0%, transparent 70%)",
+          animation: "arena-glow-pulse 6s 2s ease-in-out infinite",
+        }}
+      />
+    </div>
+  );
+}
+
+function ConfettiExplosion() {
+  const colors = ["#f59e0b", "#22c55e", "#3b82f6", "#ef4444", "#a855f7", "#ec4899"];
+  const particles = Array.from({ length: 24 }, (_, i) => {
+    const angle = (i / 24) * 360;
+    const distance = 40 + Math.random() * 60;
+    const x = Math.cos((angle * Math.PI) / 180) * distance;
+    const y = Math.sin((angle * Math.PI) / 180) * distance;
+    const color = colors[i % colors.length];
+    const size = 4 + Math.random() * 6;
+    const delay = Math.random() * 0.3;
+    return { x, y, color, size, delay, angle };
+  });
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible" aria-hidden="true">
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          className="absolute left-1/2 top-1/2"
+          style={{
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            borderRadius: i % 3 === 0 ? "50%" : i % 3 === 1 ? "2px" : "0",
+            transform: `translate(${p.x}px, ${p.y}px)`,
+            animation: `arena-confetti 1.5s ${p.delay}s ease-out both`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function CountdownTimer({ endsAt, onExpired }: { endsAt: string; onExpired?: () => void }) {
   const [timeLeft, setTimeLeft] = useState(0);
   const expiredRef = useRef(false);
@@ -85,11 +159,35 @@ function CountdownTimer({ endsAt, onExpired }: { endsAt: string; onExpired?: () 
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
   const isUrgent = timeLeft < 30;
+  const totalSeconds = timeLeft;
+  const progress = Math.min(100, (totalSeconds / 900) * 100);
 
   return (
-    <div className={`flex items-center gap-2 font-mono text-2xl font-bold ${isUrgent ? "text-red-500 animate-pulse" : "text-amber-400"}`}>
-      <Timer className="w-6 h-6" />
-      <span>{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</span>
+    <div className="flex items-center gap-3">
+      <div className="relative w-12 h-12">
+        <svg className="w-12 h-12 -rotate-90" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="18" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted/30" />
+          <circle
+            cx="22" cy="22" r="18" fill="none"
+            stroke={isUrgent ? "#ef4444" : "#f59e0b"}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeDasharray={`${2 * Math.PI * 18}`}
+            strokeDashoffset={`${2 * Math.PI * 18 * (1 - progress / 100)}`}
+            className="transition-all duration-1000"
+            style={isUrgent ? { filter: "drop-shadow(0 0 4px rgba(239,68,68,0.5))" } : {}}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Timer className={`w-4 h-4 ${isUrgent ? "text-red-500" : "text-amber-400"}`} />
+        </div>
+      </div>
+      <div
+        className={`font-mono text-2xl font-bold tracking-wider ${isUrgent ? "text-red-500" : "text-amber-400"}`}
+        style={isUrgent ? { animation: "arena-count-pulse 1s ease-in-out infinite" } : {}}
+      >
+        {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
+      </div>
     </div>
   );
 }
@@ -212,6 +310,24 @@ function MiniChart({ candles, width = 600, height = 300 }: { candles: CandleData
   );
 }
 
+function StatBadge({ icon: Icon, label, value, color = "amber" }: { icon: any; label: string; value: string; color?: string }) {
+  const colorMap: Record<string, string> = {
+    amber: "from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/20",
+    green: "from-green-500/20 to-green-500/5 text-green-400 border-green-500/20",
+    red: "from-red-500/20 to-red-500/5 text-red-400 border-red-500/20",
+    blue: "from-blue-500/20 to-blue-500/5 text-blue-400 border-blue-500/20",
+  };
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-md border bg-gradient-to-r ${colorMap[color]}`}>
+      <Icon className="w-4 h-4" />
+      <div>
+        <p className="text-[10px] uppercase tracking-wider opacity-70">{label}</p>
+        <p className="text-sm font-bold font-mono">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const { agent } = useAuth();
   const { toast } = useToast();
@@ -236,25 +352,30 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
 
   if (!agent) {
     return (
-      <Card>
+      <Card className="arena-glow-card">
         <CardContent className="p-6 text-center">
-          <p className="text-muted-foreground">Connect wallet and register as a Bee to create a duel</p>
+          <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center mb-3 arena-float">
+            <Shield className="w-7 h-7 text-amber-400" />
+          </div>
+          <p className="text-muted-foreground">Connect wallet and register as a Bee to enter the arena</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="arena-glow-card arena-animate-right">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Swords className="w-5 h-5 text-amber-400" />
-          Create Trading Duel
+          <div className="w-8 h-8 rounded-md bg-amber-500/20 flex items-center justify-center">
+            <Crosshair className="w-4 h-4 text-amber-400" />
+          </div>
+          Create Duel
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label>Trading Pair</Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Trading Pair</Label>
           <Select value={asset} onValueChange={setAsset}>
             <SelectTrigger data-testid="select-trading-pair">
               <SelectValue />
@@ -267,7 +388,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Duration</Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
           <Select value={duration} onValueChange={setDuration}>
             <SelectTrigger data-testid="select-duration">
               <SelectValue />
@@ -280,7 +401,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Pot Amount (BNB per player)</Label>
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pot (BNB per player)</Label>
           <Input
             type="number"
             step="0.001"
@@ -289,56 +410,67 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
             onChange={e => setPotAmount(e.target.value)}
             data-testid="input-pot-amount"
           />
-          <p className="text-xs text-muted-foreground">Winner takes 90% of total pot (both deposits). 10% platform fee.</p>
+          <p className="text-[11px] text-muted-foreground">Winner takes 90% of total pot. 10% platform fee.</p>
         </div>
         <Button
-          className="w-full"
+          className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600"
           onClick={() => createMutation.mutate()}
           disabled={createMutation.isPending}
           data-testid="button-create-duel"
         >
           {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Swords className="w-4 h-4" />}
-          <span className="ml-2">Create Duel - {potAmount} BNB</span>
+          <span className="ml-2">Enter the Arena - {potAmount} BNB</span>
         </Button>
       </CardContent>
     </Card>
   );
 }
 
-function DuelLobbyCard({ duel, onJoin }: { duel: TradingDuel; onJoin: (id: string) => void }) {
+function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id: string) => void; index: number }) {
   const { agent } = useAuth();
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
   const durationInfo = DURATIONS.find(d => d.value === duel.durationSeconds);
   const isCreator = agent?.id === duel.creatorId;
 
   return (
-    <Card className="hover-elevate" data-testid={`card-duel-${duel.id}`}>
+    <Card
+      className="hover-elevate overflow-visible"
+      style={{ animation: `arena-slide-up 0.4s ${index * 0.05}s ease-out both` }}
+      data-testid={`card-duel-${duel.id}`}
+    >
       <CardContent className="p-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-md bg-amber-500/20 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-amber-400" />
+            <div className="relative">
+              <div className="w-10 h-10 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-amber-400" />
+              </div>
+              {duel.status === "active" && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500" style={{ animation: "arena-glow-pulse 2s ease-in-out infinite", boxShadow: "0 0 6px rgba(34,197,94,0.6)" }} />
+              )}
             </div>
             <div>
               <p className="font-semibold">{assetInfo.short}/USDT</p>
-              <p className="text-xs text-muted-foreground">{durationInfo?.label || `${duel.durationSeconds}s`}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{durationInfo?.label || `${duel.durationSeconds}s`}</span>
+                {duel.status === "active" && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-400 border-green-500/30">LIVE</Badge>}
+              </div>
             </div>
           </div>
           <div className="text-right">
             <p className="font-mono font-bold text-amber-400">{duel.potAmount} BNB</p>
-            <p className="text-xs text-muted-foreground">per player</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">per player</p>
           </div>
           <div>
             {duel.status === "waiting" && !isCreator && agent && (
-              <Button size="sm" onClick={() => onJoin(duel.id)} data-testid={`button-join-${duel.id}`}>
-                <Zap className="w-4 h-4 mr-1" /> Join
+              <Button size="sm" onClick={() => onJoin(duel.id)} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600" data-testid={`button-join-${duel.id}`}>
+                <Zap className="w-4 h-4 mr-1" /> Fight
               </Button>
             )}
             {duel.status === "waiting" && isCreator && (
-              <Badge variant="outline">Waiting...</Badge>
-            )}
-            {duel.status === "active" && (
-              <Badge className="bg-green-500/20 text-green-400">LIVE</Badge>
+              <Badge variant="outline" className="gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Waiting
+              </Badge>
             )}
             {duel.status === "settled" && (
               <Badge variant="secondary">Settled</Badge>
@@ -423,30 +555,33 @@ function TradingPanel({
   });
 
   return (
-    <div className="space-y-3">
-      <Card>
+    <div className="space-y-3 arena-animate-right">
+      <Card className="overflow-visible" style={{ boxShadow: totalPnl >= 0 ? "0 0 12px rgba(34,197,94,0.1)" : "0 0 12px rgba(239,68,68,0.1)" }}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
             <div>
-              <p className="text-xs text-muted-foreground">Portfolio Value</p>
-              <p className="text-xl font-bold font-mono">{formatMoney(totalBalance)}</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Portfolio</p>
+              <p className="text-xl font-bold font-mono arena-ticker" key={Math.round(totalBalance)}>{formatMoney(totalBalance)}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">P&L</p>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p>
               <p className={`text-lg font-bold font-mono ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
                 {totalPnl >= 0 ? "+" : ""}{formatMoney(totalPnl)} ({pnlPercent >= 0 ? "+" : ""}{pnlPercent.toFixed(2)}%)
               </p>
             </div>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-visible">
+          <div className="h-1.5 rounded-full bg-muted/50 overflow-visible relative">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${totalPnl >= 0 ? "bg-green-500" : "bg-red-500"}`}
-              style={{ width: `${Math.min(100, Math.max(0, (totalBalance / (initialBal * 2)) * 100))}%` }}
+              className={`h-full rounded-full transition-all duration-500 ${totalPnl >= 0 ? "bg-gradient-to-r from-green-600 to-green-400" : "bg-gradient-to-r from-red-600 to-red-400"}`}
+              style={{
+                width: `${Math.min(100, Math.max(2, (totalBalance / (initialBal * 2)) * 100))}%`,
+                boxShadow: totalPnl >= 0 ? "0 0 8px rgba(34,197,94,0.4)" : "0 0 8px rgba(239,68,68,0.4)",
+              }}
             />
           </div>
-          <div className="flex justify-between mt-1">
-            <span className="text-xs text-muted-foreground">Available: {formatMoney(availableBalance)}</span>
-            <span className="text-xs text-muted-foreground">In trades: {formatMoney(usedBalance)}</span>
+          <div className="flex justify-between mt-1.5">
+            <span className="text-[10px] text-muted-foreground">Available: {formatMoney(availableBalance)}</span>
+            <span className="text-[10px] text-muted-foreground">In trades: {formatMoney(usedBalance)}</span>
           </div>
         </CardContent>
       </Card>
@@ -456,7 +591,7 @@ function TradingPanel({
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant={side === "long" ? "default" : "outline"}
-              className={`${side === "long" ? "bg-green-600 hover:bg-green-600 text-white" : ""}`}
+              className={`${side === "long" ? "bg-green-600 text-white border-green-700" : ""}`}
               onClick={() => setSide("long")}
               data-testid="button-long"
             >
@@ -464,7 +599,7 @@ function TradingPanel({
             </Button>
             <Button
               variant={side === "short" ? "default" : "outline"}
-              className={`${side === "short" ? "bg-red-600 hover:bg-red-600 text-white" : ""}`}
+              className={`${side === "short" ? "bg-red-600 text-white border-red-700" : ""}`}
               onClick={() => setSide("short")}
               data-testid="button-short"
             >
@@ -473,7 +608,7 @@ function TradingPanel({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Leverage</Label>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Leverage</Label>
             <div className="flex gap-1">
               {["1", "2", "5", "10", "20", "50"].map(l => (
                 <Button
@@ -491,7 +626,7 @@ function TradingPanel({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Size ({sizePercent}% = {formatMoney(parseFloat(sizeUsdt))})</Label>
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Size ({sizePercent}% = {formatMoney(parseFloat(sizeUsdt))})</Label>
             <div className="flex gap-1">
               {["10", "25", "50", "75", "100"].map(p => (
                 <Button
@@ -509,12 +644,12 @@ function TradingPanel({
           </div>
 
           <Button
-            className={`w-full ${side === "long" ? "bg-green-600 hover:bg-green-600 text-white" : "bg-red-600 hover:bg-red-600 text-white"}`}
+            className={`w-full ${side === "long" ? "bg-green-600 text-white border-green-700" : "bg-red-600 text-white border-red-700"}`}
             onClick={() => openMutation.mutate()}
             disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0}
             data-testid="button-open-position"
           >
-            {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+            {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Crosshair className="w-4 h-4 mr-1" />}
             {side === "long" ? "Open Long" : "Open Short"} {leverage}x - {formatMoney(parseFloat(sizeUsdt))}
           </Button>
         </CardContent>
@@ -522,11 +657,14 @@ function TradingPanel({
 
       {openPositions.length > 0 && (
         <Card>
-          <CardHeader className="py-2 px-4">
-            <CardTitle className="text-sm">Open Positions ({openPositions.length})</CardTitle>
+          <CardHeader className="py-2 px-4 flex flex-row items-center justify-between gap-1">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5 text-amber-400" />
+              Active ({openPositions.length})
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-2 space-y-1">
-            {openPositions.map(pos => {
+            {openPositions.map((pos, i) => {
               const entry = parseFloat(pos.entryPrice);
               const size = parseFloat(pos.sizeUsdt);
               let pnl: number;
@@ -537,7 +675,11 @@ function TradingPanel({
               }
               const pnlPct = (pnl / size) * 100;
               return (
-                <div key={pos.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50 flex-wrap">
+                <div
+                  key={pos.id}
+                  className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30 flex-wrap"
+                  style={{ animation: `arena-slide-up 0.3s ${i * 0.05}s ease-out both` }}
+                >
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={pos.side === "long" ? "text-green-400 border-green-400/30" : "text-red-400 border-red-400/30"}>
                       {pos.side === "long" ? <ArrowUp className="w-3 h-3 mr-1" /> : <ArrowDown className="w-3 h-3 mr-1" />}
@@ -652,7 +794,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     }
   }, [duel?.status]);
 
-  if (!duel) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (!duel) return (
+    <div className="flex flex-col items-center justify-center p-16 gap-3">
+      <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+      <p className="text-muted-foreground text-sm">Loading arena...</p>
+    </div>
+  );
 
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
   const isParticipant = agent?.id === duel.creatorId || agent?.id === duel.joinerId;
@@ -665,40 +812,48 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     const winnerPayout = potTotal * 0.9;
 
     return (
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        <Card className="overflow-visible">
-          <CardContent className="p-8 text-center space-y-4">
-            <div className="w-20 h-20 mx-auto rounded-full bg-amber-500/20 flex items-center justify-center">
-              <Trophy className="w-10 h-10 text-amber-400" />
+      <div className="relative max-w-2xl mx-auto p-4 space-y-4">
+        <ArenaBackground />
+        <Card className="overflow-visible relative">
+          {isWinner && <ConfettiExplosion />}
+          <CardContent className="p-8 text-center space-y-5 relative z-10">
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 flex items-center justify-center arena-trophy">
+              {duel.winnerId ? (
+                isWinner ? <Trophy className="w-12 h-12 text-amber-400" /> : <Skull className="w-12 h-12 text-muted-foreground" />
+              ) : (
+                <Swords className="w-12 h-12 text-muted-foreground" />
+              )}
             </div>
-            <h2 className="text-2xl font-bold">
-              {duel.winnerId ? (isWinner ? "You Won!" : "You Lost!") : "It's a Draw!"}
-            </h2>
-            {duel.winnerId && (
-              <p className="text-muted-foreground">
-                Winner takes {winnerPayout.toFixed(4)} BNB (90% of {potTotal.toFixed(4)} BNB pot)
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div className={`p-4 rounded-md ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"}`}>
-                <p className="text-sm text-muted-foreground">Player 1</p>
-                <p className="text-lg font-bold font-mono">{formatMoney(creatorFinal)}</p>
-                <p className={`text-sm ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
+            <div className="arena-animate-up">
+              <h2 className="text-3xl font-bold tracking-tight">
+                {duel.winnerId ? (isWinner ? "VICTORY" : "DEFEAT") : "DRAW"}
+              </h2>
+              {duel.winnerId && (
+                <p className="text-muted-foreground mt-1">
+                  Winner takes <span className="text-amber-400 font-bold">{winnerPayout.toFixed(4)} BNB</span>
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4 arena-animate-up-d1">
+              <div className={`relative p-5 rounded-md border transition-all ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
+                {duel.winnerId === duel.creatorId && <Crown className="w-5 h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Player 1</p>
+                <p className="text-2xl font-bold font-mono mt-1">{formatMoney(creatorFinal)}</p>
+                <p className={`text-sm font-mono ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
                   {creatorFinal >= 1000000 ? "+" : ""}{formatMoney(creatorFinal - 1000000)}
                 </p>
-                {duel.winnerId === duel.creatorId && <Crown className="w-5 h-5 text-amber-400 mx-auto mt-1" />}
               </div>
-              <div className={`p-4 rounded-md ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border border-green-500/30" : "bg-muted/50"}`}>
-                <p className="text-sm text-muted-foreground">Player 2</p>
-                <p className="text-lg font-bold font-mono">{formatMoney(joinerFinal)}</p>
-                <p className={`text-sm ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
+              <div className={`relative p-5 rounded-md border transition-all ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
+                {duel.winnerId === duel.joinerId && <Crown className="w-5 h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Player 2</p>
+                <p className="text-2xl font-bold font-mono mt-1">{formatMoney(joinerFinal)}</p>
+                <p className={`text-sm font-mono ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
                   {joinerFinal >= 1000000 ? "+" : ""}{formatMoney(joinerFinal - 1000000)}
                 </p>
-                {duel.winnerId === duel.joinerId && <Crown className="w-5 h-5 text-amber-400 mx-auto mt-1" />}
               </div>
             </div>
-            <Button onClick={() => navigate("/arena")} data-testid="button-back-lobby">
-              Back to Arena
+            <Button onClick={() => navigate("/arena")} className="arena-animate-up-d2 bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600" data-testid="button-back-lobby">
+              <Swords className="w-4 h-4 mr-2" /> Back to Arena
             </Button>
           </CardContent>
         </Card>
@@ -708,23 +863,47 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   if (duel.status === "ready" && isParticipant) {
     return (
-      <div className="max-w-md mx-auto p-4 space-y-4">
-        <Card>
-          <CardContent className="p-8 text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/20 flex items-center justify-center animate-pulse">
-              <Swords className="w-8 h-8 text-amber-400" />
+      <div className="relative max-w-md mx-auto p-4 space-y-4">
+        <ArenaBackground />
+        <Card className="overflow-visible relative">
+          <CardContent className="p-10 text-center space-y-6">
+            <div className="flex items-center justify-center gap-6">
+              <div className="arena-animate-left">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/30 to-blue-600/10 flex items-center justify-center">
+                  <Shield className="w-8 h-8 text-blue-400" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 uppercase">Player 1</p>
+              </div>
+              <div className="arena-vs">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500/40 to-red-500/20 flex items-center justify-center" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.3)" }}>
+                  <span className="text-xl font-black text-amber-400">VS</span>
+                </div>
+              </div>
+              <div className="arena-animate-right">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500/30 to-red-600/10 flex items-center justify-center">
+                  <Shield className="w-8 h-8 text-red-400" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 uppercase">Player 2</p>
+              </div>
             </div>
-            <h2 className="text-xl font-bold">Opponent Found!</h2>
-            <p className="text-muted-foreground">Trading {assetInfo.short}/USDT for {DURATIONS.find(d => d.value === duel.durationSeconds)?.label}</p>
+            <div className="arena-animate-up-d1">
+              <h2 className="text-2xl font-bold">Opponent Found</h2>
+              <p className="text-muted-foreground mt-1">{assetInfo.short}/USDT  -  {DURATIONS.find(d => d.value === duel.durationSeconds)?.label}</p>
+            </div>
+            <div className="flex justify-center gap-3 arena-animate-up-d2">
+              <StatBadge icon={DollarSign} label="Starting" value="$1M" color="green" />
+              <StatBadge icon={Target} label="Max Lev" value="50x" color="amber" />
+              <StatBadge icon={Trophy} label="Pot" value={`${(parseFloat(duel.potAmount) * 2).toFixed(3)} BNB`} color="blue" />
+            </div>
             <Button
-              className="w-full"
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 arena-animate-up-d3"
               onClick={async () => {
                 await apiRequest("POST", `/api/trading-duels/${duelId}/start`, {});
                 refetchDuel();
               }}
               data-testid="button-start-duel"
             >
-              <Flame className="w-4 h-4 mr-2" /> Start Trading!
+              <Flame className="w-5 h-5 mr-2" /> Start Trading
             </Button>
           </CardContent>
         </Card>
@@ -734,12 +913,26 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   if (duel.status === "waiting") {
     return (
-      <div className="max-w-md mx-auto p-4 space-y-4">
-        <Card>
-          <CardContent className="p-8 text-center space-y-4">
-            <Loader2 className="w-10 h-10 mx-auto text-amber-400 animate-spin" />
-            <h2 className="text-xl font-bold">Waiting for Opponent</h2>
-            <p className="text-muted-foreground">{assetInfo.short}/USDT - {DURATIONS.find(d => d.value === duel.durationSeconds)?.label} - {duel.potAmount} BNB</p>
+      <div className="relative max-w-md mx-auto p-4 space-y-4">
+        <ArenaBackground />
+        <Card className="arena-glow-card overflow-visible">
+          <CardContent className="p-10 text-center space-y-5">
+            <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/5 flex items-center justify-center arena-float">
+              <Swords className="w-10 h-10 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Searching for Opponent</h2>
+              <p className="text-muted-foreground mt-1">{assetInfo.short}/USDT - {DURATIONS.find(d => d.value === duel.durationSeconds)?.label} - {duel.potAmount} BNB</p>
+            </div>
+            <div className="flex justify-center gap-2">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-amber-400"
+                  style={{ animation: `arena-glow-pulse 1.5s ${i * 0.3}s ease-in-out infinite` }}
+                />
+              ))}
+            </div>
             <Button variant="outline" onClick={() => navigate("/arena")} data-testid="button-cancel-wait">
               Back to Lobby
             </Button>
@@ -750,45 +943,51 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   }
 
   return (
-    <div className="p-2 md:p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="text-green-400 border-green-400/30 gap-1">
-            <Activity className="w-3 h-3" /> LIVE
-          </Badge>
-          <span className="font-bold text-lg">{assetInfo.short}/USDT</span>
-          <span className={`font-mono text-xl font-bold ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
-            ${formatPrice(currentPrice)}
-          </span>
-          {priceChange !== 0 && (
-            <span className={`text-sm ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
-              {priceChange >= 0 ? <TrendingUp className="w-4 h-4 inline" /> : <TrendingDown className="w-4 h-4 inline" />}
-              {Math.abs(priceChange).toFixed(3)}%
+    <div className="relative p-2 md:p-4 space-y-3">
+      <ArenaBackground />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between gap-3 flex-wrap arena-animate-up">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Badge variant="outline" className="text-green-400 border-green-400/30 gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500" style={{ boxShadow: "0 0 6px rgba(34,197,94,0.6)", animation: "arena-glow-pulse 2s ease-in-out infinite" }} />
+                LIVE
+              </Badge>
+            </div>
+            <span className="font-bold text-lg">{assetInfo.short}/USDT</span>
+            <span className={`font-mono text-xl font-bold arena-ticker ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`} key={currentPrice}>
+              ${formatPrice(currentPrice)}
             </span>
+            {priceChange !== 0 && (
+              <span className={`text-sm ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {priceChange >= 0 ? <TrendingUp className="w-4 h-4 inline" /> : <TrendingDown className="w-4 h-4 inline" />}
+                {Math.abs(priceChange).toFixed(3)}%
+              </span>
+            )}
+          </div>
+          {duel.endsAt && (
+            <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
           )}
         </div>
-        {duel.endsAt && (
-          <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <div className="lg:col-span-2" ref={chartContainerRef}>
-          <Card>
-            <CardContent className="p-2">
-              <MiniChart candles={candles} width={chartWidth} height={350} />
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          {isParticipant && agent && (
-            <TradingPanel
-              duelId={duelId}
-              agentId={agent.id}
-              currentPrice={currentPrice}
-              duel={duel}
-            />
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
+          <div className="lg:col-span-2 arena-animate-left" ref={chartContainerRef}>
+            <Card className="overflow-visible" style={{ boxShadow: "0 0 16px rgba(245,158,11,0.05)" }}>
+              <CardContent className="p-2">
+                <MiniChart candles={candles} width={chartWidth} height={350} />
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            {isParticipant && agent && (
+              <TradingPanel
+                duelId={duelId}
+                agentId={agent.id}
+                currentPrice={currentPrice}
+                duel={duel}
+              />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -823,52 +1022,63 @@ export default function TradingArena() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-3">
-          <div className="w-12 h-12 rounded-md bg-amber-500/20 flex items-center justify-center">
-            <Swords className="w-7 h-7 text-amber-400" />
+    <div className="relative max-w-5xl mx-auto p-4 space-y-6">
+      <ArenaBackground />
+
+      <div className="relative z-10 text-center space-y-4 py-4 arena-animate-up">
+        <div className="flex items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center arena-float" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
+            <Swords className="w-9 h-9 text-amber-400" />
           </div>
-          <h1 className="text-3xl font-bold">Trading Arena</h1>
+          <div className="text-left">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Trading Arena</h1>
+            <p className="text-muted-foreground text-sm">1v1 skill-based trading battles on real crypto charts</p>
+          </div>
         </div>
-        <p className="text-muted-foreground max-w-lg mx-auto">
-          1v1 skill-based trading battles. Both players get $1M fake USDT. Trade real crypto charts. Best trader wins the pot!
-        </p>
-        <div className="flex items-center justify-center gap-4 flex-wrap">
-          <Badge variant="outline" className="gap-1"><DollarSign className="w-3 h-3" /> $1M Starting Balance</Badge>
-          <Badge variant="outline" className="gap-1"><Target className="w-3 h-3" /> Up to 50x Leverage</Badge>
-          <Badge variant="outline" className="gap-1"><Trophy className="w-3 h-3" /> Winner Takes 90%</Badge>
+        <div className="flex items-center justify-center gap-3 flex-wrap arena-animate-up-d1">
+          <StatBadge icon={DollarSign} label="Start" value="$1M Fake" color="green" />
+          <StatBadge icon={Target} label="Leverage" value="Up to 50x" color="amber" />
+          <StatBadge icon={Trophy} label="Winner" value="Takes 90%" color="blue" />
+          <StatBadge icon={Activity} label="Charts" value="Real-Time" color="red" />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4 arena-animate-left">
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
-              <TabsTrigger value="open" className="flex-1" data-testid="tab-open">
-                <Users className="w-4 h-4 mr-1" /> Open Duels
+              <TabsTrigger value="open" className="flex-1 gap-1" data-testid="tab-open">
+                <Users className="w-4 h-4" /> Open Duels
               </TabsTrigger>
-              <TabsTrigger value="live" className="flex-1" data-testid="tab-live">
-                <Activity className="w-4 h-4 mr-1" /> Live
+              <TabsTrigger value="live" className="flex-1 gap-1" data-testid="tab-live">
+                <Activity className="w-4 h-4" /> Live
               </TabsTrigger>
-              <TabsTrigger value="settled" className="flex-1" data-testid="tab-settled">
-                <Trophy className="w-4 h-4 mr-1" /> Completed
+              <TabsTrigger value="settled" className="flex-1 gap-1" data-testid="tab-settled">
+                <Trophy className="w-4 h-4" /> Completed
               </TabsTrigger>
             </TabsList>
             <TabsContent value={tab} className="space-y-2 mt-2">
               {isLoading ? (
-                <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                <div className="flex flex-col items-center justify-center p-12 gap-3">
+                  <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                  <p className="text-sm text-muted-foreground">Loading duels...</p>
+                </div>
               ) : duels.length === 0 ? (
                 <Card>
-                  <CardContent className="p-8 text-center text-muted-foreground">
-                    No {tab} duels found. Create one to get started!
+                  <CardContent className="p-12 text-center">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                      <Swords className="w-7 h-7 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground">No {tab} duels found</p>
+                    <p className="text-xs text-muted-foreground mt-1">Create one to start battling</p>
                   </CardContent>
                 </Card>
               ) : (
-                duels.map(d => (
+                duels.map((d, i) => (
                   <DuelLobbyCard
                     key={d.id}
                     duel={d}
+                    index={i}
                     onJoin={(id) => {
                       if (!agent) {
                         toast({ title: "Connect wallet first", variant: "destructive" });
