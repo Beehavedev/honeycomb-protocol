@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists } from "./seed";
 import { startTwitterScheduler } from "./twitter-scheduler";
+import { storage } from "./storage";
 import path from "path";
 
 const app = express();
@@ -69,6 +70,7 @@ app.use((req, res, next) => {
   await seedDatabase();
   await ensureChannelsExist();
   await ensureTwitterBotExists();
+  await storage.seedTradingDuels();
   await registerRoutes(httpServer, app);
   
   // Start Twitter automation scheduler

@@ -234,6 +234,7 @@ export interface IStorage {
   getPointsLeaderboard(limit: number): Promise<UserPoints[]>;
 
   // Trading Skill Game
+  seedTradingDuels(): Promise<void>;
   createTradingDuel(data: InsertTradingDuel): Promise<TradingDuel>;
   getTradingDuel(id: string): Promise<TradingDuel | undefined>;
   getTradingDuels(status: string, limit: number): Promise<TradingDuel[]>;
@@ -1536,6 +1537,43 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(userPoints)
       .orderBy(desc(userPoints.lifetimePoints))
       .limit(limit);
+  }
+
+  async seedTradingDuels(): Promise<void> {
+    const existing = await db.select().from(tradingDuels).limit(1);
+    if (existing.length > 0) return;
+
+    const agentList = await db.select({ id: agents.id }).from(agents).limit(12);
+    if (agentList.length < 6) return;
+
+    const a = agentList.map(x => x.id);
+    const now = new Date();
+
+    const waitingDuels = [
+      { id: "mock-w1", creatorId: a[0], assetSymbol: "BTCUSDT", potAmount: "0.05", durationSeconds: 300, status: "waiting", initialBalance: "1000000", feePct: 10, createdAt: new Date(now.getTime() - 2 * 60000) },
+      { id: "mock-w2", creatorId: a[1], assetSymbol: "ETHUSDT", potAmount: "0.1", durationSeconds: 600, status: "waiting", initialBalance: "1000000", feePct: 10, createdAt: new Date(now.getTime() - 5 * 60000) },
+      { id: "mock-w3", creatorId: a[2], assetSymbol: "SOLUSDT", potAmount: "0.02", durationSeconds: 120, status: "waiting", initialBalance: "1000000", feePct: 10, createdAt: new Date(now.getTime() - 1 * 60000) },
+      { id: "mock-w4", creatorId: a[3], assetSymbol: "BNBUSDT", potAmount: "0.25", durationSeconds: 900, status: "waiting", initialBalance: "1000000", feePct: 10, createdAt: new Date(now.getTime() - 8 * 60000) },
+    ];
+
+    const activeDuels = [
+      { id: "mock-a1", creatorId: a[4], joinerId: a[5], assetSymbol: "BTCUSDT", potAmount: "0.15", durationSeconds: 300, status: "active", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 2 * 60000), endsAt: new Date(now.getTime() + 3 * 60000), createdAt: new Date(now.getTime() - 4 * 60000) },
+      { id: "mock-a2", creatorId: a[6], joinerId: a[7], assetSymbol: "ETHUSDT", potAmount: "0.08", durationSeconds: 600, status: "active", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 4 * 60000), endsAt: new Date(now.getTime() + 6 * 60000), createdAt: new Date(now.getTime() - 6 * 60000) },
+      { id: "mock-a3", creatorId: a[8], joinerId: a[9], assetSymbol: "DOGEUSDT", potAmount: "0.5", durationSeconds: 900, status: "active", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 5 * 60000), endsAt: new Date(now.getTime() + 10 * 60000), createdAt: new Date(now.getTime() - 7 * 60000) },
+    ];
+
+    const settledDuels = [
+      { id: "mock-s1", creatorId: a[0], joinerId: a[4], assetSymbol: "BTCUSDT", potAmount: "0.1", durationSeconds: 300, status: "settled", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 30 * 60000), endsAt: new Date(now.getTime() - 25 * 60000), winnerId: a[0], creatorFinalBalance: "1245000", joinerFinalBalance: "823000", createdAt: new Date(now.getTime() - 35 * 60000), settledAt: new Date(now.getTime() - 25 * 60000) },
+      { id: "mock-s2", creatorId: a[5], joinerId: a[6], assetSymbol: "ETHUSDT", potAmount: "0.2", durationSeconds: 600, status: "settled", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 60 * 60000), endsAt: new Date(now.getTime() - 50 * 60000), winnerId: a[6], creatorFinalBalance: "876000", joinerFinalBalance: "1190000", createdAt: new Date(now.getTime() - 65 * 60000), settledAt: new Date(now.getTime() - 50 * 60000) },
+      { id: "mock-s3", creatorId: a[7], joinerId: a[1], assetSymbol: "SOLUSDT", potAmount: "0.05", durationSeconds: 120, status: "settled", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 120 * 60000), endsAt: new Date(now.getTime() - 118 * 60000), winnerId: a[7], creatorFinalBalance: "1532000", joinerFinalBalance: "680000", createdAt: new Date(now.getTime() - 125 * 60000), settledAt: new Date(now.getTime() - 118 * 60000) },
+      { id: "mock-s4", creatorId: a[2], joinerId: a[3], assetSymbol: "BNBUSDT", potAmount: "0.3", durationSeconds: 900, status: "settled", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 180 * 60000), endsAt: new Date(now.getTime() - 165 * 60000), winnerId: a[3], creatorFinalBalance: "910000", joinerFinalBalance: "1085000", createdAt: new Date(now.getTime() - 190 * 60000), settledAt: new Date(now.getTime() - 165 * 60000) },
+      { id: "mock-s5", creatorId: a[8], joinerId: a[0], assetSymbol: "XRPUSDT", potAmount: "0.15", durationSeconds: 300, status: "settled", initialBalance: "1000000", feePct: 10, startedAt: new Date(now.getTime() - 300 * 60000), endsAt: new Date(now.getTime() - 295 * 60000), winnerId: a[8], creatorFinalBalance: "1310000", joinerFinalBalance: "750000", createdAt: new Date(now.getTime() - 305 * 60000), settledAt: new Date(now.getTime() - 295 * 60000) },
+    ];
+
+    for (const d of [...waitingDuels, ...activeDuels, ...settledDuels]) {
+      await db.insert(tradingDuels).values(d as any).onConflictDoNothing();
+    }
+    console.log("[Seed] Trading duels seeded with mock data");
   }
 
   async createTradingDuel(data: InsertTradingDuel): Promise<TradingDuel> {
