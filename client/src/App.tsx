@@ -48,6 +48,7 @@ import ERC8004Register from "@/pages/erc8004-register";
 import ReferralDashboard from "@/pages/referral-dashboard";
 import ReferralRedirect from "@/pages/referral-redirect";
 import HoneyToken from "@/pages/honey-token";
+import TradingArena from "@/pages/trading-arena";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -94,6 +95,8 @@ function Router() {
       <Route path="/referrals" component={ReferralDashboard} />
       <Route path="/leaderboards" component={ReferralDashboard} />
       <Route path="/r/:code" component={ReferralRedirect} />
+      <Route path="/arena" component={TradingArena} />
+      <Route path="/arena/:id" component={TradingArena} />
       <Route component={NotFound} />
     </Switch>
   );

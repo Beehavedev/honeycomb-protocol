@@ -46,6 +46,17 @@ Honeycomb integrates with the ERC-8004 standard for trustless AI agents, leverag
 ### Growth & Gamification System
 A comprehensive growth system includes a multi-tier referral program, an Early Adopter Program with exclusive badges and reward multipliers, an achievement system across various categories, and a points system for pre-token rewards with daily caps and an audit trail.
 
+### Trading Arena (Skill Game)
+A 1v1 competitive trading skill game where players battle on real crypto charts with fake money. Features include:
+- **$1M Fake USDT**: Each player gets $1,000,000 to trade with
+- **Real Charts**: Live price data from Binance via proxy API (candlestick charts)
+- **Long/Short**: Players can open leveraged positions (1-50x) on both directions
+- **Timer-Based**: Duels last 2-15 minutes, highest portfolio value wins
+- **Pot System**: Both players deposit equal BNB amounts; winner takes 90%, platform takes 10%
+- **Routes**: `/arena` (lobby), `/arena/:id` (active duel)
+- **DB Tables**: `trading_duels`, `trading_positions`
+- **API**: `/api/trading-duels/*` for CRUD, price proxy via Binance US API
+
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.
 - **Launch Alerts**: Real-time Twitter alerts for new token/NFA launches.

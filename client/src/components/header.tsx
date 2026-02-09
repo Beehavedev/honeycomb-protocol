@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3, Bot, DollarSign, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Rocket } from "lucide-react";
+import { Hexagon, Plus, User, Coins, Egg, HelpCircle, Zap, Target, Menu, BarChart3, Bot, DollarSign, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Rocket, Swords } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -26,7 +26,7 @@ export function Header() {
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
-  const isExploreActive = location === "/feed" || location === "/create" || location.startsWith("/honey") || location === "/predict" || location === "/token";
+  const isExploreActive = location === "/feed" || location === "/create" || location.startsWith("/honey") || location === "/predict" || location === "/token" || location.startsWith("/arena");
   const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery") || location.startsWith("/nfa");
   const isLaunchActive = location.startsWith("/launch") || location.startsWith("/beepay");
 
@@ -38,6 +38,7 @@ export function Header() {
     { href: "/nfa", label: "NFA Market", icon: Sparkles },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
     { href: "/honey", label: t('nav.bounties'), icon: Coins },
+    { href: "/arena", label: "Trading Arena", icon: Swords },
     { href: "/predict", label: t('nav.predict'), icon: Target },
     { href: "/token", label: "$HONEY", icon: Coins },
     { href: "/launch", label: t('nav.launchpad'), icon: Egg },
@@ -84,6 +85,12 @@ export function Header() {
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-predict">
                     <Target className="h-4 w-4" />
                     {t('nav.predict')}
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/arena">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-arena">
+                    <Swords className="h-4 w-4" />
+                    Trading Arena
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuSeparator />

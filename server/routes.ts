@@ -2516,5 +2516,300 @@ export async function registerRoutes(
     }
   });
 
+  // ============ TRADING SKILL GAME ROUTES ============
+
+  app.get("/api/trading-duels", async (req, res) => {
+    try {
+      const status = (req.query.status as string) || "all";
+      const limit = parseInt(req.query.limit as string) || 20;
+      const duels = await storage.getTradingDuels(status, limit);
+      res.json(duels);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/binance/klines", async (req, res) => {
+    try {
+      const { symbol, interval, limit: klimit } = req.query;
+      const url = `https://api.binance.us/api/v3/klines?symbol=${symbol || "BTCUSDT"}&interval=${interval || "1m"}&limit=${klimit || 100}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/binance/ticker", async (req, res) => {
+    try {
+      const { symbol } = req.query;
+      const url = `https://api.binance.us/api/v3/ticker/price?symbol=${symbol || "BTCUSDT"}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/my-duels/:agentId", async (req, res) => {
+    try {
+      const duels = await storage.getTradingDuelsByAgent(req.params.agentId);
+      res.json(duels);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/:id", async (req, res) => {
+    try {
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      res.json(duel);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/:id/positions", async (req, res) => {
+    try {
+      const agentId = req.query.agentId as string;
+      if (!agentId) return res.status(400).json({ message: "agentId required" });
+      const positions = await storage.getTradingPositions(req.params.id, agentId);
+      res.json(positions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels", async (req, res) => {
+    try {
+      const { creatorId, assetSymbol, potAmount, durationSeconds } = req.body;
+      if (!creatorId || !potAmount) {
+        return res.status(400).json({ message: "creatorId and potAmount required" });
+      }
+      const duel = await storage.createTradingDuel({
+        creatorId,
+        assetSymbol: assetSymbol || "BTCUSDT",
+        potAmount: potAmount.toString(),
+        durationSeconds: durationSeconds || 300,
+      });
+      res.json(duel);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/join", async (req, res) => {
+    try {
+      const { joinerId } = req.body;
+      if (!joinerId) return res.status(400).json({ message: "joinerId required" });
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "waiting") return res.status(400).json({ message: "Duel not available to join" });
+      if (duel.creatorId === joinerId) return res.status(400).json({ message: "Cannot join your own duel" });
+      const updated = await storage.joinTradingDuel(req.params.id, joinerId);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/start", async (req, res) => {
+    try {
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "ready") return res.status(400).json({ message: "Duel not ready to start" });
+      const updated = await storage.startTradingDuel(req.params.id);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/open-position", async (req, res) => {
+    try {
+      const { agentId, side, leverage, sizeUsdt } = req.body;
+      if (!agentId || !side || !sizeUsdt) {
+        return res.status(400).json({ message: "agentId, side, sizeUsdt required" });
+      }
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
+      if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
+        return res.status(403).json({ message: "Not a participant" });
+      }
+      if (duel.endsAt && new Date() > new Date(duel.endsAt)) {
+        return res.status(400).json({ message: "Duel timer expired" });
+      }
+
+      let entryPrice: string;
+      try {
+        const priceRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceData = await priceRes.json();
+        entryPrice = priceData.price;
+        if (!entryPrice) throw new Error("No price");
+      } catch {
+        return res.status(500).json({ message: "Failed to fetch price from exchange" });
+      }
+
+      const openPositions = await storage.getOpenTradingPositions(req.params.id, agentId);
+      const allPositions = await storage.getTradingPositions(req.params.id, agentId);
+      const initialBal = parseFloat(duel.initialBalance);
+      let usedBalance = 0;
+      for (const p of openPositions) {
+        usedBalance += parseFloat(p.sizeUsdt);
+      }
+      let realizedPnl = 0;
+      for (const p of allPositions) {
+        if (!p.isOpen && p.pnl) realizedPnl += parseFloat(p.pnl);
+      }
+      const available = initialBal + realizedPnl - usedBalance;
+      if (parseFloat(sizeUsdt) > available) {
+        return res.status(400).json({ message: `Insufficient balance. Available: $${available.toFixed(2)}` });
+      }
+
+      if (!["long", "short"].includes(side)) {
+        return res.status(400).json({ message: "Side must be 'long' or 'short'" });
+      }
+      const lev = Math.min(Math.max(parseInt(leverage) || 1, 1), 50);
+
+      const position = await storage.createTradingPosition({
+        duelId: req.params.id,
+        agentId,
+        side,
+        leverage: lev,
+        sizeUsdt: sizeUsdt.toString(),
+        entryPrice,
+      });
+      res.json(position);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/close-position", async (req, res) => {
+    try {
+      const { positionId, agentId } = req.body;
+      if (!positionId || !agentId) {
+        return res.status(400).json({ message: "positionId and agentId required" });
+      }
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
+      if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
+        return res.status(403).json({ message: "Not a participant" });
+      }
+
+      const openPositions = await storage.getOpenTradingPositions(req.params.id, agentId);
+      const position = openPositions.find(p => p.id === positionId);
+      if (!position) return res.status(404).json({ message: "Position not found or already closed" });
+
+      let exitPrice: string;
+      try {
+        const priceRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceData = await priceRes.json();
+        exitPrice = priceData.price;
+        if (!exitPrice) throw new Error("No price");
+      } catch {
+        return res.status(500).json({ message: "Failed to fetch price from exchange" });
+      }
+
+      const entry = parseFloat(position.entryPrice);
+      const exit = parseFloat(exitPrice);
+      const size = parseFloat(position.sizeUsdt);
+      const lev = position.leverage;
+      let pnl: number;
+      if (position.side === "long") {
+        pnl = ((exit - entry) / entry) * size * lev;
+      } else {
+        pnl = ((entry - exit) / entry) * size * lev;
+      }
+
+      const closed = await storage.closeTradingPosition(positionId, exitPrice, pnl.toFixed(2));
+      res.json(closed);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/settle", async (req, res) => {
+    try {
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
+
+      if (duel.endsAt && new Date() < new Date(duel.endsAt)) {
+        return res.status(400).json({ message: "Duel timer has not expired yet" });
+      }
+
+      let settlementPrice: string;
+      try {
+        const priceRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceData = await priceRes.json();
+        settlementPrice = priceData.price;
+        if (!settlementPrice) throw new Error("No price");
+      } catch {
+        return res.status(500).json({ message: "Failed to fetch settlement price from exchange" });
+      }
+
+      const calcBalance = async (agentId: string) => {
+        const positions = await storage.getTradingPositions(req.params.id, agentId);
+        const initialBal = parseFloat(duel.initialBalance);
+        let total = initialBal;
+        for (const p of positions) {
+          if (p.isOpen) {
+            const entry = parseFloat(p.entryPrice);
+            const curr = parseFloat(settlementPrice);
+            const size = parseFloat(p.sizeUsdt);
+            let pnl: number;
+            if (p.side === "long") {
+              pnl = ((curr - entry) / entry) * size * p.leverage;
+            } else {
+              pnl = ((entry - curr) / entry) * size * p.leverage;
+            }
+            total += pnl;
+            await storage.closeTradingPosition(p.id, settlementPrice, pnl.toFixed(2));
+          } else if (p.pnl) {
+            total += parseFloat(p.pnl);
+          }
+        }
+        return total;
+      };
+
+      const creatorFinal = await calcBalance(duel.creatorId);
+      const joinerFinal = duel.joinerId ? await calcBalance(duel.joinerId) : 0;
+
+      let winnerId: string | null = null;
+      if (creatorFinal > joinerFinal) winnerId = duel.creatorId;
+      else if (joinerFinal > creatorFinal && duel.joinerId) winnerId = duel.joinerId;
+
+      const settled = await storage.settleTradingDuel(
+        req.params.id,
+        winnerId,
+        creatorFinal.toFixed(2),
+        joinerFinal.toFixed(2)
+      );
+      res.json(settled);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/cancel", async (req, res) => {
+    try {
+      const { agentId } = req.body;
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "waiting") return res.status(400).json({ message: "Can only cancel waiting duels" });
+      if (duel.creatorId !== agentId) return res.status(403).json({ message: "Only creator can cancel" });
+      const cancelled = await storage.cancelTradingDuel(req.params.id);
+      res.json(cancelled);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

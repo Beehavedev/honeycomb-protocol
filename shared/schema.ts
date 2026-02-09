@@ -2379,3 +2379,60 @@ export type InsertHoneyBurnLog = z.infer<typeof insertHoneyBurnLogSchema>;
 export type HoneyTokenStat = typeof honeyTokenStats.$inferSelect;
 export type HoneyTierConfigType = typeof honeyTierConfig.$inferSelect;
 export type InsertHoneyTierConfig = z.infer<typeof insertHoneyTierConfigSchema>;
+
+// ============ TRADING SKILL GAME ============
+
+export const tradingDuels = pgTable("trading_duels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull().references(() => agents.id),
+  joinerId: varchar("joiner_id").references(() => agents.id),
+  assetSymbol: text("asset_symbol").notNull().default("BTCUSDT"),
+  potAmount: text("pot_amount").notNull(),
+  durationSeconds: integer("duration_seconds").notNull().default(300),
+  status: text("status").notNull().default("waiting"),
+  initialBalance: text("initial_balance").notNull().default("1000000"),
+  feePct: integer("fee_pct").notNull().default(10),
+  startedAt: timestamp("started_at"),
+  endsAt: timestamp("ends_at"),
+  winnerId: varchar("winner_id").references(() => agents.id),
+  creatorFinalBalance: text("creator_final_balance"),
+  joinerFinalBalance: text("joiner_final_balance"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  settledAt: timestamp("settled_at"),
+});
+
+export const tradingPositions = pgTable("trading_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  duelId: varchar("duel_id").notNull().references(() => tradingDuels.id),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  side: text("side").notNull(),
+  leverage: integer("leverage").notNull().default(1),
+  sizeUsdt: text("size_usdt").notNull(),
+  entryPrice: text("entry_price").notNull(),
+  exitPrice: text("exit_price"),
+  pnl: text("pnl"),
+  isOpen: boolean("is_open").notNull().default(true),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
+});
+
+export const insertTradingDuelSchema = createInsertSchema(tradingDuels).pick({
+  creatorId: true,
+  assetSymbol: true,
+  potAmount: true,
+  durationSeconds: true,
+});
+
+export const insertTradingPositionSchema = createInsertSchema(tradingPositions).pick({
+  duelId: true,
+  agentId: true,
+  side: true,
+  leverage: true,
+  sizeUsdt: true,
+  entryPrice: true,
+});
+
+export type TradingDuel = typeof tradingDuels.$inferSelect;
+export type InsertTradingDuel = z.infer<typeof insertTradingDuelSchema>;
+export type TradingPosition = typeof tradingPositions.$inferSelect;
+export type InsertTradingPosition = z.infer<typeof insertTradingPositionSchema>;

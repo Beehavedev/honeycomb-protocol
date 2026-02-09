@@ -28,12 +28,14 @@ import {
   type EarlyAdopter, type InsertEarlyAdopter,
   type LeaderboardSnapshot,
   type UserPoints, type PointsHistory, type PointsConfig, type InsertPointsConfig,
+  type TradingDuel, type InsertTradingDuel, type TradingPosition, type InsertTradingPosition,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
   autonomousAgents, agentTokenLaunches, agentTrades, agentTradingStats, agentGraduations, agentLeaderboard,
   referrals, referralConversions, achievementDefs, userAchievements, earlyAdopters, leaderboardSnapshots,
-  userPoints, pointsHistory, pointsConfig
+  userPoints, pointsHistory, pointsConfig,
+  tradingDuels, tradingPositions
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -230,6 +232,20 @@ export interface IStorage {
   getAllPointsConfig(): Promise<PointsConfig[]>;
   upsertPointsConfig(data: InsertPointsConfig): Promise<PointsConfig>;
   getPointsLeaderboard(limit: number): Promise<UserPoints[]>;
+
+  // Trading Skill Game
+  createTradingDuel(data: InsertTradingDuel): Promise<TradingDuel>;
+  getTradingDuel(id: string): Promise<TradingDuel | undefined>;
+  getTradingDuels(status: string, limit: number): Promise<TradingDuel[]>;
+  getTradingDuelsByAgent(agentId: string): Promise<TradingDuel[]>;
+  joinTradingDuel(id: string, joinerId: string): Promise<TradingDuel>;
+  startTradingDuel(id: string): Promise<TradingDuel>;
+  settleTradingDuel(id: string, winnerId: string | null, creatorFinal: string, joinerFinal: string): Promise<TradingDuel>;
+  cancelTradingDuel(id: string): Promise<TradingDuel>;
+  createTradingPosition(data: InsertTradingPosition): Promise<TradingPosition>;
+  getTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]>;
+  getOpenTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]>;
+  closeTradingPosition(id: string, exitPrice: string, pnl: string): Promise<TradingPosition>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1520,6 +1536,103 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(userPoints)
       .orderBy(desc(userPoints.lifetimePoints))
       .limit(limit);
+  }
+
+  async createTradingDuel(data: InsertTradingDuel): Promise<TradingDuel> {
+    const [duel] = await db.insert(tradingDuels).values(data).returning();
+    return duel;
+  }
+
+  async getTradingDuel(id: string): Promise<TradingDuel | undefined> {
+    const [duel] = await db.select().from(tradingDuels).where(eq(tradingDuels.id, id));
+    return duel;
+  }
+
+  async getTradingDuels(status: string, limit: number): Promise<TradingDuel[]> {
+    if (status === "all") {
+      return db.select().from(tradingDuels).orderBy(desc(tradingDuels.createdAt)).limit(limit);
+    }
+    return db.select().from(tradingDuels)
+      .where(eq(tradingDuels.status, status))
+      .orderBy(desc(tradingDuels.createdAt))
+      .limit(limit);
+  }
+
+  async getTradingDuelsByAgent(agentId: string): Promise<TradingDuel[]> {
+    return db.select().from(tradingDuels)
+      .where(sql`${tradingDuels.creatorId} = ${agentId} OR ${tradingDuels.joinerId} = ${agentId}`)
+      .orderBy(desc(tradingDuels.createdAt));
+  }
+
+  async joinTradingDuel(id: string, joinerId: string): Promise<TradingDuel> {
+    const [duel] = await db.update(tradingDuels)
+      .set({ joinerId, status: "ready" })
+      .where(eq(tradingDuels.id, id))
+      .returning();
+    return duel;
+  }
+
+  async startTradingDuel(id: string): Promise<TradingDuel> {
+    const duel = await this.getTradingDuel(id);
+    if (!duel) throw new Error("Duel not found");
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + duel.durationSeconds * 1000);
+    const [updated] = await db.update(tradingDuels)
+      .set({ status: "active", startedAt: now, endsAt })
+      .where(eq(tradingDuels.id, id))
+      .returning();
+    return updated;
+  }
+
+  async settleTradingDuel(id: string, winnerId: string | null, creatorFinal: string, joinerFinal: string): Promise<TradingDuel> {
+    const [duel] = await db.update(tradingDuels)
+      .set({ 
+        status: "settled", 
+        winnerId, 
+        creatorFinalBalance: creatorFinal, 
+        joinerFinalBalance: joinerFinal,
+        settledAt: new Date()
+      })
+      .where(eq(tradingDuels.id, id))
+      .returning();
+    return duel;
+  }
+
+  async cancelTradingDuel(id: string): Promise<TradingDuel> {
+    const [duel] = await db.update(tradingDuels)
+      .set({ status: "cancelled" })
+      .where(eq(tradingDuels.id, id))
+      .returning();
+    return duel;
+  }
+
+  async createTradingPosition(data: InsertTradingPosition): Promise<TradingPosition> {
+    const [pos] = await db.insert(tradingPositions).values(data).returning();
+    return pos;
+  }
+
+  async getTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]> {
+    return db.select().from(tradingPositions)
+      .where(and(eq(tradingPositions.duelId, duelId), eq(tradingPositions.agentId, agentId)))
+      .orderBy(desc(tradingPositions.openedAt));
+  }
+
+  async getOpenTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]> {
+    return db.select().from(tradingPositions)
+      .where(and(
+        eq(tradingPositions.duelId, duelId),
+        eq(tradingPositions.agentId, agentId),
+        eq(tradingPositions.isOpen, true)
+      ))
+      .orderBy(desc(tradingPositions.openedAt));
+  }
+
+  async closeTradingPosition(id: string, exitPrice: string, pnl: string): Promise<TradingPosition> {
+    const [pos] = await db.update(tradingPositions)
+      .set({ isOpen: false, exitPrice, pnl, closedAt: new Date() })
+      .where(eq(tradingPositions.id, id))
+      .returning();
+    return pos;
   }
 }
 
