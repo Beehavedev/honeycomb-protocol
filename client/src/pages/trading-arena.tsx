@@ -1,7 +1,17 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage, useChainId } from "wagmi";
+import { parseEther } from "viem";
+import {
+  useCreateDuel,
+  useJoinDuel,
+  useSettleDuel,
+  useCancelDuel,
+  useGetAgentByOwner,
+  useRegisterAgent,
+  usePredictDuelAddress,
+} from "@/contracts/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -915,7 +925,8 @@ function StatBadge({ icon: Icon, label, value, color = "amber" }: { icon: any; l
 
 function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const { agent, authenticate, isAuthenticating } = useAuth();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [asset, setAsset] = useState("BTCUSDT");
@@ -925,6 +936,164 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const [tokenSearch, setTokenSearch] = useState("");
   const [tokenDropOpen, setTokenDropOpen] = useState(false);
   const tokenDropRef = useRef<HTMLDivElement>(null);
+  const [pvpCreating, setPvpCreating] = useState(false);
+
+  const { data: onChainAgentId, refetch: refetchAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  const hasAgent = onChainAgentId && onChainAgentId > BigInt(0);
+  const {
+    registerAgent,
+    isPending: isRegistering,
+    isConfirming: isRegConfirming,
+    isSuccess: regSuccess,
+    hash: regHash,
+  } = useRegisterAgent();
+
+  const {
+    createDuel: contractCreateDuel,
+    hash: createHash,
+    isPending: isCreatePending,
+    isConfirming: isCreateConfirming,
+    isSuccess: createSuccess,
+    error: createError,
+    receipt: createReceipt,
+  } = useCreateDuel();
+
+  const predictDuelAddress = usePredictDuelAddress();
+
+  useEffect(() => {
+    if (regSuccess && regHash) {
+      toast({ title: "Agent registered on-chain!" });
+      refetchAgentId();
+    }
+  }, [regSuccess, regHash]);
+
+  useEffect(() => {
+    if (createSuccess && createHash && createReceipt) {
+      const logs = createReceipt.logs;
+      let onChainDuelId: string | null = null;
+      const DUEL_CREATED_TOPIC = "0x688046adaf759d2e556524bfd3f6b4f0728f2dd2c03078bccb42c67a77740cb1";
+      for (const log of logs) {
+        if (
+          log.address?.toLowerCase() === predictDuelAddress?.toLowerCase() &&
+          log.topics?.[0]?.toLowerCase() === DUEL_CREATED_TOPIC &&
+          log.topics?.[1]
+        ) {
+          try {
+            onChainDuelId = BigInt(log.topics[1]).toString();
+            break;
+          } catch {}
+        }
+      }
+
+      if (!onChainDuelId) {
+        toast({ title: "Failed to parse duel ID", description: "Your BNB is safe. Please contact support with tx: " + createHash, variant: "destructive" });
+        setPvpCreating(false);
+        return;
+      }
+
+      toast({ title: "Duel created on-chain!", description: `${potAmount} BNB sent to escrow. Syncing...` });
+
+      const syncParams = {
+        onChainDuelId,
+        txHash: createHash,
+        assetSymbol: asset,
+        potAmount,
+        durationSeconds: parseInt(duration),
+        creatorOnChainAgentId: onChainAgentId?.toString() || "0",
+      };
+
+      const doSync = async (retried = false) => {
+        const token = localStorage.getItem("honeycomb_jwt");
+        try {
+          const res = await fetch("/api/trading-duels/sync-create", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(syncParams),
+          });
+
+          if (res.ok) {
+            toast({ title: "Duel is live!", description: "Waiting for an opponent to join." });
+            queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
+            onCreated();
+          } else if (res.status === 401 && !retried && address) {
+            try {
+              const nonceRes = await fetch("/api/auth/nonce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address }),
+              });
+              const { nonce } = await nonceRes.json();
+              const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+              const signature = await signMessageAsync({ message });
+              const verifyRes = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, signature, nonce }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.token) {
+                localStorage.setItem("honeycomb_jwt", verifyData.token);
+                await doSync(true);
+              }
+            } catch {
+              toast({ title: "Session expired", description: "Please sign in again. Your BNB is safe in the on-chain escrow.", variant: "destructive" });
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            toast({ title: "Sync failed", description: errData.message || "Duel created on-chain but failed to save.", variant: "destructive" });
+          }
+        } catch {
+          toast({ title: "Network error", description: "Duel created on-chain but failed to sync. Please refresh.", variant: "destructive" });
+        }
+        setPvpCreating(false);
+      };
+      doSync();
+    }
+  }, [createSuccess, createHash, createReceipt]);
+
+  useEffect(() => {
+    if (createError) {
+      const errorMsg = createError.message?.includes("user rejected")
+        ? "Transaction rejected"
+        : createError.message?.slice(0, 100) || "Failed to create duel";
+      toast({ title: "Transaction failed", description: errorMsg, variant: "destructive" });
+      setPvpCreating(false);
+    }
+  }, [createError]);
+
+  const handlePvpCreate = async () => {
+    if (!agent || !address) return;
+    setPvpCreating(true);
+
+    if (!hasAgent) {
+      toast({ title: "Registering on-chain agent...", description: "First-time setup required" });
+      registerAgent("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
+      let regDone = false;
+      const waitForReg = setInterval(async () => {
+        const result = await refetchAgentId();
+        if (result.data && result.data > BigInt(0)) {
+          regDone = true;
+          clearInterval(waitForReg);
+          const stakeWei = parseEther(potAmount);
+          contractCreateDuel(result.data, "ARENA", 0, BigInt(parseInt(duration)), stakeWei);
+        }
+      }, 2000);
+      setTimeout(() => {
+        if (!regDone) {
+          clearInterval(waitForReg);
+          setPvpCreating(false);
+          toast({ title: "Registration timed out", description: "Please try again", variant: "destructive" });
+        }
+      }, 60000);
+      return;
+    }
+
+    const stakeWei = parseEther(potAmount);
+    contractCreateDuel(onChainAgentId!, "ARENA", 0, BigInt(parseInt(duration)), stakeWei);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -942,21 +1111,6 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
     a.symbol.toLowerCase().includes(tokenSearch.toLowerCase())
   );
   const selectedAsset = ASSETS.find(a => a.symbol === asset) || ASSETS[0];
-
-  const createMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/trading-duels", {
-      creatorId: agent?.id,
-      assetSymbol: asset,
-      potAmount,
-      durationSeconds: parseInt(duration),
-    }),
-    onSuccess: () => {
-      toast({ title: "Duel Created!", description: "Waiting for an opponent..." });
-      queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
-      onCreated();
-    },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
 
   const playBotMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/trading-duels/play-vs-bot", {
@@ -1149,17 +1303,33 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
                 {playBo3Mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Trophy className="w-4 h-4 mr-1.5" />}
                 Best of 3 Series - {potAmount} BNB
               </Button>
+              <p className="text-[10px] text-center text-muted-foreground">Practice mode - no real BNB required</p>
             </div>
           ) : (
-            <Button
-              className="w-full"
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending}
-              data-testid="button-create-duel"
-            >
-              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Swords className="w-4 h-4" />}
-              <span className="ml-2">Enter the Arena - {potAmount} BNB</span>
-            </Button>
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={handlePvpCreate}
+                disabled={pvpCreating || isCreatePending || isCreateConfirming || isRegistering || isRegConfirming}
+                data-testid="button-create-duel"
+              >
+                {(pvpCreating || isCreatePending || isCreateConfirming || isRegistering || isRegConfirming) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Swords className="w-4 h-4" />
+                )}
+                <span className="ml-2">
+                  {isRegistering || isRegConfirming ? "Registering Agent..." :
+                   isCreatePending ? "Confirm in Wallet..." :
+                   isCreateConfirming ? "Confirming on-chain..." :
+                   `Stake ${potAmount} BNB & Create Duel`}
+                </span>
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+                <Shield className="w-4 h-4 text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-300/80">On-chain escrow: BNB locked in smart contract until duel settles</p>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1200,7 +1370,9 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
           </div>
           <div className="text-right">
             <p className="font-mono font-bold text-amber-400">{duel.potAmount} BNB</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">per player</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              {duel.isOnChain ? "on-chain escrow" : "per player"}
+            </p>
           </div>
           <div>
             {duel.status === "waiting" && !isCreator && agent && (
@@ -1822,6 +1994,8 @@ function SettledResultsView({
 function ActiveDuelView({ duelId }: { duelId: string }) {
   const { agent } = useAuth();
   const { toast } = useToast();
+  const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [, navigate] = useLocation();
   const [currentPrice, setCurrentPrice] = useState(0);
   const [priceChange, setPriceChange] = useState(0);
@@ -2028,11 +2202,95 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     };
   }, [duel?.assetSymbol]);
 
+  const {
+    settleDuel: contractSettleDuel,
+    hash: settleHash,
+    isPending: isSettlePending,
+    isConfirming: isSettleConfirming,
+    isSuccess: settleOnChainSuccess,
+    error: settleOnChainError,
+  } = useSettleDuel();
+
+  const [settlingOnChain, setSettlingOnChain] = useState(false);
+
+  useEffect(() => {
+    if (settleOnChainSuccess && settleHash && duel) {
+      const doSyncSettle = async (retried = false) => {
+        const token = localStorage.getItem("honeycomb_jwt");
+        try {
+          const res = await fetch(`/api/trading-duels/${duelId}/sync-settle`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              txHash: settleHash,
+              winnerId: duel.winnerId,
+            }),
+          });
+
+          if (res.ok) {
+            setSettlingOnChain(false);
+            refetchDuel();
+            toast({ title: "Duel settled on-chain!" });
+          } else if (res.status === 401 && !retried && address) {
+            try {
+              const nonceRes = await fetch("/api/auth/nonce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address }),
+              });
+              const { nonce } = await nonceRes.json();
+              const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+              const sig = await signMessageAsync({ message });
+              const verifyRes = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, signature: sig, nonce }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.token) {
+                localStorage.setItem("honeycomb_jwt", verifyData.token);
+                await doSyncSettle(true);
+                return;
+              }
+            } catch {}
+            setSettlingOnChain(false);
+            toast({ title: "Sync failed", description: "Settlement succeeded on-chain but failed to sync. Please refresh.", variant: "destructive" });
+          } else {
+            setSettlingOnChain(false);
+            toast({ title: "Sync failed", description: "Settlement succeeded on-chain but failed to sync. Please refresh.", variant: "destructive" });
+          }
+        } catch {
+          setSettlingOnChain(false);
+          toast({ title: "Network error", description: "Settlement succeeded on-chain. Refresh to see results.", variant: "destructive" });
+        }
+      };
+      doSyncSettle();
+    }
+  }, [settleOnChainSuccess, settleHash]);
+
+  useEffect(() => {
+    if (settleOnChainError) {
+      setSettlingOnChain(false);
+      toast({ title: "On-chain settlement failed", description: settleOnChainError.message?.slice(0, 100), variant: "destructive" });
+    }
+  }, [settleOnChainError]);
+
   const settleMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/trading-duels/${duelId}/settle`, {}),
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       refetchDuel();
-      toast({ title: "Duel Settled!" });
+      if (data.isOnChain && data.onChainDuelId && data.onChainDuelId !== "0") {
+        setSettlingOnChain(true);
+        toast({ title: "Settling on-chain...", description: "Confirm the transaction to release BNB" });
+        const creatorWins = data.winnerId === data.creatorId;
+        const endPrice = creatorWins ? BigInt(200) : BigInt(50);
+        contractSettleDuel(BigInt(data.onChainDuelId), endPrice);
+      } else {
+        toast({ title: "Duel Settled!" });
+      }
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -2441,8 +2699,24 @@ function ArenaLeaderboard({ agentId }: { agentId?: string }) {
 function TradingArenaLobby() {
   const { agent } = useAuth();
   const { toast } = useToast();
+  const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("open");
+  const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
+
+  const { data: onChainAgentId, refetch: refetchAgentId } = useGetAgentByOwner(address as `0x${string}`);
+  const hasAgent = onChainAgentId && onChainAgentId > BigInt(0);
+  const { registerAgent, isPending: isRegPending, isConfirming: isRegConfirming, isSuccess: regSuccess, hash: regHash } = useRegisterAgent();
+
+  const {
+    joinDuel: contractJoinDuel,
+    hash: joinHash,
+    isPending: isJoinPending,
+    isConfirming: isJoinConfirming,
+    isSuccess: joinSuccess,
+    error: joinError,
+  } = useJoinDuel();
 
   const { data: duels = [], isLoading } = useQuery<TradingDuel[]>({
     queryKey: ["/api/trading-duels", `?status=${tab === "open" ? "waiting" : tab === "live" ? "active" : tab}&limit=20`],
@@ -2460,6 +2734,114 @@ function TradingArenaLobby() {
     },
     enabled: !!agent?.id,
   });
+
+  useEffect(() => {
+    if (regSuccess && regHash) {
+      toast({ title: "Agent registered on-chain!" });
+      refetchAgentId();
+    }
+  }, [regSuccess, regHash]);
+
+  useEffect(() => {
+    if (joinSuccess && joinHash && joiningDuelId) {
+      toast({ title: "Joined on-chain!", description: "Syncing to server..." });
+
+      const doSyncJoin = async (retried = false) => {
+        const token = localStorage.getItem("honeycomb_jwt");
+        try {
+          const res = await fetch(`/api/trading-duels/${joiningDuelId}/sync-join`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              txHash: joinHash,
+              joinerOnChainAgentId: onChainAgentId?.toString() || "0",
+            }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            toast({ title: "Battle started!" });
+            queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
+            navigate(`/arena/${data.id}`);
+          } else if (res.status === 401 && !retried && address) {
+            try {
+              const nonceRes = await fetch("/api/auth/nonce", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address }),
+              });
+              const { nonce } = await nonceRes.json();
+              const message = `Sign this message to authenticate with Honeycomb.\n\nNonce: ${nonce}`;
+              const signature = await signMessageAsync({ message });
+              const verifyRes = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, signature, nonce }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.token) {
+                localStorage.setItem("honeycomb_jwt", verifyData.token);
+                await doSyncJoin(true);
+              }
+            } catch {
+              toast({ title: "Session expired", description: "BNB is safe on-chain. Please refresh.", variant: "destructive" });
+            }
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            toast({ title: "Sync failed", description: errData.message || "Joined on-chain but failed to sync.", variant: "destructive" });
+          }
+        } catch {
+          toast({ title: "Network error", description: "Joined on-chain but failed to sync. Please refresh.", variant: "destructive" });
+        }
+        setJoiningDuelId(null);
+      };
+      doSyncJoin();
+    }
+  }, [joinSuccess, joinHash, joiningDuelId]);
+
+  useEffect(() => {
+    if (joinError) {
+      const errorMsg = joinError.message?.includes("user rejected")
+        ? "Transaction rejected"
+        : joinError.message?.slice(0, 100) || "Failed to join duel";
+      toast({ title: "Transaction failed", description: errorMsg, variant: "destructive" });
+      setJoiningDuelId(null);
+    }
+  }, [joinError]);
+
+  const handleOnChainJoin = async (duel: TradingDuel) => {
+    if (!agent || !address) return;
+
+    if (!duel.onChainDuelId || duel.onChainDuelId === "0") {
+      toast({ title: "Invalid duel", description: "This duel has no valid on-chain ID.", variant: "destructive" });
+      return;
+    }
+
+    setJoiningDuelId(duel.id);
+
+    if (!hasAgent) {
+      toast({ title: "Registering on-chain agent...", description: "First-time setup required" });
+      registerAgent("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
+      const waitForReg = setInterval(async () => {
+        const result = await refetchAgentId();
+        if (result.data && result.data > BigInt(0)) {
+          clearInterval(waitForReg);
+          const stakeWei = parseEther(duel.potAmount);
+          const onChainId = BigInt(duel.onChainDuelId!);
+          contractJoinDuel(onChainId, result.data, BigInt(100), stakeWei);
+        }
+      }, 2000);
+      setTimeout(() => { clearInterval(waitForReg); setJoiningDuelId(null); }, 60000);
+      return;
+    }
+
+    const stakeWei = parseEther(duel.potAmount);
+    const onChainId = BigInt(duel.onChainDuelId);
+    contractJoinDuel(onChainId, onChainAgentId!, BigInt(100), stakeWei);
+  };
 
   const joinMutation = useMutation({
     mutationFn: (duelId: string) => apiRequest("POST", `/api/trading-duels/${duelId}/join`, {
@@ -2546,7 +2928,12 @@ function TradingArenaLobby() {
                         toast({ title: "Connect wallet first", variant: "destructive" });
                         return;
                       }
-                      joinMutation.mutate(id);
+                      const duel = duels.find(dd => dd.id === id);
+                      if (duel?.isOnChain) {
+                        handleOnChainJoin(duel);
+                      } else {
+                        joinMutation.mutate(id);
+                      }
                     }}
                   />
                 ))

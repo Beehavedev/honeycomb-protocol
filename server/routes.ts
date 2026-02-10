@@ -36,6 +36,7 @@ import {
   prepareCreateTokenRequestSchema,
   prepareBuyRequestSchema,
   prepareSellRequestSchema,
+  tradingDuels,
 } from "@shared/schema";
 import { encodeFunctionData, createWalletClient, http, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -3034,6 +3035,19 @@ export async function registerRoutes(
       if (creatorFinal > joinerFinal) winnerId = duel.creatorId;
       else if (joinerFinal > creatorFinal && duel.joinerId) winnerId = duel.joinerId;
 
+      if (duel.isOnChain && duel.onChainDuelId) {
+        const [pendingDuel] = await db.update(tradingDuels)
+          .set({
+            winnerId,
+            creatorFinalBalance: creatorFinal.toFixed(2),
+            joinerFinalBalance: joinerFinal.toFixed(2),
+          })
+          .where(eq(tradingDuels.id, req.params.id))
+          .returning();
+        res.json({ ...pendingDuel, isOnChain: true, onChainDuelId: duel.onChainDuelId, creatorId: duel.creatorId });
+        return;
+      }
+
       const settled = await storage.settleTradingDuel(
         req.params.id,
         winnerId,
@@ -3317,6 +3331,122 @@ export async function registerRoutes(
       res.json(cancelled);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/sync-create", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const { onChainDuelId, txHash, assetSymbol, potAmount, durationSeconds, creatorOnChainAgentId } = req.body;
+
+      if (!onChainDuelId || !txHash) {
+        return res.status(400).json({ message: "Missing on-chain duel ID or transaction hash" });
+      }
+
+      const agent = await storage.getAgentByAddress(walletAddress);
+      if (!agent) {
+        return res.status(400).json({ message: "No agent found for this wallet. Please register first." });
+      }
+
+      const duel = await storage.createTradingDuel({
+        creatorId: agent.id,
+        assetSymbol: assetSymbol || "BTCUSDT",
+        potAmount: (potAmount || "0.01").toString(),
+        durationSeconds: durationSeconds || 300,
+        onChainDuelId: onChainDuelId.toString(),
+        txHash,
+        creatorWallet: walletAddress,
+        isOnChain: true,
+      });
+
+      res.status(201).json(duel);
+    } catch (error: any) {
+      console.error("Error syncing on-chain trading duel creation:", error);
+      res.status(500).json({ message: "Failed to sync on-chain trading duel" });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/sync-join", authMiddleware, async (req, res) => {
+    try {
+      const walletAddress = req.walletAddress!;
+      const duelId = req.params.id;
+      const { txHash, joinerOnChainAgentId } = req.body;
+
+      if (!txHash) {
+        return res.status(400).json({ message: "Missing transaction hash" });
+      }
+
+      const duel = await storage.getTradingDuel(duelId);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (!duel.isOnChain) return res.status(400).json({ message: "This is not an on-chain duel" });
+      if (duel.status !== "waiting") return res.status(400).json({ message: "Duel is not waiting for a joiner" });
+
+      const agent = await storage.getAgentByAddress(walletAddress);
+      if (!agent) {
+        return res.status(400).json({ message: "No agent found for this wallet. Please register first." });
+      }
+
+      if (duel.creatorId === agent.id) {
+        return res.status(400).json({ message: "Cannot join your own duel" });
+      }
+
+      const now = new Date();
+      const endsAt = new Date(now.getTime() + duel.durationSeconds * 1000);
+
+      const [updated] = await db.update(tradingDuels)
+        .set({
+          joinerId: agent.id,
+          joinerWallet: walletAddress,
+          status: "active",
+          startedAt: now,
+          endsAt,
+        })
+        .where(eq(tradingDuels.id, duelId))
+        .returning();
+
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error syncing on-chain trading duel join:", error);
+      res.status(500).json({ message: "Failed to sync on-chain join" });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/sync-settle", authMiddleware, async (req, res) => {
+    try {
+      const duelId = req.params.id;
+      const { txHash, winnerId } = req.body;
+
+      if (!txHash) {
+        return res.status(400).json({ message: "Missing transaction hash" });
+      }
+
+      const duel = await storage.getTradingDuel(duelId);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (!duel.isOnChain) return res.status(400).json({ message: "This is not an on-chain duel" });
+      if (duel.status === "settled") return res.json(duel);
+
+      const finalWinnerId = winnerId || duel.winnerId;
+
+      const [settled] = await db.update(tradingDuels)
+        .set({
+          status: "settled",
+          winnerId: finalWinnerId,
+          settledAt: new Date(),
+        })
+        .where(eq(tradingDuels.id, duelId))
+        .returning();
+
+      if (finalWinnerId) {
+        await storage.updateAgentArenaStats(duel.creatorId, finalWinnerId === duel.creatorId);
+        if (duel.joinerId) {
+          await storage.updateAgentArenaStats(duel.joinerId, finalWinnerId === duel.joinerId);
+        }
+      }
+
+      res.json(settled);
+    } catch (error: any) {
+      console.error("Error syncing on-chain trading duel settlement:", error);
+      res.status(500).json({ message: "Failed to sync on-chain settlement" });
     }
   });
 
