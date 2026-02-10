@@ -41,6 +41,9 @@ import {
   Cpu,
   Search,
   ChevronDown,
+  Repeat2,
+  BarChart3,
+  Medal,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 
@@ -1457,6 +1460,191 @@ function TradingPanel({
   );
 }
 
+function getRankTier(rating: number): { name: string; color: string; icon: typeof Medal } {
+  if (rating >= 1500) return { name: "Gold", color: "#f0b90b", icon: Medal };
+  if (rating >= 1200) return { name: "Silver", color: "#94a3b8", icon: Medal };
+  return { name: "Bronze", color: "#cd7f32", icon: Medal };
+}
+
+function SettledResultsView({
+  duel, duelId, isWinner, creatorFinal, joinerFinal, potTotal, winnerPayout, durationLabel, agentId, botInfo, navigate,
+}: {
+  duel: TradingDuel; duelId: string; isWinner: boolean; creatorFinal: number; joinerFinal: number;
+  potTotal: number; winnerPayout: number; durationLabel: string; agentId?: string;
+  botInfo?: { creatorIsBot: boolean; joinerIsBot: boolean };
+  navigate: (to: string) => void;
+}) {
+  const { toast } = useToast();
+
+  const { data: resultsData } = useQuery<{
+    duel: TradingDuel;
+    creatorPositions: TradingPosition[];
+    joinerPositions: TradingPosition[];
+    creatorStats: { arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number } | null;
+    joinerStats: { arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number } | null;
+    leadChanges: number;
+    clutchFlag: boolean;
+  }>({
+    queryKey: ["/api/trading-duels", duelId, "results"],
+  });
+
+  const rematchMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/trading-duels/${duelId}/rematch`, { agentId }),
+    onSuccess: (data: any) => {
+      playTradeSound("start");
+      toast({ title: "Rematch created!" });
+      navigate(`/arena/${data.id}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const myStats = agentId === duel.creatorId ? resultsData?.creatorStats : resultsData?.joinerStats;
+  const myPositions = agentId === duel.creatorId ? resultsData?.creatorPositions : resultsData?.joinerPositions;
+
+  const myRank = myStats ? getRankTier(myStats.arenaRating) : null;
+
+  return (
+    <div className="relative max-w-2xl mx-auto px-3 sm:p-4 py-4 space-y-4">
+      <ArenaBackground />
+      <Card className="overflow-visible relative">
+        {isWinner && <ConfettiExplosion />}
+        <CardContent className="p-5 sm:p-8 text-center space-y-4 sm:space-y-5 relative z-10">
+          <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 flex items-center justify-center arena-trophy">
+            {duel.winnerId ? (
+              isWinner ? <Trophy className="w-9 h-9 sm:w-12 sm:h-12 text-amber-400" /> : <Skull className="w-9 h-9 sm:w-12 sm:h-12 text-muted-foreground" />
+            ) : (
+              <Swords className="w-9 h-9 sm:w-12 sm:h-12 text-muted-foreground" />
+            )}
+          </div>
+          <div className="arena-animate-up">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              {duel.winnerId ? (isWinner ? "VICTORY" : "DEFEAT") : "DRAW"}
+            </h2>
+            {duel.winnerId && (
+              <p className="text-muted-foreground text-sm mt-1">
+                Winner takes <span className="text-amber-400 font-bold">{winnerPayout.toFixed(4)} BNB</span>
+              </p>
+            )}
+            {resultsData?.clutchFlag && (
+              <Badge variant="outline" className="mt-2 text-[10px] py-0.5 px-2 gap-1 border-amber-400/50 text-amber-400 arena-heartbeat" data-testid="badge-clutch">
+                <Zap className="w-3 h-3" /> CLUTCH!
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center gap-3 flex-wrap arena-animate-up">
+            {resultsData?.leadChanges ? (
+              <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1">
+                <Activity className="w-3 h-3" /> {resultsData.leadChanges} Lead Changes
+              </Badge>
+            ) : null}
+            {myStats && myStats.arenaWinStreak >= 2 && (
+              <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 border-orange-400/50 text-orange-400" data-testid="badge-streak">
+                <Flame className="w-3 h-3" /> {myStats.arenaWinStreak} Win Streak
+              </Badge>
+            )}
+            {myRank && (
+              <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1" style={{ borderColor: `${myRank.color}50`, color: myRank.color }} data-testid="badge-rank">
+                <Medal className="w-3 h-3" /> {myRank.name} ({myStats?.arenaRating})
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 arena-animate-up-d1">
+            <div className={`relative p-3 sm:p-5 rounded-md border transition-all ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
+              {duel.winnerId === duel.creatorId && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
+              <div className="flex items-center justify-center gap-1.5">
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                  {agentId === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
+                </p>
+                {botInfo?.creatorIsBot && <Bot className="w-3 h-3 text-purple-400" />}
+              </div>
+              <p className="text-lg sm:text-2xl font-bold font-mono mt-1">{formatMoney(creatorFinal)}</p>
+              <p className={`text-xs sm:text-sm font-mono ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
+                {creatorFinal >= 1000000 ? "+" : ""}{formatMoney(creatorFinal - 1000000)}
+              </p>
+              {resultsData?.creatorStats && (
+                <p className="text-[9px] mt-1" style={{ color: "#848e9c" }}>
+                  {resultsData.creatorStats.arenaWins}W-{resultsData.creatorStats.arenaLosses}L
+                </p>
+              )}
+            </div>
+            <div className={`relative p-3 sm:p-5 rounded-md border transition-all ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
+              {duel.winnerId === duel.joinerId && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
+              <div className="flex items-center justify-center gap-1.5">
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
+                  {agentId === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
+                </p>
+                {botInfo?.joinerIsBot && <Bot className="w-3 h-3 text-purple-400" />}
+              </div>
+              <p className="text-lg sm:text-2xl font-bold font-mono mt-1">{formatMoney(joinerFinal)}</p>
+              <p className={`text-xs sm:text-sm font-mono ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
+                {joinerFinal >= 1000000 ? "+" : ""}{formatMoney(joinerFinal - 1000000)}
+              </p>
+              {resultsData?.joinerStats && (
+                <p className="text-[9px] mt-1" style={{ color: "#848e9c" }}>
+                  {resultsData.joinerStats.arenaWins}W-{resultsData.joinerStats.arenaLosses}L
+                </p>
+              )}
+            </div>
+          </div>
+
+          {myPositions && myPositions.length > 0 && (
+            <div className="arena-animate-up-d2 text-left">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                <BarChart3 className="w-3 h-3" /> Trade Timeline
+              </p>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {myPositions.sort((a, b) => new Date(a.openedAt).getTime() - new Date(b.openedAt).getTime()).map((p, i) => {
+                  const pnlVal = p.pnl ? parseFloat(p.pnl) : 0;
+                  const isProfit = pnlVal >= 0;
+                  return (
+                    <div key={p.id} className="flex items-center justify-between gap-2 px-2 py-1 rounded text-[10px] font-mono" style={{ background: "#0d1117" }} data-testid={`trade-timeline-${i}`}>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[9px] py-0 px-1" style={{
+                          borderColor: p.side === "long" ? "#0ecb8130" : "#ea394330",
+                          color: p.side === "long" ? "#0ecb81" : "#ea3943",
+                        }}>
+                          {p.side.toUpperCase()} {p.leverage}x
+                        </Badge>
+                        <span style={{ color: "#848e9c" }}>${parseFloat(p.entryPrice).toFixed(2)}</span>
+                        {p.exitPrice && (
+                          <>
+                            <ChevronRight className="w-2.5 h-2.5" style={{ color: "#848e9c" }} />
+                            <span style={{ color: "#848e9c" }}>${parseFloat(p.exitPrice).toFixed(2)}</span>
+                          </>
+                        )}
+                      </div>
+                      <span style={{ color: isProfit ? "#0ecb81" : "#ea3943" }}>
+                        {isProfit ? "+" : ""}{formatMoney(pnlVal)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2 arena-animate-up-d3">
+            <Button
+              className="flex-1"
+              onClick={() => rematchMutation.mutate()}
+              disabled={rematchMutation.isPending || !agentId}
+              data-testid="button-rematch"
+            >
+              {rematchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Repeat2 className="w-4 h-4 mr-2" />}
+              Run It Back
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/arena")} data-testid="button-back-lobby">
+              <Swords className="w-4 h-4 mr-2" /> Back to Arena
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function ActiveDuelView({ duelId }: { duelId: string }) {
   const { agent } = useAuth();
   const { toast } = useToast();
@@ -1473,6 +1661,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   const settledSoundRef = useRef(false);
   const [tradeEffect, setTradeEffect] = useState<string | null>(null);
   const arenaContainerRef = useRef<HTMLDivElement>(null);
+  const [leadHeartbeat, setLeadHeartbeat] = useState(false);
+  const prevLeadChangesRef = useRef(0);
 
   const triggerTradeEffect = useCallback((side: "long" | "short") => {
     const effectClass = side === "long" ? "arena-flash-green" : "arena-flash-red";
@@ -1501,6 +1691,28 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     enabled: !!duel && !!agent?.id,
     refetchInterval: 2000,
   });
+
+  const { data: matchStatus } = useQuery<{
+    relativeStatus: string;
+    myMomentum: number;
+    oppMomentum: number;
+    leadChanges: number;
+    leadJustChanged: boolean;
+    myPnlPercent: number;
+  }>({
+    queryKey: ["/api/trading-duels", duelId, "status", agent?.id ? `?agentId=${agent.id}` : ""],
+    enabled: !!duel && duel.status === "active" && !!agent?.id,
+    refetchInterval: 2500,
+  });
+
+  useEffect(() => {
+    if (matchStatus && matchStatus.leadChanges > prevLeadChangesRef.current) {
+      prevLeadChangesRef.current = matchStatus.leadChanges;
+      setLeadHeartbeat(true);
+      playTradeSound("countdown");
+      setTimeout(() => setLeadHeartbeat(false), 1500);
+    }
+  }, [matchStatus?.leadChanges]);
 
   useEffect(() => {
     if (duel?.status === "settled" && !settledSoundRef.current) {
@@ -1658,65 +1870,21 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     const joinerFinal = parseFloat(duel.joinerFinalBalance || "0");
     const potTotal = parseFloat(duel.potAmount) * 2;
     const winnerPayout = potTotal * 0.9;
+    const durationLabel = DURATIONS.find(d => d.value === duel.durationSeconds)?.label || `${duel.durationSeconds}s`;
 
-    return (
-      <div className="relative max-w-2xl mx-auto px-3 sm:p-4 py-4 space-y-4">
-        <ArenaBackground />
-        <Card className="overflow-visible relative">
-          {isWinner && <ConfettiExplosion />}
-          <CardContent className="p-5 sm:p-8 text-center space-y-4 sm:space-y-5 relative z-10">
-            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 flex items-center justify-center arena-trophy">
-              {duel.winnerId ? (
-                isWinner ? <Trophy className="w-9 h-9 sm:w-12 sm:h-12 text-amber-400" /> : <Skull className="w-9 h-9 sm:w-12 sm:h-12 text-muted-foreground" />
-              ) : (
-                <Swords className="w-9 h-9 sm:w-12 sm:h-12 text-muted-foreground" />
-              )}
-            </div>
-            <div className="arena-animate-up">
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                {duel.winnerId ? (isWinner ? "VICTORY" : "DEFEAT") : "DRAW"}
-              </h2>
-              {duel.winnerId && (
-                <p className="text-muted-foreground text-sm mt-1">
-                  Winner takes <span className="text-amber-400 font-bold">{winnerPayout.toFixed(4)} BNB</span>
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:gap-4 arena-animate-up-d1">
-              <div className={`relative p-3 sm:p-5 rounded-md border transition-all ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
-                {duel.winnerId === duel.creatorId && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
-                <div className="flex items-center justify-center gap-1.5">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-                    {agent?.id === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
-                  </p>
-                  {botInfo?.creatorIsBot && <Bot className="w-3 h-3 text-purple-400" />}
-                </div>
-                <p className="text-lg sm:text-2xl font-bold font-mono mt-1">{formatMoney(creatorFinal)}</p>
-                <p className={`text-xs sm:text-sm font-mono ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
-                  {creatorFinal >= 1000000 ? "+" : ""}{formatMoney(creatorFinal - 1000000)}
-                </p>
-              </div>
-              <div className={`relative p-3 sm:p-5 rounded-md border transition-all ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
-                {duel.winnerId === duel.joinerId && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
-                <div className="flex items-center justify-center gap-1.5">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
-                    {agent?.id === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
-                  </p>
-                  {botInfo?.joinerIsBot && <Bot className="w-3 h-3 text-purple-400" />}
-                </div>
-                <p className="text-lg sm:text-2xl font-bold font-mono mt-1">{formatMoney(joinerFinal)}</p>
-                <p className={`text-xs sm:text-sm font-mono ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
-                  {joinerFinal >= 1000000 ? "+" : ""}{formatMoney(joinerFinal - 1000000)}
-                </p>
-              </div>
-            </div>
-            <Button onClick={() => navigate("/arena")} className="arena-animate-up-d2" data-testid="button-back-lobby">
-              <Swords className="w-4 h-4 mr-2" /> Back to Arena
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <SettledResultsView
+      duel={duel}
+      duelId={duelId}
+      isWinner={isWinner}
+      creatorFinal={creatorFinal}
+      joinerFinal={joinerFinal}
+      potTotal={potTotal}
+      winnerPayout={winnerPayout}
+      durationLabel={durationLabel}
+      agentId={agent?.id}
+      botInfo={botInfo}
+      navigate={navigate}
+    />;
   }
 
   if (duel.status === "ready" && isParticipant) {
@@ -1868,6 +2036,79 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
         </div>
       </div>
 
+      {matchStatus && duel.status === "active" && (
+        <div className="border-b px-3 py-1.5" style={{ borderColor: "#1e2329", background: "#0d1117" }}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={`flex items-center gap-1.5 ${leadHeartbeat ? "arena-heartbeat" : ""}`}>
+                {matchStatus.relativeStatus.includes("LEADING") || matchStatus.relativeStatus.includes("SLIGHT LEAD") ? (
+                  <TrendingUp className="w-3.5 h-3.5 text-green-400" />
+                ) : matchStatus.relativeStatus.includes("BEHIND") ? (
+                  <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                ) : (
+                  <Activity className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span
+                  className="text-[11px] font-bold uppercase tracking-wider"
+                  style={{
+                    color: matchStatus.relativeStatus.includes("LEADING") || matchStatus.relativeStatus.includes("SLIGHT LEAD")
+                      ? "#0ecb81"
+                      : matchStatus.relativeStatus.includes("BEHIND") ? "#ea3943" : "#f0b90b",
+                  }}
+                  data-testid="text-relative-status"
+                >
+                  {matchStatus.relativeStatus}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {matchStatus.leadChanges > 0 && (
+                <div className={`flex items-center gap-1 ${leadHeartbeat ? "arena-heartbeat" : ""}`} data-testid="text-lead-changes">
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  <span className="text-[10px] font-mono" style={{ color: "#f0b90b" }}>
+                    {matchStatus.leadChanges} LEAD {matchStatus.leadChanges === 1 ? "CHANGE" : "CHANGES"}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[9px] uppercase" style={{ color: "#848e9c" }}>You</span>
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#1e2329" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${matchStatus.myMomentum}%`,
+                  background: matchStatus.myMomentum > 50 ? "linear-gradient(90deg, #0ecb81, #0ecb81)" : "linear-gradient(90deg, #ea3943, #ea3943)",
+                  boxShadow: matchStatus.myMomentum > 60 ? "0 0 8px rgba(14,203,129,0.5)" : "none",
+                }}
+                data-testid="bar-my-momentum"
+              />
+            </div>
+            <span className="text-[10px] font-mono w-8 text-right" style={{ color: matchStatus.myMomentum > 50 ? "#0ecb81" : "#ea3943" }}>
+              {matchStatus.myMomentum}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[9px] uppercase" style={{ color: "#848e9c" }}>Opp</span>
+            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#1e2329" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${matchStatus.oppMomentum}%`,
+                  background: matchStatus.oppMomentum > 50 ? "linear-gradient(90deg, #0ecb81, #0ecb81)" : "linear-gradient(90deg, #ea3943, #ea3943)",
+                  boxShadow: matchStatus.oppMomentum > 60 ? "0 0 8px rgba(14,203,129,0.5)" : "none",
+                }}
+                data-testid="bar-opp-momentum"
+              />
+            </div>
+            <span className="text-[10px] font-mono w-8 text-right" style={{ color: matchStatus.oppMomentum > 50 ? "#0ecb81" : "#ea3943" }}>
+              {matchStatus.oppMomentum}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col lg:flex-row">
         <div ref={chartContainerRef} className="flex-1 min-w-0 lg:border-r relative" style={{ borderColor: "#1e2329" }}>
           <div className="absolute inset-0 pointer-events-none z-10 arena-scanlines" />
@@ -1909,6 +2150,18 @@ function TradingArenaLobby() {
     refetchInterval: 5000,
   });
 
+  const { data: myStats } = useQuery<{ arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number }>({
+    queryKey: ["/api/agents", agent?.id, "arena-stats"],
+    queryFn: async () => {
+      if (!agent?.id) return null;
+      const res = await fetch(`/api/trading-duels/leaderboard`);
+      const data = await res.json();
+      const me = data.find((p: any) => p.id === agent.id);
+      return me || { arenaWins: 0, arenaLosses: 0, arenaWinStreak: 0, arenaBestStreak: 0, arenaRating: 1000 };
+    },
+    enabled: !!agent?.id,
+  });
+
   const joinMutation = useMutation({
     mutationFn: (duelId: string) => apiRequest("POST", `/api/trading-duels/${duelId}/join`, {
       joinerId: agent?.id,
@@ -1922,6 +2175,30 @@ function TradingArenaLobby() {
 
   return (
     <>
+      {myStats && (myStats.arenaWins > 0 || myStats.arenaLosses > 0) && (
+        <div className="flex items-center gap-3 flex-wrap arena-animate-up mb-2" data-testid="player-arena-stats">
+          <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1" style={{
+            borderColor: `${getRankTier(myStats.arenaRating).color}50`,
+            color: getRankTier(myStats.arenaRating).color,
+          }}>
+            <Medal className="w-3 h-3" /> {getRankTier(myStats.arenaRating).name} {myStats.arenaRating}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1">
+            <Trophy className="w-3 h-3" /> {myStats.arenaWins}W-{myStats.arenaLosses}L
+          </Badge>
+          {myStats.arenaWinStreak >= 2 && (
+            <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 border-orange-400/50 text-orange-400">
+              <Flame className="w-3 h-3" /> {myStats.arenaWinStreak} Streak
+            </Badge>
+          )}
+          {myStats.arenaBestStreak >= 3 && (
+            <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 border-amber-400/30 text-amber-300">
+              <Star className="w-3 h-3" /> Best: {myStats.arenaBestStreak}
+            </Badge>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 arena-animate-up-d1 mb-4 sm:mb-6">
         <StatBadge icon={DollarSign} label="Start" value="$1M Fake" color="green" />
         <StatBadge icon={Target} label="Leverage" value="Up to 50x" color="amber" />

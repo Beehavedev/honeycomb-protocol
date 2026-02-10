@@ -245,8 +245,13 @@ export interface IStorage {
   cancelTradingDuel(id: string): Promise<TradingDuel>;
   createTradingPosition(data: InsertTradingPosition): Promise<TradingPosition>;
   getTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]>;
+  getAllDuelPositions(duelId: string): Promise<TradingPosition[]>;
   getOpenTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]>;
   closeTradingPosition(id: string, exitPrice: string, pnl: string): Promise<TradingPosition>;
+  updateDuelLeadChange(id: string, leadChanges: number, lastLeaderId: string): Promise<void>;
+  updateDuelClutch(id: string, clutchFlag: boolean): Promise<void>;
+  updateAgentArenaStats(agentId: string, won: boolean): Promise<void>;
+  getAgentArenaStats(agentId: string): Promise<{ arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number } | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1671,6 +1676,51 @@ export class DatabaseStorage implements IStorage {
       .where(eq(tradingPositions.id, id))
       .returning();
     return pos;
+  }
+
+  async getAllDuelPositions(duelId: string): Promise<TradingPosition[]> {
+    return db.select().from(tradingPositions)
+      .where(eq(tradingPositions.duelId, duelId))
+      .orderBy(desc(tradingPositions.openedAt));
+  }
+
+  async updateDuelLeadChange(id: string, leadChanges: number, lastLeaderId: string): Promise<void> {
+    await db.update(tradingDuels)
+      .set({ leadChanges, lastLeaderId })
+      .where(eq(tradingDuels.id, id));
+  }
+
+  async updateDuelClutch(id: string, clutchFlag: boolean): Promise<void> {
+    await db.update(tradingDuels)
+      .set({ clutchFlag })
+      .where(eq(tradingDuels.id, id));
+  }
+
+  async updateAgentArenaStats(agentId: string, won: boolean): Promise<void> {
+    const agent = await this.getAgent(agentId);
+    if (!agent) return;
+    const wins = (agent.arenaWins || 0) + (won ? 1 : 0);
+    const losses = (agent.arenaLosses || 0) + (won ? 0 : 1);
+    const streak = won ? (agent.arenaWinStreak || 0) + 1 : 0;
+    const bestStreak = Math.max(streak, agent.arenaBestStreak || 0);
+    const K = 32;
+    const ratingChange = won ? Math.round(K * 0.6) : -Math.round(K * 0.4);
+    const rating = Math.max(0, (agent.arenaRating || 1000) + ratingChange);
+    await db.update(agents)
+      .set({ arenaWins: wins, arenaLosses: losses, arenaWinStreak: streak, arenaBestStreak: bestStreak, arenaRating: rating })
+      .where(eq(agents.id, agentId));
+  }
+
+  async getAgentArenaStats(agentId: string): Promise<{ arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number } | null> {
+    const agent = await this.getAgent(agentId);
+    if (!agent) return null;
+    return {
+      arenaWins: agent.arenaWins || 0,
+      arenaLosses: agent.arenaLosses || 0,
+      arenaWinStreak: agent.arenaWinStreak || 0,
+      arenaBestStreak: agent.arenaBestStreak || 0,
+      arenaRating: agent.arenaRating || 1000,
+    };
   }
 }
 

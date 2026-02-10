@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
 import { getRandomArenaBot, startBot, stopBot, isArenaBotAgent } from "./arena-bot-engine";
 import { launchTokens, launchTrades, supportedChains, crossChainAgents, aiAgentVerifications, agents, enableHeartbeatRequestSchema, updateLaunchAlertConfigSchema } from "@shared/schema";
 import { 
@@ -2573,6 +2573,28 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/trading-duels/leaderboard", async (_req, res) => {
+    try {
+      const topPlayers = await db.select({
+        id: agents.id,
+        name: agents.name,
+        avatarUrl: agents.avatarUrl,
+        arenaWins: agents.arenaWins,
+        arenaLosses: agents.arenaLosses,
+        arenaWinStreak: agents.arenaWinStreak,
+        arenaBestStreak: agents.arenaBestStreak,
+        arenaRating: agents.arenaRating,
+      })
+        .from(agents)
+        .where(sql`${agents.arenaWins} > 0 OR ${agents.arenaLosses} > 0`)
+        .orderBy(desc(agents.arenaRating))
+        .limit(20);
+      res.json(topPlayers);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/trading-duels/:id", async (req, res) => {
     try {
       const duel = await storage.getTradingDuel(req.params.id);
@@ -2804,6 +2826,14 @@ export async function registerRoutes(
         creatorFinal.toFixed(2),
         joinerFinal.toFixed(2)
       );
+
+      if (winnerId) {
+        await storage.updateAgentArenaStats(duel.creatorId, winnerId === duel.creatorId);
+        if (duel.joinerId) {
+          await storage.updateAgentArenaStats(duel.joinerId, winnerId === duel.joinerId);
+        }
+      }
+
       res.json(settled);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2862,6 +2892,161 @@ export async function registerRoutes(
       stopBot(req.params.id);
       const cancelled = await storage.cancelTradingDuel(req.params.id);
       res.json(cancelled);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/:id/status", async (req, res) => {
+    try {
+      const agentId = req.query.agentId as string;
+      if (!agentId) return res.status(400).json({ message: "agentId required" });
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "active") return res.json({ status: duel.status });
+      if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
+        return res.status(403).json({ message: "Not a participant" });
+      }
+
+      let currentPrice: number;
+      try {
+        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceData = await priceRes.json();
+        currentPrice = parseFloat(priceData.price);
+      } catch {
+        return res.status(500).json({ message: "Failed to fetch price" });
+      }
+
+      const calcPnlPercent = async (aid: string) => {
+        const positions = await storage.getTradingPositions(req.params.id, aid);
+        const initialBal = parseFloat(duel.initialBalance);
+        let total = initialBal;
+        for (const p of positions) {
+          if (p.isOpen) {
+            const entry = parseFloat(p.entryPrice);
+            const size = parseFloat(p.sizeUsdt);
+            const pnl = p.side === "long"
+              ? ((currentPrice - entry) / entry) * size * p.leverage
+              : ((entry - currentPrice) / entry) * size * p.leverage;
+            total += pnl;
+          } else if (p.pnl) {
+            total += parseFloat(p.pnl);
+          }
+        }
+        return ((total - initialBal) / initialBal) * 100;
+      };
+
+      const myPnlPct = await calcPnlPercent(agentId);
+      const opponentId = agentId === duel.creatorId ? duel.joinerId : duel.creatorId;
+      const oppPnlPct = opponentId ? await calcPnlPercent(opponentId) : 0;
+
+      const diff = myPnlPct - oppPnlPct;
+      let relativeStatus: string;
+      if (Math.abs(diff) < 0.05) relativeStatus = "NECK AND NECK";
+      else if (diff > 0.5) relativeStatus = "YOU'RE LEADING";
+      else if (diff > 0) relativeStatus = "SLIGHT LEAD";
+      else if (diff > -0.5) relativeStatus = "CLOSE BEHIND";
+      else relativeStatus = "YOU'RE BEHIND";
+
+      const myMomentum = Math.max(0, Math.min(100, 50 + myPnlPct * 10));
+      const oppMomentum = Math.max(0, Math.min(100, 50 + oppPnlPct * 10));
+
+      const currentLeaderId = myPnlPct > oppPnlPct ? agentId : (oppPnlPct > myPnlPct ? opponentId : null);
+      let leadChanges = duel.leadChanges || 0;
+      let leadJustChanged = false;
+
+      if (currentLeaderId && duel.lastLeaderId && currentLeaderId !== duel.lastLeaderId) {
+        leadChanges += 1;
+        leadJustChanged = true;
+        await storage.updateDuelLeadChange(req.params.id, leadChanges, currentLeaderId);
+
+        if (duel.endsAt) {
+          const totalDuration = duel.durationSeconds * 1000;
+          const elapsed = Date.now() - new Date(duel.startedAt!).getTime();
+          const remaining = totalDuration - elapsed;
+          if (remaining < totalDuration * 0.1) {
+            await storage.updateDuelClutch(req.params.id, true);
+          }
+        }
+      } else if (currentLeaderId && !duel.lastLeaderId) {
+        await storage.updateDuelLeadChange(req.params.id, leadChanges, currentLeaderId);
+      }
+
+      res.json({
+        relativeStatus,
+        myMomentum: Math.round(myMomentum),
+        oppMomentum: Math.round(oppMomentum),
+        leadChanges,
+        leadJustChanged,
+        myPnlPercent: Math.round(myPnlPct * 100) / 100,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/:id/rematch", async (req, res) => {
+    try {
+      const { agentId } = req.body;
+      if (!agentId) return res.status(400).json({ message: "agentId required" });
+      const oldDuel = await storage.getTradingDuel(req.params.id);
+      if (!oldDuel) return res.status(404).json({ message: "Duel not found" });
+      if (oldDuel.status !== "settled") return res.status(400).json({ message: "Duel must be settled to rematch" });
+
+      const opponentId = agentId === oldDuel.creatorId ? oldDuel.joinerId : oldDuel.creatorId;
+      if (!opponentId) return res.status(400).json({ message: "No opponent to rematch" });
+
+      const opponentIsBot = await isArenaBotAgent(opponentId);
+
+      const newDuel = await storage.createTradingDuel({
+        creatorId: agentId,
+        assetSymbol: oldDuel.assetSymbol,
+        potAmount: oldDuel.potAmount,
+        durationSeconds: oldDuel.durationSeconds,
+      });
+
+      if (opponentIsBot) {
+        const joined = await storage.joinTradingDuel(newDuel.id, opponentId);
+        const started = await storage.startTradingDuel(joined.id);
+        const botAgent = await storage.getAgent(opponentId);
+        const botStyle = botAgent?.bio?.toLowerCase().includes("scalp") ? "scalper"
+          : botAgent?.bio?.toLowerCase().includes("grid") ? "grid"
+          : botAgent?.bio?.toLowerCase().includes("swing") ? "swing"
+          : botAgent?.bio?.toLowerCase().includes("steady") ? "conservative"
+          : "aggressive";
+        startBot(started.id, opponentId, botStyle, started.durationSeconds);
+        res.json({ ...started, botRematch: true });
+      } else {
+        const joined = await storage.joinTradingDuel(newDuel.id, opponentId);
+        res.json(joined);
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/:id/results", async (req, res) => {
+    try {
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "settled") return res.status(400).json({ message: "Duel not yet settled" });
+
+      const allPositions = await storage.getAllDuelPositions(req.params.id);
+      const creatorPositions = allPositions.filter(p => p.agentId === duel.creatorId);
+      const joinerPositions = duel.joinerId ? allPositions.filter(p => p.agentId === duel.joinerId) : [];
+
+      const creatorStats = await storage.getAgentArenaStats(duel.creatorId);
+      const joinerStats = duel.joinerId ? await storage.getAgentArenaStats(duel.joinerId) : null;
+
+      res.json({
+        duel,
+        creatorPositions,
+        joinerPositions,
+        creatorStats,
+        joinerStats,
+        leadChanges: duel.leadChanges,
+        clutchFlag: duel.clutchFlag,
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

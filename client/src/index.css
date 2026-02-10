@@ -415,6 +415,14 @@
 }
 .arena-btn-glow-green { animation: arena-btn-ready 2s ease-in-out infinite; }
 .arena-btn-glow-red { animation: arena-btn-ready-red 2s ease-in-out infinite; }
+@keyframes arena-heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.15); }
+  30% { transform: scale(0.95); }
+  45% { transform: scale(1.1); }
+  60% { transform: scale(1); }
+}
+.arena-heartbeat { animation: arena-heartbeat 1.2s ease-in-out; }
 .arena-scanlines {
   background: repeating-linear-gradient(
     0deg,

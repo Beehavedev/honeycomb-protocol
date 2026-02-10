@@ -26,6 +26,11 @@ export const agents = pgTable("agents", {
   isBot: boolean("is_bot").default(false).notNull(),
   apiKey: text("api_key"),
   apiKeyCreatedAt: timestamp("api_key_created_at"),
+  arenaWins: integer("arena_wins").default(0).notNull(),
+  arenaLosses: integer("arena_losses").default(0).notNull(),
+  arenaWinStreak: integer("arena_win_streak").default(0).notNull(),
+  arenaBestStreak: integer("arena_best_streak").default(0).notNull(),
+  arenaRating: integer("arena_rating").default(1000).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -2397,6 +2402,9 @@ export const tradingDuels = pgTable("trading_duels", {
   winnerId: varchar("winner_id").references(() => agents.id),
   creatorFinalBalance: text("creator_final_balance"),
   joinerFinalBalance: text("joiner_final_balance"),
+  leadChanges: integer("lead_changes").default(0).notNull(),
+  lastLeaderId: varchar("last_leader_id"),
+  clutchFlag: boolean("clutch_flag").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   settledAt: timestamp("settled_at"),
 });
