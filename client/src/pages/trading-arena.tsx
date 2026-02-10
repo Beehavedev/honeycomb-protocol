@@ -341,146 +341,296 @@ function CountdownTimer({ endsAt, onExpired }: { endsAt: string; onExpired?: () 
   );
 }
 
-interface CandleData {
+interface TradeMarker {
   time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
+  price: number;
+  side: "long" | "short";
+  action: "open" | "close";
+  leverage?: number;
+  pnl?: number;
 }
 
-function MiniChart({ candles, width = 600, height = 300, currentPrice }: { candles: CandleData[]; width?: number; height?: number; currentPrice?: number }) {
+function LiveLineChart({
+  priceTicks,
+  width = 600,
+  height = 300,
+  tradeMarkers = [],
+  openPositions = [],
+  currentPrice,
+}: {
+  priceTicks: { time: number; price: number }[];
+  width?: number;
+  height?: number;
+  tradeMarkers?: TradeMarker[];
+  openPositions?: { side: string; entryPrice: string; leverage: number }[];
+  currentPrice?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pulseRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || candles.length === 0) return;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
 
-    ctx.fillStyle = "#0b0e11";
-    ctx.fillRect(0, 0, width, height);
+    let running = true;
+    const render = () => {
+      if (!running) return;
+      pulseRef.current = (pulseRef.current + 0.05) % (Math.PI * 2);
+      const pulse = Math.sin(pulseRef.current) * 0.5 + 0.5;
 
-    const volumeAreaH = height * 0.15;
-    const padding = { top: 16, right: 64, bottom: volumeAreaH + 20, left: 8 };
-    const chartW = width - padding.left - padding.right;
-    const chartH = height - padding.top - padding.bottom;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const prices = candles.flatMap(c => [c.high, c.low]);
-    let minPrice = Math.min(...prices);
-    let maxPrice = Math.max(...prices);
-    if (currentPrice) {
-      minPrice = Math.min(minPrice, currentPrice);
-      maxPrice = Math.max(maxPrice, currentPrice);
-    }
-    const priceRange = maxPrice - minPrice || 1;
-    const maxVol = Math.max(...candles.map(c => c.volume));
+      ctx.fillStyle = "#0b0e11";
+      ctx.fillRect(0, 0, width, height);
 
-    const candleW = Math.max(2, (chartW / candles.length) * 0.65);
-    const gap = chartW / candles.length;
-
-    const gridLines = 6;
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
-    ctx.lineWidth = 1;
-    ctx.font = "10px monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    for (let i = 0; i <= gridLines; i++) {
-      const y = padding.top + (chartH / gridLines) * i;
-      ctx.beginPath();
-      ctx.moveTo(padding.left, y);
-      ctx.lineTo(width - padding.right, y);
-      ctx.stroke();
-      const price = maxPrice - (priceRange / gridLines) * i;
-      ctx.fillText(formatPrice(price), width - padding.right + 4, y + 3);
-    }
-
-    const volBaseY = height - 16;
-    for (let i = 0; i < candles.length; i++) {
-      const c = candles[i];
-      const x = padding.left + gap * i + gap / 2;
-      const isGreen = c.close >= c.open;
-      const volH = maxVol > 0 ? (c.volume / maxVol) * volumeAreaH : 0;
-      ctx.fillStyle = isGreen ? "rgba(14,203,129,0.15)" : "rgba(234,57,67,0.15)";
-      ctx.fillRect(x - candleW / 2, volBaseY - volH, candleW, volH);
-    }
-
-    for (let i = 0; i < candles.length; i++) {
-      const c = candles[i];
-      const x = padding.left + gap * i + gap / 2;
-      const isGreen = c.close >= c.open;
-      const color = isGreen ? "#0ecb81" : "#ea3943";
-
-      const highY = padding.top + ((maxPrice - c.high) / priceRange) * chartH;
-      const lowY = padding.top + ((maxPrice - c.low) / priceRange) * chartH;
-      const openY = padding.top + ((maxPrice - c.open) / priceRange) * chartH;
-      const closeY = padding.top + ((maxPrice - c.close) / priceRange) * chartH;
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, highY);
-      ctx.lineTo(x, lowY);
-      ctx.stroke();
-
-      const bodyTop = Math.min(openY, closeY);
-      const bodyH = Math.max(1, Math.abs(closeY - openY));
-      if (isGreen) {
-        ctx.fillStyle = color;
-        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
-      } else {
-        ctx.fillStyle = "#0b0e11";
-        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x - candleW / 2, bodyTop, candleW, bodyH);
+      if (priceTicks.length < 2) {
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.font = "14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Waiting for price data...", width / 2, height / 2);
+        ctx.textAlign = "start";
+        return;
       }
-    }
 
-    const livePx = currentPrice || candles[candles.length - 1].close;
-    const liveY = padding.top + ((maxPrice - livePx) / priceRange) * chartH;
-    const isLiveGreen = candles.length > 1 ? livePx >= candles[candles.length - 2].close : true;
+      const padding = { top: 20, right: 70, bottom: 30, left: 10 };
+      const chartW = width - padding.left - padding.right;
+      const chartH = height - padding.top - padding.bottom;
 
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = isLiveGreen ? "rgba(14,203,129,0.7)" : "rgba(234,57,67,0.7)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, liveY);
-    ctx.lineTo(width - padding.right, liveY);
-    ctx.stroke();
-    ctx.setLineDash([]);
+      const prices = priceTicks.map(t => t.price);
+      const allPrices = [...prices];
+      if (currentPrice) allPrices.push(currentPrice);
+      openPositions.forEach(p => {
+        const ep = parseFloat(p.entryPrice);
+        if (!isNaN(ep)) allPrices.push(ep);
+      });
+      tradeMarkers.forEach(m => {
+        if (!isNaN(m.price)) allPrices.push(m.price);
+      });
 
-    const labelBg = isLiveGreen ? "#0ecb81" : "#ea3943";
-    ctx.fillStyle = labelBg;
-    const labelW = 60;
-    const labelH = 18;
-    ctx.beginPath();
-    ctx.moveTo(width - padding.right, liveY);
-    ctx.lineTo(width - padding.right + 5, liveY - labelH / 2);
-    ctx.lineTo(width - padding.right + 5 + labelW, liveY - labelH / 2);
-    ctx.lineTo(width - padding.right + 5 + labelW, liveY + labelH / 2);
-    ctx.lineTo(width - padding.right + 5, liveY + labelH / 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 10px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(formatPrice(livePx), width - padding.right + 5 + labelW / 2, liveY + 4);
-    ctx.textAlign = "start";
+      let minP = Math.min(...allPrices);
+      let maxP = Math.max(...allPrices);
+      const pRange = maxP - minP || 1;
+      minP -= pRange * 0.05;
+      maxP += pRange * 0.05;
+      const range = maxP - minP;
 
-    if (candles.length > 0) {
-      const lastC = candles[candles.length - 1];
-      const timeStr = new Date(lastC.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const toX = (i: number) => padding.left + (i / (priceTicks.length - 1)) * chartW;
+      const toY = (p: number) => padding.top + ((maxP - p) / range) * chartH;
+
+      const gridLines = 5;
+      ctx.strokeStyle = "rgba(255,255,255,0.04)";
+      ctx.lineWidth = 1;
+      ctx.font = "10px monospace";
+      for (let i = 0; i <= gridLines; i++) {
+        const y = padding.top + (chartH / gridLines) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        const price = maxP - (range / gridLines) * i;
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.fillText(formatPrice(price), width - padding.right + 6, y + 3);
+      }
+
+      const firstPrice = priceTicks[0].price;
+      const lastPrice = currentPrice || priceTicks[priceTicks.length - 1].price;
+      const isUp = lastPrice >= firstPrice;
+      const lineColor = isUp ? "#0ecb81" : "#ea3943";
+      const glowColor = isUp ? "rgba(14,203,129," : "rgba(234,57,67,";
+
+      const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+      grad.addColorStop(0, glowColor + "0.25)");
+      grad.addColorStop(0.5, glowColor + "0.08)");
+      grad.addColorStop(1, glowColor + "0.0)");
+
+      ctx.beginPath();
+      ctx.moveTo(toX(0), toY(priceTicks[0].price));
+      for (let i = 1; i < priceTicks.length; i++) {
+        const x0 = toX(i - 1), y0 = toY(priceTicks[i - 1].price);
+        const x1 = toX(i), y1 = toY(priceTicks[i].price);
+        const cx = (x0 + x1) / 2;
+        ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+      }
+      const lastX = toX(priceTicks.length - 1);
+      const lastY = toY(priceTicks[priceTicks.length - 1].price);
+
+      ctx.lineTo(lastX, padding.top + chartH);
+      ctx.lineTo(toX(0), padding.top + chartH);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.save();
+      ctx.shadowColor = lineColor;
+      ctx.shadowBlur = 6 + pulse * 4;
+      ctx.beginPath();
+      ctx.moveTo(toX(0), toY(priceTicks[0].price));
+      for (let i = 1; i < priceTicks.length; i++) {
+        const x0 = toX(i - 1), y0 = toY(priceTicks[i - 1].price);
+        const x1 = toX(i), y1 = toY(priceTicks[i].price);
+        const cx = (x0 + x1) / 2;
+        ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+      }
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.restore();
+
+      const dotRadius = 5 + pulse * 2;
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, dotRadius, 0, Math.PI * 2);
+      ctx.fillStyle = lineColor;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(lastX, lastY, dotRadius + 4 + pulse * 3, 0, Math.PI * 2);
+      ctx.strokeStyle = glowColor + (0.3 + pulse * 0.2) + ")";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      openPositions.forEach(pos => {
+        const entryPx = parseFloat(pos.entryPrice);
+        const ey = toY(entryPx);
+        const isLong = pos.side === "long";
+        const posColor = isLong ? "#0ecb81" : "#ea3943";
+
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = posColor;
+        ctx.globalAlpha = 0.5 + pulse * 0.2;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, ey);
+        ctx.lineTo(lastX, ey);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = posColor;
+        ctx.globalAlpha = 0.15;
+        if (isLong) {
+          ctx.fillRect(padding.left, ey, lastX - padding.left, lastY - ey);
+        } else {
+          ctx.fillRect(padding.left, lastY, lastX - padding.left, ey - lastY);
+        }
+        ctx.globalAlpha = 1;
+
+        const lbl = `${isLong ? "LONG" : "SHORT"} ${pos.leverage}x @ ${formatPrice(entryPx)}`;
+        ctx.font = "bold 9px monospace";
+        const tw = ctx.measureText(lbl).width + 10;
+        ctx.fillStyle = posColor;
+        const ly = ey - 10;
+        ctx.beginPath();
+        ctx.roundRect(padding.left + 6, ly - 8, tw, 16, 3);
+        ctx.fill();
+        ctx.fillStyle = isLong ? "#0b0e11" : "#fff";
+        ctx.fillText(lbl, padding.left + 11, ly + 4);
+      });
+
+      const startTime = priceTicks[0].time;
+      const endTime = priceTicks[priceTicks.length - 1].time;
+      const timeSpan = endTime - startTime || 1;
+
+      tradeMarkers.forEach(marker => {
+        const tFrac = (marker.time - startTime) / timeSpan;
+        const mx = padding.left + tFrac * chartW;
+        const my = toY(marker.price);
+
+        if (mx < padding.left || mx > padding.left + chartW) return;
+
+        const isOpen = marker.action === "open";
+        const isLong = marker.side === "long";
+        const mColor = isLong ? "#0ecb81" : "#ea3943";
+
+        ctx.save();
+        ctx.shadowColor = mColor;
+        ctx.shadowBlur = 8;
+
+        if (isOpen) {
+          const sz = 8;
+          ctx.fillStyle = mColor;
+          ctx.beginPath();
+          if (isLong) {
+            ctx.moveTo(mx, my - sz);
+            ctx.lineTo(mx + sz * 0.7, my + sz * 0.5);
+            ctx.lineTo(mx - sz * 0.7, my + sz * 0.5);
+          } else {
+            ctx.moveTo(mx, my + sz);
+            ctx.lineTo(mx + sz * 0.7, my - sz * 0.5);
+            ctx.lineTo(mx - sz * 0.7, my - sz * 0.5);
+          }
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(mx, my, 6, 0, Math.PI * 2);
+          ctx.fillStyle = "#0b0e11";
+          ctx.fill();
+          ctx.strokeStyle = mColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = mColor;
+          ctx.font = "bold 8px monospace";
+          ctx.textAlign = "center";
+          ctx.fillText("X", mx, my + 3);
+          ctx.textAlign = "start";
+
+          if (marker.pnl !== undefined) {
+            const pnlStr = (marker.pnl >= 0 ? "+" : "") + formatMoney(marker.pnl);
+            ctx.font = "bold 9px monospace";
+            ctx.fillStyle = marker.pnl >= 0 ? "#0ecb81" : "#ea3943";
+            ctx.textAlign = "center";
+            ctx.fillText(pnlStr, mx, my - 12);
+            ctx.textAlign = "start";
+          }
+        }
+        ctx.restore();
+      });
+
+      const liveP = currentPrice || priceTicks[priceTicks.length - 1].price;
+      const liveY = toY(liveP);
+      const isLiveUp = liveP >= firstPrice;
+      const lblBg = isLiveUp ? "#0ecb81" : "#ea3943";
+      const lblW = 64;
+      const lblH = 20;
+      ctx.fillStyle = lblBg;
+      ctx.beginPath();
+      ctx.moveTo(width - padding.right, liveY);
+      ctx.lineTo(width - padding.right + 6, liveY - lblH / 2);
+      ctx.lineTo(width - padding.right + 6 + lblW, liveY - lblH / 2);
+      ctx.lineTo(width - padding.right + 6 + lblW, liveY + lblH / 2);
+      ctx.lineTo(width - padding.right + 6, liveY + lblH / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(formatPrice(liveP), width - padding.right + 6 + lblW / 2, liveY + 4);
+      ctx.textAlign = "start";
+
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const mins = Math.floor(elapsed / 60);
+      const secs = elapsed % 60;
       ctx.fillStyle = "rgba(255,255,255,0.25)";
       ctx.font = "9px monospace";
-      ctx.fillText(timeStr, width - padding.right - 40, height - 4);
-    }
-  }, [candles, width, height, currentPrice]);
+      ctx.fillText(`${mins}m ${secs}s`, padding.left + 4, height - 8);
+
+      const now = new Date();
+      ctx.fillText(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), width - padding.right - 60, height - 8);
+
+    };
+
+    render();
+    const interval = setInterval(render, 33);
+    return () => {
+      running = false;
+      clearInterval(interval);
+    };
+  }, [priceTicks, width, height, currentPrice, tradeMarkers, openPositions]);
 
   return (
     <canvas
@@ -1060,10 +1210,13 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [currentPrice, setCurrentPrice] = useState(0);
-  const [candles, setCandles] = useState<CandleData[]>([]);
   const [priceChange, setPriceChange] = useState(0);
   const [chartWidth, setChartWidth] = useState(600);
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [priceTicks, setPriceTicks] = useState<{ time: number; price: number }[]>([]);
+  const [tradeMarkers, setTradeMarkers] = useState<TradeMarker[]>([]);
+  const prevPositionIdsRef = useRef<Set<string>>(new Set());
+  const prevOpenIdsRef = useRef<Set<string>>(new Set());
 
   const { data: duel, refetch: refetchDuel } = useQuery<TradingDuel>({
     queryKey: ["/api/trading-duels", duelId],
@@ -1074,6 +1227,48 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     queryKey: ["/api/trading-duels", duelId, "bot-info"],
     enabled: !!duel,
   });
+
+  const { data: myPositions = [] } = useQuery<TradingPosition[]>({
+    queryKey: ["/api/trading-duels", duelId, "positions", agent?.id ? `?agentId=${agent.id}` : ""],
+    enabled: !!duel && !!agent?.id,
+    refetchInterval: 2000,
+  });
+
+  useEffect(() => {
+    if (!myPositions.length || !currentPrice) return;
+    const allIds = new Set(myPositions.map(p => p.id));
+    const openIds = new Set(myPositions.filter(p => p.isOpen).map(p => p.id));
+
+    myPositions.forEach(p => {
+      if (!prevPositionIdsRef.current.has(p.id)) {
+        setTradeMarkers(prev => [...prev, {
+          time: Date.now(),
+          price: parseFloat(p.entryPrice),
+          side: p.side as "long" | "short",
+          action: "open",
+          leverage: p.leverage,
+        }]);
+      }
+    });
+
+    prevOpenIdsRef.current.forEach(id => {
+      if (!openIds.has(id)) {
+        const closed = myPositions.find(p => p.id === id && !p.isOpen);
+        if (closed) {
+          setTradeMarkers(prev => [...prev, {
+            time: Date.now(),
+            price: currentPrice,
+            side: closed.side as "long" | "short",
+            action: "close",
+            pnl: closed.pnl ? parseFloat(closed.pnl) : undefined,
+          }]);
+        }
+      }
+    });
+
+    prevPositionIdsRef.current = allIds;
+    prevOpenIdsRef.current = openIds;
+  }, [myPositions, currentPrice]);
 
   useEffect(() => {
     const obs = new ResizeObserver(entries => {
@@ -1087,6 +1282,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   useEffect(() => {
     if (!duel?.assetSymbol) return;
+    const MAX_TICKS = 300;
     const fetchPrice = async () => {
       try {
         const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${duel.assetSymbol}`);
@@ -1097,34 +1293,15 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
             if (prev > 0) setPriceChange(((p - prev) / prev) * 100);
             return p;
           });
+          setPriceTicks(prev => {
+            const next = [...prev, { time: Date.now(), price: p }];
+            return next.length > MAX_TICKS ? next.slice(next.length - MAX_TICKS) : next;
+          });
         }
       } catch { }
     };
     fetchPrice();
     const interval = setInterval(fetchPrice, 1000);
-    return () => clearInterval(interval);
-  }, [duel?.assetSymbol]);
-
-  useEffect(() => {
-    if (!duel?.assetSymbol) return;
-    const fetchCandles = async () => {
-      try {
-        const res = await fetch(`/api/trading-duels/binance/klines?symbol=${duel.assetSymbol}&interval=1m&limit=60`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setCandles(data.map((k: any[]) => ({
-            time: k[0],
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4]),
-            volume: parseFloat(k[5]),
-          })));
-        }
-      } catch { }
-    };
-    fetchCandles();
-    const interval = setInterval(fetchCandles, 1000);
     return () => clearInterval(interval);
   }, [duel?.assetSymbol]);
 
@@ -1308,9 +1485,15 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   }
 
   const priceUp = priceChange >= 0;
-  const high24 = candles.length > 0 ? Math.max(...candles.map(c => c.high)) : 0;
-  const low24 = candles.length > 0 ? Math.min(...candles.map(c => c.low)) : 0;
-  const vol24 = candles.length > 0 ? candles.reduce((s, c) => s + c.volume, 0) : 0;
+  const sessionHigh = priceTicks.length > 0 ? Math.max(...priceTicks.map(t => t.price)) : 0;
+  const sessionLow = priceTicks.length > 0 ? Math.min(...priceTicks.map(t => t.price)) : 0;
+  const tickCount = priceTicks.length;
+
+  const chartOpenPositions = myPositions.filter(p => p.isOpen).map(p => ({
+    side: p.side,
+    entryPrice: p.entryPrice,
+    leverage: p.leverage,
+  }));
 
   return (
     <div className="relative space-y-0" style={{ background: "#0b0e11", minHeight: "100vh" }}>
@@ -1348,16 +1531,16 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
           <div className="flex items-center gap-6">
             <div className="hidden md:flex items-center gap-5 text-xs">
               <div>
-                <span style={{ color: "#848e9c" }}>24h High</span>
-                <p className="font-mono text-white" data-testid="text-24h-high">{formatPrice(high24)}</p>
+                <span style={{ color: "#848e9c" }}>Session High</span>
+                <p className="font-mono text-white" data-testid="text-session-high">{formatPrice(sessionHigh)}</p>
               </div>
               <div>
-                <span style={{ color: "#848e9c" }}>24h Low</span>
-                <p className="font-mono text-white" data-testid="text-24h-low">{formatPrice(low24)}</p>
+                <span style={{ color: "#848e9c" }}>Session Low</span>
+                <p className="font-mono text-white" data-testid="text-session-low">{formatPrice(sessionLow)}</p>
               </div>
               <div>
-                <span style={{ color: "#848e9c" }}>24h Vol</span>
-                <p className="font-mono text-white" data-testid="text-24h-vol">{vol24 >= 1000000 ? `${(vol24 / 1000000).toFixed(1)}M` : vol24 >= 1000 ? `${(vol24 / 1000).toFixed(1)}K` : vol24.toFixed(0)}</p>
+                <span style={{ color: "#848e9c" }}>Ticks</span>
+                <p className="font-mono text-white" data-testid="text-tick-count">{tickCount}</p>
               </div>
             </div>
             {duel.endsAt && (
@@ -1370,7 +1553,14 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-0">
         <div ref={chartContainerRef} className="border-r" style={{ borderColor: "#1e2329" }}>
           <div className="p-1">
-            <MiniChart candles={candles} width={chartWidth} height={460} currentPrice={currentPrice} />
+            <LiveLineChart
+              priceTicks={priceTicks}
+              width={chartWidth}
+              height={460}
+              currentPrice={currentPrice}
+              tradeMarkers={tradeMarkers}
+              openPositions={chartOpenPositions}
+            />
           </div>
         </div>
         <div style={{ background: "#0b0e11" }}>
