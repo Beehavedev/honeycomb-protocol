@@ -170,36 +170,183 @@ const DURATIONS = [
 const audioCtxRef = { current: null as AudioContext | null };
 function getAudioCtx(): AudioContext {
   if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+  if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
   return audioCtxRef.current;
 }
 
-function playTradeSound(type: "open" | "close") {
+function makeNoise(ctx: AudioContext, duration: number, volume: number): AudioBufferSourceNode {
+  const bufferSize = ctx.sampleRate * duration;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * volume;
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+  return src;
+}
+
+function playTradeSound(type: "open" | "close" | "victory" | "defeat" | "tick" | "countdown" | "start") {
   try {
     const ctx = getAudioCtx();
-    if (ctx.state === "suspended") ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const t = ctx.currentTime;
 
     if (type === "open") {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "highpass";
+      filter.frequency.value = 2000;
+
+      osc1.type = "sawtooth";
+      osc1.frequency.setValueAtTime(800, t);
+      osc1.frequency.exponentialRampToValueAtTime(2400, t + 0.06);
+      osc1.frequency.exponentialRampToValueAtTime(3200, t + 0.12);
+      gain1.gain.setValueAtTime(0.15, t);
+      gain1.gain.linearRampToValueAtTime(0.2, t + 0.04);
+      gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc1.connect(filter);
+      filter.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(t);
+      osc1.stop(t + 0.3);
+
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1200, t + 0.05);
+      osc2.frequency.exponentialRampToValueAtTime(1800, t + 0.15);
+      gain2.gain.setValueAtTime(0, t);
+      gain2.gain.linearRampToValueAtTime(0.1, t + 0.06);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(t + 0.05);
+      osc2.stop(t + 0.25);
+
+      const noise = makeNoise(ctx, 0.08, 0.3);
+      const noiseGain = ctx.createGain();
+      const noiseFilter = ctx.createBiquadFilter();
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.value = 6000;
+      noiseFilter.Q.value = 2;
+      noiseGain.gain.setValueAtTime(0.08, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(t);
+      noise.stop(t + 0.08);
+    } else if (type === "close") {
+      for (let i = 0; i < 3; i++) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = i === 0 ? "square" : "sine";
+        const baseFreq = 1600 - i * 400;
+        osc.frequency.setValueAtTime(baseFreq, t + i * 0.06);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.4, t + i * 0.06 + 0.12);
+        gain.gain.setValueAtTime(0.1 - i * 0.02, t + i * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + i * 0.06);
+        osc.stop(t + i * 0.06 + 0.15);
+      }
+      const noise = makeNoise(ctx, 0.1, 0.5);
+      const ng = ctx.createGain();
+      const nf = ctx.createBiquadFilter();
+      nf.type = "highpass";
+      nf.frequency.value = 4000;
+      ng.gain.setValueAtTime(0.06, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      noise.connect(nf);
+      nf.connect(ng);
+      ng.connect(ctx.destination);
+      noise.start(t);
+      noise.stop(t + 0.1);
+    } else if (type === "victory") {
+      const notes = [523, 659, 784, 1047, 1319, 1568];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, t + i * 0.08);
+        gain.gain.linearRampToValueAtTime(0.12 - i * 0.015, t + i * 0.08 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + i * 0.08);
+        osc.stop(t + i * 0.08 + 0.4);
+      });
+      const shimmer = ctx.createOscillator();
+      const sg = ctx.createGain();
+      shimmer.type = "sine";
+      shimmer.frequency.setValueAtTime(4000, t + 0.3);
+      shimmer.frequency.exponentialRampToValueAtTime(8000, t + 0.8);
+      sg.gain.setValueAtTime(0.03, t + 0.3);
+      sg.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+      shimmer.connect(sg);
+      sg.connect(ctx.destination);
+      shimmer.start(t + 0.3);
+      shimmer.stop(t + 1.0);
+    } else if (type === "defeat") {
+      const notes = [400, 350, 300, 250];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, t + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + i * 0.15);
+        osc.stop(t + i * 0.15 + 0.3);
+      });
+    } else if (type === "tick") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(600, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.08);
-      osc.frequency.linearRampToValueAtTime(1200, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.2);
-    } else {
+      osc.frequency.value = 1800;
+      gain.gain.setValueAtTime(0.04, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.03);
+    } else if (type === "countdown") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(1000, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.1);
-      osc.frequency.linearRampToValueAtTime(400, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.25);
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.exponentialRampToValueAtTime(440, t + 0.15);
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.2);
+    } else if (type === "start") {
+      const notes = [440, 554, 659, 880];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, t + i * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.07 + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + i * 0.07);
+        osc.stop(t + i * 0.07 + 0.15);
+      });
+      const noise = makeNoise(ctx, 0.15, 0.4);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.05, t + 0.2);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      noise.connect(ng);
+      ng.connect(ctx.destination);
+      noise.start(t + 0.2);
+      noise.stop(t + 0.35);
     }
   } catch {}
 }
@@ -294,7 +441,10 @@ function CountdownTimer({ endsAt, onExpired }: { endsAt: string; onExpired?: () 
       const now = Date.now();
       const end = new Date(endsAt).getTime();
       const left = Math.max(0, Math.floor((end - now) / 1000));
-      setTimeLeft(left);
+      setTimeLeft(prev => {
+        if (prev !== left && left <= 10 && left > 0) playTradeSound("countdown");
+        return left;
+      });
       if (left === 0 && !expiredRef.current) {
         expiredRef.current = true;
         onExpired?.();
@@ -386,14 +536,28 @@ function LiveLineChart({
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      ctx.fillStyle = "#0b0e11";
+      ctx.fillStyle = "#080a0e";
       ctx.fillRect(0, 0, width, height);
 
+      const bgGrad = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width * 0.7);
+      bgGrad.addColorStop(0, "rgba(245,158,11,0.015)");
+      bgGrad.addColorStop(1, "transparent");
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
+
+      for (let y = 0; y < height; y += 3) {
+        ctx.fillStyle = `rgba(0,0,0,${0.08 + Math.sin(y * 0.1 + pulseRef.current * 2) * 0.03})`;
+        ctx.fillRect(0, y, width, 1);
+      }
+
       if (priceTicks.length < 2) {
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
-        ctx.font = "14px sans-serif";
+        ctx.fillStyle = "rgba(245,158,11,0.4)";
+        ctx.font = "bold 13px monospace";
         ctx.textAlign = "center";
-        ctx.fillText("Waiting for price data...", width / 2, height / 2);
+        ctx.fillText("INITIALIZING PRICE FEED...", width / 2, height / 2 - 10);
+        ctx.fillStyle = "rgba(245,158,11,0.2)";
+        ctx.font = "10px monospace";
+        ctx.fillText("CONNECTING TO EXCHANGE", width / 2, height / 2 + 10);
         ctx.textAlign = "start";
         return;
       }
@@ -424,18 +588,30 @@ function LiveLineChart({
       const toY = (p: number) => padding.top + ((maxP - p) / range) * chartH;
 
       const gridLines = 5;
-      ctx.strokeStyle = "rgba(255,255,255,0.04)";
-      ctx.lineWidth = 1;
       ctx.font = "10px monospace";
       for (let i = 0; i <= gridLines; i++) {
         const y = padding.top + (chartH / gridLines) * i;
+        ctx.strokeStyle = "rgba(245,158,11,0.06)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 6]);
         ctx.beginPath();
         ctx.moveTo(padding.left, y);
         ctx.lineTo(width - padding.right, y);
         ctx.stroke();
+        ctx.setLineDash([]);
         const price = maxP - (range / gridLines) * i;
-        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
         ctx.fillText(formatPrice(price), width - padding.right + 6, y + 3);
+      }
+
+      for (let x = padding.left; x < width - padding.right; x += 80) {
+        ctx.strokeStyle = "rgba(245,158,11,0.03)";
+        ctx.setLineDash([2, 6]);
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, padding.top + chartH);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
 
       const firstPrice = priceTicks[0].price;
@@ -468,7 +644,7 @@ function LiveLineChart({
 
       ctx.save();
       ctx.shadowColor = lineColor;
-      ctx.shadowBlur = 6 + pulse * 4;
+      ctx.shadowBlur = 12 + pulse * 8;
       ctx.beginPath();
       ctx.moveTo(toX(0), toY(priceTicks[0].price));
       for (let i = 1; i < priceTicks.length; i++) {
@@ -482,16 +658,40 @@ function LiveLineChart({
       ctx.stroke();
       ctx.restore();
 
-      const dotRadius = 5 + pulse * 2;
+      ctx.save();
+      ctx.globalAlpha = 0.3 + pulse * 0.15;
+      ctx.shadowColor = lineColor;
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.moveTo(toX(0), toY(priceTicks[0].price));
+      for (let i = 1; i < priceTicks.length; i++) {
+        const x0 = toX(i - 1), y0 = toY(priceTicks[i - 1].price);
+        const x1 = toX(i), y1 = toY(priceTicks[i].price);
+        const cx = (x0 + x1) / 2;
+        ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+      }
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+      ctx.restore();
+
+      const dotRadius = 5 + pulse * 3;
+      ctx.save();
+      ctx.shadowColor = lineColor;
+      ctx.shadowBlur = 15 + pulse * 10;
       ctx.beginPath();
       ctx.arc(lastX, lastY, dotRadius, 0, Math.PI * 2);
       ctx.fillStyle = lineColor;
       ctx.fill();
-      ctx.beginPath();
-      ctx.arc(lastX, lastY, dotRadius + 4 + pulse * 3, 0, Math.PI * 2);
-      ctx.strokeStyle = glowColor + (0.3 + pulse * 0.2) + ")";
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.restore();
+
+      for (let r = 1; r <= 3; r++) {
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, dotRadius + r * 6 + pulse * r * 2, 0, Math.PI * 2);
+        ctx.strokeStyle = glowColor + (0.15 / r) + ")";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
 
       openPositions.forEach(pos => {
         const entryPx = parseFloat(pos.entryPrice);
@@ -595,8 +795,23 @@ function LiveLineChart({
       const liveY = toY(liveP);
       const isLiveUp = liveP >= firstPrice;
       const lblBg = isLiveUp ? "#0ecb81" : "#ea3943";
-      const lblW = 64;
-      const lblH = 20;
+
+      ctx.setLineDash([1, 4]);
+      ctx.strokeStyle = lblBg;
+      ctx.globalAlpha = 0.3 + pulse * 0.1;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, liveY);
+      ctx.lineTo(width - padding.right, liveY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+
+      const lblW = 66;
+      const lblH = 22;
+      ctx.save();
+      ctx.shadowColor = lblBg;
+      ctx.shadowBlur = 8;
       ctx.fillStyle = lblBg;
       ctx.beginPath();
       ctx.moveTo(width - padding.right, liveY);
@@ -606,21 +821,30 @@ function LiveLineChart({
       ctx.lineTo(width - padding.right + 6, liveY + lblH / 2);
       ctx.closePath();
       ctx.fill();
+      ctx.restore();
       ctx.fillStyle = "#fff";
       ctx.font = "bold 10px monospace";
       ctx.textAlign = "center";
       ctx.fillText(formatPrice(liveP), width - padding.right + 6 + lblW / 2, liveY + 4);
       ctx.textAlign = "start";
 
+      ctx.fillStyle = "rgba(245,158,11,0.15)";
+      ctx.font = "bold 9px monospace";
+      ctx.fillText("LIVE", padding.left + 4, height - 18);
+
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const mins = Math.floor(elapsed / 60);
       const secs = elapsed % 60;
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
       ctx.font = "9px monospace";
-      ctx.fillText(`${mins}m ${secs}s`, padding.left + 4, height - 8);
+      ctx.fillText(`${mins}m ${secs}s`, padding.left + 4, height - 6);
 
       const now = new Date();
-      ctx.fillText(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), width - padding.right - 60, height - 8);
+      ctx.fillText(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), width - padding.right - 60, height - 6);
+
+      const tickCount2 = priceTicks.length;
+      ctx.fillStyle = "rgba(245,158,11,0.12)";
+      ctx.fillText(`${tickCount2} ticks`, width / 2 - 20, height - 6);
 
     };
 
@@ -948,11 +1172,13 @@ function TradingPanel({
   agentId,
   currentPrice,
   duel,
+  onTradeEffect,
 }: {
   duelId: string;
   agentId: string;
   currentPrice: number;
   duel: TradingDuel;
+  onTradeEffect?: (side: "long" | "short") => void;
 }) {
   const { toast } = useToast();
   const [side, setSide] = useState<"long" | "short">("long");
@@ -997,6 +1223,7 @@ function TradingPanel({
     }),
     onSuccess: (data: any) => {
       playTradeSound("open");
+      onTradeEffect?.(side);
       const ep = data.entryPrice ? formatPrice(parseFloat(data.entryPrice)) : formatPrice(currentPrice);
       toast({ title: `${side.toUpperCase()} opened!`, description: `${leverage}x leverage at $${ep}` });
       refetchPositions();
@@ -1131,11 +1358,13 @@ function TradingPanel({
         </div>
 
         <button
-          className="w-full py-3 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+          className={`w-full py-3 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${side === "long" ? "arena-btn-glow-green" : "arena-btn-glow-red"}`}
           style={{
             background: side === "long" ? "#0ecb81" : "#ea3943",
             color: side === "long" ? "#0b0e11" : "#fff",
             opacity: openMutation.isPending || parseFloat(sizeUsdt) <= 0 ? 0.5 : 1,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
           }}
           onClick={() => openMutation.mutate()}
           disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0}
@@ -1241,6 +1470,21 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   const [tradeMarkers, setTradeMarkers] = useState<TradeMarker[]>([]);
   const prevPositionIdsRef = useRef<Set<string>>(new Set());
   const prevOpenIdsRef = useRef<Set<string>>(new Set());
+  const settledSoundRef = useRef(false);
+  const [tradeEffect, setTradeEffect] = useState<string | null>(null);
+  const arenaContainerRef = useRef<HTMLDivElement>(null);
+
+  const triggerTradeEffect = useCallback((side: "long" | "short") => {
+    const effectClass = side === "long" ? "arena-flash-green" : "arena-flash-red";
+    setTradeEffect(effectClass);
+    if (arenaContainerRef.current) {
+      arenaContainerRef.current.classList.add("arena-shake");
+      setTimeout(() => {
+        arenaContainerRef.current?.classList.remove("arena-shake");
+        setTradeEffect(null);
+      }, 400);
+    }
+  }, []);
 
   const { data: duel, refetch: refetchDuel } = useQuery<TradingDuel>({
     queryKey: ["/api/trading-duels", duelId],
@@ -1257,6 +1501,14 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     enabled: !!duel && !!agent?.id,
     refetchInterval: 2000,
   });
+
+  useEffect(() => {
+    if (duel?.status === "settled" && !settledSoundRef.current) {
+      settledSoundRef.current = true;
+      const isWinner = duel.winnerId === agent?.id;
+      setTimeout(() => playTradeSound(duel.winnerId ? (isWinner ? "victory" : "defeat") : "defeat"), 300);
+    }
+  }, [duel?.status, duel?.winnerId, agent?.id]);
 
   useEffect(() => {
     if (!myPositions.length || !currentPrice) return;
@@ -1508,6 +1760,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
             <Button
               className="w-full arena-animate-up-d3"
               onClick={async () => {
+                playTradeSound("start");
                 await apiRequest("POST", `/api/trading-duels/${duelId}/start`, {});
                 refetchDuel();
               }}
@@ -1564,7 +1817,10 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   }));
 
   return (
-    <div className="relative space-y-0" style={{ background: "#0b0e11", minHeight: "100vh" }}>
+    <div ref={arenaContainerRef} className="relative space-y-0" style={{ background: "#0b0e11", minHeight: "100vh" }}>
+      {tradeEffect && (
+        <div className={`absolute inset-0 z-50 pointer-events-none ${tradeEffect}`} />
+      )}
       <div className="border-b" style={{ borderColor: "#1e2329", background: "#0b0e11" }}>
         <div className="px-3 py-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1613,8 +1869,9 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       </div>
 
       <div className="flex flex-col lg:flex-row">
-        <div ref={chartContainerRef} className="flex-1 min-w-0 lg:border-r" style={{ borderColor: "#1e2329" }}>
-          <div className="p-1">
+        <div ref={chartContainerRef} className="flex-1 min-w-0 lg:border-r relative" style={{ borderColor: "#1e2329" }}>
+          <div className="absolute inset-0 pointer-events-none z-10 arena-scanlines" />
+          <div className="p-1 relative">
             <LiveLineChart
               priceTicks={priceTicks}
               width={chartWidth}
@@ -1632,6 +1889,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
               agentId={agent.id}
               currentPrice={currentPrice}
               duel={duel}
+              onTradeEffect={triggerTradeEffect}
             />
           )}
         </div>

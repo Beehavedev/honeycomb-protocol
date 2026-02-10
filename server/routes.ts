@@ -2543,7 +2543,7 @@ export async function registerRoutes(
   app.get("/api/trading-duels/binance/klines", async (req, res) => {
     try {
       const { symbol, interval, limit: klimit } = req.query;
-      const url = `https://api.binance.us/api/v3/klines?symbol=${symbol || "BTCUSDT"}&interval=${interval || "1m"}&limit=${klimit || 100}`;
+      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol || "BTCUSDT"}&interval=${interval || "1m"}&limit=${klimit || 100}`;
       const response = await fetch(url);
       const data = await response.json();
       res.json(data);
@@ -2555,7 +2555,7 @@ export async function registerRoutes(
   app.get("/api/trading-duels/binance/ticker", async (req, res) => {
     try {
       const { symbol } = req.query;
-      const url = `https://api.binance.us/api/v3/ticker/price?symbol=${symbol || "BTCUSDT"}`;
+      const url = `https://api.binance.com/api/v3/ticker/price?symbol=${symbol || "BTCUSDT"}`;
       const response = await fetch(url);
       const data = await response.json();
       res.json(data);
@@ -2657,7 +2657,7 @@ export async function registerRoutes(
 
       let entryPrice: string;
       try {
-        const priceRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
         const priceData = await priceRes.json();
         entryPrice = priceData.price;
         if (!entryPrice) throw new Error("No price");
@@ -2719,7 +2719,7 @@ export async function registerRoutes(
 
       let exitPrice: string;
       try {
-        const priceRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
         const priceData = await priceRes.json();
         exitPrice = priceData.price;
         if (!exitPrice) throw new Error("No price");
@@ -2759,7 +2759,7 @@ export async function registerRoutes(
 
       let settlementPrice: string;
       try {
-        const priceRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
         const priceData = await priceRes.json();
         settlementPrice = priceData.price;
         if (!settlementPrice) throw new Error("No price");

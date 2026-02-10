@@ -63,7 +63,7 @@ export async function isArenaBotAgent(agentId: string): Promise<boolean> {
 
 async function fetchCurrentPrice(symbol: string): Promise<number | null> {
   try {
-    const res = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
+    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
     const data = await res.json() as any;
     return data.price ? parseFloat(data.price) : null;
   } catch {
