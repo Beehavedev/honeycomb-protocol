@@ -180,31 +180,39 @@ function getAudioCtx(): AudioContext {
   return audioCtxRef.current;
 }
 
-function makeNoise(ctx: AudioContext, duration: number, volume: number): AudioBufferSourceNode {
-  const bufferSize = ctx.sampleRate * duration;
-  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * volume;
-  const src = ctx.createBufferSource();
-  src.buffer = buffer;
-  return src;
+function tone(ctx: AudioContext, freq: number, type: OscillatorType, vol: number, start: number, dur: number, endFreq?: number) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, start);
+  if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, start + dur * 0.8);
+  g.gain.setValueAtTime(vol, start);
+  g.gain.setValueAtTime(vol * 0.9, start + dur * 0.3);
+  g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.start(start);
+  o.stop(start + dur);
 }
 
-function playCoinDrop(ctx: AudioContext, t: number, count: number, baseDelay: number) {
+function chip(ctx: AudioContext, freq: number, start: number, vol = 0.06) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(freq, start);
+  o.frequency.exponentialRampToValueAtTime(freq * 0.65, start + 0.12);
+  g.gain.setValueAtTime(vol, start);
+  g.gain.exponentialRampToValueAtTime(0.001, start + 0.12);
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.start(start);
+  o.stop(start + 0.12);
+}
+
+function chips(ctx: AudioContext, t: number, count: number, delay: number) {
   for (let i = 0; i < count; i++) {
-    const delay = baseDelay + i * (0.04 + Math.random() * 0.03);
-    const freq = 3000 + Math.random() * 4000;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(freq, t + delay);
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.7, t + delay + 0.06);
-    gain.gain.setValueAtTime(0.06 + Math.random() * 0.04, t + delay);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.08);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(t + delay);
-    osc.stop(t + delay + 0.08);
+    const d = delay + i * (0.035 + Math.random() * 0.025);
+    chip(ctx, 4000 + Math.random() * 5000, t + d, 0.04 + Math.random() * 0.03);
   }
 }
 
@@ -214,327 +222,77 @@ function playTradeSound(type: "open" | "close" | "victory" | "defeat" | "tick" |
     const t = ctx.currentTime;
 
     if (type === "open") {
-      const leverPull = ctx.createOscillator();
-      const leverGain = ctx.createGain();
-      leverPull.type = "sawtooth";
-      leverPull.frequency.setValueAtTime(150, t);
-      leverPull.frequency.exponentialRampToValueAtTime(80, t + 0.08);
-      leverPull.frequency.exponentialRampToValueAtTime(400, t + 0.12);
-      leverGain.gain.setValueAtTime(0.12, t);
-      leverGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-      leverPull.connect(leverGain);
-      leverGain.connect(ctx.destination);
-      leverPull.start(t);
-      leverPull.stop(t + 0.15);
-
-      const click = ctx.createOscillator();
-      const clickGain = ctx.createGain();
-      click.type = "square";
-      click.frequency.value = 1200;
-      clickGain.gain.setValueAtTime(0.15, t + 0.02);
-      clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-      click.connect(clickGain);
-      clickGain.connect(ctx.destination);
-      click.start(t + 0.02);
-      click.stop(t + 0.05);
-
-      const chime = ctx.createOscillator();
-      const chimeGain = ctx.createGain();
-      chime.type = "sine";
-      chime.frequency.setValueAtTime(1800, t + 0.06);
-      chime.frequency.exponentialRampToValueAtTime(2400, t + 0.15);
-      chimeGain.gain.setValueAtTime(0.1, t + 0.06);
-      chimeGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      chime.connect(chimeGain);
-      chimeGain.connect(ctx.destination);
-      chime.start(t + 0.06);
-      chime.stop(t + 0.25);
-
-      playCoinDrop(ctx, t, 3, 0.1);
+      tone(ctx, 220, "sine", 0.18, t, 0.06);
+      tone(ctx, 660, "triangle", 0.14, t + 0.02, 0.08);
+      tone(ctx, 880, "sine", 0.16, t + 0.04, 0.12, 1320);
+      tone(ctx, 1320, "sine", 0.10, t + 0.08, 0.15, 1760);
+      tone(ctx, 60, "sine", 0.20, t, 0.08);
+      chips(ctx, t, 4, 0.06);
     } else if (type === "close") {
-      const reelStop = ctx.createOscillator();
-      const reelGain = ctx.createGain();
-      reelStop.type = "square";
-      reelStop.frequency.setValueAtTime(600, t);
-      reelStop.frequency.exponentialRampToValueAtTime(200, t + 0.05);
-      reelGain.gain.setValueAtTime(0.1, t);
-      reelGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-      reelStop.connect(reelGain);
-      reelGain.connect(ctx.destination);
-      reelStop.start(t);
-      reelStop.stop(t + 0.08);
-
-      [1400, 1100, 800].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(freq, t + 0.03 + i * 0.05);
-        osc.frequency.exponentialRampToValueAtTime(freq * 0.6, t + 0.03 + i * 0.05 + 0.1);
-        gain.gain.setValueAtTime(0.08, t + 0.03 + i * 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03 + i * 0.05 + 0.12);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t + 0.03 + i * 0.05);
-        osc.stop(t + 0.03 + i * 0.05 + 0.12);
-      });
-
-      playCoinDrop(ctx, t, 2, 0.15);
+      tone(ctx, 880, "sine", 0.15, t, 0.1, 440);
+      tone(ctx, 660, "triangle", 0.12, t + 0.03, 0.1, 330);
+      tone(ctx, 440, "sine", 0.10, t + 0.06, 0.15, 220);
+      tone(ctx, 80, "sine", 0.18, t, 0.06);
+      chips(ctx, t, 3, 0.08);
     } else if (type === "victory") {
-      const fanfare = [523, 659, 784, 1047, 1319, 1568, 2093];
-      fanfare.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = i < 4 ? "sine" : "triangle";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0, t + i * 0.09);
-        gain.gain.linearRampToValueAtTime(0.14 - i * 0.012, t + i * 0.09 + 0.03);
-        gain.gain.setValueAtTime(0.14 - i * 0.012, t + i * 0.09 + 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.09 + 0.5);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t + i * 0.09);
-        osc.stop(t + i * 0.09 + 0.5);
+      const notes = [523, 659, 784, 1047, 1319, 1568, 2093];
+      notes.forEach((freq, i) => {
+        tone(ctx, freq, "sine", 0.16 - i * 0.01, t + i * 0.1, 0.45);
+        if (i > 2) tone(ctx, freq * 1.5, "triangle", 0.06, t + i * 0.1 + 0.02, 0.3);
       });
-
-      playCoinDrop(ctx, t, 20, 0.5);
-      playCoinDrop(ctx, t, 15, 0.9);
-      playCoinDrop(ctx, t, 10, 1.3);
-
-      const jackpotBell = ctx.createOscillator();
-      const bellGain = ctx.createGain();
-      jackpotBell.type = "sine";
-      jackpotBell.frequency.setValueAtTime(3520, t + 0.6);
-      bellGain.gain.setValueAtTime(0.08, t + 0.6);
-      bellGain.gain.exponentialRampToValueAtTime(0.04, t + 0.8);
-      bellGain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-      jackpotBell.connect(bellGain);
-      bellGain.connect(ctx.destination);
-      jackpotBell.start(t + 0.6);
-      jackpotBell.stop(t + 1.8);
-
-      const shimmer1 = ctx.createOscillator();
-      const shimmer2 = ctx.createOscillator();
-      const sg1 = ctx.createGain();
-      const sg2 = ctx.createGain();
-      shimmer1.type = "sine";
-      shimmer1.frequency.setValueAtTime(5000, t + 0.4);
-      shimmer1.frequency.exponentialRampToValueAtTime(10000, t + 1.5);
-      sg1.gain.setValueAtTime(0.025, t + 0.4);
-      sg1.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-      shimmer1.connect(sg1);
-      sg1.connect(ctx.destination);
-      shimmer1.start(t + 0.4);
-      shimmer1.stop(t + 1.8);
-      shimmer2.type = "sine";
-      shimmer2.frequency.setValueAtTime(7000, t + 0.6);
-      shimmer2.frequency.exponentialRampToValueAtTime(12000, t + 1.8);
-      sg2.gain.setValueAtTime(0.015, t + 0.6);
-      sg2.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-      shimmer2.connect(sg2);
-      sg2.connect(ctx.destination);
-      shimmer2.start(t + 0.6);
-      shimmer2.stop(t + 2.0);
-
-      const noise = makeNoise(ctx, 1.5, 0.3);
-      const ng = ctx.createGain();
-      const nf = ctx.createBiquadFilter();
-      nf.type = "highpass";
-      nf.frequency.value = 8000;
-      ng.gain.setValueAtTime(0.04, t + 0.5);
-      ng.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-      noise.connect(nf);
-      nf.connect(ng);
-      ng.connect(ctx.destination);
-      noise.start(t + 0.5);
-      noise.stop(t + 2.0);
+      tone(ctx, 130, "sine", 0.15, t, 0.12);
+      tone(ctx, 65, "sine", 0.12, t + 0.05, 0.1);
+      chips(ctx, t, 8, 0.3);
+      chips(ctx, t, 12, 0.7);
+      chips(ctx, t, 10, 1.1);
+      chips(ctx, t, 6, 1.5);
+      tone(ctx, 3520, "sine", 0.08, t + 0.6, 1.2);
+      tone(ctx, 4186, "sine", 0.05, t + 0.8, 0.8);
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(2093, t + 0.7);
+      g.gain.setValueAtTime(0.1, t + 0.7);
+      g.gain.setValueAtTime(0.08, t + 1.0);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 2.2);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(t + 0.7);
+      o.stop(t + 2.2);
     } else if (type === "defeat") {
-      const wah = ctx.createOscillator();
-      const wahGain = ctx.createGain();
-      wah.type = "sawtooth";
-      wah.frequency.setValueAtTime(400, t);
-      wah.frequency.exponentialRampToValueAtTime(200, t + 0.3);
-      wah.frequency.exponentialRampToValueAtTime(100, t + 0.6);
-      wahGain.gain.setValueAtTime(0.08, t);
-      wahGain.gain.linearRampToValueAtTime(0.06, t + 0.3);
-      wahGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
-      wah.connect(wahGain);
-      wahGain.connect(ctx.destination);
-      wah.start(t);
-      wah.stop(t + 0.8);
-
-      [350, 280, 220].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.06, t + i * 0.2);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.2 + 0.25);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t + i * 0.2);
-        osc.stop(t + i * 0.2 + 0.25);
-      });
-
-      const buzz = ctx.createOscillator();
-      const buzzGain = ctx.createGain();
-      buzz.type = "square";
-      buzz.frequency.value = 55;
-      buzzGain.gain.setValueAtTime(0.05, t + 0.1);
-      buzzGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-      buzz.connect(buzzGain);
-      buzzGain.connect(ctx.destination);
-      buzz.start(t + 0.1);
-      buzz.stop(t + 0.5);
+      tone(ctx, 440, "sawtooth", 0.07, t, 0.3, 220);
+      tone(ctx, 330, "sine", 0.08, t + 0.1, 0.35, 165);
+      tone(ctx, 220, "sine", 0.06, t + 0.3, 0.4, 110);
+      tone(ctx, 55, "square", 0.05, t + 0.1, 0.4);
     } else if (type === "tick") {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 2800 + Math.random() * 800;
-      gain.gain.setValueAtTime(0.05, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.02);
+      tone(ctx, 3200 + Math.random() * 600, "sine", 0.04, t, 0.025);
     } else if (type === "countdown") {
-      const bell = ctx.createOscillator();
-      const bellGain = ctx.createGain();
-      bell.type = "sine";
-      bell.frequency.setValueAtTime(1760, t);
-      bellGain.gain.setValueAtTime(0.15, t);
-      bellGain.gain.exponentialRampToValueAtTime(0.08, t + 0.05);
-      bellGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      bell.connect(bellGain);
-      bellGain.connect(ctx.destination);
-      bell.start(t);
-      bell.stop(t + 0.3);
-
-      const sub = ctx.createOscillator();
-      const subGain = ctx.createGain();
-      sub.type = "sine";
-      sub.frequency.value = 880;
-      subGain.gain.setValueAtTime(0.06, t);
-      subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-      sub.connect(subGain);
-      subGain.connect(ctx.destination);
-      sub.start(t);
-      sub.stop(t + 0.15);
-
-      const tick = ctx.createOscillator();
-      const tickGain = ctx.createGain();
-      tick.type = "square";
-      tick.frequency.value = 4400;
-      tickGain.gain.setValueAtTime(0.03, t + 0.01);
-      tickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-      tick.connect(tickGain);
-      tickGain.connect(ctx.destination);
-      tick.start(t + 0.01);
-      tick.stop(t + 0.03);
+      tone(ctx, 1760, "sine", 0.14, t, 0.2);
+      tone(ctx, 880, "sine", 0.08, t, 0.12);
+      tone(ctx, 3520, "sine", 0.04, t + 0.01, 0.03);
     } else if (type === "start") {
       [330, 440, 554, 659, 880].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = i < 3 ? "square" : "sine";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.1, t + i * 0.08);
-        gain.gain.linearRampToValueAtTime(0.12, t + i * 0.08 + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.2);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t + i * 0.08);
-        osc.stop(t + i * 0.08 + 0.2);
+        tone(ctx, freq, i < 3 ? "square" : "sine", 0.12, t + i * 0.07, 0.18);
       });
-
-      const horn = ctx.createOscillator();
-      const hornGain = ctx.createGain();
-      horn.type = "sawtooth";
-      horn.frequency.setValueAtTime(220, t + 0.35);
-      horn.frequency.exponentialRampToValueAtTime(440, t + 0.5);
-      hornGain.gain.setValueAtTime(0.06, t + 0.35);
-      hornGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-      horn.connect(hornGain);
-      hornGain.connect(ctx.destination);
-      horn.start(t + 0.35);
-      horn.stop(t + 0.6);
-
-      const noise = makeNoise(ctx, 0.2, 0.5);
-      const ng = ctx.createGain();
-      const nf = ctx.createBiquadFilter();
-      nf.type = "highpass";
-      nf.frequency.value = 6000;
-      ng.gain.setValueAtTime(0.06, t + 0.3);
-      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-      noise.connect(nf);
-      nf.connect(ng);
-      ng.connect(ctx.destination);
-      noise.start(t + 0.3);
-      noise.stop(t + 0.5);
-
-      playCoinDrop(ctx, t, 5, 0.4);
+      tone(ctx, 220, "sawtooth", 0.06, t + 0.3, 0.2, 440);
+      tone(ctx, 100, "sine", 0.15, t, 0.1);
+      chips(ctx, t, 6, 0.35);
     } else if (type === "leadchange") {
-      const alarm1 = ctx.createOscillator();
-      const alarm2 = ctx.createOscillator();
-      const ag1 = ctx.createGain();
-      const ag2 = ctx.createGain();
-      alarm1.type = "sine";
-      alarm1.frequency.setValueAtTime(1500, t);
-      alarm1.frequency.exponentialRampToValueAtTime(2500, t + 0.1);
-      alarm1.frequency.exponentialRampToValueAtTime(1500, t + 0.2);
-      ag1.gain.setValueAtTime(0.12, t);
-      ag1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      alarm1.connect(ag1);
-      ag1.connect(ctx.destination);
-      alarm1.start(t);
-      alarm1.stop(t + 0.3);
-
-      alarm2.type = "triangle";
-      alarm2.frequency.setValueAtTime(3000, t + 0.05);
-      alarm2.frequency.exponentialRampToValueAtTime(4000, t + 0.15);
-      ag2.gain.setValueAtTime(0.06, t + 0.05);
-      ag2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      alarm2.connect(ag2);
-      ag2.connect(ctx.destination);
-      alarm2.start(t + 0.05);
-      alarm2.stop(t + 0.25);
-
-      const impact = ctx.createOscillator();
-      const impactGain = ctx.createGain();
-      impact.type = "sine";
-      impact.frequency.setValueAtTime(100, t);
-      impact.frequency.exponentialRampToValueAtTime(40, t + 0.15);
-      impactGain.gain.setValueAtTime(0.1, t);
-      impactGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      impact.connect(impactGain);
-      impactGain.connect(ctx.destination);
-      impact.start(t);
-      impact.stop(t + 0.2);
+      tone(ctx, 1200, "sine", 0.12, t, 0.08, 2000);
+      tone(ctx, 2000, "sine", 0.10, t + 0.06, 0.08, 1200);
+      tone(ctx, 1600, "triangle", 0.08, t + 0.12, 0.1, 2400);
+      tone(ctx, 80, "sine", 0.14, t, 0.1, 40);
     } else if (type === "streak") {
-      [880, 1047, 1319, 1568, 2093, 2637].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.08, t + i * 0.06);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.3);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t + i * 0.06);
-        osc.stop(t + i * 0.06 + 0.3);
+      [880, 1047, 1319, 1568, 2093].forEach((freq, i) => {
+        tone(ctx, freq, "sine", 0.10, t + i * 0.05, 0.25);
       });
-      playCoinDrop(ctx, t, 12, 0.3);
+      tone(ctx, 100, "sine", 0.12, t, 0.08);
+      chips(ctx, t, 8, 0.2);
     } else if (type === "profit") {
-      const cha = ctx.createOscillator();
-      const chaGain = ctx.createGain();
-      cha.type = "sine";
-      cha.frequency.setValueAtTime(2000, t);
-      cha.frequency.exponentialRampToValueAtTime(3000, t + 0.08);
-      chaGain.gain.setValueAtTime(0.08, t);
-      chaGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-      cha.connect(chaGain);
-      chaGain.connect(ctx.destination);
-      cha.start(t);
-      cha.stop(t + 0.12);
-      playCoinDrop(ctx, t, 4, 0.08);
+      tone(ctx, 1047, "sine", 0.10, t, 0.08, 1568);
+      tone(ctx, 1568, "sine", 0.08, t + 0.05, 0.1, 2093);
+      tone(ctx, 80, "sine", 0.12, t, 0.05);
+      chips(ctx, t, 3, 0.06);
     }
   } catch {}
 }
@@ -887,36 +645,99 @@ function LiveLineChart({
         const isLong = pos.side === "long";
         const posColor = isLong ? "#0ecb81" : "#ea3943";
 
-        ctx.setLineDash([4, 4]);
+        ctx.save();
+        ctx.setLineDash([6, 4]);
         ctx.strokeStyle = posColor;
-        ctx.globalAlpha = 0.5 + pulse * 0.2;
-        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.7 + pulse * 0.2;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = posColor;
+        ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.moveTo(padding.left, ey);
-        ctx.lineTo(lastX, ey);
+        ctx.lineTo(width - padding.right, ey);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
+        ctx.restore();
 
-        ctx.fillStyle = posColor;
-        ctx.globalAlpha = 0.15;
-        if (isLong) {
-          ctx.fillRect(padding.left, ey, lastX - padding.left, lastY - ey);
-        } else {
-          ctx.fillRect(padding.left, lastY, lastX - padding.left, ey - lastY);
-        }
-        ctx.globalAlpha = 1;
+        const pnlZoneTop = Math.min(ey, lastY);
+        const pnlZoneBot = Math.max(ey, lastY);
+        const isProfitable = isLong ? lastY < ey : lastY > ey;
+        const zoneGrad = ctx.createLinearGradient(0, pnlZoneTop, 0, pnlZoneBot);
+        const zoneColor = isProfitable ? "rgba(14,203,129," : "rgba(234,57,67,";
+        zoneGrad.addColorStop(0, zoneColor + "0.18)");
+        zoneGrad.addColorStop(1, zoneColor + "0.03)");
+        ctx.fillStyle = zoneGrad;
+        ctx.fillRect(padding.left, pnlZoneTop, lastX - padding.left, pnlZoneBot - pnlZoneTop);
 
-        const lbl = `${isLong ? "LONG" : "SHORT"} ${pos.leverage}x @ ${formatPrice(entryPx)}`;
-        ctx.font = "bold 9px monospace";
-        const tw = ctx.measureText(lbl).width + 10;
+        const cp = currentPrice || 0;
+        const pnlPct = cp > 0 && entryPx > 0
+          ? (isLong
+            ? ((cp - entryPx) / entryPx * 100 * pos.leverage)
+            : ((entryPx - cp) / entryPx * 100 * pos.leverage))
+          : 0;
+        const pnlStr = `${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(1)}%`;
+
+        const lbl = `${isLong ? "LONG" : "SHORT"} ${pos.leverage}x  $${formatPrice(entryPx)}`;
+        ctx.font = "bold 10px monospace";
+        const tw = ctx.measureText(lbl).width + 14;
+        const pnlTw = ctx.measureText(pnlStr).width + 10;
+
+        ctx.save();
+        ctx.shadowColor = posColor;
+        ctx.shadowBlur = 8;
         ctx.fillStyle = posColor;
-        const ly = ey - 10;
+        const ly = ey - 14;
         ctx.beginPath();
-        ctx.roundRect(padding.left + 6, ly - 8, tw, 16, 3);
+        ctx.roundRect(padding.left + 4, ly - 10, tw, 20, 4);
         ctx.fill();
-        ctx.fillStyle = isLong ? "#0b0e11" : "#fff";
+        ctx.fillStyle = "#0b0e11";
+        ctx.font = "bold 10px monospace";
         ctx.fillText(lbl, padding.left + 11, ly + 4);
+        ctx.restore();
+
+        ctx.save();
+        ctx.shadowColor = isProfitable ? "#0ecb81" : "#ea3943";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = isProfitable ? "#0ecb81" : "#ea3943";
+        ctx.beginPath();
+        ctx.roundRect(padding.left + tw + 10, ly - 10, pnlTw, 20, 4);
+        ctx.fill();
+        ctx.fillStyle = "#0b0e11";
+        ctx.font = "bold 10px monospace";
+        ctx.fillText(pnlStr, padding.left + tw + 15, ly + 4);
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = posColor;
+        ctx.shadowColor = posColor;
+        ctx.shadowBlur = 10 + pulse * 6;
+        ctx.beginPath();
+        ctx.arc(padding.left + 2, ey, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        const rightLblW = 58;
+        const rightLblH = 18;
+        ctx.save();
+        ctx.shadowColor = posColor;
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = posColor;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.moveTo(width - padding.right, ey);
+        ctx.lineTo(width - padding.right + 5, ey - rightLblH / 2);
+        ctx.lineTo(width - padding.right + 5 + rightLblW, ey - rightLblH / 2);
+        ctx.lineTo(width - padding.right + 5 + rightLblW, ey + rightLblH / 2);
+        ctx.lineTo(width - padding.right + 5, ey + rightLblH / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#0b0e11";
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(formatPrice(entryPx), width - padding.right + 5 + rightLblW / 2, ey + 3);
+        ctx.textAlign = "start";
+        ctx.restore();
       });
 
       const startTime = priceTicks[0].time;
@@ -936,41 +757,61 @@ function LiveLineChart({
 
         ctx.save();
         ctx.shadowColor = mColor;
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 12;
 
         if (isOpen) {
-          const sz = 8;
+          const sz = 10;
           ctx.fillStyle = mColor;
           ctx.beginPath();
           if (isLong) {
             ctx.moveTo(mx, my - sz);
-            ctx.lineTo(mx + sz * 0.7, my + sz * 0.5);
-            ctx.lineTo(mx - sz * 0.7, my + sz * 0.5);
+            ctx.lineTo(mx + sz * 0.75, my + sz * 0.5);
+            ctx.lineTo(mx - sz * 0.75, my + sz * 0.5);
           } else {
             ctx.moveTo(mx, my + sz);
-            ctx.lineTo(mx + sz * 0.7, my - sz * 0.5);
-            ctx.lineTo(mx - sz * 0.7, my - sz * 0.5);
+            ctx.lineTo(mx + sz * 0.75, my - sz * 0.5);
+            ctx.lineTo(mx - sz * 0.75, my - sz * 0.5);
           }
           ctx.closePath();
           ctx.fill();
+
+          ctx.fillStyle = mColor;
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "center";
+          const lbl = `${isLong ? "BUY" : "SELL"} ${marker.leverage || ""}x`;
+          const prLbl = `$${formatPrice(marker.price)}`;
+          const lblY = isLong ? my + sz + 13 : my - sz - 6;
+          ctx.fillText(lbl, mx, lblY);
+          ctx.fillStyle = "rgba(255,255,255,0.5)";
+          ctx.font = "9px monospace";
+          ctx.fillText(prLbl, mx, lblY + 11);
+          ctx.textAlign = "start";
         } else {
           ctx.beginPath();
-          ctx.arc(mx, my, 6, 0, Math.PI * 2);
+          ctx.arc(mx, my, 7, 0, Math.PI * 2);
           ctx.fillStyle = "#0b0e11";
           ctx.fill();
           ctx.strokeStyle = mColor;
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
           ctx.stroke();
           ctx.fillStyle = mColor;
-          ctx.font = "bold 8px monospace";
+          ctx.font = "bold 9px monospace";
           ctx.textAlign = "center";
-          ctx.fillText("X", mx, my + 3);
+          ctx.fillText("X", mx, my + 3.5);
           ctx.textAlign = "start";
 
           if (marker.pnl !== undefined) {
             const pnlStr = (marker.pnl >= 0 ? "+" : "") + formatMoney(marker.pnl);
-            ctx.font = "bold 9px monospace";
-            ctx.fillStyle = marker.pnl >= 0 ? "#0ecb81" : "#ea3943";
+            const pnlBg = marker.pnl >= 0 ? "#0ecb81" : "#ea3943";
+            ctx.font = "bold 10px monospace";
+            const pw = ctx.measureText(pnlStr).width + 8;
+            ctx.fillStyle = pnlBg;
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.roundRect(mx - pw / 2, my - 24, pw, 16, 3);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "#0b0e11";
             ctx.textAlign = "center";
             ctx.fillText(pnlStr, mx, my - 12);
             ctx.textAlign = "start";
@@ -1582,31 +1423,64 @@ function TradingPanel({
           </div>
         </div>
 
-        <button
-          className={`w-full py-3 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${side === "long" ? "arena-btn-glow-green" : "arena-btn-glow-red"}`}
-          style={{
-            background: side === "long" ? "#0ecb81" : "#ea3943",
-            color: side === "long" ? "#0b0e11" : "#fff",
-            opacity: openMutation.isPending || parseFloat(sizeUsdt) <= 0 ? 0.5 : 1,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-          onClick={() => openMutation.mutate()}
-          disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0 || cooldownActive}
-          data-testid="button-open-position"
-        >
-          {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
-          {side === "long" ? "Buy/Long" : "Sell/Short"} {leverage}x
-        </button>
+        <div className="relative">
+          <button
+            className={`w-full py-3.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${side === "long" ? "arena-btn-glow-green" : "arena-btn-glow-red"}`}
+            style={{
+              background: side === "long"
+                ? "linear-gradient(135deg, #0ecb81, #0aa870)"
+                : "linear-gradient(135deg, #ea3943, #d63342)",
+              color: side === "long" ? "#0b0e11" : "#fff",
+              opacity: openMutation.isPending || parseFloat(sizeUsdt) <= 0 ? 0.5 : 1,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              fontSize: "14px",
+              boxShadow: side === "long"
+                ? "0 4px 20px rgba(14,203,129,0.3), inset 0 1px 0 rgba(255,255,255,0.15)"
+                : "0 4px 20px rgba(234,57,67,0.3), inset 0 1px 0 rgba(255,255,255,0.15)",
+            }}
+            onClick={() => openMutation.mutate()}
+            disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0 || cooldownActive}
+            data-testid="button-open-position"
+          >
+            {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
+            {side === "long" ? "Buy / Long" : "Sell / Short"} {leverage}x
+            <span className="text-xs opacity-75">({formatMoney(parseFloat(sizeUsdt))})</span>
+          </button>
+          {cooldownActive && (
+            <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
+              <div
+                className="h-full"
+                style={{
+                  background: "rgba(0,0,0,0.4)",
+                  animation: "arena-cooldown-sweep 0.35s linear",
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {openPositions.length > 0 && (
-        <div className="border-t px-3 py-2" style={{ borderColor: "#1e2329" }}>
-          <p className="text-xs font-semibold mb-2 flex items-center gap-1.5" style={{ color: "#f0b90b" }}>
-            <Target className="w-3.5 h-3.5" />
-            Open Positions ({openPositions.length})
-          </p>
-          <div className="space-y-1.5">
+        <div className="border-t px-3 py-3" style={{ borderColor: "#1e2329" }}>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "#f0b90b" }}>
+              <Target className="w-3.5 h-3.5" />
+              Open Positions ({openPositions.length})
+            </p>
+            {openPositions.length > 1 && (
+              <button
+                onClick={() => openPositions.forEach(p => closeMutation.mutate(p.id))}
+                disabled={closeMutation.isPending || cooldownActive}
+                className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-all"
+                style={{ background: "rgba(234,57,67,0.1)", color: "#ea3943", border: "1px solid rgba(234,57,67,0.2)" }}
+                data-testid="button-close-all"
+              >
+                Close All
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
             {openPositions.map((pos, i) => {
               const entry = parseFloat(pos.entryPrice);
               const size = parseFloat(pos.sizeUsdt);
@@ -1620,57 +1494,74 @@ function TradingPanel({
               }
               const pnlPct = size > 0 ? (pnl / size) * 100 : 0;
               const pnlColor = pnl >= 0 ? "#0ecb81" : "#ea3943";
+              const borderGlow = pnl >= 0 ? "rgba(14,203,129,0.25)" : "rgba(234,57,67,0.25)";
               return (
                 <div
                   key={pos.id}
-                  className="p-2 rounded-md"
-                  style={{ background: "#1e2329" }}
+                  className="rounded-lg overflow-hidden"
+                  style={{
+                    background: "#161a1e",
+                    border: `1px solid ${borderGlow}`,
+                    boxShadow: `0 0 12px ${pnl >= 0 ? "rgba(14,203,129,0.08)" : "rgba(234,57,67,0.08)"}`,
+                  }}
                   data-testid={`position-card-${pos.id}`}
                 >
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: pos.side === "long" ? "rgba(14,203,129,0.08)" : "rgba(234,57,67,0.08)" }}>
                     <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {pos.side === "long" ? <ArrowUp className="w-4 h-4" style={{ color: "#0ecb81" }} /> : <ArrowDown className="w-4 h-4" style={{ color: "#ea3943" }} />}
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: pos.side === "long" ? "#0ecb81" : "#ea3943" }}
+                        >
+                          {pos.side.toUpperCase()} {pos.leverage}x
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono" style={{ color: "#848e9c" }}>{formatMoney(size)}</span>
+                    </div>
+                    <div
+                      className="text-right"
+                    >
                       <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                        style={{
-                          background: pos.side === "long" ? "rgba(14,203,129,0.15)" : "rgba(234,57,67,0.15)",
-                          color: pos.side === "long" ? "#0ecb81" : "#ea3943",
-                        }}
+                        className="text-base font-mono font-bold"
+                        style={{ color: pnlColor, textShadow: `0 0 8px ${pnlColor}40` }}
+                        data-testid={`pnl-value-${pos.id}`}
                       >
-                        {pos.side.toUpperCase()} {pos.leverage}x
+                        {pnl >= 0 ? "+" : ""}{formatMoney(pnl)}
                       </span>
-                      <span className="text-xs font-mono text-white">{formatMoney(size)}</span>
+                      <span className="text-[10px] font-mono block" style={{ color: pnlColor }}>
+                        {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Entry</span>
+                        <span className="text-xs font-mono font-semibold text-white">${formatPrice(entry)}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <ChevronRight className="w-3 h-3" style={{ color: "#848e9c" }} />
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Current</span>
+                        <span className="text-xs font-mono font-semibold" style={{ color: pnlColor }}>${formatPrice(currentPrice)}</span>
+                      </div>
                     </div>
                     <button
                       onClick={() => closeMutation.mutate(pos.id)}
                       disabled={closeMutation.isPending || cooldownActive}
-                      className="p-1 rounded transition-all"
-                      style={{ background: "#2b3139", color: "#848e9c" }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all"
+                      style={{
+                        background: "rgba(234,57,67,0.15)",
+                        color: "#ea3943",
+                        border: "1px solid rgba(234,57,67,0.3)",
+                      }}
                       data-testid={`button-close-${pos.id}`}
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <XCircle className="w-3.5 h-3.5" />
+                      Close
                     </button>
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5 gap-2">
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Entry</span>
-                        <span className="text-[11px] font-mono text-white">${formatPrice(entry)}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Now</span>
-                        <span className="text-[11px] font-mono" style={{ color: pnlColor }}>${formatPrice(currentPrice)}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Live P&L</span>
-                      <span
-                        className="text-sm font-mono font-bold"
-                        style={{ color: pnlColor }}
-                        data-testid={`pnl-value-${pos.id}`}
-                      >
-                        {pnl >= 0 ? "+" : ""}{formatMoney(pnl)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
-                      </span>
-                    </div>
                   </div>
                 </div>
               );

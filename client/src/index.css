@@ -423,6 +423,10 @@
   60% { transform: scale(1); }
 }
 .arena-heartbeat { animation: arena-heartbeat 1.2s ease-in-out; }
+@keyframes arena-cooldown-sweep {
+  0% { width: 100%; opacity: 0.6; }
+  100% { width: 0%; opacity: 0; }
+}
 .arena-scanlines {
   background: repeating-linear-gradient(
     0deg,
