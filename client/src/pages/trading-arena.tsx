@@ -1889,7 +1889,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   }>({
     queryKey: ["/api/trading-duels", duelId, "status", agent?.id ? `?agentId=${agent.id}` : ""],
     enabled: !!duel && duel.status === "active" && !!agent?.id,
-    refetchInterval: 2500,
+    refetchInterval: 1000,
   });
 
   useEffect(() => {
@@ -2284,37 +2284,47 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
             </div>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[9px] uppercase" style={{ color: "#848e9c" }}>You</span>
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#1e2329" }}>
+            <span className="text-[9px] uppercase font-bold" style={{ color: matchStatus.myMomentum >= matchStatus.oppMomentum ? "#0ecb81" : "#848e9c" }}>YOU</span>
+            <div className="flex-1 h-2.5 rounded-full overflow-hidden relative" style={{ background: "#1e2329" }}>
               <div
-                className="h-full rounded-full transition-all duration-700"
+                className="h-full rounded-full"
                 style={{
                   width: `${matchStatus.myMomentum}%`,
-                  background: matchStatus.myMomentum > 50 ? "linear-gradient(90deg, #0ecb81, #0ecb81)" : "linear-gradient(90deg, #ea3943, #ea3943)",
-                  boxShadow: matchStatus.myMomentum > 60 ? "0 0 8px rgba(14,203,129,0.5)" : "none",
+                  background: matchStatus.myMomentum > 50
+                    ? "linear-gradient(90deg, #0ecb81, #00ff88)"
+                    : matchStatus.myMomentum > 30
+                      ? "linear-gradient(90deg, #f0b90b, #fcd535)"
+                      : "linear-gradient(90deg, #ea3943, #ff6b6b)",
+                  boxShadow: matchStatus.myMomentum > 60 ? "0 0 12px rgba(14,203,129,0.6), inset 0 1px 0 rgba(255,255,255,0.2)" : "none",
+                  transition: "width 150ms cubic-bezier(0.4, 0, 0.2, 1)",
                 }}
                 data-testid="bar-my-momentum"
               />
             </div>
-            <span className="text-[10px] font-mono w-8 text-right" style={{ color: matchStatus.myMomentum > 50 ? "#0ecb81" : "#ea3943" }}>
-              {matchStatus.myMomentum}
+            <span className="text-[11px] font-mono font-bold w-10 text-right" style={{ color: matchStatus.myMomentum > 50 ? "#0ecb81" : matchStatus.myMomentum > 30 ? "#f0b90b" : "#ea3943" }}>
+              {matchStatus.myMomentum}%
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[9px] uppercase" style={{ color: "#848e9c" }}>Opp</span>
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: "#1e2329" }}>
+            <span className="text-[9px] uppercase font-bold" style={{ color: matchStatus.oppMomentum > matchStatus.myMomentum ? "#ea3943" : "#848e9c" }}>OPP</span>
+            <div className="flex-1 h-2.5 rounded-full overflow-hidden relative" style={{ background: "#1e2329" }}>
               <div
-                className="h-full rounded-full transition-all duration-700"
+                className="h-full rounded-full"
                 style={{
                   width: `${matchStatus.oppMomentum}%`,
-                  background: matchStatus.oppMomentum > 50 ? "linear-gradient(90deg, #0ecb81, #0ecb81)" : "linear-gradient(90deg, #ea3943, #ea3943)",
-                  boxShadow: matchStatus.oppMomentum > 60 ? "0 0 8px rgba(14,203,129,0.5)" : "none",
+                  background: matchStatus.oppMomentum > 50
+                    ? "linear-gradient(90deg, #ea3943, #ff6b6b)"
+                    : matchStatus.oppMomentum > 30
+                      ? "linear-gradient(90deg, #f0b90b, #fcd535)"
+                      : "linear-gradient(90deg, #0ecb81, #00ff88)",
+                  boxShadow: matchStatus.oppMomentum > 60 ? "0 0 12px rgba(234,57,67,0.6), inset 0 1px 0 rgba(255,255,255,0.2)" : "none",
+                  transition: "width 150ms cubic-bezier(0.4, 0, 0.2, 1)",
                 }}
                 data-testid="bar-opp-momentum"
               />
             </div>
-            <span className="text-[10px] font-mono w-8 text-right" style={{ color: matchStatus.oppMomentum > 50 ? "#0ecb81" : "#ea3943" }}>
-              {matchStatus.oppMomentum}
+            <span className="text-[11px] font-mono font-bold w-10 text-right" style={{ color: matchStatus.oppMomentum > 50 ? "#ea3943" : matchStatus.oppMomentum > 30 ? "#f0b90b" : "#0ecb81" }}>
+              {matchStatus.oppMomentum}%
             </span>
           </div>
         </div>
