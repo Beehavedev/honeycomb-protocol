@@ -2540,13 +2540,137 @@ export async function registerRoutes(
     }
   });
 
+  const arenaPriceCache = new Map<string, { price: number; timestamp: number }>();
+  const ARENA_CACHE_TTL = 10000;
+
+  const SYMBOL_TO_BASE: Record<string, string> = {
+    BTCUSDT: "BTC", ETHUSDT: "ETH", BNBUSDT: "BNB", SOLUSDT: "SOL",
+    DOGEUSDT: "DOGE", XRPUSDT: "XRP", ADAUSDT: "ADA", AVAXUSDT: "AVAX",
+    MATICUSDT: "MATIC", LINKUSDT: "LINK", PEPEUSDT: "PEPE", SHIBUSDT: "SHIB",
+  };
+
+  const KRAKEN_MAP: Record<string, string> = {
+    BTC: "XBTUSD", ETH: "ETHUSD", SOL: "SOLUSD", BNB: "BNBUSD",
+    DOGE: "DOGEUSD", XRP: "XRPUSD", ADA: "ADAUSD", AVAX: "AVAXUSD",
+    LINK: "LINKUSD",
+  };
+
+  async function fetchArenaPrice(symbol: string): Promise<number> {
+    const cached = arenaPriceCache.get(symbol);
+    if (cached && Date.now() - cached.timestamp < ARENA_CACHE_TTL) {
+      return cached.price;
+    }
+
+    const base = SYMBOL_TO_BASE[symbol] || symbol.replace("USDT", "");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    try {
+      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`, { signal: controller.signal });
+      clearTimeout(timeout);
+      const data = await res.json();
+      if (data?.price) {
+        const price = parseFloat(data.price);
+        arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
+        return price;
+      }
+    } catch {}
+
+    try {
+      const controller2 = new AbortController();
+      const timeout2 = setTimeout(() => controller2.abort(), 4000);
+      const res = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`, { signal: controller2.signal });
+      clearTimeout(timeout2);
+      const data = await res.json();
+      if (data?.price) {
+        const price = parseFloat(data.price);
+        arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
+        return price;
+      }
+    } catch {}
+
+    const krakenSym = KRAKEN_MAP[base];
+    if (krakenSym) {
+      try {
+        const controller3 = new AbortController();
+        const timeout3 = setTimeout(() => controller3.abort(), 4000);
+        const res = await fetch(`https://api.kraken.com/0/public/Ticker?pair=${krakenSym}`, { signal: controller3.signal });
+        clearTimeout(timeout3);
+        const data = await res.json();
+        const pair = Object.keys(data.result || {})[0];
+        if (pair && data.result[pair]?.c?.[0]) {
+          const price = parseFloat(data.result[pair].c[0]);
+          arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
+          return price;
+        }
+      } catch {}
+    }
+
+    try {
+      const controller4 = new AbortController();
+      const timeout4 = setTimeout(() => controller4.abort(), 4000);
+      const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${base}&tsyms=USD`, { signal: controller4.signal });
+      clearTimeout(timeout4);
+      const data = await res.json();
+      if (data?.USD) {
+        const price = data.USD;
+        arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
+        return price;
+      }
+    } catch {}
+
+    if (cached) return cached.price;
+
+    throw new Error("Failed to fetch price from any exchange");
+  }
+
   app.get("/api/trading-duels/binance/klines", async (req, res) => {
     try {
       const { symbol, interval, limit: klimit } = req.query;
-      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol || "BTCUSDT"}&interval=${interval || "1m"}&limit=${klimit || 100}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      res.json(data);
+      const sym = (symbol as string) || "BTCUSDT";
+      const intv = (interval as string) || "1m";
+      const lim = (klimit as string) || "100";
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${intv}&limit=${lim}`, { signal: controller.signal });
+        clearTimeout(timeout);
+        const data = await response.json();
+        if (Array.isArray(data)) return res.json(data);
+      } catch {}
+
+      const controller2 = new AbortController();
+      const timeout2 = setTimeout(() => controller2.abort(), 5000);
+      try {
+        const response = await fetch(`https://api.binance.us/api/v3/klines?symbol=${sym}&interval=${intv}&limit=${lim}`, { signal: controller2.signal });
+        clearTimeout(timeout2);
+        const data = await response.json();
+        if (Array.isArray(data)) return res.json(data);
+      } catch {}
+
+      const base = SYMBOL_TO_BASE[sym] || sym.replace("USDT", "");
+      const krakenSym = KRAKEN_MAP[base];
+      if (krakenSym) {
+        const intervalMap: Record<string, number> = { "1m": 1, "5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440 };
+        const krakenInterval = intervalMap[intv] || 1;
+        const controller3 = new AbortController();
+        const timeout3 = setTimeout(() => controller3.abort(), 5000);
+        try {
+          const response = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${krakenSym}&interval=${krakenInterval}`, { signal: controller3.signal });
+          clearTimeout(timeout3);
+          const data = await response.json();
+          const pair = Object.keys(data.result || {}).find(k => k !== "last");
+          if (pair && data.result[pair]) {
+            const klines = data.result[pair].slice(-parseInt(lim)).map((k: any) => [
+              k[0] * 1000, k[1], k[2], k[3], k[4], k[6], k[0] * 1000 + krakenInterval * 60000, k[4], "0", "0", "0", "0"
+            ]);
+            return res.json(klines);
+          }
+        } catch {}
+      }
+
+      res.status(500).json({ message: "Failed to fetch chart data from any exchange" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -2555,10 +2679,9 @@ export async function registerRoutes(
   app.get("/api/trading-duels/binance/ticker", async (req, res) => {
     try {
       const { symbol } = req.query;
-      const url = `https://api.binance.com/api/v3/ticker/price?symbol=${symbol || "BTCUSDT"}`;
-      const response = await fetch(url);
-      const data = await response.json();
-      res.json(data);
+      const sym = (symbol as string) || "BTCUSDT";
+      const price = await fetchArenaPrice(sym);
+      res.json({ symbol: sym, price: price.toString() });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -2679,10 +2802,8 @@ export async function registerRoutes(
 
       let entryPrice: string;
       try {
-        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
-        const priceData = await priceRes.json();
-        entryPrice = priceData.price;
-        if (!entryPrice) throw new Error("No price");
+        const price = await fetchArenaPrice(duel.assetSymbol);
+        entryPrice = price.toString();
       } catch {
         return res.status(500).json({ message: "Failed to fetch price from exchange" });
       }
@@ -2741,10 +2862,8 @@ export async function registerRoutes(
 
       let exitPrice: string;
       try {
-        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
-        const priceData = await priceRes.json();
-        exitPrice = priceData.price;
-        if (!exitPrice) throw new Error("No price");
+        const price = await fetchArenaPrice(duel.assetSymbol);
+        exitPrice = price.toString();
       } catch {
         return res.status(500).json({ message: "Failed to fetch price from exchange" });
       }
@@ -2781,10 +2900,8 @@ export async function registerRoutes(
 
       let settlementPrice: string;
       try {
-        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
-        const priceData = await priceRes.json();
-        settlementPrice = priceData.price;
-        if (!settlementPrice) throw new Error("No price");
+        const price = await fetchArenaPrice(duel.assetSymbol);
+        settlementPrice = price.toString();
       } catch {
         return res.status(500).json({ message: "Failed to fetch settlement price from exchange" });
       }
@@ -2910,9 +3027,7 @@ export async function registerRoutes(
 
       let currentPrice: number;
       try {
-        const priceRes = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
-        const priceData = await priceRes.json();
-        currentPrice = parseFloat(priceData.price);
+        currentPrice = await fetchArenaPrice(duel.assetSymbol);
       } catch {
         return res.status(500).json({ message: "Failed to fetch price" });
       }

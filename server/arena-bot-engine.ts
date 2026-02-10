@@ -61,14 +61,54 @@ export async function isArenaBotAgent(agentId: string): Promise<boolean> {
   return ARENA_BOT_PROFILES.some(p => p.ownerAddress === agent.ownerAddress);
 }
 
+const KRAKEN_BOT_MAP: Record<string, string> = {
+  BTCUSDT: "XBTUSD", ETHUSDT: "ETHUSD", SOLUSDT: "SOLUSD", BNBUSDT: "BNBUSD",
+  DOGEUSDT: "DOGEUSD", XRPUSDT: "XRPUSD",
+};
+
 async function fetchCurrentPrice(symbol: string): Promise<number | null> {
+  const controller1 = new AbortController();
+  const t1 = setTimeout(() => controller1.abort(), 3000);
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+    const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`, { signal: controller1.signal });
+    clearTimeout(t1);
     const data = await res.json() as any;
-    return data.price ? parseFloat(data.price) : null;
-  } catch {
-    return null;
+    if (data.price) return parseFloat(data.price);
+  } catch {}
+
+  const controller2 = new AbortController();
+  const t2 = setTimeout(() => controller2.abort(), 3000);
+  try {
+    const res = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`, { signal: controller2.signal });
+    clearTimeout(t2);
+    const data = await res.json() as any;
+    if (data.price) return parseFloat(data.price);
+  } catch {}
+
+  const krakenSym = KRAKEN_BOT_MAP[symbol];
+  if (krakenSym) {
+    const controller3 = new AbortController();
+    const t3 = setTimeout(() => controller3.abort(), 3000);
+    try {
+      const res = await fetch(`https://api.kraken.com/0/public/Ticker?pair=${krakenSym}`, { signal: controller3.signal });
+      clearTimeout(t3);
+      const data = await res.json() as any;
+      const pair = Object.keys(data.result || {})[0];
+      if (pair && data.result[pair]?.c?.[0]) return parseFloat(data.result[pair].c[0]);
+    } catch {}
   }
+
+  const base = symbol.replace("USDT", "");
+  const controller4 = new AbortController();
+  const t4 = setTimeout(() => controller4.abort(), 3000);
+  try {
+    const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${base}&tsyms=USD`, { signal: controller4.signal });
+    clearTimeout(t4);
+    const data = await res.json() as any;
+    if (data?.USD) return data.USD;
+  } catch {}
+
+  return null;
 }
 
 function getBotDecision(style: BotStyle, tradeCount: number, maxTrades: number): { action: "open" | "close" | "wait"; side?: "long" | "short"; leverage?: number; sizePercent?: number } {
