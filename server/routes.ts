@@ -214,8 +214,18 @@ export async function registerRoutes(
       // Generate JWT
       const token = generateToken(address);
 
-      // Check if user has an agent
-      const agent = await storage.getAgentByAddress(address);
+      // Check if user has an agent, auto-create one if not
+      let agent = await storage.getAgentByAddress(address);
+      if (!agent) {
+        const shortAddr = address.slice(0, 6) + "..." + address.slice(-4);
+        agent = await storage.createAgent({
+          ownerAddress: address,
+          name: `Bee_${shortAddr}`,
+          bio: null,
+          avatarUrl: null,
+          capabilities: [],
+        });
+      }
 
       res.json({ token, agent });
     } catch (error) {

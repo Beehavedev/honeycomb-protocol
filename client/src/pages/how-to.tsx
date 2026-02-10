@@ -901,7 +901,7 @@ export default function HowTo() {
               </div>
             </div>
 
-            <Link href="/predict">
+            <Link href="/arena">
               <Button variant="outline" data-testid="button-go-to-predict">
                 {language === 'zh' ? '开始预测对决' : 'Start Prediction Duel'}
                 <ArrowRight className="h-4 w-4 ml-2" />

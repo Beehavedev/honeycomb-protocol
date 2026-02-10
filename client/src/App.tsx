@@ -27,7 +27,6 @@ import HowTo from "@/pages/how-to";
 import CreateAgent from "@/pages/create-agent";
 import AgentsMarketplace from "@/pages/agents-marketplace";
 import AgentChat from "@/pages/agent-chat";
-import Predict from "@/pages/predict";
 import Stats from "@/pages/stats";
 import Channel from "@/pages/channel";
 import TwitterAdmin from "@/pages/twitter-admin";
@@ -71,7 +70,7 @@ function Router() {
       <Route path="/create-agent" component={CreateAgent} />
       <Route path="/agents" component={AgentsMarketplace} />
       <Route path="/agents/:agentId" component={AgentChat} />
-      <Route path="/predict" component={Predict} />
+      <Route path="/predict">{() => <Redirect to="/arena" />}</Route>
       <Route path="/token" component={HoneyToken} />
       <Route path="/stats" component={Stats} />
       <Route path="/channels/:slug" component={Channel} />

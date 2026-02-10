@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
+import { useAccount } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,21 @@ import {
   Cpu,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
+
+const LazyPredict = lazy(() => import("@/pages/predict"));
+
+function PredictContent() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+        <p className="text-sm text-muted-foreground">Loading Predict Duel...</p>
+      </div>
+    }>
+      <LazyPredict />
+    </Suspense>
+  );
+}
 
 const ASSETS = [
   { symbol: "BTCUSDT", name: "Bitcoin", short: "BTC" },
@@ -331,7 +347,8 @@ function StatBadge({ icon: Icon, label, value, color = "amber" }: { icon: any; l
 }
 
 function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
-  const { agent } = useAuth();
+  const { agent, authenticate, isAuthenticating } = useAuth();
+  const { isConnected } = useAccount();
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [asset, setAsset] = useState("BTCUSDT");
@@ -372,11 +389,25 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   if (!agent) {
     return (
       <Card className="arena-glow-card">
-        <CardContent className="p-6 text-center">
+        <CardContent className="p-6 text-center space-y-3">
           <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center mb-3 arena-float">
-            <Shield className="w-7 h-7 text-amber-400" />
+            <Zap className="w-7 h-7 text-amber-400" />
           </div>
-          <p className="text-muted-foreground">Connect wallet and register as a Bee to enter the arena</p>
+          {isConnected ? (
+            <>
+              <p className="text-muted-foreground text-sm">Sign in to start trading</p>
+              <Button
+                onClick={() => authenticate().catch((e: Error) => toast({ title: "Sign-in failed", description: e.message, variant: "destructive" }))}
+                disabled={isAuthenticating}
+                data-testid="button-arena-signin"
+              >
+                {isAuthenticating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                {isAuthenticating ? "Signing in..." : "Sign In to Play"}
+              </Button>
+            </>
+          ) : (
+            <p className="text-muted-foreground text-sm">Connect your wallet to enter the arena</p>
+          )}
         </CardContent>
       </Card>
     );
@@ -397,7 +428,6 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant={mode === "bot" ? "default" : "outline"}
-              className={mode === "bot" ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white border-purple-700" : ""}
               onClick={() => setMode("bot")}
               data-testid="button-mode-bot"
             >
@@ -405,7 +435,6 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
             </Button>
             <Button
               variant={mode === "pvp" ? "default" : "outline"}
-              className={mode === "pvp" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600" : ""}
               onClick={() => setMode("pvp")}
               data-testid="button-mode-pvp"
             >
@@ -1080,11 +1109,10 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   );
 }
 
-export default function TradingArena() {
+function TradingArenaLobby() {
   const { agent } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [match, params] = useRoute("/arena/:id");
   const [tab, setTab] = useState("open");
 
   const { data: duels = [], isLoading } = useQuery<TradingDuel[]>({
@@ -1103,33 +1131,16 @@ export default function TradingArena() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  if (match && params?.id) {
-    return <ActiveDuelView duelId={params.id} />;
-  }
-
   return (
-    <div className="relative max-w-5xl mx-auto p-4 space-y-6">
-      <ArenaBackground />
-
-      <div className="relative z-10 text-center space-y-4 py-4 arena-animate-up">
-        <div className="flex items-center justify-center gap-4">
-          <div className="w-16 h-16 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center arena-float" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
-            <Swords className="w-9 h-9 text-amber-400" />
-          </div>
-          <div className="text-left">
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Trading Arena</h1>
-            <p className="text-muted-foreground text-sm">1v1 skill-based trading battles on real crypto charts</p>
-          </div>
-        </div>
-        <div className="flex items-center justify-center gap-3 flex-wrap arena-animate-up-d1">
-          <StatBadge icon={DollarSign} label="Start" value="$1M Fake" color="green" />
-          <StatBadge icon={Target} label="Leverage" value="Up to 50x" color="amber" />
-          <StatBadge icon={Trophy} label="Winner" value="Takes 90%" color="blue" />
-          <StatBadge icon={Activity} label="Charts" value="Real-Time" color="red" />
-        </div>
+    <>
+      <div className="flex items-center justify-center gap-3 flex-wrap arena-animate-up-d1 mb-6">
+        <StatBadge icon={DollarSign} label="Start" value="$1M Fake" color="green" />
+        <StatBadge icon={Target} label="Leverage" value="Up to 50x" color="amber" />
+        <StatBadge icon={Trophy} label="Winner" value="Takes 90%" color="blue" />
+        <StatBadge icon={Activity} label="Charts" value="Real-Time" color="red" />
       </div>
 
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4 arena-animate-left">
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
@@ -1181,6 +1192,58 @@ export default function TradingArena() {
         <div>
           <CreateDuelPanel onCreated={() => setTab("open")} />
         </div>
+      </div>
+    </>
+  );
+}
+
+export default function TradingArena() {
+  const [match, params] = useRoute("/arena/:id");
+  const [gameMode, setGameMode] = useState("trading");
+
+  if (match && params?.id) {
+    return <ActiveDuelView duelId={params.id} />;
+  }
+
+  return (
+    <div className="relative max-w-5xl mx-auto p-4 space-y-6">
+      <ArenaBackground />
+
+      <div className="relative z-10 text-center space-y-4 py-4 arena-animate-up">
+        <div className="flex items-center justify-center gap-4">
+          <div className="w-16 h-16 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center arena-float" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
+            <Swords className="w-9 h-9 text-amber-400" />
+          </div>
+          <div className="text-left">
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Games Arena</h1>
+            <p className="text-muted-foreground text-sm">Compete, predict, and win on real crypto markets</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative z-10">
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <Button
+            variant={gameMode === "trading" ? "default" : "outline"}
+            onClick={() => setGameMode("trading")}
+            data-testid="button-game-trading"
+          >
+            <Swords className="w-4 h-4 mr-1.5" /> Trading Arena
+          </Button>
+          <Button
+            variant={gameMode === "predict" ? "default" : "outline"}
+            onClick={() => setGameMode("predict")}
+            data-testid="button-game-predict"
+          >
+            <Target className="w-4 h-4 mr-1.5" /> Predict Duel
+          </Button>
+        </div>
+
+        {gameMode === "trading" ? (
+          <TradingArenaLobby />
+        ) : (
+          <PredictContent />
+        )}
       </div>
     </div>
   );
