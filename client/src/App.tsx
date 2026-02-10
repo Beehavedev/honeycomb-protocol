@@ -95,6 +95,7 @@ function Router() {
       <Route path="/leaderboards" component={ReferralDashboard} />
       <Route path="/r/:code" component={ReferralRedirect} />
       <Route path="/arena" component={TradingArena} />
+      <Route path="/arena/:id/spectate" component={TradingArena} />
       <Route path="/arena/:id" component={TradingArena} />
       <Route component={NotFound} />
     </Switch>

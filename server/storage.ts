@@ -252,6 +252,7 @@ export interface IStorage {
   updateDuelClutch(id: string, clutchFlag: boolean): Promise<void>;
   updateAgentArenaStats(agentId: string, won: boolean): Promise<void>;
   getAgentArenaStats(agentId: string): Promise<{ arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number } | null>;
+  getSeriesDuels(seriesId: string): Promise<TradingDuel[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1721,6 +1722,10 @@ export class DatabaseStorage implements IStorage {
       arenaBestStreak: agent.arenaBestStreak || 0,
       arenaRating: agent.arenaRating || 1000,
     };
+  }
+
+  async getSeriesDuels(seriesId: string): Promise<TradingDuel[]> {
+    return await db.select().from(tradingDuels).where(eq(tradingDuels.seriesId, seriesId)).orderBy(tradingDuels.seriesRound);
   }
 }
 

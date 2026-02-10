@@ -1,0 +1,118 @@
+Build an MVP web app called “Trading Duels” (skill game).
+Two players deposit the same amount into a pot, trade the same market during a fixed timer, and the player with the highest PnL% at the end wins the pot (platform keeps a configurable rake fee).
+
+TECH STACK (use exactly this):
+- Frontend: Next.js (App Router) + TypeScript + Tailwind
+- Backend: Next.js Route Handlers (or Express inside Next) + TypeScript
+- Realtime: WebSockets (ws) for match state updates
+- DB: SQLite (via Prisma) for MVP (users, matches, wallets, leaderboards)
+- Chart: Lightweight Charts (TradingView open-source lib) or a minimal candlestick chart
+- Auth: simple email+password (bcrypt) for MVP
+- Payments: MOCK escrow wallet for MVP (do not integrate real crypto yet). Provide clear interface to swap to real on-chain later.
+
+CORE GAME LOOP:
+1) Lobby: create a duel or join a duel.
+2) Both players choose:
+   - stake amount (must be equal)
+   - match duration: 30s / 60s / 5m
+   - market: use a single shared price feed for both players (mock price feed that simulates a market; later replaceable by real exchange/oracle).
+3) When both accept, match starts:
+   - Both players trade by sending actions: BUY / SELL / CLOSE (market orders only for MVP).
+   - Each player has a virtual position with entry price, size, and PnL% computed from the same shared price feed.
+4) Addictive visibility (HYBRID):
+   - During match: do NOT show exact opponent PnL%. Show only relative status:
+     “YOU’RE LEADING”, “CLOSE”, “YOU’RE BEHIND”
+   - Show a momentum bar for each player (0-100) derived from last 5 seconds PnL slope (but not exact numbers).
+   - Show “lead changes” count and a subtle “heartbeat” animation when the lead flips (big dopamine).
+   - Exact PnL% and trade timeline are revealed only on the results screen.
+5) End of timer:
+   - Freeze trades.
+   - Compute final PnL% for both players.
+   - Winner takes: pot * (1 - rake). Loser gets 0. If tie: split after rake.
+   - Persist match to DB.
+
+SUPER ADDICTIVE FEATURES (must implement in MVP):
+- Instant Rematch: one-click “Run it back” button with same settings.
+- Best-of-3 mode: optional match type. Show score (1-0, 1-1, etc).
+- Streaks: win streak counter; streak badge appears in lobby.
+- Rank tiers: Bronze/Silver/Gold based on MMR-like rating (simple Elo).
+- Daily + Weekly leaderboards: by total winnings and win rate.
+- “Clutch” moments: if lead changes in last 10% of time, show “CLUTCH!” on results.
+- Match Replay: results page shows:
+   - timeline of trades
+   - final PnL% for both
+   - lead change moments
+- Spectator mode (read-only): allow a share link to watch the duel live with the same hybrid info (no exact PnL live).
+
+ANTI-CHEESE / FAIRNESS RULES:
+- Same price feed for both players (server authoritative).
+- Server is authoritative for time, price ticks, and PnL.
+- Trades are rate-limited (e.g., max 5 actions/sec) to prevent spam.
+- Add a “cooldown” after closing a trade (e.g., 300ms) to avoid exploit loops.
+- Prevent joining your own match.
+- If a player disconnects:
+   - grace period 5 seconds to reconnect
+   - if not returned, they forfeit and opponent wins (log reason)
+- Deterministic math: use decimal library to avoid float drift.
+
+PRICE FEED (MVP):
+- Implement a server “Market Simulator”:
+   - emits ticks every 250ms
+   - random walk with volatility parameter
+   - occasional “news spike” event (rare) that affects BOTH players equally
+- Make sure outcomes are still skill-based:
+   - spikes are global and predictable in probability (not targeted)
+   - players must manage risk; they can hold cash (no forced position)
+- Provide clean interface to replace simulator with real price feed later.
+
+DATA MODELS (Prisma):
+- User: id, email, passwordHash, createdAt, rating, wins, losses, streak, totalWinnings
+- Wallet (mock): userId, balance
+- Match: id, status, market, durationMs, stake, rakeBps, startedAt, endedAt, winnerId, p1Id, p2Id
+- Trade: id, matchId, userId, side, size, price, timestamp
+- MatchEvent: id, matchId, type (LEAD_CHANGE/NEWS_SPIKE/DISCONNECT), timestamp, payloadJson
+
+UI / PAGES:
+- / => home + CTA
+- /login /register
+- /lobby:
+   - create match form
+   - list open matches (filters by stake/duration)
+   - show your rating, streak, wallet
+- /match/[id]:
+   - main duel UI
+   - chart (shared)
+   - your position (exact PnL visible to YOU)
+   - opponent: show only “Leading/Close/Behind” + momentum bar
+   - timer big and urgent
+   - trade buttons + keyboard shortcuts
+- /match/[id]/results:
+   - exact PnL for both
+   - pot breakdown + rake
+   - replay timeline
+   - rematch button
+- /leaderboard daily + weekly + all-time
+
+REALTIME WS EVENTS:
+Server -> Client:
+- MATCH_STATE: timer, price, yourPnL, yourPosition, opponentStatus, opponentMomentum, leadChanges
+- MATCH_END: final results + breakdown + events
+- ERROR: reason
+Client -> Server:
+- JOIN_MATCH, READY_UP
+- TRADE_ACTION (BUY/SELL/CLOSE, size)
+- LEAVE_MATCH
+
+DELIVERABLES:
+- Working app in Replit that runs with one command.
+- Seed script to create demo users and top up wallets.
+- README with:
+  - how to run
+  - rules
+  - how to replace market simulator with real feed
+- Add a small “Game Settings” config file: rakeBps, tickMs, graceDisconnectMs, maxActionsPerSec, defaultStake.
+
+IMPORTANT:
+- Keep code clean and commented.
+- Ensure no exact opponent PnL is sent to clients during match (only status + momentum).
+- Everything must be server-authoritative and persisted.

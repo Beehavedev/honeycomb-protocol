@@ -44,6 +44,9 @@ import {
   Repeat2,
   BarChart3,
   Medal,
+  Share2,
+  Eye,
+  Copy,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 
@@ -187,169 +190,351 @@ function makeNoise(ctx: AudioContext, duration: number, volume: number): AudioBu
   return src;
 }
 
-function playTradeSound(type: "open" | "close" | "victory" | "defeat" | "tick" | "countdown" | "start") {
+function playCoinDrop(ctx: AudioContext, t: number, count: number, baseDelay: number) {
+  for (let i = 0; i < count; i++) {
+    const delay = baseDelay + i * (0.04 + Math.random() * 0.03);
+    const freq = 3000 + Math.random() * 4000;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, t + delay);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.7, t + delay + 0.06);
+    gain.gain.setValueAtTime(0.06 + Math.random() * 0.04, t + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.08);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t + delay);
+    osc.stop(t + delay + 0.08);
+  }
+}
+
+function playTradeSound(type: "open" | "close" | "victory" | "defeat" | "tick" | "countdown" | "start" | "leadchange" | "streak" | "profit") {
   try {
     const ctx = getAudioCtx();
     const t = ctx.currentTime;
 
     if (type === "open") {
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      const gain2 = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-      filter.type = "highpass";
-      filter.frequency.value = 2000;
+      const leverPull = ctx.createOscillator();
+      const leverGain = ctx.createGain();
+      leverPull.type = "sawtooth";
+      leverPull.frequency.setValueAtTime(150, t);
+      leverPull.frequency.exponentialRampToValueAtTime(80, t + 0.08);
+      leverPull.frequency.exponentialRampToValueAtTime(400, t + 0.12);
+      leverGain.gain.setValueAtTime(0.12, t);
+      leverGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      leverPull.connect(leverGain);
+      leverGain.connect(ctx.destination);
+      leverPull.start(t);
+      leverPull.stop(t + 0.15);
 
-      osc1.type = "sawtooth";
-      osc1.frequency.setValueAtTime(800, t);
-      osc1.frequency.exponentialRampToValueAtTime(2400, t + 0.06);
-      osc1.frequency.exponentialRampToValueAtTime(3200, t + 0.12);
-      gain1.gain.setValueAtTime(0.15, t);
-      gain1.gain.linearRampToValueAtTime(0.2, t + 0.04);
-      gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-      osc1.connect(filter);
-      filter.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(t);
-      osc1.stop(t + 0.3);
+      const click = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      click.type = "square";
+      click.frequency.value = 1200;
+      clickGain.gain.setValueAtTime(0.15, t + 0.02);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+      click.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      click.start(t + 0.02);
+      click.stop(t + 0.05);
 
-      osc2.type = "sine";
-      osc2.frequency.setValueAtTime(1200, t + 0.05);
-      osc2.frequency.exponentialRampToValueAtTime(1800, t + 0.15);
-      gain2.gain.setValueAtTime(0, t);
-      gain2.gain.linearRampToValueAtTime(0.1, t + 0.06);
-      gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(t + 0.05);
-      osc2.stop(t + 0.25);
+      const chime = ctx.createOscillator();
+      const chimeGain = ctx.createGain();
+      chime.type = "sine";
+      chime.frequency.setValueAtTime(1800, t + 0.06);
+      chime.frequency.exponentialRampToValueAtTime(2400, t + 0.15);
+      chimeGain.gain.setValueAtTime(0.1, t + 0.06);
+      chimeGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      chime.connect(chimeGain);
+      chimeGain.connect(ctx.destination);
+      chime.start(t + 0.06);
+      chime.stop(t + 0.25);
 
-      const noise = makeNoise(ctx, 0.08, 0.3);
-      const noiseGain = ctx.createGain();
-      const noiseFilter = ctx.createBiquadFilter();
-      noiseFilter.type = "bandpass";
-      noiseFilter.frequency.value = 6000;
-      noiseFilter.Q.value = 2;
-      noiseGain.gain.setValueAtTime(0.08, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-      noise.connect(noiseFilter);
-      noiseFilter.connect(noiseGain);
-      noiseGain.connect(ctx.destination);
-      noise.start(t);
-      noise.stop(t + 0.08);
+      playCoinDrop(ctx, t, 3, 0.1);
     } else if (type === "close") {
-      for (let i = 0; i < 3; i++) {
+      const reelStop = ctx.createOscillator();
+      const reelGain = ctx.createGain();
+      reelStop.type = "square";
+      reelStop.frequency.setValueAtTime(600, t);
+      reelStop.frequency.exponentialRampToValueAtTime(200, t + 0.05);
+      reelGain.gain.setValueAtTime(0.1, t);
+      reelGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      reelStop.connect(reelGain);
+      reelGain.connect(ctx.destination);
+      reelStop.start(t);
+      reelStop.stop(t + 0.08);
+
+      [1400, 1100, 800].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = i === 0 ? "square" : "sine";
-        const baseFreq = 1600 - i * 400;
-        osc.frequency.setValueAtTime(baseFreq, t + i * 0.06);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.4, t + i * 0.06 + 0.12);
-        gain.gain.setValueAtTime(0.1 - i * 0.02, t + i * 0.06);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.15);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t + 0.03 + i * 0.05);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.6, t + 0.03 + i * 0.05 + 0.1);
+        gain.gain.setValueAtTime(0.08, t + 0.03 + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03 + i * 0.05 + 0.12);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(t + i * 0.06);
-        osc.stop(t + i * 0.06 + 0.15);
-      }
-      const noise = makeNoise(ctx, 0.1, 0.5);
+        osc.start(t + 0.03 + i * 0.05);
+        osc.stop(t + 0.03 + i * 0.05 + 0.12);
+      });
+
+      playCoinDrop(ctx, t, 2, 0.15);
+    } else if (type === "victory") {
+      const fanfare = [523, 659, 784, 1047, 1319, 1568, 2093];
+      fanfare.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = i < 4 ? "sine" : "triangle";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, t + i * 0.09);
+        gain.gain.linearRampToValueAtTime(0.14 - i * 0.012, t + i * 0.09 + 0.03);
+        gain.gain.setValueAtTime(0.14 - i * 0.012, t + i * 0.09 + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.09 + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + i * 0.09);
+        osc.stop(t + i * 0.09 + 0.5);
+      });
+
+      playCoinDrop(ctx, t, 20, 0.5);
+      playCoinDrop(ctx, t, 15, 0.9);
+      playCoinDrop(ctx, t, 10, 1.3);
+
+      const jackpotBell = ctx.createOscillator();
+      const bellGain = ctx.createGain();
+      jackpotBell.type = "sine";
+      jackpotBell.frequency.setValueAtTime(3520, t + 0.6);
+      bellGain.gain.setValueAtTime(0.08, t + 0.6);
+      bellGain.gain.exponentialRampToValueAtTime(0.04, t + 0.8);
+      bellGain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+      jackpotBell.connect(bellGain);
+      bellGain.connect(ctx.destination);
+      jackpotBell.start(t + 0.6);
+      jackpotBell.stop(t + 1.8);
+
+      const shimmer1 = ctx.createOscillator();
+      const shimmer2 = ctx.createOscillator();
+      const sg1 = ctx.createGain();
+      const sg2 = ctx.createGain();
+      shimmer1.type = "sine";
+      shimmer1.frequency.setValueAtTime(5000, t + 0.4);
+      shimmer1.frequency.exponentialRampToValueAtTime(10000, t + 1.5);
+      sg1.gain.setValueAtTime(0.025, t + 0.4);
+      sg1.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+      shimmer1.connect(sg1);
+      sg1.connect(ctx.destination);
+      shimmer1.start(t + 0.4);
+      shimmer1.stop(t + 1.8);
+      shimmer2.type = "sine";
+      shimmer2.frequency.setValueAtTime(7000, t + 0.6);
+      shimmer2.frequency.exponentialRampToValueAtTime(12000, t + 1.8);
+      sg2.gain.setValueAtTime(0.015, t + 0.6);
+      sg2.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+      shimmer2.connect(sg2);
+      sg2.connect(ctx.destination);
+      shimmer2.start(t + 0.6);
+      shimmer2.stop(t + 2.0);
+
+      const noise = makeNoise(ctx, 1.5, 0.3);
       const ng = ctx.createGain();
       const nf = ctx.createBiquadFilter();
       nf.type = "highpass";
-      nf.frequency.value = 4000;
-      ng.gain.setValueAtTime(0.06, t);
-      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      nf.frequency.value = 8000;
+      ng.gain.setValueAtTime(0.04, t + 0.5);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
       noise.connect(nf);
       nf.connect(ng);
       ng.connect(ctx.destination);
-      noise.start(t);
-      noise.stop(t + 0.1);
-    } else if (type === "victory") {
-      const notes = [523, 659, 784, 1047, 1319, 1568];
-      notes.forEach((freq, i) => {
+      noise.start(t + 0.5);
+      noise.stop(t + 2.0);
+    } else if (type === "defeat") {
+      const wah = ctx.createOscillator();
+      const wahGain = ctx.createGain();
+      wah.type = "sawtooth";
+      wah.frequency.setValueAtTime(400, t);
+      wah.frequency.exponentialRampToValueAtTime(200, t + 0.3);
+      wah.frequency.exponentialRampToValueAtTime(100, t + 0.6);
+      wahGain.gain.setValueAtTime(0.08, t);
+      wahGain.gain.linearRampToValueAtTime(0.06, t + 0.3);
+      wahGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      wah.connect(wahGain);
+      wahGain.connect(ctx.destination);
+      wah.start(t);
+      wah.stop(t + 0.8);
+
+      [350, 280, 220].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0, t + i * 0.08);
-        gain.gain.linearRampToValueAtTime(0.12 - i * 0.015, t + i * 0.08 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.4);
+        gain.gain.setValueAtTime(0.06, t + i * 0.2);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.2 + 0.25);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(t + i * 0.08);
-        osc.stop(t + i * 0.08 + 0.4);
+        osc.start(t + i * 0.2);
+        osc.stop(t + i * 0.2 + 0.25);
       });
-      const shimmer = ctx.createOscillator();
-      const sg = ctx.createGain();
-      shimmer.type = "sine";
-      shimmer.frequency.setValueAtTime(4000, t + 0.3);
-      shimmer.frequency.exponentialRampToValueAtTime(8000, t + 0.8);
-      sg.gain.setValueAtTime(0.03, t + 0.3);
-      sg.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
-      shimmer.connect(sg);
-      sg.connect(ctx.destination);
-      shimmer.start(t + 0.3);
-      shimmer.stop(t + 1.0);
-    } else if (type === "defeat") {
-      const notes = [400, 350, 300, 250];
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.08, t + i * 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.3);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t + i * 0.15);
-        osc.stop(t + i * 0.15 + 0.3);
-      });
+
+      const buzz = ctx.createOscillator();
+      const buzzGain = ctx.createGain();
+      buzz.type = "square";
+      buzz.frequency.value = 55;
+      buzzGain.gain.setValueAtTime(0.05, t + 0.1);
+      buzzGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      buzz.connect(buzzGain);
+      buzzGain.connect(ctx.destination);
+      buzz.start(t + 0.1);
+      buzz.stop(t + 0.5);
     } else if (type === "tick") {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.value = 1800;
-      gain.gain.setValueAtTime(0.04, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      osc.frequency.value = 2800 + Math.random() * 800;
+      gain.gain.setValueAtTime(0.05, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(t);
-      osc.stop(t + 0.03);
+      osc.stop(t + 0.02);
     } else if (type === "countdown") {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, t);
-      osc.frequency.exponentialRampToValueAtTime(440, t + 0.15);
-      gain.gain.setValueAtTime(0.12, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.2);
+      const bell = ctx.createOscillator();
+      const bellGain = ctx.createGain();
+      bell.type = "sine";
+      bell.frequency.setValueAtTime(1760, t);
+      bellGain.gain.setValueAtTime(0.15, t);
+      bellGain.gain.exponentialRampToValueAtTime(0.08, t + 0.05);
+      bellGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      bell.connect(bellGain);
+      bellGain.connect(ctx.destination);
+      bell.start(t);
+      bell.stop(t + 0.3);
+
+      const sub = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      sub.type = "sine";
+      sub.frequency.value = 880;
+      subGain.gain.setValueAtTime(0.06, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      sub.connect(subGain);
+      subGain.connect(ctx.destination);
+      sub.start(t);
+      sub.stop(t + 0.15);
+
+      const tick = ctx.createOscillator();
+      const tickGain = ctx.createGain();
+      tick.type = "square";
+      tick.frequency.value = 4400;
+      tickGain.gain.setValueAtTime(0.03, t + 0.01);
+      tickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      tick.connect(tickGain);
+      tickGain.connect(ctx.destination);
+      tick.start(t + 0.01);
+      tick.stop(t + 0.03);
     } else if (type === "start") {
-      const notes = [440, 554, 659, 880];
-      notes.forEach((freq, i) => {
+      [330, 440, 554, 659, 880].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "square";
+        osc.type = i < 3 ? "square" : "sine";
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.08, t + i * 0.07);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.07 + 0.15);
+        gain.gain.setValueAtTime(0.1, t + i * 0.08);
+        gain.gain.linearRampToValueAtTime(0.12, t + i * 0.08 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.2);
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.start(t + i * 0.07);
-        osc.stop(t + i * 0.07 + 0.15);
+        osc.start(t + i * 0.08);
+        osc.stop(t + i * 0.08 + 0.2);
       });
-      const noise = makeNoise(ctx, 0.15, 0.4);
+
+      const horn = ctx.createOscillator();
+      const hornGain = ctx.createGain();
+      horn.type = "sawtooth";
+      horn.frequency.setValueAtTime(220, t + 0.35);
+      horn.frequency.exponentialRampToValueAtTime(440, t + 0.5);
+      hornGain.gain.setValueAtTime(0.06, t + 0.35);
+      hornGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      horn.connect(hornGain);
+      hornGain.connect(ctx.destination);
+      horn.start(t + 0.35);
+      horn.stop(t + 0.6);
+
+      const noise = makeNoise(ctx, 0.2, 0.5);
       const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0.05, t + 0.2);
-      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-      noise.connect(ng);
+      const nf = ctx.createBiquadFilter();
+      nf.type = "highpass";
+      nf.frequency.value = 6000;
+      ng.gain.setValueAtTime(0.06, t + 0.3);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      noise.connect(nf);
+      nf.connect(ng);
       ng.connect(ctx.destination);
-      noise.start(t + 0.2);
-      noise.stop(t + 0.35);
+      noise.start(t + 0.3);
+      noise.stop(t + 0.5);
+
+      playCoinDrop(ctx, t, 5, 0.4);
+    } else if (type === "leadchange") {
+      const alarm1 = ctx.createOscillator();
+      const alarm2 = ctx.createOscillator();
+      const ag1 = ctx.createGain();
+      const ag2 = ctx.createGain();
+      alarm1.type = "sine";
+      alarm1.frequency.setValueAtTime(1500, t);
+      alarm1.frequency.exponentialRampToValueAtTime(2500, t + 0.1);
+      alarm1.frequency.exponentialRampToValueAtTime(1500, t + 0.2);
+      ag1.gain.setValueAtTime(0.12, t);
+      ag1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      alarm1.connect(ag1);
+      ag1.connect(ctx.destination);
+      alarm1.start(t);
+      alarm1.stop(t + 0.3);
+
+      alarm2.type = "triangle";
+      alarm2.frequency.setValueAtTime(3000, t + 0.05);
+      alarm2.frequency.exponentialRampToValueAtTime(4000, t + 0.15);
+      ag2.gain.setValueAtTime(0.06, t + 0.05);
+      ag2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      alarm2.connect(ag2);
+      ag2.connect(ctx.destination);
+      alarm2.start(t + 0.05);
+      alarm2.stop(t + 0.25);
+
+      const impact = ctx.createOscillator();
+      const impactGain = ctx.createGain();
+      impact.type = "sine";
+      impact.frequency.setValueAtTime(100, t);
+      impact.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+      impactGain.gain.setValueAtTime(0.1, t);
+      impactGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      impact.connect(impactGain);
+      impactGain.connect(ctx.destination);
+      impact.start(t);
+      impact.stop(t + 0.2);
+    } else if (type === "streak") {
+      [880, 1047, 1319, 1568, 2093, 2637].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, t + i * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + i * 0.06);
+        osc.stop(t + i * 0.06 + 0.3);
+      });
+      playCoinDrop(ctx, t, 12, 0.3);
+    } else if (type === "profit") {
+      const cha = ctx.createOscillator();
+      const chaGain = ctx.createGain();
+      cha.type = "sine";
+      cha.frequency.setValueAtTime(2000, t);
+      cha.frequency.exponentialRampToValueAtTime(3000, t + 0.08);
+      chaGain.gain.setValueAtTime(0.08, t);
+      chaGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      cha.connect(chaGain);
+      chaGain.connect(ctx.destination);
+      cha.start(t);
+      cha.stop(t + 0.12);
+      playCoinDrop(ctx, t, 4, 0.08);
     }
   } catch {}
 }
@@ -947,6 +1132,21 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const playBo3Mutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/trading-duels/play-vs-bot-bo3", {
+      creatorId: agent?.id,
+      assetSymbol: asset,
+      potAmount,
+      durationSeconds: parseInt(duration),
+    }),
+    onSuccess: (data: any) => {
+      toast({ title: "Best of 3 Started!", description: `Round 1 vs ${data.botName}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
+      navigate(`/arena/${data.id}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (!agent) {
     return (
       <Card className="arena-glow-card">
@@ -1088,15 +1288,27 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           </div>
 
           {mode === "bot" ? (
-            <Button
-              className="w-full"
-              onClick={() => playBotMutation.mutate()}
-              disabled={playBotMutation.isPending}
-              data-testid="button-play-bot"
-            >
-              {playBotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Bot className="w-4 h-4 mr-1.5" />}
-              Quick Play vs Bot - {potAmount} BNB
-            </Button>
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={() => playBotMutation.mutate()}
+                disabled={playBotMutation.isPending || playBo3Mutation.isPending}
+                data-testid="button-play-bot"
+              >
+                {playBotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Bot className="w-4 h-4 mr-1.5" />}
+                Quick Play vs Bot - {potAmount} BNB
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => playBo3Mutation.mutate()}
+                disabled={playBo3Mutation.isPending || playBotMutation.isPending}
+                data-testid="button-play-bo3"
+              >
+                {playBo3Mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Trophy className="w-4 h-4 mr-1.5" />}
+                Best of 3 Series - {potAmount} BNB
+              </Button>
+            </div>
           ) : (
             <Button
               className="w-full"
@@ -1217,6 +1429,14 @@ function TradingPanel({
 
   const sizeUsdt = (availableBalance * parseFloat(sizePercent) / 100).toFixed(2);
 
+  const lastTradeRef = useRef(0);
+  const [cooldownActive, setCooldownActive] = useState(false);
+  const triggerCooldown = useCallback(() => {
+    lastTradeRef.current = Date.now();
+    setCooldownActive(true);
+    setTimeout(() => setCooldownActive(false), 350);
+  }, []);
+
   const openMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/trading-duels/${duelId}/open-position`, {
       agentId,
@@ -1225,6 +1445,7 @@ function TradingPanel({
       sizeUsdt,
     }),
     onSuccess: (data: any) => {
+      triggerCooldown();
       playTradeSound("open");
       onTradeEffect?.(side);
       const ep = data.entryPrice ? formatPrice(parseFloat(data.entryPrice)) : formatPrice(currentPrice);
@@ -1240,6 +1461,7 @@ function TradingPanel({
       agentId,
     }),
     onSuccess: () => {
+      triggerCooldown();
       playTradeSound("close");
       toast({ title: "Position closed!" });
       refetchPositions();
@@ -1370,7 +1592,7 @@ function TradingPanel({
             letterSpacing: "0.05em",
           }}
           onClick={() => openMutation.mutate()}
-          disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0}
+          disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0 || cooldownActive}
           data-testid="button-open-position"
         >
           {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
@@ -1420,7 +1642,7 @@ function TradingPanel({
                     </div>
                     <button
                       onClick={() => closeMutation.mutate(pos.id)}
-                      disabled={closeMutation.isPending}
+                      disabled={closeMutation.isPending || cooldownActive}
                       className="p-1 rounded transition-all"
                       style={{ background: "#2b3139", color: "#848e9c" }}
                       data-testid={`button-close-${pos.id}`}
@@ -1496,6 +1718,28 @@ function SettledResultsView({
       navigate(`/arena/${data.id}`);
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const nextRoundMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/trading-duels/${duelId}/rematch-bo3`, { agentId }),
+    onSuccess: (data: any) => {
+      playTradeSound("start");
+      toast({ title: `Round ${data.seriesRound} starting!` });
+      navigate(`/arena/${data.id}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const { data: seriesData } = useQuery<{
+    seriesId: string;
+    duels: TradingDuel[];
+    score: Record<string, number>;
+    currentRound: number;
+    isComplete: boolean;
+    seriesWinner: string | null;
+  }>({
+    queryKey: ["/api/trading-duels/series", duel.seriesId],
+    enabled: !!duel.seriesId,
   });
 
   const myStats = agentId === duel.creatorId ? resultsData?.creatorStats : resultsData?.joinerStats;
@@ -1625,17 +1869,56 @@ function SettledResultsView({
             </div>
           )}
 
+          {seriesData && !seriesData.isComplete && (
+            <div className="p-3 rounded-md border border-amber-500/30 bg-amber-500/5 text-center arena-animate-up-d3">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Trophy className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-semibold text-amber-300" data-testid="text-series-score">
+                  Best of 3 - Score: {seriesData.score[duel.creatorId] || 0} - {seriesData.score[duel.joinerId || "opponent"] || 0}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Round {seriesData.currentRound} of 3 complete. First to 2 wins!
+              </p>
+              <Button
+                className="w-full"
+                onClick={() => nextRoundMutation.mutate()}
+                disabled={nextRoundMutation.isPending || !agentId}
+                data-testid="button-next-round"
+              >
+                {nextRoundMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Swords className="w-4 h-4 mr-2" />}
+                Next Round
+              </Button>
+            </div>
+          )}
+
+          {seriesData?.isComplete && (
+            <div className="p-3 rounded-md border border-green-500/30 bg-green-500/5 text-center arena-animate-up-d3">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Crown className="w-5 h-5 text-amber-400" />
+                <span className="text-sm font-bold text-green-400" data-testid="text-series-winner">
+                  {seriesData.seriesWinner === agentId ? "SERIES VICTORY!" : "SERIES DEFEAT"}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Final Score: {seriesData.score[duel.creatorId] || 0} - {seriesData.score[duel.joinerId || "opponent"] || 0}
+              </p>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-2 arena-animate-up-d3">
-            <Button
-              className="flex-1"
-              onClick={() => rematchMutation.mutate()}
-              disabled={rematchMutation.isPending || !agentId}
-              data-testid="button-rematch"
-            >
-              {rematchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Repeat2 className="w-4 h-4 mr-2" />}
-              Run It Back
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/arena")} data-testid="button-back-lobby">
+            {!duel.seriesId && (
+              <Button
+                className="flex-1"
+                onClick={() => rematchMutation.mutate()}
+                disabled={rematchMutation.isPending || !agentId}
+                data-testid="button-rematch"
+              >
+                {rematchMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Repeat2 className="w-4 h-4 mr-2" />}
+                Run It Back
+              </Button>
+            )}
+            <Button variant="outline" className={duel.seriesId ? "flex-1" : ""} onClick={() => navigate("/arena")} data-testid="button-back-lobby">
               <Swords className="w-4 h-4 mr-2" /> Back to Arena
             </Button>
           </div>
@@ -1686,6 +1969,19 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     enabled: !!duel,
   });
 
+  const { data: seriesData } = useQuery<{
+    seriesId: string;
+    duels: TradingDuel[];
+    score: Record<string, number>;
+    currentRound: number;
+    isComplete: boolean;
+    seriesWinner: string | null;
+  }>({
+    queryKey: ["/api/trading-duels/series", duel?.seriesId],
+    enabled: !!duel?.seriesId,
+    refetchInterval: 5000,
+  });
+
   const { data: myPositions = [] } = useQuery<TradingPosition[]>({
     queryKey: ["/api/trading-duels", duelId, "positions", agent?.id ? `?agentId=${agent.id}` : ""],
     enabled: !!duel && !!agent?.id,
@@ -1709,7 +2005,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     if (matchStatus && matchStatus.leadChanges > prevLeadChangesRef.current) {
       prevLeadChangesRef.current = matchStatus.leadChanges;
       setLeadHeartbeat(true);
-      playTradeSound("countdown");
+      playTradeSound("leadchange");
       setTimeout(() => setLeadHeartbeat(false), 1500);
     }
   }, [matchStatus?.leadChanges]);
@@ -1743,13 +2039,17 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       if (!openIds.has(id)) {
         const closed = myPositions.find(p => p.id === id && !p.isOpen);
         if (closed) {
+          const pnlVal = closed.pnl ? parseFloat(closed.pnl) : 0;
           setTradeMarkers(prev => [...prev, {
             time: Date.now(),
             price: currentPrice,
             side: closed.side as "long" | "short",
             action: "close",
-            pnl: closed.pnl ? parseFloat(closed.pnl) : undefined,
+            pnl: pnlVal || undefined,
           }]);
+          if (pnlVal > 0) {
+            setTimeout(() => playTradeSound("profit"), 100);
+          }
         }
       }
     });
@@ -2003,10 +2303,30 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                   <Bot className="w-3 h-3" /> vs AI
                 </Badge>
               )}
+              {seriesData && duel.seriesId && (
+                <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 shrink-0" style={{ borderColor: "#f0b90b", color: "#f0b90b" }} data-testid="badge-series-score">
+                  <Trophy className="w-3 h-3" />
+                  Bo3 R{duel.seriesRound || seriesData.currentRound}: {seriesData.score[duel.creatorId] || 0}-{seriesData.score[duel.joinerId || "opponent"] || 0}
+                </Badge>
+              )}
             </div>
-            {duel.endsAt && (
-              <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
-            )}
+            <div className="flex items-center gap-2">
+              {duel.endsAt && (
+                <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
+              )}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  const url = `${window.location.origin}/arena/${duelId}/spectate`;
+                  navigator.clipboard.writeText(url);
+                  toast({ title: "Spectator link copied!" });
+                }}
+                data-testid="button-share-spectate"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span
@@ -2139,6 +2459,84 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   );
 }
 
+function ArenaLeaderboard({ agentId }: { agentId?: string }) {
+  const [period, setPeriod] = useState<"all" | "daily" | "weekly">("all");
+
+  const { data: leaderboard = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/trading-duels/leaderboard", `?period=${period}`],
+    refetchInterval: 30000,
+  });
+
+  return (
+    <Card className="arena-glow-card overflow-visible">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <div className="w-7 h-7 rounded-md bg-amber-500/20 flex items-center justify-center">
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          </div>
+          Leaderboard
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex gap-1">
+          {(["daily", "weekly", "all"] as const).map(p => (
+            <Button
+              key={p}
+              size="sm"
+              variant={period === p ? "default" : "ghost"}
+              className="flex-1 text-xs"
+              onClick={() => setPeriod(p)}
+              data-testid={`button-leaderboard-${p}`}
+            >
+              {p === "daily" ? "Today" : p === "weekly" ? "This Week" : "All Time"}
+            </Button>
+          ))}
+        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          </div>
+        ) : leaderboard.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-4" data-testid="text-no-leaderboard">No data yet</p>
+        ) : (
+          <div className="space-y-1">
+            {leaderboard.slice(0, 10).map((player: any, idx: number) => {
+              const isMe = player.id === agentId;
+              const wins = player.periodWins ?? player.arenaWins ?? 0;
+              const losses = player.periodLosses ?? player.arenaLosses ?? 0;
+              const rating = player.arenaRating || 1000;
+              const rank = getRankTier(rating);
+
+              return (
+                <div
+                  key={player.id}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-xs ${isMe ? "bg-amber-500/10 border border-amber-500/20" : ""}`}
+                  data-testid={`leaderboard-entry-${idx}`}
+                >
+                  <span className="w-5 text-center font-bold" style={{
+                    color: idx === 0 ? "#f0b90b" : idx === 1 ? "#94a3b8" : idx === 2 ? "#cd7f32" : undefined,
+                  }}>
+                    {idx === 0 ? <Crown className="w-3.5 h-3.5 inline" /> : `#${idx + 1}`}
+                  </span>
+                  <span className="font-medium truncate flex-1" style={{ color: isMe ? "#f0b90b" : undefined }}>
+                    {player.name || "Anon"}
+                  </span>
+                  <span className="font-mono text-green-400">{wins}W</span>
+                  <span className="text-muted-foreground">-</span>
+                  <span className="font-mono text-red-400">{losses}L</span>
+                  <Badge variant="outline" className="text-[9px] py-0 px-1" style={{ borderColor: `${rank.color}40`, color: rank.color }}>
+                    {rating}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TradingArenaLobby() {
   const { agent } = useAuth();
   const { toast } = useToast();
@@ -2255,17 +2653,156 @@ function TradingArenaLobby() {
             </TabsContent>
           </Tabs>
         </div>
-        <div>
+        <div className="space-y-4">
           <CreateDuelPanel onCreated={() => setTab("open")} />
+          <ArenaLeaderboard agentId={agent?.id} />
         </div>
       </div>
     </>
   );
 }
 
+function SpectatorView({ duelId }: { duelId: string }) {
+  const { toast } = useToast();
+
+  const { data: spectateData, isLoading } = useQuery<{
+    id: string;
+    status: string;
+    assetSymbol: string;
+    durationSeconds: number;
+    startedAt: string;
+    endsAt: string;
+    winnerId: string | null;
+    leadChanges: number;
+    clutchFlag: boolean;
+    seriesId: string | null;
+    seriesRound: number | null;
+    potAmount: string;
+    creator: { id: string; name: string; avatarUrl: string | null; isBot: boolean; relPnlPct: number };
+    joiner: { id: string; name: string; avatarUrl: string | null; isBot: boolean; relPnlPct: number } | null;
+    leading: string | null;
+  }>({
+    queryKey: ["/api/trading-duels", duelId, "spectate"],
+    refetchInterval: 3000,
+  });
+
+  if (isLoading || !spectateData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen" style={{ background: "#0b0e11" }}>
+        <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+      </div>
+    );
+  }
+
+  const assetInfo = ASSETS.find(a => a.symbol === spectateData.assetSymbol) || ASSETS[0];
+  const isActive = spectateData.status === "active";
+  const isSettled = spectateData.status === "settled";
+
+  return (
+    <div className="min-h-screen" style={{ background: "#0b0e11" }}>
+      <div className="max-w-2xl mx-auto p-4 space-y-4">
+        <div className="text-center space-y-2 py-4">
+          <div className="flex items-center justify-center gap-2">
+            <Eye className="w-5 h-5 text-amber-400" />
+            <span className="text-amber-400 text-sm font-semibold uppercase tracking-wider">Spectator Mode</span>
+          </div>
+          <h2 className="text-xl font-bold text-white">{assetInfo.short}/USDT Trading Duel</h2>
+          <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1" style={{
+            borderColor: isActive ? "#0ecb81" : isSettled ? "#848e9c" : "#f0b90b",
+            color: isActive ? "#0ecb81" : isSettled ? "#848e9c" : "#f0b90b",
+          }}>
+            {isActive && <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#0ecb81", boxShadow: "0 0 4px #0ecb81" }} />}
+            {isActive ? "LIVE" : isSettled ? "FINISHED" : spectateData.status.toUpperCase()}
+          </Badge>
+        </div>
+
+        {isActive && spectateData.endsAt && (
+          <div className="text-center">
+            <CountdownTimer endsAt={spectateData.endsAt} />
+          </div>
+        )}
+
+        <Card className="border-0" style={{ background: "#1e2329" }}>
+          <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className={`p-4 rounded-md text-center ${spectateData.leading === spectateData.creator.id ? "ring-2 ring-green-500/50" : ""}`} style={{ background: "#0b0e11" }}>
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  {spectateData.creator.isBot && <Bot className="w-3 h-3 text-purple-400" />}
+                  <span className="font-semibold text-sm text-white truncate" data-testid="text-spectate-creator">{spectateData.creator.name}</span>
+                </div>
+                <div
+                  className="text-2xl font-bold font-mono"
+                  style={{ color: spectateData.creator.relPnlPct >= 0 ? "#0ecb81" : "#ea3943" }}
+                  data-testid="text-spectate-creator-pnl"
+                >
+                  {spectateData.creator.relPnlPct >= 0 ? "+" : ""}{spectateData.creator.relPnlPct.toFixed(2)}%
+                </div>
+                {spectateData.leading === spectateData.creator.id && (
+                  <Badge className="mt-1 text-[9px]" style={{ background: "#0ecb81", color: "#000" }}>LEADING</Badge>
+                )}
+              </div>
+
+              <div className={`p-4 rounded-md text-center ${spectateData.leading === spectateData.joiner?.id ? "ring-2 ring-green-500/50" : ""}`} style={{ background: "#0b0e11" }}>
+                <div className="flex items-center justify-center gap-1 mb-2">
+                  {spectateData.joiner?.isBot && <Bot className="w-3 h-3 text-purple-400" />}
+                  <span className="font-semibold text-sm text-white truncate" data-testid="text-spectate-joiner">{spectateData.joiner?.name || "Waiting..."}</span>
+                </div>
+                <div
+                  className="text-2xl font-bold font-mono"
+                  style={{ color: (spectateData.joiner?.relPnlPct || 0) >= 0 ? "#0ecb81" : "#ea3943" }}
+                  data-testid="text-spectate-joiner-pnl"
+                >
+                  {spectateData.joiner ? `${spectateData.joiner.relPnlPct >= 0 ? "+" : ""}${spectateData.joiner.relPnlPct.toFixed(2)}%` : "--"}
+                </div>
+                {spectateData.joiner && spectateData.leading === spectateData.joiner.id && (
+                  <Badge className="mt-1 text-[9px]" style={{ background: "#0ecb81", color: "#000" }}>LEADING</Badge>
+                )}
+              </div>
+            </div>
+
+            {isSettled && spectateData.winnerId && (
+              <div className="text-center p-3 rounded-md" style={{ background: "#0b0e11" }}>
+                <Crown className="w-6 h-6 text-amber-400 mx-auto mb-1" />
+                <span className="text-amber-400 font-bold" data-testid="text-spectate-winner">
+                  {spectateData.winnerId === spectateData.creator.id ? spectateData.creator.name : spectateData.joiner?.name} WINS!
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-4 text-xs" style={{ color: "#848e9c" }}>
+              <span>Pot: {spectateData.potAmount} BNB</span>
+              <span>Lead Changes: {spectateData.leadChanges}</span>
+              {spectateData.clutchFlag && <Badge variant="outline" className="text-[9px] border-red-500/30 text-red-400">CLUTCH</Badge>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-2 justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              toast({ title: "Link copied!" });
+            }}
+            data-testid="button-copy-spectate-link"
+          >
+            <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Link
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TradingArena() {
+  const [matchSpectate, paramsSpectate] = useRoute("/arena/:id/spectate");
   const [match, params] = useRoute("/arena/:id");
   const [gameMode, setGameMode] = useState("trading");
+
+  if (matchSpectate && paramsSpectate?.id) {
+    return <SpectatorView duelId={paramsSpectate.id} />;
+  }
 
   if (match && params?.id) {
     return <ActiveDuelView duelId={params.id} />;

@@ -2405,6 +2405,8 @@ export const tradingDuels = pgTable("trading_duels", {
   leadChanges: integer("lead_changes").default(0).notNull(),
   lastLeaderId: varchar("last_leader_id"),
   clutchFlag: boolean("clutch_flag").default(false).notNull(),
+  seriesId: varchar("series_id"),
+  seriesRound: integer("series_round"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   settledAt: timestamp("settled_at"),
 });
@@ -2429,6 +2431,8 @@ export const insertTradingDuelSchema = createInsertSchema(tradingDuels).pick({
   assetSymbol: true,
   potAmount: true,
   durationSeconds: true,
+  seriesId: true,
+  seriesRound: true,
 });
 
 export const insertTradingPositionSchema = createInsertSchema(tradingPositions).pick({
