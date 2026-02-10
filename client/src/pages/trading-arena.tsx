@@ -650,11 +650,11 @@ function StatBadge({ icon: Icon, label, value, color = "amber" }: { icon: any; l
     blue: "from-blue-500/20 to-blue-500/5 text-blue-400 border-blue-500/20",
   };
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-md border bg-gradient-to-r ${colorMap[color]}`}>
-      <Icon className="w-4 h-4" />
-      <div>
-        <p className="text-[10px] uppercase tracking-wider opacity-70">{label}</p>
-        <p className="text-sm font-bold font-mono">{value}</p>
+    <div className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-md border bg-gradient-to-r ${colorMap[color]}`}>
+      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider opacity-70">{label}</p>
+        <p className="text-xs sm:text-sm font-bold font-mono whitespace-nowrap">{value}</p>
       </div>
     </div>
   );
@@ -1235,6 +1235,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [priceChange, setPriceChange] = useState(0);
   const [chartWidth, setChartWidth] = useState(600);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 640);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [priceTicks, setPriceTicks] = useState<{ time: number; price: number }[]>([]);
   const [tradeMarkers, setTradeMarkers] = useState<TradeMarker[]>([]);
@@ -1300,7 +1301,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       }
     });
     if (chartContainerRef.current) obs.observe(chartContainerRef.current);
-    return () => obs.disconnect();
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", onResize);
+    return () => {
+      obs.disconnect();
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -1402,52 +1408,52 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     const winnerPayout = potTotal * 0.9;
 
     return (
-      <div className="relative max-w-2xl mx-auto p-4 space-y-4">
+      <div className="relative max-w-2xl mx-auto px-3 sm:p-4 py-4 space-y-4">
         <ArenaBackground />
         <Card className="overflow-visible relative">
           {isWinner && <ConfettiExplosion />}
-          <CardContent className="p-8 text-center space-y-5 relative z-10">
-            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 flex items-center justify-center arena-trophy">
+          <CardContent className="p-5 sm:p-8 text-center space-y-4 sm:space-y-5 relative z-10">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 flex items-center justify-center arena-trophy">
               {duel.winnerId ? (
-                isWinner ? <Trophy className="w-12 h-12 text-amber-400" /> : <Skull className="w-12 h-12 text-muted-foreground" />
+                isWinner ? <Trophy className="w-9 h-9 sm:w-12 sm:h-12 text-amber-400" /> : <Skull className="w-9 h-9 sm:w-12 sm:h-12 text-muted-foreground" />
               ) : (
-                <Swords className="w-12 h-12 text-muted-foreground" />
+                <Swords className="w-9 h-9 sm:w-12 sm:h-12 text-muted-foreground" />
               )}
             </div>
             <div className="arena-animate-up">
-              <h2 className="text-3xl font-bold tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 {duel.winnerId ? (isWinner ? "VICTORY" : "DEFEAT") : "DRAW"}
               </h2>
               {duel.winnerId && (
-                <p className="text-muted-foreground mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                   Winner takes <span className="text-amber-400 font-bold">{winnerPayout.toFixed(4)} BNB</span>
                 </p>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4 arena-animate-up-d1">
-              <div className={`relative p-5 rounded-md border transition-all ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
-                {duel.winnerId === duel.creatorId && <Crown className="w-5 h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 arena-animate-up-d1">
+              <div className={`relative p-3 sm:p-5 rounded-md border transition-all ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
+                {duel.winnerId === duel.creatorId && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
                 <div className="flex items-center justify-center gap-1.5">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
                     {agent?.id === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
                   </p>
                   {botInfo?.creatorIsBot && <Bot className="w-3 h-3 text-purple-400" />}
                 </div>
-                <p className="text-2xl font-bold font-mono mt-1">{formatMoney(creatorFinal)}</p>
-                <p className={`text-sm font-mono ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
+                <p className="text-lg sm:text-2xl font-bold font-mono mt-1">{formatMoney(creatorFinal)}</p>
+                <p className={`text-xs sm:text-sm font-mono ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
                   {creatorFinal >= 1000000 ? "+" : ""}{formatMoney(creatorFinal - 1000000)}
                 </p>
               </div>
-              <div className={`relative p-5 rounded-md border transition-all ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
-                {duel.winnerId === duel.joinerId && <Crown className="w-5 h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
+              <div className={`relative p-3 sm:p-5 rounded-md border transition-all ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
+                {duel.winnerId === duel.joinerId && <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
                 <div className="flex items-center justify-center gap-1.5">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">
                     {agent?.id === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
                   </p>
                   {botInfo?.joinerIsBot && <Bot className="w-3 h-3 text-purple-400" />}
                 </div>
-                <p className="text-2xl font-bold font-mono mt-1">{formatMoney(joinerFinal)}</p>
-                <p className={`text-sm font-mono ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
+                <p className="text-lg sm:text-2xl font-bold font-mono mt-1">{formatMoney(joinerFinal)}</p>
+                <p className={`text-xs sm:text-sm font-mono ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
                   {joinerFinal >= 1000000 ? "+" : ""}{formatMoney(joinerFinal - 1000000)}
                 </p>
               </div>
@@ -1463,11 +1469,11 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   if (duel.status === "ready" && isParticipant) {
     return (
-      <div className="relative max-w-md mx-auto p-4 space-y-4">
+      <div className="relative max-w-md mx-auto px-3 sm:p-4 py-4 space-y-4">
         <ArenaBackground />
         <Card className="overflow-visible relative">
-          <CardContent className="p-10 text-center space-y-6">
-            <div className="flex items-center justify-center gap-6">
+          <CardContent className="p-6 sm:p-10 text-center space-y-5 sm:space-y-6">
+            <div className="flex items-center justify-center gap-4 sm:gap-6">
               <div className="arena-animate-left">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center ${botInfo?.creatorIsBot ? "bg-gradient-to-br from-purple-500/30 to-purple-600/10" : "bg-gradient-to-br from-blue-500/30 to-blue-600/10"}`}>
                   {botInfo?.creatorIsBot ? <Bot className="w-8 h-8 text-purple-400" /> : <Shield className="w-8 h-8 text-blue-400" />}
@@ -1517,10 +1523,10 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   if (duel.status === "waiting") {
     return (
-      <div className="relative max-w-md mx-auto p-4 space-y-4">
+      <div className="relative max-w-md mx-auto px-3 sm:p-4 py-4 space-y-4">
         <ArenaBackground />
         <Card className="arena-glow-card overflow-visible">
-          <CardContent className="p-10 text-center space-y-5">
+          <CardContent className="p-6 sm:p-10 text-center space-y-5">
             <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/5 flex items-center justify-center arena-float">
               <Swords className="w-10 h-10 text-amber-400" />
             </div>
@@ -1560,72 +1566,66 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   return (
     <div className="relative space-y-0" style={{ background: "#0b0e11", minHeight: "100vh" }}>
       <div className="border-b" style={{ borderColor: "#1e2329", background: "#0b0e11" }}>
-        <div className="flex items-center justify-between gap-4 px-3 py-2 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg text-white">{assetInfo.short}<span style={{ color: "#848e9c" }}>/USDT</span></span>
-              <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1" style={{ borderColor: "#0ecb81", color: "#0ecb81" }}>
+        <div className="px-3 py-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-bold text-sm sm:text-lg text-white whitespace-nowrap">{assetInfo.short}<span style={{ color: "#848e9c" }}>/USDT</span></span>
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 shrink-0" style={{ borderColor: "#0ecb81", color: "#0ecb81" }}>
                 <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#0ecb81", boxShadow: "0 0 4px #0ecb81" }} />
                 LIVE
               </Badge>
               {opponentIsBot && (
-                <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 text-purple-400 border-purple-400/30">
+                <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 text-purple-400 border-purple-400/30 shrink-0">
                   <Bot className="w-3 h-3" /> vs AI
                 </Badge>
               )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="font-mono text-2xl font-bold transition-colors"
-                style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}
-                key={Math.round(currentPrice * 10000)}
-                data-testid="text-live-price"
-              >
-                {formatPrice(currentPrice)}
-              </span>
-              {priceChange !== 0 && (
-                <span className="text-xs font-mono" style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}>
-                  {priceUp ? "+" : ""}{priceChange.toFixed(3)}%
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-5 text-xs">
-              <div>
-                <span style={{ color: "#848e9c" }}>Session High</span>
-                <p className="font-mono text-white" data-testid="text-session-high">{formatPrice(sessionHigh)}</p>
-              </div>
-              <div>
-                <span style={{ color: "#848e9c" }}>Session Low</span>
-                <p className="font-mono text-white" data-testid="text-session-low">{formatPrice(sessionLow)}</p>
-              </div>
-              <div>
-                <span style={{ color: "#848e9c" }}>Ticks</span>
-                <p className="font-mono text-white" data-testid="text-tick-count">{tickCount}</p>
-              </div>
             </div>
             {duel.endsAt && (
               <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
             )}
           </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span
+              className="font-mono text-xl sm:text-2xl font-bold transition-colors"
+              style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}
+              key={Math.round(currentPrice * 10000)}
+              data-testid="text-live-price"
+            >
+              {formatPrice(currentPrice)}
+            </span>
+            {priceChange !== 0 && (
+              <span className="text-[11px] font-mono" style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}>
+                {priceUp ? "+" : ""}{priceChange.toFixed(3)}%
+              </span>
+            )}
+            <div className="hidden sm:flex items-center gap-4 ml-auto text-[11px]">
+              <div>
+                <span style={{ color: "#848e9c" }}>High </span>
+                <span className="font-mono text-white" data-testid="text-session-high">{formatPrice(sessionHigh)}</span>
+              </div>
+              <div>
+                <span style={{ color: "#848e9c" }}>Low </span>
+                <span className="font-mono text-white" data-testid="text-session-low">{formatPrice(sessionLow)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-0">
-        <div ref={chartContainerRef} className="border-r" style={{ borderColor: "#1e2329" }}>
+      <div className="flex flex-col lg:flex-row">
+        <div ref={chartContainerRef} className="flex-1 min-w-0 lg:border-r" style={{ borderColor: "#1e2329" }}>
           <div className="p-1">
             <LiveLineChart
               priceTicks={priceTicks}
               width={chartWidth}
-              height={460}
+              height={isMobile ? 260 : 460}
               currentPrice={currentPrice}
               tradeMarkers={tradeMarkers}
               openPositions={chartOpenPositions}
             />
           </div>
         </div>
-        <div style={{ background: "#0b0e11" }}>
+        <div className="lg:w-[340px] shrink-0" style={{ background: "#0b0e11" }}>
           {isParticipant && agent && (
             <TradingPanel
               duelId={duelId}
@@ -1664,14 +1664,14 @@ function TradingArenaLobby() {
 
   return (
     <>
-      <div className="flex items-center justify-center gap-3 flex-wrap arena-animate-up-d1 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 arena-animate-up-d1 mb-4 sm:mb-6">
         <StatBadge icon={DollarSign} label="Start" value="$1M Fake" color="green" />
         <StatBadge icon={Target} label="Leverage" value="Up to 50x" color="amber" />
         <StatBadge icon={Trophy} label="Winner" value="Takes 90%" color="blue" />
         <StatBadge icon={Activity} label="Charts" value="Real-Time" color="red" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2 space-y-4 arena-animate-left">
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
@@ -1737,17 +1737,17 @@ export default function TradingArena() {
   }
 
   return (
-    <div className="relative max-w-5xl mx-auto p-4 space-y-6">
+    <div className="relative max-w-5xl mx-auto px-3 sm:p-4 py-4 space-y-4 sm:space-y-6">
       <ArenaBackground />
 
-      <div className="relative z-10 text-center space-y-4 py-4 arena-animate-up">
-        <div className="flex items-center justify-center gap-4">
-          <div className="w-16 h-16 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center arena-float" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
-            <Swords className="w-9 h-9 text-amber-400" />
+      <div className="relative z-10 text-center space-y-3 sm:space-y-4 py-2 sm:py-4 arena-animate-up">
+        <div className="flex items-center justify-center gap-3 sm:gap-4">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center arena-float shrink-0" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
+            <Swords className="w-6 h-6 sm:w-9 sm:h-9 text-amber-400" />
           </div>
           <div className="text-left">
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight">Games Arena</h1>
-            <p className="text-muted-foreground text-sm">Compete, predict, and win on real crypto markets</p>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Games Arena</h1>
+            <p className="text-muted-foreground text-xs sm:text-sm">Compete, predict, and win on real crypto markets</p>
           </div>
         </div>
       </div>
