@@ -36,6 +36,8 @@ import {
   Skull,
   Star,
   ChevronRight,
+  Bot,
+  Cpu,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 
@@ -331,9 +333,11 @@ function StatBadge({ icon: Icon, label, value, color = "amber" }: { icon: any; l
 function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const { agent } = useAuth();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [asset, setAsset] = useState("BTCUSDT");
   const [duration, setDuration] = useState("300");
   const [potAmount, setPotAmount] = useState("0.01");
+  const [mode, setMode] = useState<"bot" | "pvp">("bot");
 
   const createMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/trading-duels", {
@@ -346,6 +350,21 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
       toast({ title: "Duel Created!", description: "Waiting for an opponent..." });
       queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
       onCreated();
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const playBotMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/trading-duels/play-vs-bot", {
+      creatorId: agent?.id,
+      assetSymbol: asset,
+      potAmount,
+      durationSeconds: parseInt(duration),
+    }),
+    onSuccess: (data: any) => {
+      toast({ title: "Battle Started!", description: `You're fighting ${data.botName}` });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
+      navigate(`/arena/${data.id}`);
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -364,65 +383,106 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <Card className="arena-glow-card arena-animate-right">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-amber-500/20 flex items-center justify-center">
-            <Crosshair className="w-4 h-4 text-amber-400" />
+    <div className="space-y-4 arena-animate-right">
+      <Card className="arena-glow-card overflow-visible" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.08)" }}>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-md bg-amber-500/20 flex items-center justify-center">
+              <Crosshair className="w-4 h-4 text-amber-400" />
+            </div>
+            Enter the Arena
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={mode === "bot" ? "default" : "outline"}
+              className={mode === "bot" ? "bg-gradient-to-r from-purple-600 to-violet-600 text-white border-purple-700" : ""}
+              onClick={() => setMode("bot")}
+              data-testid="button-mode-bot"
+            >
+              <Bot className="w-4 h-4 mr-1.5" /> vs Bot
+            </Button>
+            <Button
+              variant={mode === "pvp" ? "default" : "outline"}
+              className={mode === "pvp" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600" : ""}
+              onClick={() => setMode("pvp")}
+              data-testid="button-mode-pvp"
+            >
+              <Users className="w-4 h-4 mr-1.5" /> vs Player
+            </Button>
           </div>
-          Create Duel
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Trading Pair</Label>
-          <Select value={asset} onValueChange={setAsset}>
-            <SelectTrigger data-testid="select-trading-pair">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ASSETS.map(a => (
-                <SelectItem key={a.symbol} value={a.symbol}>{a.short}/USDT - {a.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
-          <Select value={duration} onValueChange={setDuration}>
-            <SelectTrigger data-testid="select-duration">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DURATIONS.map(d => (
-                <SelectItem key={d.value} value={d.value.toString()}>{d.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pot (BNB per player)</Label>
-          <Input
-            type="number"
-            step="0.001"
-            min="0.001"
-            value={potAmount}
-            onChange={e => setPotAmount(e.target.value)}
-            data-testid="input-pot-amount"
-          />
-          <p className="text-[11px] text-muted-foreground">Winner takes 90% of total pot. 10% platform fee.</p>
-        </div>
-        <Button
-          className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600"
-          onClick={() => createMutation.mutate()}
-          disabled={createMutation.isPending}
-          data-testid="button-create-duel"
-        >
-          {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Swords className="w-4 h-4" />}
-          <span className="ml-2">Enter the Arena - {potAmount} BNB</span>
-        </Button>
-      </CardContent>
-    </Card>
+
+          {mode === "bot" && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-purple-500/10 border border-purple-500/20">
+              <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+              <p className="text-xs text-purple-300/80">Instant match against an AI trader. No waiting!</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Trading Pair</Label>
+            <Select value={asset} onValueChange={setAsset}>
+              <SelectTrigger data-testid="select-trading-pair">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ASSETS.map(a => (
+                  <SelectItem key={a.symbol} value={a.symbol}>{a.short}/USDT - {a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
+            <Select value={duration} onValueChange={setDuration}>
+              <SelectTrigger data-testid="select-duration">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATIONS.map(d => (
+                  <SelectItem key={d.value} value={d.value.toString()}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pot (BNB per player)</Label>
+            <Input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={potAmount}
+              onChange={e => setPotAmount(e.target.value)}
+              data-testid="input-pot-amount"
+            />
+            <p className="text-[11px] text-muted-foreground">Winner takes 90% of total pot. 10% platform fee.</p>
+          </div>
+
+          {mode === "bot" ? (
+            <Button
+              className="w-full bg-gradient-to-r from-purple-600 to-violet-600 text-white border-purple-700"
+              onClick={() => playBotMutation.mutate()}
+              disabled={playBotMutation.isPending}
+              data-testid="button-play-bot"
+            >
+              {playBotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Bot className="w-4 h-4 mr-1.5" />}
+              Quick Play vs Bot - {potAmount} BNB
+            </Button>
+          ) : (
+            <Button
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600"
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending}
+              data-testid="button-create-duel"
+            >
+              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Swords className="w-4 h-4" />}
+              <span className="ml-2">Enter the Arena - {potAmount} BNB</span>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -726,6 +786,11 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     refetchInterval: 3000,
   });
 
+  const { data: botInfo } = useQuery<{ creatorIsBot: boolean; joinerIsBot: boolean }>({
+    queryKey: ["/api/trading-duels", duelId, "bot-info"],
+    enabled: !!duel,
+  });
+
   useEffect(() => {
     const obs = new ResizeObserver(entries => {
       for (const entry of entries) {
@@ -803,6 +868,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
   const isParticipant = agent?.id === duel.creatorId || agent?.id === duel.joinerId;
+  const hasBot = botInfo?.creatorIsBot || botInfo?.joinerIsBot;
+  const opponentIsBot = (agent?.id === duel.creatorId && botInfo?.joinerIsBot) || (agent?.id === duel.joinerId && botInfo?.creatorIsBot);
 
   if (duel.status === "settled") {
     const isWinner = duel.winnerId === agent?.id;
@@ -837,7 +904,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
             <div className="grid grid-cols-2 gap-4 arena-animate-up-d1">
               <div className={`relative p-5 rounded-md border transition-all ${duel.winnerId === duel.creatorId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
                 {duel.winnerId === duel.creatorId && <Crown className="w-5 h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Player 1</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {agent?.id === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
+                  </p>
+                  {botInfo?.creatorIsBot && <Bot className="w-3 h-3 text-purple-400" />}
+                </div>
                 <p className="text-2xl font-bold font-mono mt-1">{formatMoney(creatorFinal)}</p>
                 <p className={`text-sm font-mono ${creatorFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
                   {creatorFinal >= 1000000 ? "+" : ""}{formatMoney(creatorFinal - 1000000)}
@@ -845,7 +917,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
               </div>
               <div className={`relative p-5 rounded-md border transition-all ${duel.winnerId === duel.joinerId ? "bg-green-500/10 border-green-500/30" : "bg-muted/30 border-border"}`}>
                 {duel.winnerId === duel.joinerId && <Crown className="w-5 h-5 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2" />}
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Player 2</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {agent?.id === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
+                  </p>
+                  {botInfo?.joinerIsBot && <Bot className="w-3 h-3 text-purple-400" />}
+                </div>
                 <p className="text-2xl font-bold font-mono mt-1">{formatMoney(joinerFinal)}</p>
                 <p className={`text-sm font-mono ${joinerFinal >= 1000000 ? "text-green-400" : "text-red-400"}`}>
                   {joinerFinal >= 1000000 ? "+" : ""}{formatMoney(joinerFinal - 1000000)}
@@ -869,10 +946,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
           <CardContent className="p-10 text-center space-y-6">
             <div className="flex items-center justify-center gap-6">
               <div className="arena-animate-left">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500/30 to-blue-600/10 flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-blue-400" />
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${botInfo?.creatorIsBot ? "bg-gradient-to-br from-purple-500/30 to-purple-600/10" : "bg-gradient-to-br from-blue-500/30 to-blue-600/10"}`}>
+                  {botInfo?.creatorIsBot ? <Bot className="w-8 h-8 text-purple-400" /> : <Shield className="w-8 h-8 text-blue-400" />}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 uppercase">Player 1</p>
+                <p className="text-xs text-muted-foreground mt-2 uppercase">
+                  {agent?.id === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
+                </p>
               </div>
               <div className="arena-vs">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500/40 to-red-500/20 flex items-center justify-center" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.3)" }}>
@@ -880,14 +959,16 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                 </div>
               </div>
               <div className="arena-animate-right">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500/30 to-red-600/10 flex items-center justify-center">
-                  <Shield className="w-8 h-8 text-red-400" />
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${botInfo?.joinerIsBot ? "bg-gradient-to-br from-purple-500/30 to-purple-600/10" : "bg-gradient-to-br from-red-500/30 to-red-600/10"}`}>
+                  {botInfo?.joinerIsBot ? <Bot className="w-8 h-8 text-purple-400" /> : <Shield className="w-8 h-8 text-red-400" />}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 uppercase">Player 2</p>
+                <p className="text-xs text-muted-foreground mt-2 uppercase">
+                  {agent?.id === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
+                </p>
               </div>
             </div>
             <div className="arena-animate-up-d1">
-              <h2 className="text-2xl font-bold">Opponent Found</h2>
+              <h2 className="text-2xl font-bold">{opponentIsBot ? "Bot Opponent Matched" : "Opponent Found"}</h2>
               <p className="text-muted-foreground mt-1">{assetInfo.short}/USDT  -  {DURATIONS.find(d => d.value === duel.durationSeconds)?.label}</p>
             </div>
             <div className="flex justify-center gap-3 arena-animate-up-d2">
@@ -963,6 +1044,11 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                 {priceChange >= 0 ? <TrendingUp className="w-4 h-4 inline" /> : <TrendingDown className="w-4 h-4 inline" />}
                 {Math.abs(priceChange).toFixed(3)}%
               </span>
+            )}
+            {opponentIsBot && (
+              <Badge variant="outline" className="text-purple-400 border-purple-400/30 gap-1">
+                <Bot className="w-3 h-3" /> vs AI
+              </Badge>
             )}
           </div>
           {duel.endsAt && (

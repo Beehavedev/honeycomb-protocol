@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
+import { getRandomArenaBot, startBot, stopBot, isArenaBotAgent } from "./arena-bot-engine";
 import { launchTokens, launchTrades, supportedChains, crossChainAgents, aiAgentVerifications, agents, enableHeartbeatRequestSchema, updateLaunchAlertConfigSchema } from "@shared/schema";
 import { 
   generateToken, 
@@ -2740,6 +2741,8 @@ export async function registerRoutes(
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
 
+      stopBot(req.params.id);
+
       if (duel.endsAt && new Date() < new Date(duel.endsAt)) {
         return res.status(400).json({ message: "Duel timer has not expired yet" });
       }
@@ -2797,6 +2800,48 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/trading-duels/play-vs-bot", async (req, res) => {
+    try {
+      const { creatorId, assetSymbol, potAmount, durationSeconds } = req.body;
+      if (!creatorId || !potAmount) {
+        return res.status(400).json({ message: "creatorId and potAmount required" });
+      }
+
+      const bot = await getRandomArenaBot();
+
+      const duel = await storage.createTradingDuel({
+        creatorId,
+        assetSymbol: assetSymbol || "BTCUSDT",
+        potAmount: potAmount.toString(),
+        durationSeconds: durationSeconds || 300,
+      });
+
+      const joined = await storage.joinTradingDuel(duel.id, bot.id);
+
+      const started = await storage.startTradingDuel(joined.id);
+
+      startBot(started.id, bot.id, bot.style, started.durationSeconds);
+
+      res.json({ ...started, botName: bot.name, botStyle: bot.style });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-duels/:id/bot-info", async (req, res) => {
+    try {
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      
+      const creatorIsBot = await isArenaBotAgent(duel.creatorId);
+      const joinerIsBot = duel.joinerId ? await isArenaBotAgent(duel.joinerId) : false;
+      
+      res.json({ creatorIsBot, joinerIsBot });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/trading-duels/:id/cancel", async (req, res) => {
     try {
       const { agentId } = req.body;
@@ -2804,6 +2849,7 @@ export async function registerRoutes(
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "waiting") return res.status(400).json({ message: "Can only cancel waiting duels" });
       if (duel.creatorId !== agentId) return res.status(403).json({ message: "Only creator can cancel" });
+      stopBot(req.params.id);
       const cancelled = await storage.cancelTradingDuel(req.params.id);
       res.json(cancelled);
     } catch (error: any) {

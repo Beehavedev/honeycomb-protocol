@@ -54,8 +54,10 @@ A 1v1 competitive trading skill game where players battle on real crypto charts 
 - **Timer-Based**: Duels last 2-15 minutes, highest portfolio value wins
 - **Pot System**: Both players deposit equal BNB amounts; winner takes 90%, platform takes 10%
 - **Routes**: `/arena` (lobby), `/arena/:id` (active duel)
+- **AI Bot Opponents**: 5 bot personalities (AlphaHunter, SteadyEdge, SwingMaster, GridRunner, ScalpKing) with autonomous trading logic. `POST /api/trading-duels/play-vs-bot` for instant matches.
+- **Bot Engine**: `server/arena-bot-engine.ts` manages bot lifecycle, makes periodic trading decisions based on personality style
 - **DB Tables**: `trading_duels`, `trading_positions`
-- **API**: `/api/trading-duels/*` for CRUD, price proxy via Binance US API
+- **API**: `/api/trading-duels/*` for CRUD, price proxy via Binance US API, `/play-vs-bot` for instant bot matches, `/:id/bot-info` for bot detection
 
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.

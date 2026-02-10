@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists } from "./seed";
 import { startTwitterScheduler } from "./twitter-scheduler";
 import { storage } from "./storage";
+import { ensureArenaBots } from "./arena-bot-engine";
 import path from "path";
 
 const app = express();
@@ -71,6 +72,7 @@ app.use((req, res, next) => {
   await ensureChannelsExist();
   await ensureTwitterBotExists();
   await storage.seedTradingDuels();
+  await ensureArenaBots();
   await registerRoutes(httpServer, app);
   
   // Start Twitter automation scheduler
