@@ -2407,6 +2407,11 @@ export const tradingDuels = pgTable("trading_duels", {
   clutchFlag: boolean("clutch_flag").default(false).notNull(),
   seriesId: varchar("series_id"),
   seriesRound: integer("series_round"),
+  onChainDuelId: text("on_chain_duel_id"),
+  txHash: text("tx_hash"),
+  creatorWallet: text("creator_wallet"),
+  joinerWallet: text("joiner_wallet"),
+  isOnChain: boolean("is_on_chain").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   settledAt: timestamp("settled_at"),
 });
