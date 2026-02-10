@@ -39,6 +39,8 @@ import {
   ChevronRight,
   Bot,
   Cpu,
+  Search,
+  ChevronDown,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 
@@ -62,8 +64,100 @@ const ASSETS = [
   { symbol: "ETHUSDT", name: "Ethereum", short: "ETH" },
   { symbol: "BNBUSDT", name: "BNB", short: "BNB" },
   { symbol: "SOLUSDT", name: "Solana", short: "SOL" },
-  { symbol: "DOGEUSDT", name: "Dogecoin", short: "DOGE" },
   { symbol: "XRPUSDT", name: "XRP", short: "XRP" },
+  { symbol: "DOGEUSDT", name: "Dogecoin", short: "DOGE" },
+  { symbol: "ADAUSDT", name: "Cardano", short: "ADA" },
+  { symbol: "AVAXUSDT", name: "Avalanche", short: "AVAX" },
+  { symbol: "DOTUSDT", name: "Polkadot", short: "DOT" },
+  { symbol: "LINKUSDT", name: "Chainlink", short: "LINK" },
+  { symbol: "MATICUSDT", name: "Polygon", short: "MATIC" },
+  { symbol: "SHIBUSDT", name: "Shiba Inu", short: "SHIB" },
+  { symbol: "LTCUSDT", name: "Litecoin", short: "LTC" },
+  { symbol: "UNIUSDT", name: "Uniswap", short: "UNI" },
+  { symbol: "ATOMUSDT", name: "Cosmos", short: "ATOM" },
+  { symbol: "XLMUSDT", name: "Stellar", short: "XLM" },
+  { symbol: "ETCUSDT", name: "Ethereum Classic", short: "ETC" },
+  { symbol: "FILUSDT", name: "Filecoin", short: "FIL" },
+  { symbol: "APTUSDT", name: "Aptos", short: "APT" },
+  { symbol: "NEARUSDT", name: "NEAR Protocol", short: "NEAR" },
+  { symbol: "AAVEUSDT", name: "Aave", short: "AAVE" },
+  { symbol: "GRTUSDT", name: "The Graph", short: "GRT" },
+  { symbol: "ALGOUSDT", name: "Algorand", short: "ALGO" },
+  { symbol: "FTMUSDT", name: "Fantom", short: "FTM" },
+  { symbol: "SANDUSDT", name: "The Sandbox", short: "SAND" },
+  { symbol: "MANAUSDT", name: "Decentraland", short: "MANA" },
+  { symbol: "AXSUSDT", name: "Axie Infinity", short: "AXS" },
+  { symbol: "THETAUSDT", name: "Theta Network", short: "THETA" },
+  { symbol: "EOSUSDT", name: "EOS", short: "EOS" },
+  { symbol: "ARUSDT", name: "Arweave", short: "AR" },
+  { symbol: "ICPUSDT", name: "Internet Computer", short: "ICP" },
+  { symbol: "VETUSDT", name: "VeChain", short: "VET" },
+  { symbol: "FLOWUSDT", name: "Flow", short: "FLOW" },
+  { symbol: "RUNEUSDT", name: "THORChain", short: "RUNE" },
+  { symbol: "INJUSDT", name: "Injective", short: "INJ" },
+  { symbol: "SUIUSDT", name: "Sui", short: "SUI" },
+  { symbol: "SEIUSDT", name: "Sei", short: "SEI" },
+  { symbol: "TIAUSDT", name: "Celestia", short: "TIA" },
+  { symbol: "OPUSDT", name: "Optimism", short: "OP" },
+  { symbol: "ARBUSDT", name: "Arbitrum", short: "ARB" },
+  { symbol: "MKRUSDT", name: "Maker", short: "MKR" },
+  { symbol: "SNXUSDT", name: "Synthetix", short: "SNX" },
+  { symbol: "COMPUSDT", name: "Compound", short: "COMP" },
+  { symbol: "CRVUSDT", name: "Curve DAO", short: "CRV" },
+  { symbol: "LDOUSDT", name: "Lido DAO", short: "LDO" },
+  { symbol: "APEUSDT", name: "ApeCoin", short: "APE" },
+  { symbol: "DYDXUSDT", name: "dYdX", short: "DYDX" },
+  { symbol: "GMXUSDT", name: "GMX", short: "GMX" },
+  { symbol: "LRCUSDT", name: "Loopring", short: "LRC" },
+  { symbol: "ENJUSDT", name: "Enjin Coin", short: "ENJ" },
+  { symbol: "CHZUSDT", name: "Chiliz", short: "CHZ" },
+  { symbol: "GALAUSDT", name: "Gala", short: "GALA" },
+  { symbol: "IMXUSDT", name: "Immutable X", short: "IMX" },
+  { symbol: "1INCHUSDT", name: "1inch", short: "1INCH" },
+  { symbol: "CELOUSDT", name: "Celo", short: "CELO" },
+  { symbol: "ZRXUSDT", name: "0x", short: "ZRX" },
+  { symbol: "BATUSDT", name: "Basic Attention", short: "BAT" },
+  { symbol: "ANKRUSDT", name: "Ankr", short: "ANKR" },
+  { symbol: "SKLUSDT", name: "SKALE", short: "SKL" },
+  { symbol: "COTIUSDT", name: "COTI", short: "COTI" },
+  { symbol: "STORJUSDT", name: "Storj", short: "STORJ" },
+  { symbol: "IOTAUSDT", name: "IOTA", short: "IOTA" },
+  { symbol: "KAVAUSDT", name: "Kava", short: "KAVA" },
+  { symbol: "WOOUSDT", name: "WOO Network", short: "WOO" },
+  { symbol: "ZILUSDT", name: "Zilliqa", short: "ZIL" },
+  { symbol: "ONEUSDT", name: "Harmony", short: "ONE" },
+  { symbol: "HOTUSDT", name: "Holo", short: "HOT" },
+  { symbol: "ONTUSDT", name: "Ontology", short: "ONT" },
+  { symbol: "IOSTUSDT", name: "IOST", short: "IOST" },
+  { symbol: "RVNUSDT", name: "Ravencoin", short: "RVN" },
+  { symbol: "ZENUSDT", name: "Horizen", short: "ZEN" },
+  { symbol: "XTZUSDT", name: "Tezos", short: "XTZ" },
+  { symbol: "DASHUSDT", name: "Dash", short: "DASH" },
+  { symbol: "NEOUSDT", name: "NEO", short: "NEO" },
+  { symbol: "WAVESUSDT", name: "Waves", short: "WAVES" },
+  { symbol: "QTUMUSDT", name: "Qtum", short: "QTUM" },
+  { symbol: "ZECUSDT", name: "Zcash", short: "ZEC" },
+  { symbol: "SXPUSDT", name: "Solar", short: "SXP" },
+  { symbol: "KSMUSDT", name: "Kusama", short: "KSM" },
+  { symbol: "YFIUSDT", name: "yearn.finance", short: "YFI" },
+  { symbol: "BAKEUSDT", name: "BakeryToken", short: "BAKE" },
+  { symbol: "CAKEUSDT", name: "PancakeSwap", short: "CAKE" },
+  { symbol: "TRXUSDT", name: "TRON", short: "TRX" },
+  { symbol: "PEPEUSDT", name: "Pepe", short: "PEPE" },
+  { symbol: "WLDUSDT", name: "Worldcoin", short: "WLD" },
+  { symbol: "FETUSDT", name: "Fetch.ai", short: "FET" },
+  { symbol: "RENDERUSDT", name: "Render", short: "RENDER" },
+  { symbol: "PENDLEUSDT", name: "Pendle", short: "PENDLE" },
+  { symbol: "JUPUSDT", name: "Jupiter", short: "JUP" },
+  { symbol: "STXUSDT", name: "Stacks", short: "STX" },
+  { symbol: "WIFUSDT", name: "dogwifhat", short: "WIF" },
+  { symbol: "ONDOUSDT", name: "Ondo", short: "ONDO" },
+  { symbol: "PYTHUSDT", name: "Pyth Network", short: "PYTH" },
+  { symbol: "BONKUSDT", name: "Bonk", short: "BONK" },
+  { symbol: "FLOKIUSDT", name: "Floki", short: "FLOKI" },
+  { symbol: "ORDIUSDT", name: "ORDI", short: "ORDI" },
+  { symbol: "BCHUSDT", name: "Bitcoin Cash", short: "BCH" },
+  { symbol: "HBARUSDT", name: "Hedera", short: "HBAR" },
 ];
 
 const DURATIONS = [
@@ -72,6 +166,43 @@ const DURATIONS = [
   { value: 600, label: "10 min" },
   { value: 900, label: "15 min" },
 ];
+
+const audioCtxRef = { current: null as AudioContext | null };
+function getAudioCtx(): AudioContext {
+  if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+  return audioCtxRef.current;
+}
+
+function playTradeSound(type: "open" | "close") {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === "open") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.08);
+      osc.frequency.linearRampToValueAtTime(1200, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.2);
+    } else {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(1000, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.1);
+      osc.frequency.linearRampToValueAtTime(400, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    }
+  } catch {}
+}
 
 function formatMoney(val: number): string {
   if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
@@ -219,7 +350,7 @@ interface CandleData {
   volume: number;
 }
 
-function MiniChart({ candles, width = 600, height = 300 }: { candles: CandleData[]; width?: number; height?: number }) {
+function MiniChart({ candles, width = 600, height = 300, currentPrice }: { candles: CandleData[]; width?: number; height?: number; currentPrice?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -233,28 +364,32 @@ function MiniChart({ candles, width = 600, height = 300 }: { candles: CandleData
     canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
 
-    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = "#0b0e11";
+    ctx.fillRect(0, 0, width, height);
 
-    const padding = { top: 20, right: 60, bottom: 30, left: 10 };
+    const volumeAreaH = height * 0.15;
+    const padding = { top: 16, right: 64, bottom: volumeAreaH + 20, left: 8 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
     const prices = candles.flatMap(c => [c.high, c.low]);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
+    let minPrice = Math.min(...prices);
+    let maxPrice = Math.max(...prices);
+    if (currentPrice) {
+      minPrice = Math.min(minPrice, currentPrice);
+      maxPrice = Math.max(maxPrice, currentPrice);
+    }
     const priceRange = maxPrice - minPrice || 1;
+    const maxVol = Math.max(...candles.map(c => c.volume));
 
-    const candleW = Math.max(2, (chartW / candles.length) * 0.7);
+    const candleW = Math.max(2, (chartW / candles.length) * 0.65);
     const gap = chartW / candles.length;
 
-    ctx.fillStyle = "rgba(0,0,0,0)";
-    ctx.fillRect(0, 0, width, height);
-
-    const gridLines = 5;
-    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    const gridLines = 6;
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
     ctx.lineWidth = 1;
     ctx.font = "10px monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
     for (let i = 0; i <= gridLines; i++) {
       const y = padding.top + (chartH / gridLines) * i;
       ctx.beginPath();
@@ -262,23 +397,29 @@ function MiniChart({ candles, width = 600, height = 300 }: { candles: CandleData
       ctx.lineTo(width - padding.right, y);
       ctx.stroke();
       const price = maxPrice - (priceRange / gridLines) * i;
-      ctx.fillText(formatPrice(price), width - padding.right + 5, y + 3);
+      ctx.fillText(formatPrice(price), width - padding.right + 4, y + 3);
+    }
+
+    const volBaseY = height - 16;
+    for (let i = 0; i < candles.length; i++) {
+      const c = candles[i];
+      const x = padding.left + gap * i + gap / 2;
+      const isGreen = c.close >= c.open;
+      const volH = maxVol > 0 ? (c.volume / maxVol) * volumeAreaH : 0;
+      ctx.fillStyle = isGreen ? "rgba(14,203,129,0.15)" : "rgba(234,57,67,0.15)";
+      ctx.fillRect(x - candleW / 2, volBaseY - volH, candleW, volH);
     }
 
     for (let i = 0; i < candles.length; i++) {
       const c = candles[i];
       const x = padding.left + gap * i + gap / 2;
       const isGreen = c.close >= c.open;
-      const color = isGreen ? "#22c55e" : "#ef4444";
-      const shadowColor = isGreen ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)";
+      const color = isGreen ? "#0ecb81" : "#ea3943";
 
       const highY = padding.top + ((maxPrice - c.high) / priceRange) * chartH;
       const lowY = padding.top + ((maxPrice - c.low) / priceRange) * chartH;
       const openY = padding.top + ((maxPrice - c.open) / priceRange) * chartH;
       const closeY = padding.top + ((maxPrice - c.close) / priceRange) * chartH;
-
-      ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = 4;
 
       ctx.strokeStyle = color;
       ctx.lineWidth = 1;
@@ -289,41 +430,64 @@ function MiniChart({ candles, width = 600, height = 300 }: { candles: CandleData
 
       const bodyTop = Math.min(openY, closeY);
       const bodyH = Math.max(1, Math.abs(closeY - openY));
-      ctx.fillStyle = color;
-      ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
-
-      ctx.shadowColor = "transparent";
-      ctx.shadowBlur = 0;
+      if (isGreen) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+      } else {
+        ctx.fillStyle = "#0b0e11";
+        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - candleW / 2, bodyTop, candleW, bodyH);
+      }
     }
+
+    const livePx = currentPrice || candles[candles.length - 1].close;
+    const liveY = padding.top + ((maxPrice - livePx) / priceRange) * chartH;
+    const isLiveGreen = candles.length > 1 ? livePx >= candles[candles.length - 2].close : true;
+
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = isLiveGreen ? "rgba(14,203,129,0.7)" : "rgba(234,57,67,0.7)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, liveY);
+    ctx.lineTo(width - padding.right, liveY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const labelBg = isLiveGreen ? "#0ecb81" : "#ea3943";
+    ctx.fillStyle = labelBg;
+    const labelW = 60;
+    const labelH = 18;
+    ctx.beginPath();
+    ctx.moveTo(width - padding.right, liveY);
+    ctx.lineTo(width - padding.right + 5, liveY - labelH / 2);
+    ctx.lineTo(width - padding.right + 5 + labelW, liveY - labelH / 2);
+    ctx.lineTo(width - padding.right + 5 + labelW, liveY + labelH / 2);
+    ctx.lineTo(width - padding.right + 5, liveY + labelH / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 10px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(formatPrice(livePx), width - padding.right + 5 + labelW / 2, liveY + 4);
+    ctx.textAlign = "start";
 
     if (candles.length > 0) {
-      const lastCandle = candles[candles.length - 1];
-      const lastY = padding.top + ((maxPrice - lastCandle.close) / priceRange) * chartH;
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = lastCandle.close >= lastCandle.open ? "rgba(34,197,94,0.6)" : "rgba(239,68,68,0.6)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(padding.left, lastY);
-      ctx.lineTo(width - padding.right, lastY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      const labelBg = lastCandle.close >= lastCandle.open ? "#22c55e" : "#ef4444";
-      ctx.fillStyle = labelBg;
-      const labelW = 58;
-      const labelH = 16;
-      ctx.fillRect(width - padding.right + 2, lastY - labelH / 2, labelW, labelH);
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 10px monospace";
-      ctx.fillText(formatPrice(lastCandle.close), width - padding.right + 5, lastY + 4);
+      const lastC = candles[candles.length - 1];
+      const timeStr = new Date(lastC.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.font = "9px monospace";
+      ctx.fillText(timeStr, width - padding.right - 40, height - 4);
     }
-  }, [candles, width, height]);
+  }, [candles, width, height, currentPrice]);
 
   return (
     <canvas
       ref={canvasRef}
-      style={{ width, height }}
+      style={{ width, height, background: "#0b0e11" }}
       className="rounded-md"
+      data-testid="chart-canvas"
     />
   );
 }
@@ -355,6 +519,26 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const [duration, setDuration] = useState("300");
   const [potAmount, setPotAmount] = useState("0.01");
   const [mode, setMode] = useState<"bot" | "pvp">("bot");
+  const [tokenSearch, setTokenSearch] = useState("");
+  const [tokenDropOpen, setTokenDropOpen] = useState(false);
+  const tokenDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tokenDropRef.current && !tokenDropRef.current.contains(e.target as Node)) {
+        setTokenDropOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredAssets = ASSETS.filter(a =>
+    a.name.toLowerCase().includes(tokenSearch.toLowerCase()) ||
+    a.short.toLowerCase().includes(tokenSearch.toLowerCase()) ||
+    a.symbol.toLowerCase().includes(tokenSearch.toLowerCase())
+  );
+  const selectedAsset = ASSETS.find(a => a.symbol === asset) || ASSETS[0];
 
   const createMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/trading-duels", {
@@ -449,18 +633,56 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-2" ref={tokenDropRef}>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Trading Pair</Label>
-            <Select value={asset} onValueChange={setAsset}>
-              <SelectTrigger data-testid="select-trading-pair">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ASSETS.map(a => (
-                  <SelectItem key={a.symbol} value={a.symbol}>{a.short}/USDT - {a.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setTokenDropOpen(!tokenDropOpen)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-input bg-background text-sm"
+                data-testid="select-trading-pair"
+              >
+                <span className="font-mono font-semibold">{selectedAsset.short}/USDT</span>
+                <span className="text-muted-foreground text-xs truncate">{selectedAsset.name}</span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+              </button>
+              {tokenDropOpen && (
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg" style={{ maxHeight: 280 }}>
+                  <div className="p-2 border-b">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search tokens..."
+                        value={tokenSearch}
+                        onChange={e => setTokenSearch(e.target.value)}
+                        className="w-full pl-7 pr-2 py-1.5 text-sm rounded-md bg-muted/50 border-0 outline-none placeholder:text-muted-foreground"
+                        autoFocus
+                        data-testid="input-token-search"
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
+                    {filteredAssets.length === 0 ? (
+                      <p className="text-center text-xs text-muted-foreground py-4" data-testid="text-no-tokens">No tokens found</p>
+                    ) : (
+                      filteredAssets.map(a => (
+                        <button
+                          key={a.symbol}
+                          type="button"
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover-elevate ${a.symbol === asset ? "bg-muted" : ""}`}
+                          onClick={() => { setAsset(a.symbol); setTokenDropOpen(false); setTokenSearch(""); }}
+                          data-testid={`token-option-${a.short}`}
+                        >
+                          <span className="font-mono font-semibold w-14">{a.short}</span>
+                          <span className="text-muted-foreground text-xs truncate">{a.name}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</Label>
@@ -490,7 +712,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
 
           {mode === "bot" ? (
             <Button
-              className="w-full bg-gradient-to-r from-purple-600 to-violet-600 text-white border-purple-700"
+              className="w-full"
               onClick={() => playBotMutation.mutate()}
               disabled={playBotMutation.isPending}
               data-testid="button-play-bot"
@@ -500,7 +722,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
             </Button>
           ) : (
             <Button
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600"
+              className="w-full"
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending}
               data-testid="button-create-duel"
@@ -552,7 +774,7 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
           </div>
           <div>
             {duel.status === "waiting" && !isCreator && agent && (
-              <Button size="sm" onClick={() => onJoin(duel.id)} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600" data-testid={`button-join-${duel.id}`}>
+              <Button size="sm" onClick={() => onJoin(duel.id)} data-testid={`button-join-${duel.id}`}>
                 <Zap className="w-4 h-4 mr-1" /> Fight
               </Button>
             )}
@@ -624,6 +846,7 @@ function TradingPanel({
       sizeUsdt,
     }),
     onSuccess: (data: any) => {
+      playTradeSound("open");
       const ep = data.entryPrice ? formatPrice(parseFloat(data.entryPrice)) : formatPrice(currentPrice);
       toast({ title: `${side.toUpperCase()} opened!`, description: `${leverage}x leverage at $${ep}` });
       refetchPositions();
@@ -637,6 +860,7 @@ function TradingPanel({
       agentId,
     }),
     onSuccess: () => {
+      playTradeSound("close");
       toast({ title: "Position closed!" });
       refetchPositions();
     },
@@ -644,115 +868,141 @@ function TradingPanel({
   });
 
   return (
-    <div className="space-y-3 arena-animate-right">
-      <Card className="overflow-visible" style={{ boxShadow: totalPnl >= 0 ? "0 0 12px rgba(34,197,94,0.1)" : "0 0 12px rgba(239,68,68,0.1)" }}>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Portfolio</p>
-              <p className="text-xl font-bold font-mono arena-ticker" key={Math.round(totalBalance)}>{formatMoney(totalBalance)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">P&L</p>
-              <p className={`text-lg font-bold font-mono ${totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {totalPnl >= 0 ? "+" : ""}{formatMoney(totalPnl)} ({pnlPercent >= 0 ? "+" : ""}{pnlPercent.toFixed(2)}%)
-              </p>
-            </div>
+    <div className="space-y-0 h-full" style={{ background: "#0b0e11" }}>
+      <div className="p-3 border-b" style={{ borderColor: "#1e2329" }}>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: "#848e9c" }}>Portfolio Value</p>
+            <p className="text-xl font-bold font-mono text-white" key={Math.round(totalBalance)} data-testid="text-portfolio-value">{formatMoney(totalBalance)}</p>
           </div>
-          <div className="h-1.5 rounded-full bg-muted/50 overflow-visible relative">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${totalPnl >= 0 ? "bg-gradient-to-r from-green-600 to-green-400" : "bg-gradient-to-r from-red-600 to-red-400"}`}
-              style={{
-                width: `${Math.min(100, Math.max(2, (totalBalance / (initialBal * 2)) * 100))}%`,
-                boxShadow: totalPnl >= 0 ? "0 0 8px rgba(34,197,94,0.4)" : "0 0 8px rgba(239,68,68,0.4)",
-              }}
-            />
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: "#848e9c" }}>Unrealized P&L</p>
+            <p className="text-lg font-bold font-mono" style={{ color: totalPnl >= 0 ? "#0ecb81" : "#ea3943" }} data-testid="text-pnl">
+              {totalPnl >= 0 ? "+" : ""}{formatMoney(totalPnl)} ({pnlPercent >= 0 ? "+" : ""}{pnlPercent.toFixed(2)}%)
+            </p>
           </div>
-          <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-muted-foreground">Available: {formatMoney(availableBalance)}</span>
-            <span className="text-[10px] text-muted-foreground">In trades: {formatMoney(usedBalance)}</span>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="h-1 rounded-full overflow-visible relative" style={{ background: "#1e2329" }}>
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.min(100, Math.max(2, (totalBalance / (initialBal * 2)) * 100))}%`,
+              background: totalPnl >= 0 ? "#0ecb81" : "#ea3943",
+            }}
+          />
+        </div>
+        <div className="flex justify-between mt-1.5">
+          <span className="text-[10px]" style={{ color: "#848e9c" }}>Avbl: {formatMoney(availableBalance)}</span>
+          <span className="text-[10px]" style={{ color: "#848e9c" }}>In use: {formatMoney(usedBalance)}</span>
+        </div>
+      </div>
 
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant={side === "long" ? "default" : "outline"}
-              className={`${side === "long" ? "bg-green-600 text-white border-green-700" : ""}`}
-              onClick={() => setSide("long")}
-              data-testid="button-long"
-            >
-              <ArrowUp className="w-4 h-4 mr-1" /> Long
-            </Button>
-            <Button
-              variant={side === "short" ? "default" : "outline"}
-              className={`${side === "short" ? "bg-red-600 text-white border-red-700" : ""}`}
-              onClick={() => setSide("short")}
-              data-testid="button-short"
-            >
-              <ArrowDown className="w-4 h-4 mr-1" /> Short
-            </Button>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Leverage</Label>
-            <div className="flex gap-1">
-              {["1", "2", "5", "10", "20", "50"].map(l => (
-                <Button
-                  key={l}
-                  size="sm"
-                  variant={leverage === l ? "default" : "outline"}
-                  onClick={() => setLeverage(l)}
-                  className="flex-1 text-xs"
-                  data-testid={`button-leverage-${l}`}
-                >
-                  {l}x
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Size ({sizePercent}% = {formatMoney(parseFloat(sizeUsdt))})</Label>
-            <div className="flex gap-1">
-              {["10", "25", "50", "75", "100"].map(p => (
-                <Button
-                  key={p}
-                  size="sm"
-                  variant={sizePercent === p ? "default" : "outline"}
-                  onClick={() => setSizePercent(p)}
-                  className="flex-1 text-xs"
-                  data-testid={`button-size-${p}`}
-                >
-                  {p}%
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <Button
-            className={`w-full ${side === "long" ? "bg-green-600 text-white border-green-700" : "bg-red-600 text-white border-red-700"}`}
-            onClick={() => openMutation.mutate()}
-            disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0}
-            data-testid="button-open-position"
+      <div className="p-3 space-y-3">
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            onClick={() => setSide("long")}
+            className="py-2 rounded-md text-sm font-semibold transition-all flex items-center justify-center gap-1"
+            style={{
+              background: side === "long" ? "#0ecb81" : "#1e2329",
+              color: side === "long" ? "#0b0e11" : "#848e9c",
+            }}
+            data-testid="button-long"
           >
-            {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Crosshair className="w-4 h-4 mr-1" />}
-            {side === "long" ? "Open Long" : "Open Short"} {leverage}x - {formatMoney(parseFloat(sizeUsdt))}
-          </Button>
-        </CardContent>
-      </Card>
+            <ArrowUp className="w-4 h-4" /> Long/Buy
+          </button>
+          <button
+            onClick={() => setSide("short")}
+            className="py-2 rounded-md text-sm font-semibold transition-all flex items-center justify-center gap-1"
+            style={{
+              background: side === "short" ? "#ea3943" : "#1e2329",
+              color: side === "short" ? "#fff" : "#848e9c",
+            }}
+            data-testid="button-short"
+          >
+            <ArrowDown className="w-4 h-4" /> Short/Sell
+          </button>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-wider" style={{ color: "#848e9c" }}>Leverage</p>
+          <div className="flex gap-1">
+            {["1", "2", "5", "10", "20", "50"].map(l => (
+              <button
+                key={l}
+                onClick={() => setLeverage(l)}
+                className="flex-1 py-1.5 rounded-md text-xs font-mono font-semibold transition-all"
+                style={{
+                  background: leverage === l ? "#f0b90b" : "#1e2329",
+                  color: leverage === l ? "#0b0e11" : "#848e9c",
+                }}
+                data-testid={`button-leverage-${l}`}
+              >
+                {l}x
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-wider" style={{ color: "#848e9c" }}>
+            Size ({sizePercent}% = {formatMoney(parseFloat(sizeUsdt))})
+          </p>
+          <div className="flex gap-1">
+            {["10", "25", "50", "75", "100"].map(p => (
+              <button
+                key={p}
+                onClick={() => setSizePercent(p)}
+                className="flex-1 py-1.5 rounded-md text-xs font-mono font-semibold transition-all"
+                style={{
+                  background: sizePercent === p ? "#f0b90b" : "#1e2329",
+                  color: sizePercent === p ? "#0b0e11" : "#848e9c",
+                }}
+                data-testid={`button-size-${p}`}
+              >
+                {p}%
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-2 rounded-md text-xs space-y-1" style={{ background: "#1e2329" }}>
+          <div className="flex justify-between">
+            <span style={{ color: "#848e9c" }}>Entry Price</span>
+            <span className="font-mono text-white">${formatPrice(currentPrice)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#848e9c" }}>Order Value</span>
+            <span className="font-mono text-white">{formatMoney(parseFloat(sizeUsdt))}</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: "#848e9c" }}>Leverage</span>
+            <span className="font-mono" style={{ color: "#f0b90b" }}>{leverage}x</span>
+          </div>
+        </div>
+
+        <button
+          className="w-full py-3 rounded-md text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+          style={{
+            background: side === "long" ? "#0ecb81" : "#ea3943",
+            color: side === "long" ? "#0b0e11" : "#fff",
+            opacity: openMutation.isPending || parseFloat(sizeUsdt) <= 0 ? 0.5 : 1,
+          }}
+          onClick={() => openMutation.mutate()}
+          disabled={openMutation.isPending || parseFloat(sizeUsdt) <= 0}
+          data-testid="button-open-position"
+        >
+          {openMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crosshair className="w-4 h-4" />}
+          {side === "long" ? "Buy/Long" : "Sell/Short"} {leverage}x
+        </button>
+      </div>
 
       {openPositions.length > 0 && (
-        <Card>
-          <CardHeader className="py-2 px-4 flex flex-row items-center justify-between gap-1">
-            <CardTitle className="text-sm flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-amber-400" />
-              Active ({openPositions.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-2 space-y-1">
+        <div className="border-t px-3 py-2" style={{ borderColor: "#1e2329" }}>
+          <p className="text-xs font-semibold mb-2 flex items-center gap-1.5" style={{ color: "#f0b90b" }}>
+            <Target className="w-3.5 h-3.5" />
+            Open Positions ({openPositions.length})
+          </p>
+          <div className="space-y-1.5">
             {openPositions.map((pos, i) => {
               const entry = parseFloat(pos.entryPrice);
               const size = parseFloat(pos.sizeUsdt);
@@ -766,35 +1016,40 @@ function TradingPanel({
               return (
                 <div
                   key={pos.id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30 flex-wrap"
-                  style={{ animation: `arena-slide-up 0.3s ${i * 0.05}s ease-out both` }}
+                  className="flex items-center justify-between gap-2 p-2 rounded-md flex-wrap"
+                  style={{ background: "#1e2329" }}
                 >
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={pos.side === "long" ? "text-green-400 border-green-400/30" : "text-red-400 border-red-400/30"}>
-                      {pos.side === "long" ? <ArrowUp className="w-3 h-3 mr-1" /> : <ArrowDown className="w-3 h-3 mr-1" />}
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                      style={{
+                        background: pos.side === "long" ? "rgba(14,203,129,0.15)" : "rgba(234,57,67,0.15)",
+                        color: pos.side === "long" ? "#0ecb81" : "#ea3943",
+                      }}
+                    >
                       {pos.side.toUpperCase()} {pos.leverage}x
-                    </Badge>
-                    <span className="text-xs font-mono">{formatMoney(size)}</span>
+                    </span>
+                    <span className="text-xs font-mono text-white">{formatMoney(size)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-mono font-bold ${pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    <span className="text-sm font-mono font-bold" style={{ color: pnl >= 0 ? "#0ecb81" : "#ea3943" }}>
                       {pnl >= 0 ? "+" : ""}{formatMoney(pnl)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
                     </span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
+                    <button
                       onClick={() => closeMutation.mutate(pos.id)}
                       disabled={closeMutation.isPending}
+                      className="p-1 rounded transition-all"
+                      style={{ background: "#2b3139", color: "#848e9c" }}
                       data-testid={`button-close-${pos.id}`}
                     >
-                      <X className="w-4 h-4" />
-                    </Button>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -846,7 +1101,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       } catch { }
     };
     fetchPrice();
-    const interval = setInterval(fetchPrice, 1500);
+    const interval = setInterval(fetchPrice, 1000);
     return () => clearInterval(interval);
   }, [duel?.assetSymbol]);
 
@@ -869,7 +1124,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       } catch { }
     };
     fetchCandles();
-    const interval = setInterval(fetchCandles, 5000);
+    const interval = setInterval(fetchCandles, 1000);
     return () => clearInterval(interval);
   }, [duel?.assetSymbol]);
 
@@ -958,7 +1213,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                 </p>
               </div>
             </div>
-            <Button onClick={() => navigate("/arena")} className="arena-animate-up-d2 bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600" data-testid="button-back-lobby">
+            <Button onClick={() => navigate("/arena")} className="arena-animate-up-d2" data-testid="button-back-lobby">
               <Swords className="w-4 h-4 mr-2" /> Back to Arena
             </Button>
           </CardContent>
@@ -1006,7 +1261,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
               <StatBadge icon={Trophy} label="Pot" value={`${(parseFloat(duel.potAmount) * 2).toFixed(3)} BNB`} color="blue" />
             </div>
             <Button
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 arena-animate-up-d3"
+              className="w-full arena-animate-up-d3"
               onClick={async () => {
                 await apiRequest("POST", `/api/trading-duels/${duelId}/start`, {});
                 refetchDuel();
@@ -1052,57 +1307,81 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     );
   }
 
+  const priceUp = priceChange >= 0;
+  const high24 = candles.length > 0 ? Math.max(...candles.map(c => c.high)) : 0;
+  const low24 = candles.length > 0 ? Math.min(...candles.map(c => c.low)) : 0;
+  const vol24 = candles.length > 0 ? candles.reduce((s, c) => s + c.volume, 0) : 0;
+
   return (
-    <div className="relative p-2 md:p-4 space-y-3">
-      <ArenaBackground />
-      <div className="relative z-10">
-        <div className="flex items-center justify-between gap-3 flex-wrap arena-animate-up">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Badge variant="outline" className="text-green-400 border-green-400/30 gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-500" style={{ boxShadow: "0 0 6px rgba(34,197,94,0.6)", animation: "arena-glow-pulse 2s ease-in-out infinite" }} />
+    <div className="relative space-y-0" style={{ background: "#0b0e11", minHeight: "100vh" }}>
+      <div className="border-b" style={{ borderColor: "#1e2329", background: "#0b0e11" }}>
+        <div className="flex items-center justify-between gap-4 px-3 py-2 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-lg text-white">{assetInfo.short}<span style={{ color: "#848e9c" }}>/USDT</span></span>
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1" style={{ borderColor: "#0ecb81", color: "#0ecb81" }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#0ecb81", boxShadow: "0 0 4px #0ecb81" }} />
                 LIVE
               </Badge>
+              {opponentIsBot && (
+                <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1 text-purple-400 border-purple-400/30">
+                  <Bot className="w-3 h-3" /> vs AI
+                </Badge>
+              )}
             </div>
-            <span className="font-bold text-lg">{assetInfo.short}/USDT</span>
-            <span className={`font-mono text-xl font-bold arena-ticker ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`} key={currentPrice}>
-              ${formatPrice(currentPrice)}
-            </span>
-            {priceChange !== 0 && (
-              <span className={`text-sm ${priceChange >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {priceChange >= 0 ? <TrendingUp className="w-4 h-4 inline" /> : <TrendingDown className="w-4 h-4 inline" />}
-                {Math.abs(priceChange).toFixed(3)}%
+            <div className="flex items-center gap-1.5">
+              <span
+                className="font-mono text-2xl font-bold transition-colors"
+                style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}
+                key={Math.round(currentPrice * 10000)}
+                data-testid="text-live-price"
+              >
+                {formatPrice(currentPrice)}
               </span>
-            )}
-            {opponentIsBot && (
-              <Badge variant="outline" className="text-purple-400 border-purple-400/30 gap-1">
-                <Bot className="w-3 h-3" /> vs AI
-              </Badge>
+              {priceChange !== 0 && (
+                <span className="text-xs font-mono" style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}>
+                  {priceUp ? "+" : ""}{priceChange.toFixed(3)}%
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-5 text-xs">
+              <div>
+                <span style={{ color: "#848e9c" }}>24h High</span>
+                <p className="font-mono text-white" data-testid="text-24h-high">{formatPrice(high24)}</p>
+              </div>
+              <div>
+                <span style={{ color: "#848e9c" }}>24h Low</span>
+                <p className="font-mono text-white" data-testid="text-24h-low">{formatPrice(low24)}</p>
+              </div>
+              <div>
+                <span style={{ color: "#848e9c" }}>24h Vol</span>
+                <p className="font-mono text-white" data-testid="text-24h-vol">{vol24 >= 1000000 ? `${(vol24 / 1000000).toFixed(1)}M` : vol24 >= 1000 ? `${(vol24 / 1000).toFixed(1)}K` : vol24.toFixed(0)}</p>
+              </div>
+            </div>
+            {duel.endsAt && (
+              <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
             )}
           </div>
-          {duel.endsAt && (
-            <CountdownTimer endsAt={duel.endsAt.toString()} onExpired={handleExpired} />
-          )}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
-          <div className="lg:col-span-2 arena-animate-left" ref={chartContainerRef}>
-            <Card className="overflow-visible" style={{ boxShadow: "0 0 16px rgba(245,158,11,0.05)" }}>
-              <CardContent className="p-2">
-                <MiniChart candles={candles} width={chartWidth} height={350} />
-              </CardContent>
-            </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-0">
+        <div ref={chartContainerRef} className="border-r" style={{ borderColor: "#1e2329" }}>
+          <div className="p-1">
+            <MiniChart candles={candles} width={chartWidth} height={460} currentPrice={currentPrice} />
           </div>
-          <div>
-            {isParticipant && agent && (
-              <TradingPanel
-                duelId={duelId}
-                agentId={agent.id}
-                currentPrice={currentPrice}
-                duel={duel}
-              />
-            )}
-          </div>
+        </div>
+        <div style={{ background: "#0b0e11" }}>
+          {isParticipant && agent && (
+            <TradingPanel
+              duelId={duelId}
+              agentId={agent.id}
+              currentPrice={currentPrice}
+              duel={duel}
+            />
+          )}
         </div>
       </div>
     </div>
