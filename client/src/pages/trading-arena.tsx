@@ -1306,26 +1306,65 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   useEffect(() => {
     if (!duel?.assetSymbol) return;
     const MAX_TICKS = 300;
-    const fetchPrice = async () => {
+    const TICK_INTERVAL = 250;
+    let lastTickTime = 0;
+    let latestPrice = 0;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    let dead = false;
+
+    const connectWs = () => {
+      if (dead) return;
+      const symbol = duel.assetSymbol.toLowerCase();
+      ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
+
+      ws.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          const p = parseFloat(data.p);
+          if (!p || isNaN(p)) return;
+          latestPrice = p;
+          setCurrentPrice(prev => {
+            if (prev > 0) setPriceChange(((p - prev) / prev) * 100);
+            return p;
+          });
+          const now = Date.now();
+          if (now - lastTickTime >= TICK_INTERVAL) {
+            lastTickTime = now;
+            setPriceTicks(prev => {
+              const next = [...prev, { time: now, price: p }];
+              return next.length > MAX_TICKS ? next.slice(next.length - MAX_TICKS) : next;
+            });
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        if (!dead) reconnectTimer = setTimeout(connectWs, 2000);
+      };
+      ws.onerror = () => ws?.close();
+    };
+
+    const fetchInitialPrice = async () => {
       try {
         const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${duel.assetSymbol}`);
         const data = await res.json();
         if (data.price) {
           const p = parseFloat(data.price);
-          setCurrentPrice(prev => {
-            if (prev > 0) setPriceChange(((p - prev) / prev) * 100);
-            return p;
-          });
-          setPriceTicks(prev => {
-            const next = [...prev, { time: Date.now(), price: p }];
-            return next.length > MAX_TICKS ? next.slice(next.length - MAX_TICKS) : next;
-          });
+          latestPrice = p;
+          setCurrentPrice(p);
+          setPriceTicks([{ time: Date.now(), price: p }]);
         }
-      } catch { }
+      } catch {}
     };
-    fetchPrice();
-    const interval = setInterval(fetchPrice, 1000);
-    return () => clearInterval(interval);
+
+    fetchInitialPrice().then(connectWs);
+
+    return () => {
+      dead = true;
+      clearTimeout(reconnectTimer);
+      if (ws) ws.close();
+    };
   }, [duel?.assetSymbol]);
 
   const settleMutation = useMutation({
