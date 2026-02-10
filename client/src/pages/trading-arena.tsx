@@ -1156,35 +1156,36 @@ function TradingPanel({
             {openPositions.map((pos, i) => {
               const entry = parseFloat(pos.entryPrice);
               const size = parseFloat(pos.sizeUsdt);
-              let pnl: number;
-              if (pos.side === "long") {
-                pnl = ((currentPrice - entry) / entry) * size * pos.leverage;
-              } else {
-                pnl = ((entry - currentPrice) / entry) * size * pos.leverage;
+              let pnl = 0;
+              if (currentPrice > 0 && !isNaN(entry)) {
+                if (pos.side === "long") {
+                  pnl = ((currentPrice - entry) / entry) * size * pos.leverage;
+                } else {
+                  pnl = ((entry - currentPrice) / entry) * size * pos.leverage;
+                }
               }
-              const pnlPct = (pnl / size) * 100;
+              const pnlPct = size > 0 ? (pnl / size) * 100 : 0;
+              const pnlColor = pnl >= 0 ? "#0ecb81" : "#ea3943";
               return (
                 <div
                   key={pos.id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-md flex-wrap"
+                  className="p-2 rounded-md"
                   style={{ background: "#1e2329" }}
+                  data-testid={`position-card-${pos.id}`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                      style={{
-                        background: pos.side === "long" ? "rgba(14,203,129,0.15)" : "rgba(234,57,67,0.15)",
-                        color: pos.side === "long" ? "#0ecb81" : "#ea3943",
-                      }}
-                    >
-                      {pos.side.toUpperCase()} {pos.leverage}x
-                    </span>
-                    <span className="text-xs font-mono text-white">{formatMoney(size)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-mono font-bold" style={{ color: pnl >= 0 ? "#0ecb81" : "#ea3943" }}>
-                      {pnl >= 0 ? "+" : ""}{formatMoney(pnl)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
-                    </span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          background: pos.side === "long" ? "rgba(14,203,129,0.15)" : "rgba(234,57,67,0.15)",
+                          color: pos.side === "long" ? "#0ecb81" : "#ea3943",
+                        }}
+                      >
+                        {pos.side.toUpperCase()} {pos.leverage}x
+                      </span>
+                      <span className="text-xs font-mono text-white">{formatMoney(size)}</span>
+                    </div>
                     <button
                       onClick={() => closeMutation.mutate(pos.id)}
                       disabled={closeMutation.isPending}
@@ -1194,6 +1195,28 @@ function TradingPanel({
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-1.5 gap-2">
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Entry</span>
+                        <span className="text-[11px] font-mono text-white">${formatPrice(entry)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Now</span>
+                        <span className="text-[11px] font-mono" style={{ color: pnlColor }}>${formatPrice(currentPrice)}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] uppercase tracking-wider block" style={{ color: "#848e9c" }}>Live P&L</span>
+                      <span
+                        className="text-sm font-mono font-bold"
+                        style={{ color: pnlColor }}
+                        data-testid={`pnl-value-${pos.id}`}
+                      >
+                        {pnl >= 0 ? "+" : ""}{formatMoney(pnl)} ({pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(1)}%)
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
