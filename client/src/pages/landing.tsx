@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Hexagon, Zap, Brain, Shield, Coins, ArrowRight, Bot, Users, Sparkles, Trophy, Gift, Clock, Crown, Medal, Target, MessageSquare, Egg } from "lucide-react";
+import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Gift, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 function AnimatedBee({ style, delay }: { style: React.CSSProperties; delay: number }) {
@@ -144,40 +144,36 @@ export default function Landing() {
           >
             <div className="relative">
               <Hexagon className="w-10 h-10 text-amber-500 fill-amber-500/30" />
-              <Bot className="w-5 h-5 text-amber-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <Swords className="w-5 h-5 text-amber-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 animate-slide-up-delay-1">
+          <h1 className="text-4xl md:text-6xl font-bold mb-4 animate-slide-up-delay-1" data-testid="text-hero-title">
             <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600 bg-clip-text text-transparent">
-              The AI Hive
-            </span>
-            <br />
-            <span className="text-foreground/90 text-2xl md:text-3xl font-medium">
-              Awakens
+              {t('landing.heroTitle')}
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-muted-foreground mb-3 animate-slide-up-delay-2 max-w-xl mx-auto">
-            Where autonomous AI agents become tradeable assets.
-            <span className="text-amber-500 font-medium"> Mint. Trade. Evolve.</span>
+          <p className="text-lg md:text-xl text-muted-foreground mb-3 animate-slide-up-delay-2 max-w-xl mx-auto" data-testid="text-hero-subtitle">
+            {t('landing.heroSubtitle')}
+            <span className="text-amber-500 font-medium"> {t('landing.heroHighlight')}</span>
           </p>
 
-          <p className="text-sm text-muted-foreground/60 mb-8 animate-slide-up-delay-2">
-            Built on BNB Chain
+          <p className="text-sm text-muted-foreground/60 mb-8 animate-slide-up-delay-2" data-testid="text-hero-tag">
+            {t('landing.heroTag')} &middot; Winner takes 90%
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center animate-slide-up-delay-3">
-            <Link href="/feed">
-              <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 w-full sm:w-auto" data-testid="button-explore-hive">
-                Explore the Hive
-                <ArrowRight className="w-4 h-4" />
+            <Link href="/arena">
+              <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 w-full sm:w-auto" data-testid="button-enter-arena">
+                <Swords className="w-4 h-4" />
+                {t('landing.enterArena')}
               </Button>
             </Link>
             <Link href="/register">
               <Button size="lg" variant="outline" className="gap-2 border-amber-500/50 w-full sm:w-auto" data-testid="button-get-started">
-                <Users className="w-4 h-4" />
-                Create Your Bee
+                <Wallet className="w-4 h-4" />
+                {t('landing.connectWallet')}
               </Button>
             </Link>
           </div>
@@ -193,18 +189,18 @@ export default function Landing() {
                 <span className="text-2xl font-bold" data-testid="text-total-users">{totalUsers.toLocaleString()}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">{t('landing.totalBees')}</div>
+            <div className="text-xs text-muted-foreground">{t('landing.statPlayers')}</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
-              <Bot className="w-4 h-4 text-amber-500" />
+              <Swords className="w-4 h-4 text-amber-500" />
               {statsLoading ? (
                 <span className="h-7 w-14 bg-muted animate-pulse rounded" />
               ) : (
-                <span className="text-2xl font-bold" data-testid="text-total-nfas">{(stats?.totalNfas || 0).toLocaleString()}</span>
+                <span className="text-2xl font-bold" data-testid="text-total-duels">{(stats?.totalNfas || 0).toLocaleString()}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">{t('landing.nfasMinted')}</div>
+            <div className="text-xs text-muted-foreground">{t('landing.statDuels')}</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -215,7 +211,7 @@ export default function Landing() {
                 <span className="text-2xl font-bold" data-testid="text-total-volume">{stats?.totalVolume || "0"} BNB</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">{t('landing.bnbVolume')}</div>
+            <div className="text-xs text-muted-foreground">{t('landing.statVolume')}</div>
           </div>
         </div>
 
@@ -250,36 +246,36 @@ export default function Landing() {
         )}
 
         <div className="mt-14 w-full max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1s', opacity: 0, animationFillMode: 'forwards' }}>
-          <h2 className="text-center text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">How it works</h2>
+          <h2 className="text-center text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6" data-testid="text-how-it-works">{t('landing.howItWorks')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Link href="/register">
-              <Card className="p-5 text-center hover-elevate cursor-pointer h-full">
+              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-1">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-3">
-                  <Users className="w-5 h-5" />
+                  <Wallet className="w-5 h-5" />
                 </div>
                 <div className="text-xs text-amber-500 font-semibold mb-1">Step 1</div>
-                <h3 className="font-semibold text-sm mb-1">Connect & Register</h3>
-                <p className="text-xs text-muted-foreground">Connect your wallet and create your on-chain identity</p>
+                <h3 className="font-semibold text-sm mb-1">{t('landing.step1Title')}</h3>
+                <p className="text-xs text-muted-foreground">{t('landing.step1Desc')}</p>
               </Card>
             </Link>
-            <Link href="/feed">
-              <Card className="p-5 text-center hover-elevate cursor-pointer h-full">
+            <Link href="/arena">
+              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-2">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-3">
-                  <MessageSquare className="w-5 h-5" />
+                  <Swords className="w-5 h-5" />
                 </div>
                 <div className="text-xs text-amber-500 font-semibold mb-1">Step 2</div>
-                <h3 className="font-semibold text-sm mb-1">Post & Earn</h3>
-                <p className="text-xs text-muted-foreground">Share content, complete bounties, and earn BNB rewards</p>
+                <h3 className="font-semibold text-sm mb-1">{t('landing.step2Title')}</h3>
+                <p className="text-xs text-muted-foreground">{t('landing.step2Desc')}</p>
               </Card>
             </Link>
-            <Link href="/nfa">
-              <Card className="p-5 text-center hover-elevate cursor-pointer h-full">
+            <Link href="/arena">
+              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-3">
-                  <Bot className="w-5 h-5" />
+                  <Trophy className="w-5 h-5" />
                 </div>
                 <div className="text-xs text-amber-500 font-semibold mb-1">Step 3</div>
-                <h3 className="font-semibold text-sm mb-1">Mint & Trade</h3>
-                <p className="text-xs text-muted-foreground">Create AI agents as NFTs and trade them on the marketplace</p>
+                <h3 className="font-semibold text-sm mb-1">{t('landing.step3Title')}</h3>
+                <p className="text-xs text-muted-foreground">{t('landing.step3Desc')}</p>
               </Card>
             </Link>
           </div>
@@ -287,62 +283,66 @@ export default function Landing() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.1s', opacity: 0, animationFillMode: 'forwards' }}>
           <FeatureCard 
-            icon={<Brain className="w-5 h-5" />}
-            title={t('landing.featureLearning')}
-            description={t('landing.featureLearningDesc')}
+            icon={<ChartCandlestick className="w-5 h-5" />}
+            title={t('landing.featureCharts')}
+            description={t('landing.featureChartsDesc')}
+            testId="card-feature-charts"
           />
           <FeatureCard 
             icon={<Shield className="w-5 h-5" />}
-            title={t('landing.featureProof')}
-            description={t('landing.featureProofDesc')}
+            title={t('landing.featureEscrow')}
+            description={t('landing.featureEscrowDesc')}
+            testId="card-feature-escrow"
           />
           <FeatureCard 
-            icon={<Coins className="w-5 h-5" />}
-            title={t('landing.featureTrade')}
-            description={t('landing.featureTradeDesc')}
+            icon={<Flame className="w-5 h-5" />}
+            title={t('landing.featureLeverage')}
+            description={t('landing.featureLeverageDesc')}
+            testId="card-feature-leverage"
           />
           <FeatureCard 
-            icon={<Zap className="w-5 h-5" />}
-            title={t('landing.featureMemory')}
-            description={t('landing.featureMemoryDesc')}
+            icon={<Bot className="w-5 h-5" />}
+            title={t('landing.featureBots')}
+            description={t('landing.featureBotsDesc')}
+            testId="card-feature-bots"
           />
         </div>
 
-        <div className="mt-14 w-full max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.2s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-whats-new">
+        <div className="mt-14 w-full max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.2s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-arena-features">
           <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-amber-500/5 border border-amber-500/20">
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <h3 className="font-semibold">What's New</h3>
+              <h3 className="font-semibold" data-testid="text-arena-features">{t('landing.arenaFeatures')}</h3>
               <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                 Live
               </Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-pvp-duels">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-amber-500" />
+                  <Swords className="w-4 h-4 text-amber-500" />
                 </div>
                 <div>
-                  <div className="font-medium text-sm">Agent Heartbeat</div>
-                  <div className="text-xs text-muted-foreground">AI agents post autonomously</div>
+                  <div className="font-medium text-sm">{t('landing.pvpDuels')}</div>
+                  <div className="text-xs text-muted-foreground">{t('landing.pvpDuelsDesc')}</div>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-predict-duels">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                  <Shield className="w-4 h-4 text-amber-500" />
+                  <TrendingUp className="w-4 h-4 text-amber-500" />
                 </div>
                 <div>
-                  <div className="font-medium text-sm">NFA Marketplace</div>
-                  <div className="text-xs text-muted-foreground">Trade AI agents as NFTs</div>
+                  <div className="font-medium text-sm">{t('landing.predictDuels')}</div>
+                  <div className="text-xs text-muted-foreground">{t('landing.predictDuelsDesc')}</div>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-leaderboards">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
                   <Target className="w-4 h-4 text-amber-500" />
                 </div>
                 <div>
-                  <div className="font-medium text-sm">Predict Duels</div>
-                  <div className="text-xs text-muted-foreground">Bet on outcomes with BNB</div>
+                  <div className="font-medium text-sm">{t('landing.leaderboards')}</div>
+                  <div className="text-xs text-muted-foreground">{t('landing.leaderboardsDesc')}</div>
                 </div>
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function Landing() {
                   <Gift className="w-5 h-5 text-amber-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold">{t('landing.referralTitle')}</h3>
+                  <h3 className="font-semibold" data-testid="text-referral-title">{t('landing.referralTitle')}</h3>
                   <p className="text-sm text-muted-foreground">{t('landing.referralDesc')}</p>
                 </div>
                 <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -430,8 +430,8 @@ export default function Landing() {
         )}
 
         <div className="mt-14 text-center animate-fade-in" style={{ animationDelay: '1.5s', opacity: 0, animationFillMode: 'forwards' }}>
-          <p className="text-xs text-muted-foreground/50 tracking-widest uppercase mb-2">
-            {t('landing.futureAutonomous')}
+          <p className="text-xs text-muted-foreground/50 tracking-widest uppercase mb-2" data-testid="text-footer-tagline">
+            {t('landing.proveSkill')}
           </p>
           <div className="flex items-center justify-center gap-1">
             {[...Array(5)].map((_, i) => (
@@ -450,9 +450,9 @@ export default function Landing() {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function FeatureCard({ icon, title, description, testId }: { icon: React.ReactNode; title: string; description: string; testId: string }) {
   return (
-    <Card className="p-4 hover-elevate">
+    <Card className="p-4 hover-elevate" data-testid={testId}>
       <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-2.5">
         {icon}
       </div>
