@@ -4,6 +4,9 @@ import { insertCrmContactSchema, insertCrmDealSchema, insertCrmActivitySchema } 
 
 const router = Router();
 
+const contactUpdateSchema = insertCrmContactSchema.partial();
+const dealUpdateSchema = insertCrmDealSchema.partial();
+
 router.get("/contacts", async (_req, res) => {
   try {
     const status = _req.query.status as string | undefined;
@@ -36,10 +39,13 @@ router.post("/contacts", async (req, res) => {
 
 router.patch("/contacts/:id", async (req, res) => {
   try {
-    const contact = await storage.updateCrmContact(req.params.id, req.body);
+    const existing = await storage.getCrmContact(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Contact not found" });
+    const parsed = contactUpdateSchema.parse(req.body);
+    const contact = await storage.updateCrmContact(req.params.id, parsed);
     res.json(contact);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -84,10 +90,13 @@ router.post("/deals", async (req, res) => {
 
 router.patch("/deals/:id", async (req, res) => {
   try {
-    const deal = await storage.updateCrmDeal(req.params.id, req.body);
+    const existing = await storage.getCrmDeal(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Deal not found" });
+    const parsed = dealUpdateSchema.parse(req.body);
+    const deal = await storage.updateCrmDeal(req.params.id, parsed);
     res.json(deal);
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    res.status(400).json({ error: e.message });
   }
 });
 

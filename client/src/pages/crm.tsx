@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+
+function invalidateCrm() {
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey[0];
+      return typeof key === "string" && key.startsWith("/api/crm/");
+    },
+  });
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,8 +103,7 @@ function ContactForm({ contact, onClose }: { contact?: CrmContact; onClose: () =
       return apiRequest("POST", "/api/crm/contacts", form);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/stats"] });
+      invalidateCrm();
       toast({ title: contact ? "Contact updated" : "Contact created" });
       onClose();
     },
@@ -152,8 +160,7 @@ function DealForm({ deal, contacts, onClose }: { deal?: CrmDeal; contacts: CrmCo
       return apiRequest("POST", "/api/crm/deals", form);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/stats"] });
+      invalidateCrm();
       toast({ title: deal ? "Deal updated" : "Deal created" });
       onClose();
     },
@@ -214,7 +221,7 @@ function ActivityForm({ contacts, deals, onClose }: { contacts: CrmContact[]; de
       dealId: form.dealId || null,
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/activities"] });
+      invalidateCrm();
       toast({ title: "Activity logged" });
       onClose();
     },
@@ -262,15 +269,15 @@ function ContactsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editContact, setEditContact] = useState<CrmContact | undefined>();
 
+  const url = filter !== "all" ? `/api/crm/contacts?status=${filter}` : "/api/crm/contacts";
   const { data: contacts = [], isLoading } = useQuery<CrmContact[]>({
-    queryKey: ["/api/crm/contacts", filter !== "all" ? `?status=${filter}` : ""],
+    queryKey: [url],
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/crm/contacts/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/stats"] });
+      invalidateCrm();
       toast({ title: "Contact deleted" });
     },
   });
@@ -345,8 +352,9 @@ function DealsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDeal, setEditDeal] = useState<CrmDeal | undefined>();
 
+  const dealsUrl = stageFilter !== "all" ? `/api/crm/deals?stage=${stageFilter}` : "/api/crm/deals";
   const { data: deals = [], isLoading } = useQuery<CrmDeal[]>({
-    queryKey: ["/api/crm/deals", stageFilter !== "all" ? `?stage=${stageFilter}` : ""],
+    queryKey: [dealsUrl],
   });
 
   const { data: contacts = [] } = useQuery<CrmContact[]>({
@@ -356,8 +364,7 @@ function DealsTab() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/crm/deals/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/deals"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/crm/stats"] });
+      invalidateCrm();
       toast({ title: "Deal deleted" });
     },
   });
