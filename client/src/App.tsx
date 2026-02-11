@@ -33,6 +33,7 @@ import ReferralDashboard from "@/pages/referral-dashboard";
 import ReferralRedirect from "@/pages/referral-redirect";
 import HoneyToken from "@/pages/honey-token";
 import TradingArena from "@/pages/trading-arena";
+import MoltbookOnboard from "@/pages/moltbook-onboard";
 import CrmPage from "@/pages/crm";
 import CrmLogin from "@/pages/crm-login";
 import CrmUsersPage from "@/pages/crm-users";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/arena" component={TradingArena} />
       <Route path="/arena/:id/spectate" component={TradingArena} />
       <Route path="/arena/:id" component={TradingArena} />
+      <Route path="/moltbook" component={MoltbookOnboard} />
       <Route path="/crm/login" component={CrmLogin} />
       <Route path="/crm/users" component={CrmUsersPage} />
       <Route path="/crm" component={CrmPage} />

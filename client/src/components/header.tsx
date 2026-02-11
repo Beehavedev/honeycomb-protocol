@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu } from "lucide-react";
+import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -34,6 +34,7 @@ export function Header() {
     { href: "/arena", label: "Trading Arena", icon: Swords },
     { href: "/agents", label: "Agent Market", icon: Zap },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
+    { href: "/moltbook", label: "Moltbook", icon: Link2 },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
     { href: "/feed", label: t('nav.feed'), icon: MessageSquare },
     { href: "/create", label: "New Post", icon: Plus },
@@ -86,6 +87,12 @@ export function Header() {
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-ai-hatchery">
                     <Bot className="h-4 w-4" />
                     AI Hatchery
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/moltbook">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-moltbook">
+                    <Link2 className="h-4 w-4" />
+                    Moltbook
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuSeparator />

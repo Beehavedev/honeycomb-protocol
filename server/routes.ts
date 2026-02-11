@@ -3666,5 +3666,130 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/moltbook/connect", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      if (!apiKey || typeof apiKey !== "string" || !apiKey.startsWith("moltbook_")) {
+        return res.status(400).json({ message: "Invalid Moltbook API key. Keys start with 'moltbook_'" });
+      }
+
+      let moltbookProfile: any = null;
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch("https://www.moltbook.com/api/v1/agents/me", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: controller.signal,
+        });
+        clearTimeout(t);
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => "");
+          return res.status(401).json({ message: `Moltbook API error: ${response.status}. Check your API key.` });
+        }
+        moltbookProfile = await response.json();
+      } catch (fetchErr: any) {
+        if (fetchErr.name === "AbortError") {
+          return res.status(504).json({ message: "Moltbook API timed out. Try again." });
+        }
+        return res.status(502).json({ message: "Could not reach Moltbook API. Try again later." });
+      }
+
+      const agentName = moltbookProfile?.agent?.name || moltbookProfile?.name || "MoltbookAgent";
+      const moltbookId = moltbookProfile?.agent?.id || moltbookProfile?.id || apiKey.slice(-8);
+      const karma = moltbookProfile?.agent?.karma || moltbookProfile?.karma || 0;
+      const verified = moltbookProfile?.agent?.claimed || moltbookProfile?.claimed || false;
+
+      const moltbookOwner = `0xMOLTBOOK_${moltbookId}`.padEnd(42, "0").slice(0, 42);
+      const existing = await db.select().from(agents).where(eq(agents.ownerAddress, moltbookOwner)).limit(1);
+
+      let honeycombAgentId: string;
+      if (existing.length > 0) {
+        honeycombAgentId = existing[0].id;
+      } else {
+        const [newAgent] = await db.insert(agents).values({
+          name: agentName,
+          bio: `Moltbook agent linked to Honeycomb Arena. Karma: ${karma}`,
+          ownerAddress: moltbookOwner,
+          isBot: true,
+          capabilities: ["trading", "arena", "moltbook"],
+        }).returning();
+        honeycombAgentId = newAgent.id;
+      }
+
+      res.json({
+        moltbookAgent: {
+          name: agentName,
+          id: moltbookId,
+          karma,
+          verified,
+        },
+        honeycombAgentId,
+      });
+    } catch (error: any) {
+      console.error("[Moltbook] Connect error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/moltbook/activate", async (req, res) => {
+    try {
+      const { apiKey, honeycombAgentId } = req.body;
+      if (!honeycombAgentId) {
+        return res.status(400).json({ message: "honeycombAgentId required" });
+      }
+      if (!apiKey || typeof apiKey !== "string" || !apiKey.startsWith("moltbook_")) {
+        return res.status(400).json({ message: "Valid Moltbook API key required for activation" });
+      }
+
+      let moltbookId: string | null = null;
+      try {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch("https://www.moltbook.com/api/v1/agents/me", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: controller.signal,
+        });
+        clearTimeout(t);
+        if (!response.ok) {
+          return res.status(401).json({ message: "Moltbook API key verification failed" });
+        }
+        const profile = await response.json() as any;
+        moltbookId = profile?.agent?.id || profile?.id || apiKey.slice(-8);
+      } catch (fetchErr: any) {
+        if (fetchErr.name === "AbortError") {
+          return res.status(504).json({ message: "Moltbook API timed out. Try again." });
+        }
+        return res.status(502).json({ message: "Could not reach Moltbook API. Try again later." });
+      }
+
+      const expectedOwner = `0xMOLTBOOK_${moltbookId}`.padEnd(42, "0").slice(0, 42);
+      const [agentRecord] = await db.select().from(agents).where(eq(agents.id, honeycombAgentId)).limit(1);
+      if (!agentRecord) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+      if (agentRecord.ownerAddress !== expectedOwner) {
+        return res.status(403).json({ message: "API key does not match this agent" });
+      }
+
+      const caps = agentRecord.capabilities || [];
+      if (!caps.includes("arena-active")) {
+        await db.update(agents).set({
+          capabilities: [...caps, "arena-active"],
+          isVerified: true,
+        }).where(eq(agents.id, honeycombAgentId));
+      }
+
+      res.json({
+        agentId: honeycombAgentId,
+        name: agentRecord.name,
+        activated: true,
+      });
+    } catch (error: any) {
+      console.error("[Moltbook] Activate error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

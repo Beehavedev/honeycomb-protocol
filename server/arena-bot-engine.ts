@@ -15,6 +15,7 @@ type BotStyle = "aggressive" | "conservative" | "contrarian" | "grid" | "scalper
 
 interface BotState {
   duelId: string;
+  botKey: string;
   botAgentId: string;
   style: BotStyle;
   intervalId: NodeJS.Timeout | null;
@@ -40,7 +41,17 @@ export async function ensureArenaBots(): Promise<void> {
   }
 }
 
-export async function getRandomArenaBot(): Promise<{ id: string; name: string; style: BotStyle }> {
+export async function getRandomArenaBot(excludeId?: string): Promise<{ id: string; name: string; style: BotStyle }> {
+  if (excludeId) {
+    const allBots = await Promise.all(ARENA_BOT_PROFILES.map(async (p) => {
+      const [bot] = await db.select().from(agents).where(eq(agents.ownerAddress, p.ownerAddress)).limit(1);
+      return bot ? { id: bot.id, name: bot.name, style: p.style } : null;
+    }));
+    const eligible = allBots.filter((b): b is NonNullable<typeof b> => b !== null && b.id !== excludeId);
+    if (eligible.length > 0) {
+      return eligible[Math.floor(Math.random() * eligible.length)];
+    }
+  }
   const profile = ARENA_BOT_PROFILES[Math.floor(Math.random() * ARENA_BOT_PROFILES.length)];
   const [bot] = await db.select().from(agents).where(eq(agents.ownerAddress, profile.ownerAddress)).limit(1);
   if (!bot) throw new Error("Arena bot not found - run ensureArenaBots first");
@@ -216,8 +227,10 @@ async function executeBotTrade(state: BotState): Promise<void> {
   }
 }
 
-export function startBot(duelId: string, botAgentId: string, style: BotStyle, durationSeconds: number): void {
-  if (activeBots.has(duelId)) return;
+export function startBot(botKey: string, botAgentId: string, style: BotStyle, durationSeconds: number): void {
+  if (activeBots.has(botKey)) return;
+
+  const realDuelId = botKey.includes("__") ? botKey.split("__")[0] : botKey;
 
   const baseInterval = {
     aggressive: 8000,
@@ -230,7 +243,8 @@ export function startBot(duelId: string, botAgentId: string, style: BotStyle, du
   const maxTrades = Math.floor(durationSeconds / (baseInterval / 1000)) + 5;
 
   const state: BotState = {
-    duelId,
+    duelId: realDuelId,
+    botKey,
     botAgentId,
     style,
     intervalId: null,
@@ -243,29 +257,28 @@ export function startBot(duelId: string, botAgentId: string, style: BotStyle, du
   const scheduleNext = () => {
     state.intervalId = setTimeout(async () => {
       await executeBotTrade(state);
-      if (activeBots.has(duelId)) {
+      if (activeBots.has(botKey)) {
         scheduleNext();
       }
     }, jitter());
   };
 
-  activeBots.set(duelId, state);
+  activeBots.set(botKey, state);
 
   setTimeout(() => {
     executeBotTrade(state);
     scheduleNext();
   }, 2000 + Math.random() * 3000);
 
-  console.log(`[ArenaBot] Started ${style} bot for duel ${duelId}`);
+  console.log(`[ArenaBot] Started ${style} bot for duel ${realDuelId} (key: ${botKey})`);
 }
 
-export function stopBot(duelId: string): void {
-  const state = activeBots.get(duelId);
+export function stopBot(botKey: string): void {
+  const state = activeBots.get(botKey);
   if (state?.intervalId) {
     clearTimeout(state.intervalId);
   }
-  activeBots.delete(duelId);
-  console.log(`[ArenaBot] Stopped bot for duel ${duelId}`);
+  activeBots.delete(botKey);
 }
 
 export function getActiveBotCount(): number {

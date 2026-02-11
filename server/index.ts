@@ -6,6 +6,7 @@ import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists } from "./see
 import { startTwitterScheduler } from "./twitter-scheduler";
 import { storage } from "./storage";
 import { ensureArenaBots } from "./arena-bot-engine";
+import { startAutoDuelSpawner } from "./auto-duel-spawner";
 import path from "path";
 
 const app = express();
@@ -77,6 +78,9 @@ app.use((req, res, next) => {
   
   // Start Twitter automation scheduler
   startTwitterScheduler();
+
+  // Start auto-duel spawner for live bot-vs-bot games
+  startAutoDuelSpawner();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
