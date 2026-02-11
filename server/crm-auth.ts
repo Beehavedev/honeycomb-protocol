@@ -4,7 +4,10 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import type { CrmUser } from "@shared/schema";
 
-const JWT_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || "honeycomb-crm-secret-key";
+const JWT_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("CRM auth requires SESSION_SECRET or JWT_SECRET environment variable");
+}
 
 const ROLE_LEVELS: Record<string, number> = {
   super_admin: 4,

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { getCrmToken, getCrmUser } from "./crm-login";
+import { getCrmToken, getCrmUser, clearCrmAuth } from "./crm-login";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,11 @@ async function crmFetch(url: string, options?: RequestInit) {
     },
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      clearCrmAuth();
+      window.location.href = "/crm/login";
+      throw new Error("Session expired");
+    }
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || `Request failed: ${res.status}`);
   }

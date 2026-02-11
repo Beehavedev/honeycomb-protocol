@@ -117,7 +117,18 @@ router.patch("/users/:id", crmAuth, requireRole("admin"), async (req: CrmAuthReq
       if (!canManageRole(req.crmUser!.role, req.body.role)) {
         return res.status(403).json({ error: "Cannot assign equal or higher role" });
       }
+      if (req.crmUser!.id === target.id) {
+        return res.status(403).json({ error: "Cannot change your own role" });
+      }
       updates.role = req.body.role;
+    }
+
+    if (req.body.isActive === false && target.role === "super_admin") {
+      const allUsers = await storage.getCrmUsers();
+      const activeSuperAdmins = allUsers.filter(u => u.role === "super_admin" && u.isActive && u.id !== target.id);
+      if (activeSuperAdmins.length === 0) {
+        return res.status(403).json({ error: "Cannot deactivate the last active super admin" });
+      }
     }
 
     if (req.body.password) {
