@@ -2453,3 +2453,50 @@ export type TradingDuel = typeof tradingDuels.$inferSelect;
 export type InsertTradingDuel = z.infer<typeof insertTradingDuelSchema>;
 export type TradingPosition = typeof tradingPositions.$inferSelect;
 export type InsertTradingPosition = z.infer<typeof insertTradingPositionSchema>;
+
+// ============ CRM ============
+
+export const crmContacts = pgTable("crm_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email"),
+  walletAddress: text("wallet_address"),
+  company: text("company"),
+  role: text("role"),
+  status: text("status").notNull().default("lead"),
+  source: text("source"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const crmDeals = pgTable("crm_deals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contactId: varchar("contact_id").references(() => crmContacts.id),
+  title: text("title").notNull(),
+  value: text("value"),
+  stage: text("stage").notNull().default("lead"),
+  priority: text("priority").notNull().default("medium"),
+  description: text("description"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const crmActivities = pgTable("crm_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contactId: varchar("contact_id").references(() => crmContacts.id),
+  dealId: varchar("deal_id").references(() => crmDeals.id),
+  type: text("type").notNull(),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCrmContactSchema = createInsertSchema(crmContacts).omit({ id: true, createdAt: true });
+export const insertCrmDealSchema = createInsertSchema(crmDeals).omit({ id: true, createdAt: true, closedAt: true });
+export const insertCrmActivitySchema = createInsertSchema(crmActivities).omit({ id: true, createdAt: true });
+
+export type CrmContact = typeof crmContacts.$inferSelect;
+export type InsertCrmContact = z.infer<typeof insertCrmContactSchema>;
+export type CrmDeal = typeof crmDeals.$inferSelect;
+export type InsertCrmDeal = z.infer<typeof insertCrmDealSchema>;
+export type CrmActivity = typeof crmActivities.$inferSelect;
+export type InsertCrmActivity = z.infer<typeof insertCrmActivitySchema>;
