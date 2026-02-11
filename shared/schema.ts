@@ -2500,3 +2500,18 @@ export type CrmDeal = typeof crmDeals.$inferSelect;
 export type InsertCrmDeal = z.infer<typeof insertCrmDealSchema>;
 export type CrmActivity = typeof crmActivities.$inferSelect;
 export type InsertCrmActivity = z.infer<typeof insertCrmActivitySchema>;
+
+export const crmUsers = pgTable("crm_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("moderator"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+});
+
+export const insertCrmUserSchema = createInsertSchema(crmUsers).omit({ id: true, createdAt: true, lastLoginAt: true });
+export type CrmUser = typeof crmUsers.$inferSelect;
+export type InsertCrmUser = z.infer<typeof insertCrmUserSchema>;
