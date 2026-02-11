@@ -59,6 +59,7 @@ import {
   Copy,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
+import { ArenaChat } from "@/components/arena-chat";
 
 const LazyPredict = lazy(() => import("@/pages/predict"));
 
@@ -2677,7 +2678,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
             />
           </div>
         </div>
-        <div className="lg:w-[340px] shrink-0" style={{ background: "#0b0e11" }}>
+        <div className="lg:w-[340px] shrink-0 flex flex-col" style={{ background: "#0b0e11" }}>
           {isParticipant && agent && (
             <TradingPanel
               duelId={duelId}
@@ -2687,6 +2688,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
               onTradeEffect={triggerTradeEffect}
             />
           )}
+          <ArenaChat scopeType="duel" scopeId={duelId} maxHeight="200px" compact />
         </div>
       </div>
     </div>
@@ -3036,6 +3038,9 @@ function TradingArenaLobby() {
         </div>
         <div className="space-y-4">
           <CreateDuelPanel onCreated={() => setTab("open")} />
+          <Card className="arena-glow-card overflow-visible">
+            <ArenaChat scopeType="lobby" maxHeight="240px" />
+          </Card>
           <ArenaLeaderboard agentId={agent?.id} />
         </div>
       </div>
@@ -3575,6 +3580,8 @@ function SpectatorView({ duelId }: { duelId: string }) {
               </div>
             </div>
           )}
+
+          <ArenaChat scopeType="duel" scopeId={duelId} maxHeight="160px" compact />
         </div>
       </div>
     </div>

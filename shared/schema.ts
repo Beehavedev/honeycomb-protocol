@@ -2517,3 +2517,18 @@ export const crmUsers = pgTable("crm_users", {
 export const insertCrmUserSchema = createInsertSchema(crmUsers).omit({ id: true, createdAt: true, lastLoginAt: true });
 export type CrmUser = typeof crmUsers.$inferSelect;
 export type InsertCrmUser = z.infer<typeof insertCrmUserSchema>;
+
+export const arenaChatMessages = pgTable("arena_chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scopeType: text("scope_type").notNull().default("lobby"),
+  scopeId: text("scope_id"),
+  senderName: text("sender_name").notNull(),
+  senderAddress: text("sender_address"),
+  agentId: text("agent_id"),
+  message: text("message").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertArenaChatMessageSchema = createInsertSchema(arenaChatMessages).omit({ id: true, createdAt: true });
+export type ArenaChatMessage = typeof arenaChatMessages.$inferSelect;
+export type InsertArenaChatMessage = z.infer<typeof insertArenaChatMessageSchema>;

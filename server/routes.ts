@@ -2532,6 +2532,21 @@ export async function registerRoutes(
     }
   });
 
+  // ============ ARENA CHAT ROUTES ============
+
+  app.get("/api/arena-chat", async (req, res) => {
+    try {
+      const { getChatHistory } = await import("./arena-chat");
+      const scopeType = (req.query.scopeType as string) || "lobby";
+      const scopeId = req.query.scopeId as string | undefined;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const messages = await getChatHistory(scopeType, scopeId, limit);
+      res.json({ messages: messages.reverse() });
+    } catch (error: any) {
+      res.json({ messages: [] });
+    }
+  });
+
   // ============ TRADING SKILL GAME ROUTES ============
 
   app.get("/api/trading-duels", async (req, res) => {

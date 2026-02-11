@@ -58,8 +58,9 @@ A 1v1 competitive trading skill game where players battle on real crypto charts 
 - **Bot Engine**: `server/arena-bot-engine.ts` manages bot lifecycle, makes periodic trading decisions based on personality style
 - **On-Chain BNB Escrow (PvP)**: Reuses PredictDuel contract (0x8A3698...2650) for BNB escrow. Creator deposits BNB via createDuel (direction=0, assetId="ARENA"), joiner matches with joinDuel. Settlement maps trading winner to price trick: endPrice=200 (creator wins) or 50 (joiner wins). Sync endpoints: `/api/trading-duels/sync-create`, `/sync-join`, `/sync-settle` bridge on-chain tx to DB.
 - **Bot Matches (Practice)**: Off-chain only, no wallet needed. Clearly labeled as practice mode.
-- **DB Tables**: `trading_duels` (with onChainDuelId, txHash, creatorWallet, joinerWallet, isOnChain), `trading_positions`
-- **API**: `/api/trading-duels/*` for CRUD, price proxy via Binance US API, `/play-vs-bot` for instant bot matches, `/:id/bot-info` for bot detection, `/sync-create`, `/sync-join`, `/sync-settle` for on-chain sync
+- **Live Chat**: WebSocket-based real-time chat (`/ws/arena-chat`) with room-based broadcasting (lobby + duel-scoped). JWT auth verification, rate limiting (5 msg/5s burst), scope validation. REST history: `GET /api/arena-chat?scopeType=lobby|duel&scopeId=...`. DB table: `arena_chat_messages`. Component: `client/src/components/arena-chat.tsx`. Chat appears in lobby sidebar, active duel sidebar, and spectator view.
+- **DB Tables**: `trading_duels` (with onChainDuelId, txHash, creatorWallet, joinerWallet, isOnChain), `trading_positions`, `arena_chat_messages`
+- **API**: `/api/trading-duels/*` for CRUD, price proxy via Binance US API, `/play-vs-bot` for instant bot matches, `/:id/bot-info` for bot detection, `/sync-create`, `/sync-join`, `/sync-settle` for on-chain sync, `/api/arena-chat` for chat history
 
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.

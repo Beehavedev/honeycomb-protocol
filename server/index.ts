@@ -7,6 +7,7 @@ import { startTwitterScheduler } from "./twitter-scheduler";
 import { storage } from "./storage";
 import { ensureArenaBots } from "./arena-bot-engine";
 import { startAutoDuelSpawner } from "./auto-duel-spawner";
+import { setupArenaChatWS } from "./arena-chat";
 import path from "path";
 
 const app = express();
@@ -76,7 +77,8 @@ app.use((req, res, next) => {
   await ensureArenaBots();
   await registerRoutes(httpServer, app);
   
-  // Start Twitter automation scheduler
+  setupArenaChatWS(httpServer);
+
   startTwitterScheduler();
 
   // Start auto-duel spawner for live bot-vs-bot games
