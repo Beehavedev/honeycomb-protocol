@@ -1,15 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-
-function invalidateCrm() {
-  queryClient.invalidateQueries({
-    predicate: (query) => {
-      const key = query.queryKey[0];
-      return typeof key === "string" && key.startsWith("/api/crm/");
-    },
-  });
-}
+import { queryClient } from "@/lib/queryClient";
+import { getCrmToken, getCrmUser, clearCrmAuth } from "./crm-login";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,13 +16,57 @@ import { useToast } from "@/hooks/use-toast";
 import type { CrmContact, CrmDeal, CrmActivity } from "@shared/schema";
 import {
   Users, Briefcase, Activity, Plus, Trash2, Edit2,
-  TrendingUp, DollarSign, UserPlus, Target, Mail, Wallet
+  TrendingUp, Target, Mail, Wallet, LogOut, Shield,
+  DollarSign
 } from "lucide-react";
+
+function invalidateCrm() {
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey[0];
+      return typeof key === "string" && key.startsWith("/api/crm/");
+    },
+  });
+}
+
+async function crmFetch(url: string, options?: RequestInit) {
+  const token = getCrmToken();
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearCrmAuth();
+      window.location.href = "/crm/login";
+      throw new Error("Session expired");
+    }
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+async function crmMutate(method: string, url: string, body?: unknown) {
+  return crmFetch(url, { method, body: body ? JSON.stringify(body) : undefined });
+}
 
 const CONTACT_STATUSES = ["lead", "prospect", "customer", "partner", "inactive"] as const;
 const DEAL_STAGES = ["lead", "qualified", "proposal", "negotiation", "closed_won", "closed_lost"] as const;
 const DEAL_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 const ACTIVITY_TYPES = ["call", "email", "meeting", "note", "task"] as const;
+
+const ROLE_LEVELS: Record<string, number> = { super_admin: 4, admin: 3, manager: 2, moderator: 1 };
+
+function hasMinRole(minRole: string): boolean {
+  const user = getCrmUser();
+  if (!user) return false;
+  return (ROLE_LEVELS[user.role] || 0) >= (ROLE_LEVELS[minRole] || 99);
+}
 
 const statusColors: Record<string, string> = {
   lead: "bg-blue-500/20 text-blue-400",
@@ -98,9 +135,9 @@ function ContactForm({ contact, onClose }: { contact?: CrmContact; onClose: () =
   const mutation = useMutation({
     mutationFn: async () => {
       if (contact) {
-        return apiRequest("PATCH", `/api/crm/contacts/${contact.id}`, form);
+        return crmMutate("PATCH", `/api/crm/contacts/${contact.id}`, form);
       }
-      return apiRequest("POST", "/api/crm/contacts", form);
+      return crmMutate("POST", "/api/crm/contacts", form);
     },
     onSuccess: () => {
       invalidateCrm();
@@ -155,9 +192,9 @@ function DealForm({ deal, contacts, onClose }: { deal?: CrmDeal; contacts: CrmCo
   const mutation = useMutation({
     mutationFn: async () => {
       if (deal) {
-        return apiRequest("PATCH", `/api/crm/deals/${deal.id}`, form);
+        return crmMutate("PATCH", `/api/crm/deals/${deal.id}`, form);
       }
-      return apiRequest("POST", "/api/crm/deals", form);
+      return crmMutate("POST", "/api/crm/deals", form);
     },
     onSuccess: () => {
       invalidateCrm();
@@ -215,7 +252,7 @@ function ActivityForm({ contacts, deals, onClose }: { contacts: CrmContact[]; de
   });
 
   const mutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/crm/activities", {
+    mutationFn: () => crmMutate("POST", "/api/crm/activities", {
       ...form,
       contactId: form.contactId || null,
       dealId: form.dealId || null,
@@ -268,14 +305,17 @@ function ContactsTab() {
   const [filter, setFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editContact, setEditContact] = useState<CrmContact | undefined>();
+  const canWrite = hasMinRole("manager");
+  const canDelete = hasMinRole("admin");
 
   const url = filter !== "all" ? `/api/crm/contacts?status=${filter}` : "/api/crm/contacts";
   const { data: contacts = [], isLoading } = useQuery<CrmContact[]>({
     queryKey: [url],
+    queryFn: () => crmFetch(url),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/crm/contacts/${id}`),
+    mutationFn: (id: string) => crmMutate("DELETE", `/api/crm/contacts/${id}`),
     onSuccess: () => {
       invalidateCrm();
       toast({ title: "Contact deleted" });
@@ -292,15 +332,17 @@ function ContactsTab() {
             {CONTACT_STATUSES.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditContact(undefined); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-contact"><Plus className="w-4 h-4 mr-1" /> Add Contact</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editContact ? "Edit Contact" : "New Contact"}</DialogTitle></DialogHeader>
-            <ContactForm contact={editContact} onClose={() => { setDialogOpen(false); setEditContact(undefined); }} />
-          </DialogContent>
-        </Dialog>
+        {canWrite && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditContact(undefined); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-contact"><Plus className="w-4 h-4 mr-1" /> Add Contact</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>{editContact ? "Edit Contact" : "New Contact"}</DialogTitle></DialogHeader>
+              <ContactForm contact={editContact} onClose={() => { setDialogOpen(false); setEditContact(undefined); }} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {isLoading ? (
@@ -327,14 +369,18 @@ function ContactsTab() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button size="icon" variant="ghost" data-testid={`button-edit-contact-${contact.id}`}
-                      onClick={() => { setEditContact(contact); setDialogOpen(true); }}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" data-testid={`button-delete-contact-${contact.id}`}
-                      onClick={() => deleteMutation.mutate(contact.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canWrite && (
+                      <Button size="icon" variant="ghost" data-testid={`button-edit-contact-${contact.id}`}
+                        onClick={() => { setEditContact(contact); setDialogOpen(true); }}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" data-testid={`button-delete-contact-${contact.id}`}
+                        onClick={() => deleteMutation.mutate(contact.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -351,18 +397,22 @@ function DealsTab() {
   const [stageFilter, setStageFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDeal, setEditDeal] = useState<CrmDeal | undefined>();
+  const canWrite = hasMinRole("manager");
+  const canDelete = hasMinRole("admin");
 
   const dealsUrl = stageFilter !== "all" ? `/api/crm/deals?stage=${stageFilter}` : "/api/crm/deals";
   const { data: deals = [], isLoading } = useQuery<CrmDeal[]>({
     queryKey: [dealsUrl],
+    queryFn: () => crmFetch(dealsUrl),
   });
 
   const { data: contacts = [] } = useQuery<CrmContact[]>({
     queryKey: ["/api/crm/contacts"],
+    queryFn: () => crmFetch("/api/crm/contacts"),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/crm/deals/${id}`),
+    mutationFn: (id: string) => crmMutate("DELETE", `/api/crm/deals/${id}`),
     onSuccess: () => {
       invalidateCrm();
       toast({ title: "Deal deleted" });
@@ -381,15 +431,17 @@ function DealsTab() {
             {DEAL_STAGES.map(s => <SelectItem key={s} value={s}>{s.replace("_", " ").replace(/\b\w/g, c => c.toUpperCase())}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditDeal(undefined); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-deal"><Plus className="w-4 h-4 mr-1" /> Add Deal</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editDeal ? "Edit Deal" : "New Deal"}</DialogTitle></DialogHeader>
-            <DealForm deal={editDeal} contacts={contacts} onClose={() => { setDialogOpen(false); setEditDeal(undefined); }} />
-          </DialogContent>
-        </Dialog>
+        {canWrite && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditDeal(undefined); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-deal"><Plus className="w-4 h-4 mr-1" /> Add Deal</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>{editDeal ? "Edit Deal" : "New Deal"}</DialogTitle></DialogHeader>
+              <DealForm deal={editDeal} contacts={contacts} onClose={() => { setDialogOpen(false); setEditDeal(undefined); }} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {isLoading ? (
@@ -420,14 +472,18 @@ function DealsTab() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button size="icon" variant="ghost" data-testid={`button-edit-deal-${deal.id}`}
-                      onClick={() => { setEditDeal(deal); setDialogOpen(true); }}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" data-testid={`button-delete-deal-${deal.id}`}
-                      onClick={() => deleteMutation.mutate(deal.id)}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {canWrite && (
+                      <Button size="icon" variant="ghost" data-testid={`button-edit-deal-${deal.id}`}
+                        onClick={() => { setEditDeal(deal); setDialogOpen(true); }}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button size="icon" variant="ghost" data-testid={`button-delete-deal-${deal.id}`}
+                        onClick={() => deleteMutation.mutate(deal.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -442,14 +498,15 @@ function DealsTab() {
 function PipelineTab() {
   const { data: deals = [], isLoading } = useQuery<CrmDeal[]>({
     queryKey: ["/api/crm/deals"],
+    queryFn: () => crmFetch("/api/crm/deals"),
   });
 
   const { data: contacts = [] } = useQuery<CrmContact[]>({
     queryKey: ["/api/crm/contacts"],
+    queryFn: () => crmFetch("/api/crm/contacts"),
   });
 
   const contactMap = new Map(contacts.map(c => [c.id, c]));
-
   const pipelineStages = DEAL_STAGES.filter(s => s !== "closed_lost");
 
   if (isLoading) {
@@ -502,14 +559,17 @@ function ActivitiesTab() {
 
   const { data: activities = [], isLoading } = useQuery<CrmActivity[]>({
     queryKey: ["/api/crm/activities"],
+    queryFn: () => crmFetch("/api/crm/activities"),
   });
 
   const { data: contacts = [] } = useQuery<CrmContact[]>({
     queryKey: ["/api/crm/contacts"],
+    queryFn: () => crmFetch("/api/crm/contacts"),
   });
 
   const { data: deals = [] } = useQuery<CrmDeal[]>({
     queryKey: ["/api/crm/deals"],
+    queryFn: () => crmFetch("/api/crm/deals"),
   });
 
   const contactMap = new Map(contacts.map(c => [c.id, c]));
@@ -573,17 +633,66 @@ function ActivitiesTab() {
   );
 }
 
+const roleLabels: Record<string, string> = {
+  super_admin: "Super Admin",
+  admin: "Admin",
+  manager: "Manager",
+  moderator: "Moderator",
+};
+
+const roleColors: Record<string, string> = {
+  super_admin: "bg-red-500/20 text-red-400",
+  admin: "bg-purple-500/20 text-purple-400",
+  manager: "bg-blue-500/20 text-blue-400",
+  moderator: "bg-green-500/20 text-green-400",
+};
+
 export default function CrmPage() {
+  const [, setLocation] = useLocation();
+  const crmUser = getCrmUser();
+  const token = getCrmToken();
+
+  if (!token || !crmUser) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/crm/login";
+    }
+    return null;
+  }
+
   const { data: stats, isLoading: statsLoading } = useQuery<CrmStats>({
     queryKey: ["/api/crm/stats"],
+    queryFn: () => crmFetch("/api/crm/stats"),
   });
+
+  const handleLogout = () => {
+    clearCrmAuth();
+    setLocation("/crm/login");
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-crm-title">CRM Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Manage contacts, deals, and track your pipeline</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold" data-testid="text-crm-title">CRM Dashboard</h1>
+            <p className="text-muted-foreground text-sm">Manage contacts, deals, and track your pipeline</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Badge className={`no-default-hover-elevate no-default-active-elevate ${roleColors[crmUser.role] || ""}`} variant="secondary">
+                {roleLabels[crmUser.role] || crmUser.role}
+              </Badge>
+              <span className="text-sm text-muted-foreground">{crmUser.name}</span>
+            </div>
+            {hasMinRole("admin") && (
+              <Button variant="outline" onClick={() => setLocation("/crm/users")} data-testid="button-manage-users">
+                <Shield className="w-4 h-4 mr-1" /> Users
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="button-logout">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
