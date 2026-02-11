@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Gift, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet } from "lucide-react";
+import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet, Cpu, Gamepad2, Zap } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 function AnimatedBee({ style, delay }: { style: React.CSSProperties; delay: number }) {
@@ -56,7 +56,6 @@ function HexagonCell({ x, y, delay, size = 60 }: { x: number; y: number; delay: 
 
 export default function Landing() {
   const { t } = useI18n();
-  const EARLY_ADOPTER_LIMIT = 10000;
   
   const { data: stats, isLoading: statsLoading } = useQuery<{ totalUsers: number; totalNfas: number; totalVolume: string }>({
     queryKey: ["/api/landing-stats"],
@@ -65,8 +64,6 @@ export default function Landing() {
   
   const BASE_USER_COUNT = 517;
   const totalUsers = BASE_USER_COUNT + (stats?.totalUsers || 0);
-  const earlyAdopterSpotsLeft = Math.max(0, EARLY_ADOPTER_LIMIT - totalUsers);
-  const earlyAdopterPercentage = Math.min(100, (totalUsers / EARLY_ADOPTER_LIMIT) * 100);
 
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery<{ leaderboard: Array<{ agent: { id: string; name: string; avatarUrl?: string }; referralCount: number }> }>({
     queryKey: ["/api/leaderboards/referrers?limit=5"],
@@ -150,30 +147,30 @@ export default function Landing() {
 
           <h1 className="text-4xl md:text-6xl font-bold mb-4 animate-slide-up-delay-1" data-testid="text-hero-title">
             <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600 bg-clip-text text-transparent">
-              {t('landing.heroTitle')}
+              Build. Compete. Dominate.
             </span>
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground mb-3 animate-slide-up-delay-2 max-w-xl mx-auto" data-testid="text-hero-subtitle">
-            {t('landing.heroSubtitle')}
-            <span className="text-amber-500 font-medium"> {t('landing.heroHighlight')}</span>
+            The competitive AI trading arena on
+            <span className="text-amber-500 font-medium"> BNB Chain</span>
           </p>
 
           <p className="text-sm text-muted-foreground/60 mb-8 animate-slide-up-delay-2" data-testid="text-hero-tag">
-            {t('landing.heroTag')} &middot; Winner takes 90%
+            Create AI agents, train them, and battle for real rewards
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center animate-slide-up-delay-3">
             <Link href="/arena">
               <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 w-full sm:w-auto" data-testid="button-enter-arena">
                 <Swords className="w-4 h-4" />
-                {t('landing.enterArena')}
+                Enter the Arena
               </Button>
             </Link>
-            <Link href="/register">
-              <Button size="lg" variant="outline" className="gap-2 border-amber-500/50 w-full sm:w-auto" data-testid="button-get-started">
-                <Wallet className="w-4 h-4" />
-                {t('landing.connectWallet')}
+            <Link href="/hatchery">
+              <Button size="lg" variant="outline" className="gap-2 border-amber-500/50 w-full sm:w-auto" data-testid="button-build-agent">
+                <Bot className="w-4 h-4" />
+                Build Your Agent
               </Button>
             </Link>
           </div>
@@ -189,7 +186,7 @@ export default function Landing() {
                 <span className="text-2xl font-bold" data-testid="text-total-users">{totalUsers.toLocaleString()}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">{t('landing.statPlayers')}</div>
+            <div className="text-xs text-muted-foreground">Players</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -200,7 +197,7 @@ export default function Landing() {
                 <span className="text-2xl font-bold" data-testid="text-total-duels">{(stats?.totalNfas || 0).toLocaleString()}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">{t('landing.statDuels')}</div>
+            <div className="text-xs text-muted-foreground">Duels Fought</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -211,71 +208,41 @@ export default function Landing() {
                 <span className="text-2xl font-bold" data-testid="text-total-volume">{stats?.totalVolume || "0"} BNB</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground">{t('landing.statVolume')}</div>
+            <div className="text-xs text-muted-foreground">Prize Volume</div>
           </div>
         </div>
 
-        {earlyAdopterSpotsLeft > 0 && (
-          <div className="mt-10 animate-fade-in" style={{ animationDelay: '0.9s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-early-adopter">
-            <div className="inline-flex flex-col items-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
-              <div className="flex flex-wrap items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-semibold text-amber-500">{t('landing.earlyAdopter')}</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="text-center">
-                  <div className="text-xl font-bold text-foreground" data-testid="text-spots-left">{earlyAdopterSpotsLeft.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">{t('landing.spotsLeft')}</div>
-                </div>
-                <div className="h-6 w-px bg-border" />
-                <div className="flex-1 min-w-[100px]">
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-1000"
-                      style={{ width: `${earlyAdopterPercentage}%` }}
-                      data-testid="progress-early-adopter"
-                    />
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1 text-center" data-testid="text-claimed-count">
-                    {totalUsers.toLocaleString()} / {EARLY_ADOPTER_LIMIT.toLocaleString()} {t('landing.claimed')}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="mt-14 w-full max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1s', opacity: 0, animationFillMode: 'forwards' }}>
-          <h2 className="text-center text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6" data-testid="text-how-it-works">{t('landing.howItWorks')}</h2>
+          <h2 className="text-center text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6" data-testid="text-game-modes">Three Ways to Compete</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Link href="/register">
-              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-1">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-3">
-                  <Wallet className="w-5 h-5" />
+            <Link href="/arena">
+              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-mode-practice">
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 mx-auto mb-3">
+                  <Shield className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-amber-500 font-semibold mb-1">Step 1</div>
-                <h3 className="font-semibold text-sm mb-1">{t('landing.step1Title')}</h3>
-                <p className="text-xs text-muted-foreground">{t('landing.step1Desc')}</p>
+                <Badge variant="secondary" className="bg-green-500/10 text-green-500 border-green-500/20 mb-2">Free</Badge>
+                <h3 className="font-semibold text-sm mb-1">Practice Mode</h3>
+                <p className="text-xs text-muted-foreground">Train against AI bots. No tokens needed. Sharpen your strategies risk-free.</p>
               </Card>
             </Link>
             <Link href="/arena">
-              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-2">
+              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-mode-pvp">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-3">
                   <Swords className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-amber-500 font-semibold mb-1">Step 2</div>
-                <h3 className="font-semibold text-sm mb-1">{t('landing.step2Title')}</h3>
-                <p className="text-xs text-muted-foreground">{t('landing.step2Desc')}</p>
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-amber-500/20 mb-2">PvP</Badge>
+                <h3 className="font-semibold text-sm mb-1">Human vs Human</h3>
+                <p className="text-xs text-muted-foreground">Real stakes. Skill vs skill. Winner takes 90% of the BNB prize pot.</p>
               </Card>
             </Link>
             <Link href="/arena">
-              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-3">
-                  <Trophy className="w-5 h-5" />
+              <Card className="p-5 text-center hover-elevate cursor-pointer h-full" data-testid="link-mode-ava">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 mx-auto mb-3">
+                  <Cpu className="w-5 h-5" />
                 </div>
-                <div className="text-xs text-amber-500 font-semibold mb-1">Step 3</div>
-                <h3 className="font-semibold text-sm mb-1">{t('landing.step3Title')}</h3>
-                <p className="text-xs text-muted-foreground">{t('landing.step3Desc')}</p>
+                <Badge variant="secondary" className="bg-purple-500/10 text-purple-500 border-purple-500/20 mb-2">AvA</Badge>
+                <h3 className="font-semibold text-sm mb-1">Agent vs Agent</h3>
+                <p className="text-xs text-muted-foreground">Deploy your AI agents to battle autonomously. The ultimate strategy test.</p>
               </Card>
             </Link>
           </div>
@@ -284,26 +251,26 @@ export default function Landing() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12 max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.1s', opacity: 0, animationFillMode: 'forwards' }}>
           <FeatureCard 
             icon={<ChartCandlestick className="w-5 h-5" />}
-            title={t('landing.featureCharts')}
-            description={t('landing.featureChartsDesc')}
+            title="Real Charts"
+            description="Live price data from Binance"
             testId="card-feature-charts"
           />
           <FeatureCard 
             icon={<Shield className="w-5 h-5" />}
-            title={t('landing.featureEscrow')}
-            description={t('landing.featureEscrowDesc')}
+            title="On-Chain Escrow"
+            description="BNB locked in smart contract"
             testId="card-feature-escrow"
           />
           <FeatureCard 
             icon={<Flame className="w-5 h-5" />}
-            title={t('landing.featureLeverage')}
-            description={t('landing.featureLeverageDesc')}
+            title="Up to 50x Leverage"
+            description="Long or short any asset"
             testId="card-feature-leverage"
           />
           <FeatureCard 
             icon={<Bot className="w-5 h-5" />}
-            title={t('landing.featureBots')}
-            description={t('landing.featureBotsDesc')}
+            title="Build AI Agents"
+            description="Create, train, and deploy"
             testId="card-feature-bots"
           />
         </div>
@@ -311,59 +278,88 @@ export default function Landing() {
         <div className="mt-14 w-full max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.2s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-arena-features">
           <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-amber-500/5 border border-amber-500/20">
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <h3 className="font-semibold" data-testid="text-arena-features">{t('landing.arenaFeatures')}</h3>
+              <Bot className="w-4 h-4 text-amber-500" />
+              <h3 className="font-semibold" data-testid="text-arena-features">The Agent Economy</h3>
               <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-                Live
+                Build to Earn
               </Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-pvp-duels">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-create-agents">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm">Create Agents</div>
+                  <div className="text-xs text-muted-foreground">Build and train AI trading agents with custom strategies</div>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-compete-agents">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
                   <Swords className="w-4 h-4 text-amber-500" />
                 </div>
                 <div>
-                  <div className="font-medium text-sm">{t('landing.pvpDuels')}</div>
-                  <div className="text-xs text-muted-foreground">{t('landing.pvpDuelsDesc')}</div>
+                  <div className="font-medium text-sm">Compete & Earn</div>
+                  <div className="text-xs text-muted-foreground">Deploy agents in AvA battles for BNB rewards</div>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-predict-duels">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-4 h-4 text-amber-500" />
-                </div>
-                <div>
-                  <div className="font-medium text-sm">{t('landing.predictDuels')}</div>
-                  <div className="text-xs text-muted-foreground">{t('landing.predictDuelsDesc')}</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-leaderboards">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-background/50" data-testid="card-agent-marketplace">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
                   <Target className="w-4 h-4 text-amber-500" />
                 </div>
                 <div>
-                  <div className="font-medium text-sm">{t('landing.leaderboards')}</div>
-                  <div className="text-xs text-muted-foreground">{t('landing.leaderboardsDesc')}</div>
+                  <div className="font-medium text-sm">Agent Marketplace</div>
+                  <div className="text-xs text-muted-foreground">Trade, sell, and monetize your top-performing agents</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 max-w-md mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.3s', opacity: 0, animationFillMode: 'forwards' }}>
-          <Link href="/rewards">
-            <Card className="p-5 cursor-pointer hover-elevate" data-testid="link-referral-cta">
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center shrink-0">
-                  <Gift className="w-5 h-5 text-amber-500" />
+        <div className="mt-14 w-full max-w-4xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '1.25s', opacity: 0, animationFillMode: 'forwards' }}>
+          <h2 className="text-center text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">How It Works</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <Link href="/register">
+              <Card className="p-4 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-1">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-2">
+                  <Wallet className="w-4 h-4" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold" data-testid="text-referral-title">{t('landing.referralTitle')}</h3>
-                  <p className="text-sm text-muted-foreground">{t('landing.referralDesc')}</p>
+                <div className="text-[10px] text-amber-500 font-semibold mb-0.5">Step 1</div>
+                <h3 className="font-semibold text-xs mb-0.5">Connect Wallet</h3>
+                <p className="text-[11px] text-muted-foreground">Link your BNB wallet to get started</p>
+              </Card>
+            </Link>
+            <Link href="/arena">
+              <Card className="p-4 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-2">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-2">
+                  <Shield className="w-4 h-4" />
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              </div>
-            </Card>
-          </Link>
+                <div className="text-[10px] text-amber-500 font-semibold mb-0.5">Step 2</div>
+                <h3 className="font-semibold text-xs mb-0.5">Practice Free</h3>
+                <p className="text-[11px] text-muted-foreground">Train your skills against AI bots</p>
+              </Card>
+            </Link>
+            <Link href="/hatchery">
+              <Card className="p-4 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-3">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-2">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div className="text-[10px] text-amber-500 font-semibold mb-0.5">Step 3</div>
+                <h3 className="font-semibold text-xs mb-0.5">Build Agents</h3>
+                <p className="text-[11px] text-muted-foreground">Create and deploy AI trading agents</p>
+              </Card>
+            </Link>
+            <Link href="/arena">
+              <Card className="p-4 text-center hover-elevate cursor-pointer h-full" data-testid="link-step-4">
+                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mx-auto mb-2">
+                  <Trophy className="w-4 h-4" />
+                </div>
+                <div className="text-[10px] text-amber-500 font-semibold mb-0.5">Step 4</div>
+                <h3 className="font-semibold text-xs mb-0.5">Compete & Earn</h3>
+                <p className="text-[11px] text-muted-foreground">Battle for BNB in PvP and AvA arenas</p>
+              </Card>
+            </Link>
+          </div>
         </div>
 
         {leaderboardLoading ? (
@@ -371,7 +367,7 @@ export default function Landing() {
             <Card className="p-5">
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Trophy className="w-4 h-4 text-amber-500" />
-                <h3 className="font-semibold text-sm">{t('landing.topReferrers')}</h3>
+                <h3 className="font-semibold text-sm">Top Competitors</h3>
               </div>
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -390,7 +386,7 @@ export default function Landing() {
             <Card className="p-5">
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Trophy className="w-4 h-4 text-amber-500" />
-                <h3 className="font-semibold text-sm">{t('landing.topReferrers')}</h3>
+                <h3 className="font-semibold text-sm">Top Competitors</h3>
               </div>
               <div className="space-y-2.5">
                 {leaderboardData.leaderboard.slice(0, 5).map((entry, index) => (
@@ -414,14 +410,14 @@ export default function Landing() {
                     </Avatar>
                     <span className="flex-1 text-sm font-medium truncate" data-testid={`text-referrer-name-${entry.agent.id}`}>{entry.agent.name}</span>
                     <Badge variant="secondary" className="bg-amber-500/10 text-amber-500" data-testid={`badge-referral-count-${entry.agent.id}`}>
-                      {entry.referralCount} {t('landing.referrals')}
+                      {entry.referralCount} referrals
                     </Badge>
                   </div>
                 ))}
               </div>
               <Link href="/rewards">
                 <Button variant="ghost" size="sm" className="w-full mt-3 text-amber-500" data-testid="button-view-leaderboard">
-                  {t('landing.viewFullLeaderboard')}
+                  View Full Leaderboard
                   <ArrowRight className="w-3 h-3 ml-1" />
                 </Button>
               </Link>
@@ -431,7 +427,7 @@ export default function Landing() {
 
         <div className="mt-14 text-center animate-fade-in" style={{ animationDelay: '1.5s', opacity: 0, animationFillMode: 'forwards' }}>
           <p className="text-xs text-muted-foreground/50 tracking-widest uppercase mb-2" data-testid="text-footer-tagline">
-            {t('landing.proveSkill')}
+            AI + Gaming + Trading + Ownership
           </p>
           <div className="flex items-center justify-center gap-1">
             {[...Array(5)].map((_, i) => (

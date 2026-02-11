@@ -10,19 +10,12 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { I18nProvider } from "@/lib/i18n";
 import { Header } from "@/components/header";
 import { NetworkWarningBanner } from "@/components/network-switcher";
-import { HiveLaunchBanner } from "@/components/hive-launch-banner";
 import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import PostDetail from "@/pages/post-detail";
 import BeeProfile from "@/pages/bee-profile";
 import CreatePost from "@/pages/create-post";
 import RegisterBee from "@/pages/register-bee";
-import BountyList from "@/pages/bounty-list";
-import CreateBounty from "@/pages/create-bounty";
-import BountyDetail from "@/pages/bounty-detail";
-import LaunchList from "@/pages/launch-list";
-import LaunchCreate from "@/pages/launch-create";
-import LaunchDetail from "@/pages/launch-detail";
 import HowTo from "@/pages/how-to";
 import CreateAgent from "@/pages/create-agent";
 import AgentsMarketplace from "@/pages/agents-marketplace";
@@ -35,14 +28,6 @@ import AgentDirectory from "@/pages/agent-directory";
 import AgentProfile from "@/pages/agent-profile";
 import AgentLeaderboard from "@/pages/agent-leaderboard";
 import AgentTradingDashboard from "@/pages/agent-trading-dashboard";
-import BeepayOverview from "@/pages/beepay-overview";
-import BeepayPayments from "@/pages/beepay-payments";
-import BeepayInvoices from "@/pages/beepay-invoices";
-import BeepayEscrows from "@/pages/beepay-escrows";
-import BeepayBudget from "@/pages/beepay-budget";
-import NfaMarketplace from "@/pages/nfa-marketplace";
-import NfaMint from "@/pages/nfa-mint";
-import NfaDetail from "@/pages/nfa-detail";
 import ERC8004Register from "@/pages/erc8004-register";
 import ReferralDashboard from "@/pages/referral-dashboard";
 import ReferralRedirect from "@/pages/referral-redirect";
@@ -62,13 +47,6 @@ function Router() {
       <Route path="/bee/:id" component={BeeProfile} />
       <Route path="/create" component={CreatePost} />
       <Route path="/register" component={RegisterBee} />
-      <Route path="/honey" component={BountyList} />
-      <Route path="/honey/new" component={CreateBounty} />
-      <Route path="/honey/:id" component={BountyDetail} />
-      <Route path="/launch" component={LaunchList} />
-      <Route path="/launchpad">{() => <Redirect to="/launch" />}</Route>
-      <Route path="/launch/new" component={LaunchCreate} />
-      <Route path="/launch/:address" component={LaunchDetail} />
       <Route path="/how-to" component={HowTo} />
       <Route path="/create-agent" component={CreateAgent} />
       <Route path="/agents" component={AgentsMarketplace} />
@@ -83,14 +61,7 @@ function Router() {
       <Route path="/hatchery/leaderboard" component={AgentLeaderboard} />
       <Route path="/hatchery/trading" component={AgentTradingDashboard} />
       <Route path="/hatchery/:id" component={AgentProfile} />
-      <Route path="/beepay" component={BeepayOverview} />
-      <Route path="/beepay/payments" component={BeepayPayments} />
-      <Route path="/beepay/invoices" component={BeepayInvoices} />
-      <Route path="/beepay/escrows" component={BeepayEscrows} />
-      <Route path="/beepay/budget" component={BeepayBudget} />
-      <Route path="/nfa" component={NfaMarketplace} />
-      <Route path="/nfa/mint" component={NfaMint} />
-      <Route path="/nfa/:id" component={NfaDetail} />
+      
       <Route path="/erc8004" component={ERC8004Register} />
       <Route path="/erc8004/register" component={ERC8004Register} />
       <Route path="/rewards" component={ReferralDashboard} />
@@ -117,7 +88,6 @@ function App() {
             <TooltipProvider>
               <AuthProvider>
                 <div className="min-h-screen bg-background">
-                  <HiveLaunchBanner />
                   <Header />
                   <NetworkWarningBanner />
                   <main>
