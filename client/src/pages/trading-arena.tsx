@@ -934,7 +934,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const [asset, setAsset] = useState("BTCUSDT");
   const [duration, setDuration] = useState("300");
   const [potAmount, setPotAmount] = useState("0.01");
-  const [mode, setMode] = useState<"bot" | "pvp">("bot");
+  const [mode, setMode] = useState<"practice" | "pvp" | "ava">("practice");
   const [tokenSearch, setTokenSearch] = useState("");
   const [tokenDropOpen, setTokenDropOpen] = useState(false);
   const tokenDropRef = useRef<HTMLDivElement>(null);
@@ -1002,6 +1002,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
         potAmount,
         durationSeconds: parseInt(duration),
         creatorOnChainAgentId: onChainAgentId?.toString() || "0",
+        matchType: mode,
       };
 
       const doSync = async (retried = false) => {
@@ -1118,11 +1119,10 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
     mutationFn: () => apiRequest("POST", "/api/trading-duels/play-vs-bot", {
       creatorId: agent?.id,
       assetSymbol: asset,
-      potAmount,
       durationSeconds: parseInt(duration),
     }),
     onSuccess: (data: any) => {
-      toast({ title: "Battle Started!", description: `You're fighting ${data.botName}` });
+      toast({ title: "Practice Started!", description: `Training against ${data.botName}` });
       queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
       navigate(`/arena/${data.id}`);
     },
@@ -1133,7 +1133,6 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
     mutationFn: () => apiRequest("POST", "/api/trading-duels/play-vs-bot-bo3", {
       creatorId: agent?.id,
       assetSymbol: asset,
-      potAmount,
       durationSeconds: parseInt(duration),
     }),
     onSuccess: (data: any) => {
@@ -1183,27 +1182,46 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Button
-              variant={mode === "bot" ? "default" : "outline"}
-              onClick={() => setMode("bot")}
-              data-testid="button-mode-bot"
+              variant={mode === "practice" ? "default" : "outline"}
+              onClick={() => setMode("practice")}
+              data-testid="button-mode-practice"
             >
-              <Bot className="w-4 h-4 mr-1.5" /> vs Bot
+              <Bot className="w-4 h-4 mr-1.5" /> Practice
             </Button>
             <Button
               variant={mode === "pvp" ? "default" : "outline"}
               onClick={() => setMode("pvp")}
               data-testid="button-mode-pvp"
             >
-              <Users className="w-4 h-4 mr-1.5" /> vs Player
+              <Users className="w-4 h-4 mr-1.5" /> PvP
+            </Button>
+            <Button
+              variant={mode === "ava" ? "default" : "outline"}
+              onClick={() => setMode("ava")}
+              data-testid="button-mode-ava"
+            >
+              <Cpu className="w-4 h-4 mr-1.5" /> AvA
             </Button>
           </div>
 
-          {mode === "bot" && (
+          {mode === "practice" && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-green-500/10 border border-green-500/20">
+              <Shield className="w-4 h-4 text-green-400 shrink-0" />
+              <p className="text-xs text-green-300/80">Free skill training vs AI. No tokens required!</p>
+            </div>
+          )}
+          {mode === "pvp" && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+              <Swords className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-300/80">Human vs Human. Stake BNB and compete for real rewards.</p>
+            </div>
+          )}
+          {mode === "ava" && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-purple-500/10 border border-purple-500/20">
               <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-              <p className="text-xs text-purple-300/80">Instant match against an AI trader. No waiting!</p>
+              <p className="text-xs text-purple-300/80">Agent vs Agent. AI agents battle each other only.</p>
             </div>
           )}
 
@@ -1271,20 +1289,22 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pot (BNB per player)</Label>
-            <Input
-              type="number"
-              step="0.001"
-              min="0.001"
-              value={potAmount}
-              onChange={e => setPotAmount(e.target.value)}
-              data-testid="input-pot-amount"
-            />
-            <p className="text-[11px] text-muted-foreground">Winner takes 90% of total pot. 10% platform fee.</p>
-          </div>
+          {mode !== "practice" && (
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pot (BNB per player)</Label>
+              <Input
+                type="number"
+                step="0.001"
+                min="0.001"
+                value={potAmount}
+                onChange={e => setPotAmount(e.target.value)}
+                data-testid="input-pot-amount"
+              />
+              <p className="text-[11px] text-muted-foreground">Winner takes 90% of total pot. 10% platform fee.</p>
+            </div>
+          )}
 
-          {mode === "bot" ? (
+          {mode === "practice" ? (
             <div className="space-y-2">
               <Button
                 className="w-full"
@@ -1293,7 +1313,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
                 data-testid="button-play-bot"
               >
                 {playBotMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Bot className="w-4 h-4 mr-1.5" />}
-                Quick Play vs Bot - {potAmount} BNB
+                Quick Practice (Free)
               </Button>
               <Button
                 className="w-full"
@@ -1303,11 +1323,11 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
                 data-testid="button-play-bo3"
               >
                 {playBo3Mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Trophy className="w-4 h-4 mr-1.5" />}
-                Best of 3 Series - {potAmount} BNB
+                Best of 3 Series (Free)
               </Button>
-              <p className="text-[10px] text-center text-muted-foreground">Practice mode - no real BNB required</p>
+              <p className="text-[10px] text-center text-muted-foreground">Skill training mode - completely free, no tokens needed</p>
             </div>
-          ) : (
+          ) : mode === "pvp" ? (
             <div className="space-y-2">
               <Button
                 className="w-full"
@@ -1324,12 +1344,37 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
                   {isRegistering || isRegConfirming ? "Registering Agent..." :
                    isCreatePending ? "Confirm in Wallet..." :
                    isCreateConfirming ? "Confirming on-chain..." :
-                   `Stake ${potAmount} BNB & Create Duel`}
+                   `Stake ${potAmount} BNB & Create PvP Duel`}
                 </span>
               </Button>
               <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/20">
                 <Shield className="w-4 h-4 text-amber-400 shrink-0" />
-                <p className="text-xs text-amber-300/80">On-chain escrow: BNB locked in smart contract until duel settles</p>
+                <p className="text-xs text-amber-300/80">On-chain escrow: BNB locked in smart contract. Humans only.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Button
+                className="w-full"
+                onClick={handlePvpCreate}
+                disabled={pvpCreating || isCreatePending || isCreateConfirming || isRegistering || isRegConfirming}
+                data-testid="button-create-ava-duel"
+              >
+                {(pvpCreating || isCreatePending || isCreateConfirming || isRegistering || isRegConfirming) ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Cpu className="w-4 h-4" />
+                )}
+                <span className="ml-2">
+                  {isRegistering || isRegConfirming ? "Registering Agent..." :
+                   isCreatePending ? "Confirm in Wallet..." :
+                   isCreateConfirming ? "Confirming on-chain..." :
+                   `Stake ${potAmount} BNB & Create Agent Duel`}
+                </span>
+              </Button>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-purple-500/10 border border-purple-500/20">
+                <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                <p className="text-xs text-purple-300/80">Agent vs Agent: Only AI agents can join this duel.</p>
               </div>
             </div>
           )}
@@ -1371,12 +1416,28 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
             </div>
           </div>
           <div className="text-right">
-            <p className="font-mono font-bold text-amber-400">{duel.potAmount} BNB</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {duel.isOnChain ? "on-chain escrow" : "per player"}
-            </p>
+            {duel.matchType === "practice" ? (
+              <>
+                <p className="font-mono font-bold text-green-400">FREE</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">practice</p>
+              </>
+            ) : (
+              <>
+                <p className="font-mono font-bold text-amber-400">{duel.potAmount} BNB</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  {duel.isOnChain ? "on-chain escrow" : "per player"}
+                </p>
+              </>
+            )}
           </div>
-          <div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className={`text-[9px] py-0 px-1.5 ${
+              duel.matchType === "pvp" ? "border-amber-500/30 text-amber-400" :
+              duel.matchType === "ava" ? "border-purple-500/30 text-purple-400" :
+              "border-green-500/30 text-green-400"
+            }`}>
+              {duel.matchType === "pvp" ? "PvP" : duel.matchType === "ava" ? "AvA" : "Practice"}
+            </Badge>
             {duel.status === "waiting" && !isCreator && agent && (
               <Button size="sm" onClick={() => onJoin(duel.id)} data-testid={`button-join-${duel.id}`}>
                 <Zap className="w-4 h-4 mr-1" /> Fight
@@ -2705,6 +2766,7 @@ function TradingArenaLobby() {
   const { signMessageAsync } = useSignMessage();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState("open");
+  const [lobbyMatchType, setLobbyMatchType] = useState<"all" | "pvp" | "ava">("all");
   const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
 
   const { data: onChainAgentId, refetch: refetchAgentId } = useGetAgentByOwner(address as `0x${string}`);
@@ -2720,8 +2782,10 @@ function TradingArenaLobby() {
     error: joinError,
   } = useJoinDuel();
 
+  const statusParam = tab === "open" ? "waiting" : tab === "live" ? "active" : tab;
+  const matchTypeParam = lobbyMatchType !== "all" ? `&matchType=${lobbyMatchType}` : "";
   const { data: duels = [], isLoading } = useQuery<TradingDuel[]>({
-    queryKey: ["/api/trading-duels", `?status=${tab === "open" ? "waiting" : tab === "live" ? "active" : tab}&limit=20`],
+    queryKey: ["/api/trading-duels", `?status=${statusParam}&limit=20${matchTypeParam}`],
     refetchInterval: 5000,
   });
 
@@ -2903,6 +2967,21 @@ function TradingArenaLobby() {
                 <Trophy className="w-4 h-4" /> Completed
               </TabsTrigger>
             </TabsList>
+            <div className="flex items-center gap-2 mt-2 mb-1">
+              <span className="text-xs text-muted-foreground mr-1">Filter:</span>
+              {(["all", "pvp", "ava"] as const).map(mt => (
+                <Button
+                  key={mt}
+                  size="sm"
+                  variant={lobbyMatchType === mt ? "default" : "outline"}
+                  onClick={() => setLobbyMatchType(mt)}
+                  data-testid={`button-filter-${mt}`}
+                  className="text-xs h-7 px-2.5"
+                >
+                  {mt === "all" ? "All" : mt === "pvp" ? "PvP" : "AvA"}
+                </Button>
+              ))}
+            </div>
             <TabsContent value={tab} className="space-y-2 mt-2">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center p-12 gap-3">

@@ -2538,7 +2538,11 @@ export async function registerRoutes(
     try {
       const status = (req.query.status as string) || "all";
       const limit = parseInt(req.query.limit as string) || 20;
-      const duels = await storage.getTradingDuels(status, limit);
+      const matchType = req.query.matchType as string | undefined;
+      let duels = await storage.getTradingDuels(status, limit);
+      if (matchType) {
+        duels = duels.filter(d => d.matchType === matchType);
+      }
       res.json(duels);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -2809,15 +2813,21 @@ export async function registerRoutes(
 
   app.post("/api/trading-duels", async (req, res) => {
     try {
-      const { creatorId, assetSymbol, potAmount, durationSeconds } = req.body;
-      if (!creatorId || !potAmount) {
-        return res.status(400).json({ message: "creatorId and potAmount required" });
+      const { creatorId, assetSymbol, potAmount, durationSeconds, matchType } = req.body;
+      if (!creatorId) {
+        return res.status(400).json({ message: "creatorId required" });
+      }
+      const validMatchTypes = ["pvp", "ava", "practice"];
+      const mt = validMatchTypes.includes(matchType) ? matchType : "pvp";
+      if (mt !== "practice" && (!potAmount || parseFloat(potAmount) <= 0)) {
+        return res.status(400).json({ message: "potAmount required for competitive matches (pvp/ava)" });
       }
       const duel = await storage.createTradingDuel({
         creatorId,
         assetSymbol: assetSymbol || "BTCUSDT",
-        potAmount: potAmount.toString(),
+        potAmount: mt === "practice" ? "0" : (potAmount || "0").toString(),
         durationSeconds: durationSeconds || 300,
+        matchType: mt,
       });
       res.json(duel);
     } catch (error: any) {
@@ -3074,9 +3084,9 @@ export async function registerRoutes(
 
   app.post("/api/trading-duels/play-vs-bot", async (req, res) => {
     try {
-      const { creatorId, assetSymbol, potAmount, durationSeconds } = req.body;
-      if (!creatorId || !potAmount) {
-        return res.status(400).json({ message: "creatorId and potAmount required" });
+      const { creatorId, assetSymbol, durationSeconds } = req.body;
+      if (!creatorId) {
+        return res.status(400).json({ message: "creatorId required" });
       }
 
       const bot = await getRandomArenaBot();
@@ -3084,8 +3094,9 @@ export async function registerRoutes(
       const duel = await storage.createTradingDuel({
         creatorId,
         assetSymbol: assetSymbol || "BTCUSDT",
-        potAmount: potAmount.toString(),
+        potAmount: "0",
         durationSeconds: durationSeconds || 300,
+        matchType: "practice",
       });
 
       const joined = await storage.joinTradingDuel(duel.id, bot.id);
@@ -3102,9 +3113,9 @@ export async function registerRoutes(
 
   app.post("/api/trading-duels/play-vs-bot-bo3", async (req, res) => {
     try {
-      const { creatorId, assetSymbol, potAmount, durationSeconds } = req.body;
-      if (!creatorId || !potAmount) {
-        return res.status(400).json({ message: "creatorId and potAmount required" });
+      const { creatorId, assetSymbol, durationSeconds } = req.body;
+      if (!creatorId) {
+        return res.status(400).json({ message: "creatorId required" });
       }
 
       const seriesId = `series_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -3113,10 +3124,11 @@ export async function registerRoutes(
       const duel = await storage.createTradingDuel({
         creatorId,
         assetSymbol: assetSymbol || "BTCUSDT",
-        potAmount: potAmount.toString(),
+        potAmount: "0",
         durationSeconds: durationSeconds || 300,
         seriesId,
         seriesRound: 1,
+        matchType: "practice",
       });
 
       const joined = await storage.joinTradingDuel(duel.id, bot.id);
@@ -3341,7 +3353,7 @@ export async function registerRoutes(
   app.post("/api/trading-duels/sync-create", authMiddleware, async (req, res) => {
     try {
       const walletAddress = req.walletAddress!;
-      const { onChainDuelId, txHash, assetSymbol, potAmount, durationSeconds, creatorOnChainAgentId } = req.body;
+      const { onChainDuelId, txHash, assetSymbol, potAmount, durationSeconds, creatorOnChainAgentId, matchType } = req.body;
 
       if (!onChainDuelId || !txHash) {
         return res.status(400).json({ message: "Missing on-chain duel ID or transaction hash" });
@@ -3352,6 +3364,9 @@ export async function registerRoutes(
         return res.status(400).json({ message: "No agent found for this wallet. Please register first." });
       }
 
+      const validTypes = ["pvp", "ava"];
+      const mt = validTypes.includes(matchType) ? matchType : "pvp";
+
       const duel = await storage.createTradingDuel({
         creatorId: agent.id,
         assetSymbol: assetSymbol || "BTCUSDT",
@@ -3361,6 +3376,7 @@ export async function registerRoutes(
         txHash,
         creatorWallet: walletAddress,
         isOnChain: true,
+        matchType: mt,
       });
 
       res.status(201).json(duel);

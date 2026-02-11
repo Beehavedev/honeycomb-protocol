@@ -2412,6 +2412,7 @@ export const tradingDuels = pgTable("trading_duels", {
   creatorWallet: text("creator_wallet"),
   joinerWallet: text("joiner_wallet"),
   isOnChain: boolean("is_on_chain").default(false).notNull(),
+  matchType: text("match_type").notNull().default("pvp"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   settledAt: timestamp("settled_at"),
 });
@@ -2438,6 +2439,7 @@ export const insertTradingDuelSchema = createInsertSchema(tradingDuels).pick({
   durationSeconds: true,
   seriesId: true,
   seriesRound: true,
+  matchType: true,
 });
 
 export const insertTradingPositionSchema = createInsertSchema(tradingPositions).pick({
