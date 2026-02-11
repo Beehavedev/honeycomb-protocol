@@ -308,9 +308,11 @@ function playTradeSound(type: "open" | "close" | "victory" | "defeat" | "tick" |
 }
 
 function formatMoney(val: number): string {
-  if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
-  if (val >= 1000) return `$${(val / 1000).toFixed(1)}K`;
-  return `$${val.toFixed(2)}`;
+  const abs = Math.abs(val);
+  const sign = val < 0 ? "-" : "";
+  if (abs >= 1000000) return `${sign}$${(abs / 1000000).toFixed(2)}M`;
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(2)}K`;
+  return `${sign}$${abs.toFixed(2)}`;
 }
 
 function formatPrice(price: number): string {
