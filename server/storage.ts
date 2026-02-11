@@ -30,6 +30,7 @@ import {
   type UserPoints, type PointsHistory, type PointsConfig, type InsertPointsConfig,
   type TradingDuel, type InsertTradingDuel, type TradingPosition, type InsertTradingPosition,
   type CrmContact, type InsertCrmContact, type CrmDeal, type InsertCrmDeal, type CrmActivity, type InsertCrmActivity,
+  type CrmUser, type InsertCrmUser, crmUsers,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
@@ -269,6 +270,14 @@ export interface IStorage {
   deleteCrmDeal(id: string): Promise<void>;
   createCrmActivity(data: InsertCrmActivity): Promise<CrmActivity>;
   getCrmActivities(contactId?: string, dealId?: string, limit?: number): Promise<CrmActivity[]>;
+
+  // CRM Users
+  createCrmUser(data: InsertCrmUser): Promise<CrmUser>;
+  getCrmUser(id: string): Promise<CrmUser | undefined>;
+  getCrmUserByEmail(email: string): Promise<CrmUser | undefined>;
+  getCrmUsers(): Promise<CrmUser[]>;
+  updateCrmUser(id: string, updates: Partial<Omit<InsertCrmUser, 'passwordHash'> & { passwordHash?: string; lastLoginAt?: Date }>): Promise<CrmUser>;
+  deleteCrmUser(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1817,6 +1826,35 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(crmActivities).where(eq(crmActivities.dealId, dealId)).orderBy(desc(crmActivities.createdAt)).limit(limit);
     }
     return db.select().from(crmActivities).orderBy(desc(crmActivities.createdAt)).limit(limit);
+  }
+
+  // CRM Users
+  async createCrmUser(data: InsertCrmUser): Promise<CrmUser> {
+    const [user] = await db.insert(crmUsers).values(data).returning();
+    return user;
+  }
+
+  async getCrmUser(id: string): Promise<CrmUser | undefined> {
+    const [user] = await db.select().from(crmUsers).where(eq(crmUsers.id, id));
+    return user;
+  }
+
+  async getCrmUserByEmail(email: string): Promise<CrmUser | undefined> {
+    const [user] = await db.select().from(crmUsers).where(eq(crmUsers.email, email.toLowerCase()));
+    return user;
+  }
+
+  async getCrmUsers(): Promise<CrmUser[]> {
+    return db.select().from(crmUsers).orderBy(desc(crmUsers.createdAt));
+  }
+
+  async updateCrmUser(id: string, updates: Partial<Omit<InsertCrmUser, 'passwordHash'> & { passwordHash?: string; lastLoginAt?: Date }>): Promise<CrmUser> {
+    const [user] = await db.update(crmUsers).set(updates).where(eq(crmUsers.id, id)).returning();
+    return user;
+  }
+
+  async deleteCrmUser(id: string): Promise<void> {
+    await db.delete(crmUsers).where(eq(crmUsers.id, id));
   }
 }
 
