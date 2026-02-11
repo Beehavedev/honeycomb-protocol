@@ -1386,6 +1386,7 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
 
 function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id: string) => void; index: number }) {
   const { agent } = useAuth();
+  const [, navigate] = useLocation();
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
   const durationInfo = DURATIONS.find(d => d.value === duel.durationSeconds);
   const isCreator = agent?.id === duel.creatorId;
@@ -1438,6 +1439,17 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
             }`}>
               {duel.matchType === "pvp" ? "PvP" : duel.matchType === "ava" ? "AvA" : "Practice"}
             </Badge>
+            {duel.status === "active" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1 border-green-500/30 text-green-400"
+                onClick={() => navigate(`/arena/${duel.id}/spectate`)}
+                data-testid={`button-watch-${duel.id}`}
+              >
+                <Eye className="w-3.5 h-3.5" /> Watch
+              </Button>
+            )}
             {duel.status === "waiting" && !isCreator && agent && (
               <Button size="sm" onClick={() => onJoin(duel.id)} data-testid={`button-join-${duel.id}`}>
                 <Zap className="w-4 h-4 mr-1" /> Fight
@@ -3031,34 +3043,303 @@ function TradingArenaLobby() {
   );
 }
 
+interface SpectatePosition {
+  id: string;
+  side: string;
+  leverage: number;
+  sizeUsdt: string;
+  entryPrice: string;
+  exitPrice: string | null;
+  pnl: string | null;
+  isOpen: boolean;
+  openedAt: string;
+  closedAt: string | null;
+}
+
+interface SpectatePlayer {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  isBot: boolean;
+  relPnlPct: number;
+  balance: number;
+  openPositions: number;
+  positions: SpectatePosition[];
+}
+
+interface SpectateData {
+  id: string;
+  status: string;
+  assetSymbol: string;
+  durationSeconds: number;
+  initialBalance: string;
+  startedAt: string;
+  endsAt: string;
+  winnerId: string | null;
+  leadChanges: number;
+  clutchFlag: boolean;
+  seriesId: string | null;
+  seriesRound: number | null;
+  potAmount: string;
+  matchType: string;
+  creator: SpectatePlayer;
+  joiner: SpectatePlayer | null;
+  leading: string | null;
+}
+
+function FighterHPBar({
+  player,
+  side,
+  isLeading,
+  initialBalance,
+}: {
+  player: SpectatePlayer;
+  side: "left" | "right";
+  isLeading: boolean;
+  initialBalance: number;
+}) {
+  const hpPct = Math.max(0, Math.min(200, ((player.balance / initialBalance) * 100)));
+  const hpNorm = Math.min(100, hpPct);
+  const isUp = player.relPnlPct >= 0;
+  const barColor = isUp
+    ? "linear-gradient(90deg, #0ecb81 0%, #00ff88 100%)"
+    : "linear-gradient(90deg, #ea3943 0%, #ff6b6b 100%)";
+  const glowColor = isUp ? "rgba(14,203,129,0.5)" : "rgba(234,57,67,0.5)";
+
+  return (
+    <div className={`flex-1 min-w-0 ${side === "right" ? "text-right" : ""}`}>
+      <div className={`flex items-center gap-2 mb-1 ${side === "right" ? "flex-row-reverse" : ""}`}>
+        <div className="relative shrink-0">
+          <div
+            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-md flex items-center justify-center ${isLeading ? "ring-2 ring-amber-400" : ""}`}
+            style={{
+              background: player.isBot
+                ? "linear-gradient(135deg, #7c3aed30, #a855f720)"
+                : side === "left"
+                  ? "linear-gradient(135deg, #3b82f630, #2563eb20)"
+                  : "linear-gradient(135deg, #ef444430, #dc262620)",
+              boxShadow: isLeading ? "0 0 12px rgba(245,158,11,0.4)" : undefined,
+            }}
+          >
+            {player.isBot ? (
+              <Cpu className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
+            ) : (
+              <Shield className={`w-5 h-5 sm:w-6 sm:h-6 ${side === "left" ? "text-blue-400" : "text-red-400"}`} />
+            )}
+          </div>
+          {isLeading && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
+              style={{ background: "#f0b90b", boxShadow: "0 0 6px rgba(240,185,11,0.6)" }}>
+              <Crown className="w-2.5 h-2.5 text-black" />
+            </div>
+          )}
+        </div>
+        <div className={`min-w-0 ${side === "right" ? "text-right" : ""}`}>
+          <div className="flex items-center gap-1.5 flex-wrap" style={{ justifyContent: side === "right" ? "flex-end" : "flex-start" }}>
+            <span className="font-bold text-sm sm:text-base text-white truncate max-w-[120px]" data-testid={`text-spectate-${side}-name`}>
+              {player.name}
+            </span>
+            {player.isBot && (
+              <span className="text-[9px] px-1 py-0 rounded font-bold" style={{ background: "#7c3aed30", color: "#a78bfa" }}>AI</span>
+            )}
+          </div>
+          <div className="text-[10px] sm:text-xs font-mono" style={{ color: "#848e9c" }}>
+            {player.openPositions > 0 && (
+              <span className="mr-2" style={{ color: "#f0b90b" }}>
+                {player.openPositions} open
+              </span>
+            )}
+            {formatMoney(player.balance)}
+          </div>
+        </div>
+      </div>
+
+      <div className={`flex items-center gap-2 ${side === "right" ? "flex-row-reverse" : ""}`}>
+        <div className="flex-1 h-5 sm:h-6 rounded-sm overflow-hidden relative" style={{ background: "#1a1d23", border: "1px solid #2a2d35" }}>
+          <div
+            className="h-full rounded-sm transition-all duration-700"
+            style={{
+              width: `${hpNorm}%`,
+              background: barColor,
+              boxShadow: `0 0 8px ${glowColor}, inset 0 1px 0 rgba(255,255,255,0.15)`,
+              [side === "right" ? "marginLeft" : "marginRight"]: side === "right" ? "auto" : undefined,
+              float: side === "right" ? "right" : undefined,
+            }}
+            data-testid={`bar-spectate-${side}-hp`}
+          />
+          <div className="absolute inset-0 flex items-center" style={{ justifyContent: side === "right" ? "flex-end" : "flex-start", padding: "0 6px" }}>
+            <span
+              className="text-[10px] sm:text-xs font-bold font-mono drop-shadow-lg"
+              style={{ color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}
+              data-testid={`text-spectate-${side}-pnl`}
+            >
+              {isUp ? "+" : ""}{player.relPnlPct.toFixed(2)}%
+            </span>
+          </div>
+          {hpPct > 100 && (
+            <div className="absolute top-0 h-full w-1 rounded-full" style={{
+              [side === "right" ? "left" : "right"]: 0,
+              background: "#f0b90b",
+              boxShadow: "0 0 6px rgba(240,185,11,0.8)",
+              animation: "arena-glow-pulse 1s ease-in-out infinite",
+            }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TradeFeed({ positions, playerName, side }: { positions: SpectatePosition[]; playerName: string; side: "left" | "right" }) {
+  const sorted = [...positions].sort((a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime()).slice(0, 8);
+  const sideColor = side === "left" ? "#3b82f6" : "#ef4444";
+
+  if (sorted.length === 0) {
+    return (
+      <div className="text-center py-3">
+        <span className="text-[10px]" style={{ color: "#848e9c" }}>No trades yet</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {sorted.map((pos) => {
+        const pnlVal = pos.pnl ? parseFloat(pos.pnl) : null;
+        const isLong = pos.side === "long";
+        return (
+          <div
+            key={pos.id}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-[10px] sm:text-[11px]"
+            style={{ background: "#0d1117", borderLeft: `2px solid ${sideColor}40` }}
+            data-testid={`trade-feed-${pos.id}`}
+          >
+            <span style={{ color: isLong ? "#0ecb81" : "#ea3943" }} className="font-bold shrink-0">
+              {isLong ? "LONG" : "SHORT"}
+            </span>
+            <span className="font-mono shrink-0" style={{ color: "#f0b90b" }}>
+              {pos.leverage}x
+            </span>
+            <span className="font-mono truncate" style={{ color: "#848e9c" }}>
+              ${parseFloat(pos.sizeUsdt).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+            <span className="ml-auto font-mono font-bold shrink-0" style={{
+              color: pos.isOpen ? "#f0b90b" : pnlVal && pnlVal >= 0 ? "#0ecb81" : "#ea3943",
+            }}>
+              {pos.isOpen ? "OPEN" : pnlVal ? `${pnlVal >= 0 ? "+" : ""}$${Math.abs(pnlVal).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "CLOSED"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SpectatorView({ duelId }: { duelId: string }) {
   const { toast } = useToast();
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const [priceChange, setPriceChange] = useState(0);
+  const [priceTicks, setPriceTicks] = useState<{ time: number; price: number }[]>([]);
+  const [chartWidth, setChartWidth] = useState(600);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const prevLeadRef = useRef<string | null>(null);
+  const [leadFlash, setLeadFlash] = useState(false);
+  const [showWinnerSplash, setShowWinnerSplash] = useState(false);
+  const prevStatusRef = useRef<string>("");
 
-  const { data: spectateData, isLoading } = useQuery<{
-    id: string;
-    status: string;
-    assetSymbol: string;
-    durationSeconds: number;
-    startedAt: string;
-    endsAt: string;
-    winnerId: string | null;
-    leadChanges: number;
-    clutchFlag: boolean;
-    seriesId: string | null;
-    seriesRound: number | null;
-    potAmount: string;
-    creator: { id: string; name: string; avatarUrl: string | null; isBot: boolean; relPnlPct: number };
-    joiner: { id: string; name: string; avatarUrl: string | null; isBot: boolean; relPnlPct: number } | null;
-    leading: string | null;
-  }>({
+  const { data: spectateData, isLoading } = useQuery<SpectateData>({
     queryKey: ["/api/trading-duels", duelId, "spectate"],
-    refetchInterval: 3000,
+    refetchInterval: 2000,
   });
+
+  useEffect(() => {
+    if (spectateData?.leading && prevLeadRef.current && spectateData.leading !== prevLeadRef.current) {
+      setLeadFlash(true);
+      playTradeSound("leadchange");
+      setTimeout(() => setLeadFlash(false), 1500);
+    }
+    prevLeadRef.current = spectateData?.leading || null;
+  }, [spectateData?.leading]);
+
+  useEffect(() => {
+    if (spectateData?.status === "settled" && prevStatusRef.current === "active") {
+      setShowWinnerSplash(true);
+      playTradeSound(spectateData.winnerId ? "victory" : "defeat");
+      setTimeout(() => setShowWinnerSplash(false), 5000);
+    }
+    prevStatusRef.current = spectateData?.status || "";
+  }, [spectateData?.status]);
+
+  useEffect(() => {
+    if (!spectateData?.assetSymbol) return;
+    const MAX_TICKS = 300;
+    const TICK_INTERVAL = 250;
+    let lastTickTime = 0;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    let dead = false;
+
+    const connectWs = () => {
+      if (dead) return;
+      const symbol = spectateData.assetSymbol.toLowerCase();
+      ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
+      ws.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          const p = parseFloat(data.p);
+          if (!p || isNaN(p)) return;
+          setCurrentPrice(prev => {
+            if (prev > 0) setPriceChange(((p - prev) / prev) * 100);
+            return p;
+          });
+          const now = Date.now();
+          if (now - lastTickTime >= TICK_INTERVAL) {
+            lastTickTime = now;
+            setPriceTicks(prev => {
+              const next = [...prev, { time: now, price: p }];
+              return next.length > MAX_TICKS ? next.slice(next.length - MAX_TICKS) : next;
+            });
+          }
+        } catch {}
+      };
+      ws.onclose = () => { if (!dead) reconnectTimer = setTimeout(connectWs, 2000); };
+      ws.onerror = () => ws?.close();
+    };
+
+    const fetchInitialPrice = async () => {
+      try {
+        const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${spectateData.assetSymbol}`);
+        const data = await res.json();
+        if (data.price) {
+          const p = parseFloat(data.price);
+          setCurrentPrice(p);
+          setPriceTicks([{ time: Date.now(), price: p }]);
+        }
+      } catch {}
+    };
+
+    fetchInitialPrice().then(connectWs);
+    return () => { dead = true; clearTimeout(reconnectTimer); if (ws) ws.close(); };
+  }, [spectateData?.assetSymbol]);
+
+  useEffect(() => {
+    const obs = new ResizeObserver(entries => {
+      for (const entry of entries) setChartWidth(Math.max(300, entry.contentRect.width - 20));
+    });
+    if (chartContainerRef.current) obs.observe(chartContainerRef.current);
+    return () => obs.disconnect();
+  }, []);
 
   if (isLoading || !spectateData) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ background: "#0b0e11" }}>
-        <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3" style={{ background: "#0b0e11" }}>
+        <div className="relative">
+          <div className="w-16 h-16 rounded-md flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f59e0b30, #ea580c20)" }}>
+            <Eye className="w-8 h-8 text-amber-400" />
+          </div>
+          <Loader2 className="w-5 h-5 animate-spin text-amber-400 absolute -bottom-1 -right-1" />
+        </div>
+        <span className="text-sm font-semibold text-amber-400 uppercase tracking-wider">Connecting to Arena...</span>
       </div>
     );
   }
@@ -3066,98 +3347,234 @@ function SpectatorView({ duelId }: { duelId: string }) {
   const assetInfo = ASSETS.find(a => a.symbol === spectateData.assetSymbol) || ASSETS[0];
   const isActive = spectateData.status === "active";
   const isSettled = spectateData.status === "settled";
+  const initBal = parseFloat(spectateData.initialBalance || "1000000");
+  const priceUp = priceChange >= 0;
+
+  const allTradeMarkers: TradeMarker[] = [];
+  const allPlayerPositions = [
+    ...(spectateData.creator.positions || []),
+    ...(spectateData.joiner?.positions || []),
+  ];
+  for (const p of allPlayerPositions) {
+    if (p.isOpen) {
+      allTradeMarkers.push({
+        time: new Date(p.openedAt).getTime(),
+        price: parseFloat(p.entryPrice),
+        side: p.side as "long" | "short",
+        action: "open",
+        leverage: p.leverage,
+      });
+    } else {
+      allTradeMarkers.push({
+        time: new Date(p.openedAt).getTime(),
+        price: parseFloat(p.entryPrice),
+        side: p.side as "long" | "short",
+        action: "open",
+        leverage: p.leverage,
+      });
+      if (p.exitPrice) {
+        allTradeMarkers.push({
+          time: new Date(p.closedAt || p.openedAt).getTime(),
+          price: parseFloat(p.exitPrice),
+          side: p.side as "long" | "short",
+          action: "close",
+          pnl: p.pnl ? parseFloat(p.pnl) : undefined,
+        });
+      }
+    }
+  }
 
   return (
-    <div className="min-h-screen" style={{ background: "#0b0e11" }}>
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        <div className="text-center space-y-2 py-4">
-          <div className="flex items-center justify-center gap-2">
-            <Eye className="w-5 h-5 text-amber-400" />
-            <span className="text-amber-400 text-sm font-semibold uppercase tracking-wider">Spectator Mode</span>
-          </div>
-          <h2 className="text-xl font-bold text-white">{assetInfo.short}/USDT Trading Duel</h2>
-          <Badge variant="outline" className="text-[10px] py-0 px-1.5 gap-1" style={{
-            borderColor: isActive ? "#0ecb81" : isSettled ? "#848e9c" : "#f0b90b",
-            color: isActive ? "#0ecb81" : isSettled ? "#848e9c" : "#f0b90b",
-          }}>
-            {isActive && <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#0ecb81", boxShadow: "0 0 4px #0ecb81" }} />}
-            {isActive ? "LIVE" : isSettled ? "FINISHED" : spectateData.status.toUpperCase()}
-          </Badge>
-        </div>
+    <div className="min-h-screen relative" style={{ background: "#0b0e11" }}>
+      <style>{`
+        @keyframes spectate-flash { 0%,100%{opacity:0} 50%{opacity:1} }
+        @keyframes spectate-winner-in { 0%{transform:scale(0.5) rotate(-5deg);opacity:0} 50%{transform:scale(1.1) rotate(2deg);opacity:1} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+        @keyframes spectate-pulse-ring { 0%{transform:scale(1);opacity:0.5} 100%{transform:scale(2);opacity:0} }
+        @keyframes spectate-crown-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+      `}</style>
 
-        {isActive && spectateData.endsAt && (
-          <div className="text-center">
-            <CountdownTimer endsAt={spectateData.endsAt} />
-          </div>
-        )}
+      {leadFlash && (
+        <div className="absolute inset-0 z-50 pointer-events-none" style={{ background: "radial-gradient(circle at center, rgba(240,185,11,0.15), transparent 70%)", animation: "spectate-flash 0.7s ease-out" }} />
+      )}
 
-        <Card className="border-0" style={{ background: "#1e2329" }}>
-          <CardContent className="p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className={`p-4 rounded-md text-center ${spectateData.leading === spectateData.creator.id ? "ring-2 ring-green-500/50" : ""}`} style={{ background: "#0b0e11" }}>
-                <div className="flex items-center justify-center gap-1 mb-2">
-                  {spectateData.creator.isBot && <Bot className="w-3 h-3 text-purple-400" />}
-                  <span className="font-semibold text-sm text-white truncate" data-testid="text-spectate-creator">{spectateData.creator.name}</span>
-                </div>
-                <div
-                  className="text-2xl font-bold font-mono"
-                  style={{ color: spectateData.creator.relPnlPct >= 0 ? "#0ecb81" : "#ea3943" }}
-                  data-testid="text-spectate-creator-pnl"
-                >
-                  {spectateData.creator.relPnlPct >= 0 ? "+" : ""}{spectateData.creator.relPnlPct.toFixed(2)}%
-                </div>
-                {spectateData.leading === spectateData.creator.id && (
-                  <Badge className="mt-1 text-[9px]" style={{ background: "#0ecb81", color: "#000" }}>LEADING</Badge>
-                )}
-              </div>
-
-              <div className={`p-4 rounded-md text-center ${spectateData.leading === spectateData.joiner?.id ? "ring-2 ring-green-500/50" : ""}`} style={{ background: "#0b0e11" }}>
-                <div className="flex items-center justify-center gap-1 mb-2">
-                  {spectateData.joiner?.isBot && <Bot className="w-3 h-3 text-purple-400" />}
-                  <span className="font-semibold text-sm text-white truncate" data-testid="text-spectate-joiner">{spectateData.joiner?.name || "Waiting..."}</span>
-                </div>
-                <div
-                  className="text-2xl font-bold font-mono"
-                  style={{ color: (spectateData.joiner?.relPnlPct || 0) >= 0 ? "#0ecb81" : "#ea3943" }}
-                  data-testid="text-spectate-joiner-pnl"
-                >
-                  {spectateData.joiner ? `${spectateData.joiner.relPnlPct >= 0 ? "+" : ""}${spectateData.joiner.relPnlPct.toFixed(2)}%` : "--"}
-                </div>
-                {spectateData.joiner && spectateData.leading === spectateData.joiner.id && (
-                  <Badge className="mt-1 text-[9px]" style={{ background: "#0ecb81", color: "#000" }}>LEADING</Badge>
-                )}
-              </div>
+      {showWinnerSplash && spectateData.winnerId && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-none" style={{ background: "rgba(0,0,0,0.7)" }}>
+          <div style={{ animation: "spectate-winner-in 0.8s ease-out forwards" }} className="text-center">
+            <div className="relative inline-block mb-4">
+              <Crown className="w-16 h-16 text-amber-400" style={{ animation: "spectate-crown-bounce 1s ease-in-out infinite", filter: "drop-shadow(0 0 20px rgba(245,158,11,0.6))" }} />
+              <div className="absolute inset-0 rounded-full" style={{ animation: "spectate-pulse-ring 1.5s ease-out infinite", border: "2px solid rgba(245,158,11,0.4)" }} />
             </div>
+            <div className="text-3xl sm:text-4xl font-black text-white mb-2" data-testid="text-spectate-winner-splash">
+              {spectateData.winnerId === spectateData.creator.id ? spectateData.creator.name : spectateData.joiner?.name}
+            </div>
+            <div className="text-xl font-bold" style={{ color: "#f0b90b", textShadow: "0 0 20px rgba(240,185,11,0.5)" }}>
+              WINS!
+            </div>
+            <div className="text-sm mt-2" style={{ color: "#848e9c" }}>
+              Prize: {(parseFloat(spectateData.potAmount) * 2 * 0.9).toFixed(3)} BNB
+            </div>
+          </div>
+        </div>
+      )}
 
-            {isSettled && spectateData.winnerId && (
-              <div className="text-center p-3 rounded-md" style={{ background: "#0b0e11" }}>
-                <Crown className="w-6 h-6 text-amber-400 mx-auto mb-1" />
-                <span className="text-amber-400 font-bold" data-testid="text-spectate-winner">
-                  {spectateData.winnerId === spectateData.creator.id ? spectateData.creator.name : spectateData.joiner?.name} WINS!
-                </span>
+      <div className="border-b" style={{ borderColor: "#1e2329", background: "linear-gradient(180deg, #0f1218, #0b0e11)" }}>
+        <div className="px-2 sm:px-4 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4 text-amber-400" />
+              <span className="text-amber-400 text-[10px] sm:text-xs font-bold uppercase tracking-widest">SPECTATING</span>
+              <Badge variant="outline" className="text-[9px] py-0 px-1 gap-1" style={{
+                borderColor: isActive ? "#0ecb81" : isSettled ? "#848e9c" : "#f0b90b",
+                color: isActive ? "#0ecb81" : isSettled ? "#848e9c" : "#f0b90b",
+              }}>
+                {isActive && <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#0ecb81", boxShadow: "0 0 4px #0ecb81", animation: "arena-glow-pulse 1.5s ease-in-out infinite" }} />}
+                {isActive ? "LIVE" : isSettled ? "FINISHED" : spectateData.status.toUpperCase()}
+              </Badge>
+              {spectateData.matchType && (
+                <Badge variant="outline" className="text-[9px] py-0 px-1" style={{
+                  borderColor: spectateData.matchType === "ava" ? "#7c3aed40" : "#f0b90b40",
+                  color: spectateData.matchType === "ava" ? "#a78bfa" : "#f0b90b",
+                }}>
+                  {spectateData.matchType === "ava" ? "AvA" : spectateData.matchType === "pvp" ? "PvP" : "Practice"}
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xs sm:text-sm text-white">{assetInfo.short}<span style={{ color: "#848e9c" }}>/USDT</span></span>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast({ title: "Spectator link copied!" });
+                }}
+                data-testid="button-copy-spectate-link"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-2 sm:px-4 py-2 sm:py-3 border-b" style={{ borderColor: "#1e2329", background: "#0d1117" }}>
+        <div className="flex items-start gap-2 sm:gap-3">
+          <FighterHPBar
+            player={spectateData.creator}
+            side="left"
+            isLeading={spectateData.leading === spectateData.creator.id}
+            initialBalance={initBal}
+          />
+
+          <div className="shrink-0 flex flex-col items-center gap-1 px-1">
+            {isActive && spectateData.endsAt ? (
+              <CountdownTimer endsAt={spectateData.endsAt} />
+            ) : (
+              <div
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
+                style={{
+                  background: isSettled
+                    ? "linear-gradient(135deg, #f0b90b40, #f59e0b20)"
+                    : "linear-gradient(135deg, #f59e0b30, #ea580c20)",
+                  boxShadow: "0 0 15px rgba(245,158,11,0.2)",
+                }}
+              >
+                <span className="text-base sm:text-lg font-black" style={{ color: "#f0b90b" }}>VS</span>
               </div>
             )}
-
-            <div className="flex items-center justify-center gap-4 text-xs" style={{ color: "#848e9c" }}>
-              <span>Pot: {spectateData.potAmount} BNB</span>
-              <span>Lead Changes: {spectateData.leadChanges}</span>
-              {spectateData.clutchFlag && <Badge variant="outline" className="text-[9px] border-red-500/30 text-red-400">CLUTCH</Badge>}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-mono" style={{ color: "#848e9c" }}>{spectateData.potAmount} BNB</span>
+              {spectateData.leadChanges > 0 && (
+                <span className="text-[9px] font-mono" style={{ color: "#f0b90b" }}>
+                  <Zap className="w-2.5 h-2.5 inline" />{spectateData.leadChanges}
+                </span>
+              )}
             </div>
-          </CardContent>
-        </Card>
+            {spectateData.clutchFlag && (
+              <Badge variant="outline" className="text-[8px] py-0 px-1 border-red-500/30 text-red-400">CLUTCH</Badge>
+            )}
+          </div>
 
-        <div className="flex gap-2 justify-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href);
-              toast({ title: "Link copied!" });
-            }}
-            data-testid="button-copy-spectate-link"
-          >
-            <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Link
-          </Button>
+          <FighterHPBar
+            player={spectateData.joiner || { id: "", name: "Waiting...", avatarUrl: null, isBot: false, relPnlPct: 0, balance: initBal, openPositions: 0, positions: [] }}
+            side="right"
+            isLeading={spectateData.leading === spectateData.joiner?.id}
+            initialBalance={initBal}
+          />
+        </div>
+      </div>
+
+      {isActive && currentPrice > 0 && (
+        <div className="px-2 sm:px-4 py-1 border-b flex items-center gap-2 flex-wrap" style={{ borderColor: "#1e2329" }}>
+          <span className="font-mono text-lg sm:text-xl font-bold" style={{ color: priceUp ? "#0ecb81" : "#ea3943" }} data-testid="text-spectate-price">
+            {formatPrice(currentPrice)}
+          </span>
+          {priceChange !== 0 && (
+            <span className="text-[11px] font-mono" style={{ color: priceUp ? "#0ecb81" : "#ea3943" }}>
+              {priceUp ? "+" : ""}{priceChange.toFixed(3)}%
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row">
+        <div ref={chartContainerRef} className="flex-1 min-w-0 lg:border-r relative" style={{ borderColor: "#1e2329" }}>
+          <div className="absolute inset-0 pointer-events-none z-10 arena-scanlines" />
+          <div className="p-1 relative">
+            <LiveLineChart
+              priceTicks={priceTicks}
+              width={chartWidth}
+              height={window.innerWidth < 640 ? 240 : 380}
+              currentPrice={currentPrice}
+              tradeMarkers={allTradeMarkers}
+              openPositions={[]}
+            />
+          </div>
+        </div>
+
+        <div className="lg:w-[320px] shrink-0" style={{ background: "#0b0e11" }}>
+          <div className="border-b" style={{ borderColor: "#1e2329" }}>
+            <div className="px-3 py-2 flex items-center gap-2">
+              <Activity className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-white">Live Trade Feed</span>
+            </div>
+          </div>
+
+          <div className="border-b" style={{ borderColor: "#1e2329" }}>
+            <div className="px-3 py-1.5 flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ background: "#3b82f6" }} />
+              <span className="text-[11px] font-bold text-white truncate" data-testid="text-feed-creator">{spectateData.creator.name}</span>
+              {spectateData.creator.isBot && <Cpu className="w-3 h-3 text-purple-400 shrink-0" />}
+            </div>
+            <div className="px-2 pb-2 max-h-[140px] overflow-y-auto">
+              <TradeFeed positions={spectateData.creator.positions || []} playerName={spectateData.creator.name} side="left" />
+            </div>
+          </div>
+
+          <div>
+            <div className="px-3 py-1.5 flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ background: "#ef4444" }} />
+              <span className="text-[11px] font-bold text-white truncate" data-testid="text-feed-joiner">{spectateData.joiner?.name || "Waiting..."}</span>
+              {spectateData.joiner?.isBot && <Cpu className="w-3 h-3 text-purple-400 shrink-0" />}
+            </div>
+            <div className="px-2 pb-2 max-h-[140px] overflow-y-auto">
+              <TradeFeed positions={spectateData.joiner?.positions || []} playerName={spectateData.joiner?.name || ""} side="right" />
+            </div>
+          </div>
+
+          {isSettled && spectateData.winnerId && !showWinnerSplash && (
+            <div className="px-3 py-3 border-t" style={{ borderColor: "#1e2329" }}>
+              <div className="p-3 rounded-md text-center" style={{ background: "linear-gradient(135deg, #f0b90b15, #f59e0b08)", border: "1px solid #f0b90b30" }} data-testid="card-spectate-winner">
+                <Crown className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+                <div className="text-sm font-bold" style={{ color: "#f0b90b" }}>
+                  {spectateData.winnerId === spectateData.creator.id ? spectateData.creator.name : spectateData.joiner?.name} WINS!
+                </div>
+                <div className="text-[11px] mt-1" style={{ color: "#848e9c" }}>
+                  Prize: {(parseFloat(spectateData.potAmount) * 2 * 0.9).toFixed(3)} BNB
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

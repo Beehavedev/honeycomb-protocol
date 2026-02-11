@@ -3261,9 +3261,12 @@ export async function registerRoutes(
       let joinerRelPnl = 0;
       let leading: string | null = null;
 
+      const allPositions = (duel.status === "active" || duel.status === "settled")
+        ? await storage.getAllDuelPositions(duel.id)
+        : [];
+
       if (duel.status === "active" || duel.status === "settled") {
         const initBal = parseFloat(duel.initialBalance || "1000000");
-        const allPositions = await storage.getAllDuelPositions(duel.id);
 
         let creatorBal = initBal;
         let joinerBal = initBal;
@@ -3301,11 +3304,44 @@ export async function registerRoutes(
         leading = creatorBal > joinerBal ? duel.creatorId : joinerBal > creatorBal ? (duel.joinerId || null) : null;
       }
 
+      const creatorPositions = allPositions
+        .filter(p => p.agentId === duel.creatorId)
+        .map(p => ({
+          id: p.id,
+          side: p.side,
+          leverage: p.leverage,
+          sizeUsdt: p.sizeUsdt,
+          entryPrice: p.entryPrice,
+          exitPrice: p.exitPrice,
+          pnl: p.pnl,
+          isOpen: p.isOpen,
+          openedAt: p.openedAt,
+          closedAt: p.closedAt,
+        }));
+
+      const joinerPositions = allPositions
+        .filter(p => p.agentId === duel.joinerId)
+        .map(p => ({
+          id: p.id,
+          side: p.side,
+          leverage: p.leverage,
+          sizeUsdt: p.sizeUsdt,
+          entryPrice: p.entryPrice,
+          exitPrice: p.exitPrice,
+          pnl: p.pnl,
+          isOpen: p.isOpen,
+          openedAt: p.openedAt,
+          closedAt: p.closedAt,
+        }));
+
+      const initBal = parseFloat(duel.initialBalance || "1000000");
+
       res.json({
         id: duel.id,
         status: duel.status,
         assetSymbol: duel.assetSymbol,
         durationSeconds: duel.durationSeconds,
+        initialBalance: duel.initialBalance,
         startedAt: duel.startedAt,
         endsAt: duel.endsAt,
         winnerId: duel.winnerId,
@@ -3314,12 +3350,16 @@ export async function registerRoutes(
         seriesId: duel.seriesId,
         seriesRound: duel.seriesRound,
         potAmount: duel.potAmount,
+        matchType: duel.matchType,
         creator: {
           id: duel.creatorId,
           name: creatorAgent?.name || "Player 1",
           avatarUrl: creatorAgent?.avatarUrl,
           isBot: creatorIsBot,
           relPnlPct: Math.round(creatorRelPnl * 100) / 100,
+          balance: Math.round((initBal + initBal * creatorRelPnl / 100) * 100) / 100,
+          openPositions: creatorPositions.filter(p => p.isOpen).length,
+          positions: creatorPositions,
         },
         joiner: duel.joinerId ? {
           id: duel.joinerId,
@@ -3327,6 +3367,9 @@ export async function registerRoutes(
           avatarUrl: joinerAgent?.avatarUrl,
           isBot: joinerIsBot,
           relPnlPct: Math.round(joinerRelPnl * 100) / 100,
+          balance: Math.round((initBal + initBal * joinerRelPnl / 100) * 100) / 100,
+          openPositions: joinerPositions.filter(p => p.isOpen).length,
+          positions: joinerPositions,
         } : null,
         leading,
       });
