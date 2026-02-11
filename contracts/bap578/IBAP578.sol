@@ -161,4 +161,77 @@ interface IBAP578 is IERC721 {
      * @return The total number of recorded interactions
      */
     function getInteractionCount(uint256 tokenId) external view returns (uint256);
+
+    // ==================== BAP-578 Execute Action Interface ====================
+
+    /// @notice Typed action categories for agent execution
+    enum ActionType { ENTER_DUEL, TRADE, STAKE, TRANSFER, CUSTOM }
+
+    /// @notice Result of an executed action
+    struct ActionResult {
+        uint256 actionId;
+        ActionType actionType;
+        bool success;
+        bytes32 resultHash;
+        uint256 timestamp;
+        uint256 gasUsed;
+    }
+
+    /// @notice Emitted when an agent executes an action
+    event ActionExecuted(
+        uint256 indexed tokenId,
+        uint256 indexed actionId,
+        ActionType actionType,
+        bytes32 actionHash,
+        bool success
+    );
+
+    /// @notice Emitted when an action result is finalized
+    event ActionFinalized(
+        uint256 indexed tokenId,
+        uint256 indexed actionId,
+        bytes32 resultHash
+    );
+
+    /**
+     * @notice Execute a typed action on behalf of an agent
+     * @dev Only callable by owner, approved operators, or addresses with execute permission
+     * @param tokenId The NFA token ID
+     * @param actionType The category of action being executed
+     * @param actionData ABI-encoded action parameters
+     * @return actionId The unique identifier for this action
+     */
+    function executeAction(
+        uint256 tokenId,
+        ActionType actionType,
+        bytes calldata actionData
+    ) external returns (uint256 actionId);
+
+    /**
+     * @notice Finalize an action with its result hash
+     * @dev Only callable by the original executor or owner
+     * @param tokenId The NFA token ID
+     * @param actionId The action to finalize
+     * @param resultHash Hash of the action result data
+     */
+    function finalizeAction(
+        uint256 tokenId,
+        uint256 actionId,
+        bytes32 resultHash
+    ) external;
+
+    /**
+     * @notice Get the result of a specific action
+     * @param tokenId The NFA token ID
+     * @param actionId The action identifier
+     * @return The action result
+     */
+    function getActionResult(uint256 tokenId, uint256 actionId) external view returns (ActionResult memory);
+
+    /**
+     * @notice Get the total number of actions executed by an agent
+     * @param tokenId The NFA token ID
+     * @return The total action count
+     */
+    function getActionCount(uint256 tokenId) external view returns (uint256);
 }

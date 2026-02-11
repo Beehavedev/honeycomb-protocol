@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Bot, Brain, Zap, ArrowLeft, Star, ShoppingCart, Activity, 
   Database, Fingerprint, TrendingUp, MessageSquare, Shield, History,
   DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3,
-  Send, Loader2
+  Send, Loader2, Swords, ArrowUpDown, Coins, ArrowRightLeft, Settings, 
+  CheckCircle, Clock, AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -94,6 +96,26 @@ interface NfaInteraction {
   createdAt: string;
 }
 
+interface NfaAction {
+  id: string;
+  nfaId: string;
+  executorAddress: string;
+  actionType: string;
+  actionData: string | null;
+  result: string | null;
+  txHash: string | null;
+  status: string;
+  createdAt: string;
+}
+
+interface ActionStats {
+  total: number;
+  pending: number;
+  completed: number;
+  failed: number;
+  byType: Record<string, number>;
+}
+
 interface LearningMetrics {
   totalInteractions: number;
   learningEvents: number;
@@ -128,6 +150,8 @@ export default function NfaDetail() {
   const [newRating, setNewRating] = useState(5);
   const [messageInput, setMessageInput] = useState("");
   const [agentResponse, setAgentResponse] = useState<string | null>(null);
+  const [selectedActionType, setSelectedActionType] = useState("CHAT");
+  const [actionFields, setActionFields] = useState<Record<string, string>>({});
 
   const { data: agentData, isLoading } = useQuery<{
     agent: NfaAgent;
@@ -149,6 +173,16 @@ export default function NfaDetail() {
 
   const { data: interactionsData } = useQuery<{ interactions: NfaInteraction[] }>({
     queryKey: ["/api/nfa/agents", nfaId, "interactions"],
+    enabled: !!nfaId,
+  });
+
+  const { data: actionsData } = useQuery<{ actions: NfaAction[]; total: number }>({
+    queryKey: ["/api/nfa/agents", nfaId, "actions"],
+    enabled: !!nfaId,
+  });
+
+  const { data: actionStatsData } = useQuery<{ stats: ActionStats }>({
+    queryKey: ["/api/nfa/agents", nfaId, "actions", "stats"],
     enabled: !!nfaId,
   });
 
@@ -275,19 +309,20 @@ export default function NfaDetail() {
   });
 
   const executeMutation = useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async (payload: { actionType: string; actionData: any }) => {
       if (!await ensureAuthenticated()) throw new Error("Not authenticated");
-      const response = await apiRequest("POST", `/api/nfa/agents/${nfaId}/execute`, {
-        actionType: "CHAT",
-        actionData: { message },
-      });
+      const response = await apiRequest("POST", `/api/nfa/agents/${nfaId}/execute`, payload);
       return response;
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId, "interactions"] });
-      setAgentResponse(data.action?.actionData ? JSON.parse(data.action.actionData)?.message || "Action executed successfully!" : "Action logged!");
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId, "actions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId, "actions", "stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId] });
+      setAgentResponse(data.actionHash ? `Action logged. Hash: ${data.actionHash.slice(0, 18)}...` : "Action executed!");
       setMessageInput("");
-      toast({ title: "Message Sent", description: "Your action has been logged." });
+      setActionFields({});
+      toast({ title: "Action Executed", description: `${data.action?.actionType || "Action"} logged successfully.` });
     },
     onError: (error: Error) => {
       toast({ title: "Execute Failed", description: error.message, variant: "destructive" });
@@ -327,7 +362,98 @@ export default function NfaDetail() {
   const { agent, stats, verification, listing, learningMetrics, learningModule, template } = agentData;
   const memory = memoryData?.memory || [];
   const interactions = interactionsData?.interactions || [];
+  const actions = actionsData?.actions || [];
+  const actionStats = actionStatsData?.stats || { total: 0, pending: 0, completed: 0, failed: 0, byType: {} };
   const isOwner = isConnected && address?.toLowerCase() === agent.ownerAddress.toLowerCase();
+
+  const ACTION_TYPE_CONFIG: Record<string, { label: string; icon: typeof Swords; fields: { key: string; label: string; placeholder: string; type?: string }[] }> = {
+    ENTER_DUEL: {
+      label: "Enter Duel",
+      icon: Swords,
+      fields: [
+        { key: "assetSymbol", label: "Asset", placeholder: "BTCUSDT" },
+        { key: "durationSeconds", label: "Duration (sec)", placeholder: "120", type: "number" },
+      ],
+    },
+    TRADE: {
+      label: "Trade",
+      icon: ArrowUpDown,
+      fields: [
+        { key: "side", label: "Side", placeholder: "long or short" },
+        { key: "assetSymbol", label: "Asset", placeholder: "BTCUSDT" },
+        { key: "amount", label: "Amount", placeholder: "1000", type: "number" },
+        { key: "leverage", label: "Leverage", placeholder: "1", type: "number" },
+      ],
+    },
+    STAKE: {
+      label: "Stake",
+      icon: Coins,
+      fields: [
+        { key: "amount", label: "Amount (BNB)", placeholder: "0.1", type: "number" },
+        { key: "tier", label: "Tier", placeholder: "DRONE" },
+      ],
+    },
+    TRANSFER: {
+      label: "Transfer",
+      icon: ArrowRightLeft,
+      fields: [
+        { key: "toAddress", label: "To Address", placeholder: "0x..." },
+        { key: "amount", label: "Amount (BNB)", placeholder: "0.1", type: "number" },
+      ],
+    },
+    CHAT: {
+      label: "Chat",
+      icon: MessageSquare,
+      fields: [
+        { key: "message", label: "Message", placeholder: "Hello agent..." },
+      ],
+    },
+    CUSTOM: {
+      label: "Custom",
+      icon: Settings,
+      fields: [
+        { key: "action", label: "Action Name", placeholder: "my_custom_action" },
+        { key: "payload", label: "Payload (JSON)", placeholder: '{"key": "value"}' },
+      ],
+    },
+  };
+
+  const optionalFields = new Set(["leverage", "tier", "payload"]);
+
+  const isActionFormValid = (() => {
+    const config = ACTION_TYPE_CONFIG[selectedActionType];
+    if (!config) return false;
+    return config.fields.every(f => optionalFields.has(f.key) || (actionFields[f.key] || "").trim().length > 0);
+  })();
+
+  const handleExecuteAction = () => {
+    const config = ACTION_TYPE_CONFIG[selectedActionType];
+    if (!config || !isActionFormValid) return;
+    const actionData: Record<string, any> = {};
+    for (const field of config.fields) {
+      const val = actionFields[field.key] || "";
+      actionData[field.key] = field.type === "number" ? parseFloat(val) || val : val;
+    }
+    executeMutation.mutate({ actionType: selectedActionType, actionData });
+  };
+
+  const getActionStatusIcon = (status: string) => {
+    switch (status) {
+      case "COMPLETED": return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "PENDING": return <Clock className="h-4 w-4 text-amber-500" />;
+      case "FAILED": return <AlertCircle className="h-4 w-4 text-red-500" />;
+      default: return <Clock className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getActionTypeIcon = (type: string) => {
+    const config = ACTION_TYPE_CONFIG[type];
+    if (config) {
+      const Icon = config.icon;
+      return <Icon className="h-4 w-4" />;
+    }
+    return <Zap className="h-4 w-4" />;
+  };
 
   const getStatusBadge = () => {
     switch (agent.status) {
@@ -439,66 +565,108 @@ export default function NfaDetail() {
             </CardContent>
           </Card>
 
-          {/* Interact with Agent */}
           <Card className="bg-gradient-to-br from-amber-500/5 to-amber-600/10 border-amber-500/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-amber-500" />
-                Interact with Agent
+                <Zap className="h-5 w-5 text-amber-500" />
+                Execute Action (BAP-578)
               </CardTitle>
               <CardDescription>
-                Send a message to interact with this AI agent
+                Execute typed actions on behalf of this agent
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {agent.status !== "ACTIVE" ? (
                 <div className="text-center py-4 text-muted-foreground">
                   <Pause className="h-8 w-8 mx-auto mb-2" />
-                  <p>This agent is {agent.status.toLowerCase()} and cannot receive messages</p>
+                  <p>This agent is {agent.status.toLowerCase()} and cannot execute actions</p>
                 </div>
               ) : (
                 <>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Type your message..."
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && messageInput.trim()) {
-                          executeMutation.mutate(messageInput);
-                        }
-                      }}
-                      disabled={executeMutation.isPending}
-                      data-testid="input-agent-message"
-                    />
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label>Action Type</Label>
+                      <Select
+                        value={selectedActionType}
+                        onValueChange={(v) => { setSelectedActionType(v); setActionFields({}); }}
+                      >
+                        <SelectTrigger data-testid="select-action-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(ACTION_TYPE_CONFIG).map(([key, config]) => {
+                            const Icon = config.icon;
+                            return (
+                              <SelectItem key={key} value={key}>
+                                <span className="flex items-center gap-2">
+                                  <Icon className="h-3.5 w-3.5" />
+                                  {config.label}
+                                </span>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {ACTION_TYPE_CONFIG[selectedActionType]?.fields.map((field) => (
+                      <div key={field.key} className="space-y-1">
+                        <Label>{field.label}</Label>
+                        <Input
+                          type={field.type || "text"}
+                          placeholder={field.placeholder}
+                          value={actionFields[field.key] || ""}
+                          onChange={(e) => setActionFields(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          disabled={executeMutation.isPending}
+                          data-testid={`input-action-${field.key}`}
+                        />
+                      </div>
+                    ))}
+
                     <Button
-                      onClick={() => messageInput.trim() && executeMutation.mutate(messageInput)}
-                      disabled={!messageInput.trim() || executeMutation.isPending}
-                      data-testid="button-send-message"
+                      className="w-full gap-2"
+                      onClick={handleExecuteAction}
+                      disabled={executeMutation.isPending || !isActionFormValid}
+                      data-testid="button-execute-action"
                     >
                       {executeMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Send className="h-4 w-4" />
+                        <Zap className="h-4 w-4" />
                       )}
+                      Execute {ACTION_TYPE_CONFIG[selectedActionType]?.label || "Action"}
                     </Button>
                   </div>
+
                   {agentResponse && (
                     <div className="p-3 rounded-lg bg-muted/50 border">
-                      <p className="text-xs text-muted-foreground mb-1">Agent Response</p>
-                      <p className="text-sm">{agentResponse}</p>
+                      <p className="text-xs text-muted-foreground mb-1">Result</p>
+                      <p className="text-sm font-mono break-all">{agentResponse}</p>
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    Messages are logged on-chain. {!isOwner && "You need execute permission to interact."}
-                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="text-xs" data-testid="badge-total-actions">
+                      {actionStats.total} total actions
+                    </Badge>
+                    {actionStats.pending > 0 && (
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50" data-testid="badge-pending-actions">
+                        {actionStats.pending} pending
+                      </Badge>
+                    )}
+                    {!isOwner && <span data-testid="text-permission-note">Execute permission required</span>}
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="memory">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="actions">
+            <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+              <TabsTrigger value="actions" className="gap-2" data-testid="tab-actions">
+                <Zap className="h-4 w-4" />
+                Actions
+              </TabsTrigger>
               <TabsTrigger value="memory" className="gap-2" data-testid="tab-memory">
                 <Database className="h-4 w-4" />
                 Memory
@@ -520,6 +688,108 @@ export default function NfaDetail() {
                 Reputation
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="actions" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Action History (BAP-578)
+                  </CardTitle>
+                  <CardDescription>
+                    On-chain actions with cryptographic verification
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {actionStats.total > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" data-testid="stats-action-grid">
+                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-total">
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="text-xl font-bold">{actionStats.total}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-completed">
+                        <p className="text-xs text-muted-foreground">Completed</p>
+                        <p className="text-xl font-bold text-green-500">{actionStats.completed}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-pending">
+                        <p className="text-xs text-muted-foreground">Pending</p>
+                        <p className="text-xl font-bold text-amber-500">{actionStats.pending}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-failed">
+                        <p className="text-xs text-muted-foreground">Failed</p>
+                        <p className="text-xl font-bold text-red-500">{actionStats.failed}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {Object.keys(actionStats.byType).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4" data-testid="stats-action-by-type">
+                      {Object.entries(actionStats.byType).map(([type, count]) => (
+                        <Badge key={type} variant="outline" className="gap-1" data-testid={`badge-action-type-${type}`}>
+                          {getActionTypeIcon(type)}
+                          {ACTION_TYPE_CONFIG[type]?.label || type}: {count}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {actions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Zap className="h-8 w-8 mx-auto mb-2" />
+                      <p>No actions executed yet</p>
+                      <p className="text-xs mt-1">Use the Execute Action panel above to get started</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2" data-testid="list-actions">
+                      {actions.slice(0, 20).map(action => {
+                        let parsedData: any = null;
+                        try { parsedData = action.actionData ? JSON.parse(action.actionData) : null; } catch {}
+                        let parsedResult: any = null;
+                        try { parsedResult = action.result ? JSON.parse(action.result) : null; } catch {}
+                        return (
+                          <div key={action.id} className="p-3 rounded-lg border space-y-2" data-testid={`row-action-${action.id}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                {getActionTypeIcon(action.actionType)}
+                                <span className="font-medium text-sm" data-testid={`text-action-type-${action.id}`}>
+                                  {ACTION_TYPE_CONFIG[action.actionType]?.label || action.actionType}
+                                </span>
+                                {getActionStatusIcon(action.status)}
+                              </div>
+                              <span className="text-xs text-muted-foreground" data-testid={`text-action-time-${action.id}`}>
+                                {new Date(action.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            {parsedData && (
+                              <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded break-all" data-testid={`text-action-data-${action.id}`}>
+                                {Object.entries(parsedData).map(([k, v]) => (
+                                  <span key={k} className="mr-3">{k}: {String(v)}</span>
+                                ))}
+                              </div>
+                            )}
+                            {parsedResult && (
+                              <div className="text-xs font-mono bg-green-500/5 border border-green-500/20 p-2 rounded break-all" data-testid={`text-action-result-${action.id}`}>
+                                {parsedResult.message || JSON.stringify(parsedResult)}
+                              </div>
+                            )}
+                            {action.txHash && (
+                              <div className="text-xs text-muted-foreground" data-testid={`text-action-tx-${action.id}`}>
+                                TX: <code className="font-mono">{action.txHash.slice(0, 16)}...</code>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="font-mono" data-testid={`text-action-executor-${action.id}`}>
+                                {action.executorAddress.slice(0, 6)}...{action.executorAddress.slice(-4)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="memory" className="mt-4">
               <Card>

@@ -44,6 +44,15 @@ contract BAP578Token is
     /// @notice Mapping from token ID to authorized operators for memory updates
     mapping(uint256 => mapping(address => bool)) private _memoryOperators;
     
+    /// @notice Action counter per agent
+    mapping(uint256 => uint256) private _actionCounters;
+    
+    /// @notice Mapping from token ID to action ID to ActionResult
+    mapping(uint256 => mapping(uint256 => ActionResult)) private _actionResults;
+    
+    /// @notice Mapping from token ID to action ID to executor address
+    mapping(uint256 => mapping(uint256 => address)) private _actionExecutors;
+    
     /// @notice Base URI for metadata
     string private _baseTokenURI;
     
@@ -311,6 +320,79 @@ contract BAP578Token is
     function getTrainingAtVersion(uint256 tokenId, uint256 version) external view returns (bytes32) {
         require(_exists(tokenId), "Agent does not exist");
         return _trainingHistory[tokenId][version];
+    }
+    
+    // ==================== BAP-578 Execute Action ====================
+    
+    function executeAction(
+        uint256 tokenId,
+        ActionType actionType,
+        bytes calldata actionData
+    ) external override returns (uint256) {
+        require(_exists(tokenId), "Agent does not exist");
+        require(
+            _isApprovedOrOwner(msg.sender, tokenId) || _memoryOperators[tokenId][msg.sender],
+            "Not authorized"
+        );
+        require(_agents[tokenId].status == AgentStatus.ACTIVE, "Agent not active");
+        
+        _actionCounters[tokenId]++;
+        uint256 actionId = _actionCounters[tokenId];
+        
+        bytes32 actionHash = keccak256(abi.encodePacked(tokenId, actionId, actionType, actionData, block.timestamp));
+        
+        uint256 gasStart = gasleft();
+        
+        _actionResults[tokenId][actionId] = ActionResult({
+            actionId: actionId,
+            actionType: actionType,
+            success: true,
+            resultHash: bytes32(0),
+            timestamp: block.timestamp,
+            gasUsed: 0
+        });
+        
+        _actionExecutors[tokenId][actionId] = msg.sender;
+        
+        _agents[tokenId].interactionCount++;
+        _agents[tokenId].lastActiveAt = block.timestamp;
+        
+        uint256 gasUsed = gasStart - gasleft();
+        _actionResults[tokenId][actionId].gasUsed = gasUsed;
+        
+        emit ActionExecuted(tokenId, actionId, actionType, actionHash, true);
+        emit InteractionRecorded(tokenId, _agents[tokenId].interactionCount, actionHash);
+        
+        return actionId;
+    }
+    
+    function finalizeAction(
+        uint256 tokenId,
+        uint256 actionId,
+        bytes32 resultHash
+    ) external override {
+        require(_exists(tokenId), "Agent does not exist");
+        require(actionId > 0 && actionId <= _actionCounters[tokenId], "Invalid action ID");
+        require(
+            _actionExecutors[tokenId][actionId] == msg.sender || _isApprovedOrOwner(msg.sender, tokenId),
+            "Not authorized"
+        );
+        require(_actionResults[tokenId][actionId].resultHash == bytes32(0), "Already finalized");
+        
+        _actionResults[tokenId][actionId].resultHash = resultHash;
+        
+        emit ActionFinalized(tokenId, actionId, resultHash);
+    }
+    
+    function getActionResult(uint256 tokenId, uint256 actionId) external view override returns (ActionResult memory) {
+        require(_exists(tokenId), "Agent does not exist");
+        require(actionId > 0 && actionId <= _actionCounters[tokenId], "Invalid action ID");
+        return _actionResults[tokenId][actionId];
+    }
+    
+    function getActionCount(uint256 tokenId) external view override returns (uint256) {
+        require(_exists(tokenId), "Agent does not exist");
+        return _actionCounters[tokenId];
     }
     
     // ==================== Admin Functions ====================

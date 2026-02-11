@@ -1293,10 +1293,51 @@ nfaRouter.post("/agents/:id/fund", authMiddleware, async (req: Request, res: Res
 
 // ==================== BAP-578 Execute Action ====================
 
+const VALID_ACTION_TYPES = ["ENTER_DUEL", "TRADE", "STAKE", "TRANSFER", "CUSTOM", "CHAT", "EXECUTE"] as const;
+
+function generateActionHash(nfaId: string, actionType: string, actionData: any): string {
+  const data = `${nfaId}:${actionType}:${JSON.stringify(actionData)}:${Date.now()}`;
+  return "0x" + crypto.createHash("sha256").update(data).digest("hex");
+}
+
+function validateActionData(actionType: string, actionData: any): { valid: boolean; error?: string } {
+  switch (actionType) {
+    case "ENTER_DUEL":
+      if (!actionData?.assetSymbol) return { valid: false, error: "assetSymbol required for ENTER_DUEL" };
+      if (!actionData?.durationSeconds || actionData.durationSeconds < 60) return { valid: false, error: "durationSeconds >= 60 required" };
+      return { valid: true };
+    case "TRADE":
+      if (!actionData?.side || !["long", "short"].includes(actionData.side)) return { valid: false, error: "side must be 'long' or 'short'" };
+      if (!actionData?.assetSymbol) return { valid: false, error: "assetSymbol required" };
+      if (!actionData?.amount || parseFloat(actionData.amount) <= 0) return { valid: false, error: "positive amount required" };
+      return { valid: true };
+    case "STAKE":
+      if (!actionData?.amount || parseFloat(actionData.amount) <= 0) return { valid: false, error: "positive amount required" };
+      return { valid: true };
+    case "TRANSFER":
+      if (!actionData?.toAddress || !/^0x[a-fA-F0-9]{40}$/.test(actionData.toAddress)) return { valid: false, error: "valid toAddress required" };
+      if (!actionData?.amount || parseFloat(actionData.amount) <= 0) return { valid: false, error: "positive amount required" };
+      return { valid: true };
+    case "CHAT":
+      if (!actionData?.message || typeof actionData.message !== "string") return { valid: false, error: "message string required" };
+      return { valid: true };
+    case "CUSTOM":
+    case "EXECUTE":
+      return { valid: true };
+    default:
+      return { valid: false, error: `Unknown action type: ${actionType}` };
+  }
+}
+
 nfaRouter.post("/agents/:id/execute", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { actionType, actionData, txHash } = req.body;
+
+    const normalizedType = (actionType || "EXECUTE").toUpperCase();
+    if (!VALID_ACTION_TYPES.includes(normalizedType as any)) {
+      return res.status(400).json({ error: `Invalid action type. Valid types: ${VALID_ACTION_TYPES.join(", ")}` });
+    }
 
     const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
     if (agents.length === 0) {
@@ -1308,7 +1349,6 @@ nfaRouter.post("/agents/:id/execute", authMiddleware, async (req: Request, res: 
       return res.status(400).json({ error: `Agent is ${agent.status}, cannot execute actions` });
     }
 
-    // Check vault permissions - owner can always execute
     if (agent.ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
       const permissions = await db
         .select()
@@ -1322,54 +1362,148 @@ nfaRouter.post("/agents/:id/execute", authMiddleware, async (req: Request, res: 
         return res.status(403).json({ error: "No execute permission for this agent" });
       }
 
-      // Check expiry
       if (permissions[0].expiresAt && new Date(permissions[0].expiresAt) < new Date()) {
         return res.status(403).json({ error: "Permission has expired" });
       }
     }
 
-    // Log action
+    const validation = validateActionData(normalizedType, actionData);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    const actionHash = generateActionHash(id, normalizedType, actionData);
+
     const actionResult = await db.insert(nfaActions).values({
       nfaId: id,
       executorAddress: req.walletAddress!.toLowerCase(),
-      actionType: actionType || "EXECUTE",
-      actionData: JSON.stringify(actionData),
-      txHash,
+      actionType: normalizedType,
+      actionData: JSON.stringify({ ...actionData, actionHash }),
+      txHash: txHash || null,
       status: "PENDING"
     }).returning();
 
-    // Update last action timestamp
     await db
       .update(nfaAgents)
       .set({
+        interactionCount: sql`${nfaAgents.interactionCount} + 1`,
         lastActionTimestamp: new Date(),
         lastActiveAt: new Date()
       })
       .where(eq(nfaAgents.id, id));
 
-    res.json({ action: actionResult[0] });
+    await db
+      .update(nfaStats)
+      .set({
+        totalInteractions: sql`${nfaStats.totalInteractions} + 1`,
+        weeklyInteractions: sql`${nfaStats.weeklyInteractions} + 1`,
+        monthlyInteractions: sql`${nfaStats.monthlyInteractions} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(nfaStats.nfaId, id));
+
+    res.json({ action: actionResult[0], actionHash });
   } catch (error) {
     console.error("Error executing action:", error);
     res.status(500).json({ error: "Failed to execute action" });
   }
 });
 
+nfaRouter.patch("/agents/:id/actions/:actionId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id, actionId } = req.params;
+    const { status, result, txHash } = req.body;
+
+    const validStatuses = ["COMPLETED", "FAILED", "CANCELLED"];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
+    }
+
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) return res.status(404).json({ error: "Agent not found" });
+
+    const actions = await db.select().from(nfaActions).where(eq(nfaActions.id, actionId));
+    if (actions.length === 0) return res.status(404).json({ error: "Action not found" });
+
+    const action = actions[0];
+    if (action.nfaId !== id) return res.status(400).json({ error: "Action does not belong to this agent" });
+
+    if (action.executorAddress !== req.walletAddress?.toLowerCase() &&
+        agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only executor or owner can update action status" });
+    }
+
+    if (action.status !== "PENDING") {
+      return res.status(400).json({ error: `Action already ${action.status}, cannot update` });
+    }
+
+    const updateData: any = { status };
+    if (result !== undefined) updateData.result = JSON.stringify(result);
+    if (txHash !== undefined) updateData.txHash = txHash;
+
+    const updated = await db
+      .update(nfaActions)
+      .set(updateData)
+      .where(eq(nfaActions.id, actionId))
+      .returning();
+
+    res.json({ action: updated[0] });
+  } catch (error) {
+    console.error("Error updating action:", error);
+    res.status(500).json({ error: "Failed to update action" });
+  }
+});
+
 nfaRouter.get("/agents/:id/actions", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { limit = "50" } = req.query;
+    const { limit = "50", actionType, status } = req.query;
 
-    const actions = await db
+    let query = db
       .select()
       .from(nfaActions)
       .where(eq(nfaActions.nfaId, id))
       .orderBy(desc(nfaActions.createdAt))
       .limit(parseInt(limit as string));
 
-    res.json({ actions });
+    let actions = await query;
+
+    if (actionType) {
+      actions = actions.filter(a => a.actionType === actionType);
+    }
+    if (status) {
+      actions = actions.filter(a => a.status === status);
+    }
+
+    res.json({ actions, total: actions.length });
   } catch (error) {
     console.error("Error fetching actions:", error);
-    res.json({ actions: [] });
+    res.json({ actions: [], total: 0 });
+  }
+});
+
+nfaRouter.get("/agents/:id/actions/stats", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const actions = await db.select().from(nfaActions).where(eq(nfaActions.nfaId, id));
+    
+    const stats = {
+      total: actions.length,
+      pending: actions.filter(a => a.status === "PENDING").length,
+      completed: actions.filter(a => a.status === "COMPLETED").length,
+      failed: actions.filter(a => a.status === "FAILED").length,
+      byType: {} as Record<string, number>,
+    };
+
+    for (const action of actions) {
+      stats.byType[action.actionType] = (stats.byType[action.actionType] || 0) + 1;
+    }
+
+    res.json({ stats });
+  } catch (error) {
+    console.error("Error fetching action stats:", error);
+    res.json({ stats: { total: 0, pending: 0, completed: 0, failed: 0, byType: {} } });
   }
 });
 
