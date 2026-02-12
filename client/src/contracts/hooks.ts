@@ -1,5 +1,5 @@
 // Contract interaction hooks using wagmi
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance, useSimulateContract } from 'wagmi';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance, useSimulateContract, useAccount } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { 
   HoneycombAgentRegistryABI,
@@ -1493,34 +1493,49 @@ export function useBAP578MintAgent() {
   const address = useBAP578TokenAddress();
   const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
+  const { address: walletAddress } = useAccount();
 
-  const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
   const mintAgent = async (params: {
     name: string;
     description: string;
     modelType: string;
-    agentType: number; // 0 = STATIC, 1 = LEARNING
+    agentType: number;
     systemPromptHash: `0x${string}`;
     initialMemoryRoot: `0x${string}`;
     metadataURI: string;
     mintFee: bigint;
   }) => {
     if (!address || address === ZERO_ADDR) throw new Error('BAP-578 contract not available on this network');
+    if (!walletAddress) throw new Error('Wallet not connected');
+
+    const personalityJson = JSON.stringify({
+      traits: [params.name],
+      style: params.modelType,
+      tone: "engaging",
+      description: params.description,
+    });
+
+    const settingsBytes32 = '0x7b7d000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+
     return writeContractAsync({
       address,
       abi: BAP578TokenABI,
-      functionName: 'mintAgent',
+      functionName: 'createAgent',
       args: [
-        params.name,
-        params.description,
-        params.modelType,
-        params.agentType,
-        params.systemPromptHash,
-        params.initialMemoryRoot,
-        params.metadataURI,
+        walletAddress,
+        ZERO_ADDR,
+        params.metadataURI || '',
+        {
+          personality: personalityJson,
+          systemPrompt: params.description || `AI Assistant: ${params.name}`,
+          extra: '',
+          animationURI: '',
+          imageURI: params.metadataURI || '',
+          settings: settingsBytes32,
+        },
       ],
-      value: params.mintFee,
     });
   };
 
