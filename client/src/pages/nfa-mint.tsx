@@ -143,9 +143,15 @@ export default function NfaMint() {
       handleRegistryRegistration();
     },
     onError: (error: Error) => {
+      console.error("[NFA Mint] Backend sync failed:", error.message);
+      let msg = error.message;
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed?.error) msg = parsed.error;
+      } catch {}
       toast({
         title: "Backend Sync Failed",
-        description: error.message,
+        description: msg,
         variant: "destructive",
       });
       setMintStep("idle");
@@ -285,22 +291,23 @@ export default function NfaMint() {
   const parseTokenIdFromReceipt = (receipt: any): number | null => {
     try {
       if (receipt?.logs) {
+        const TRANSFER_SIG = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
         for (const log of receipt.logs) {
-          if (log.topics && log.topics.length >= 2) {
-            const eventSig = log.topics[0];
-            const agentMintedSig = "0x" + "AgentMinted".padEnd(64, "0");
-            if (log.topics[0]?.toLowerCase().includes("agent") || log.topics.length >= 3) {
-              const tokenIdHex = log.topics[1];
-              if (tokenIdHex) {
-                return parseInt(tokenIdHex, 16);
-              }
+          if (log.topics && log.topics.length >= 4 && log.topics[0]?.toLowerCase() === TRANSFER_SIG) {
+            const tokenIdHex = log.topics[3];
+            if (tokenIdHex) {
+              const parsed = Number(BigInt(tokenIdHex));
+              if (!isNaN(parsed) && parsed > 0) return parsed;
             }
           }
         }
-        if (receipt.logs.length > 0) {
-          const lastLog = receipt.logs[receipt.logs.length - 1];
-          if (lastLog.topics && lastLog.topics[1]) {
-            return parseInt(lastLog.topics[1], 16);
+        for (const log of receipt.logs) {
+          if (log.topics && log.topics.length >= 2) {
+            const tokenIdHex = log.topics[log.topics.length - 1];
+            if (tokenIdHex) {
+              const parsed = Number(BigInt(tokenIdHex));
+              if (!isNaN(parsed) && parsed > 0 && parsed < 2147483647) return parsed;
+            }
           }
         }
       }
@@ -311,13 +318,18 @@ export default function NfaMint() {
   };
 
   const syncToBackend = async () => {
-    if (!receipt || !address) return;
+    if (!receipt || !address) {
+      console.error("[NFA Mint] syncToBackend called without receipt or address", { receipt: !!receipt, address });
+      return;
+    }
     setMintStep("syncing");
 
     const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
     const memoryRootValue = generateMemoryRoot();
     const onChainTokenId = parseTokenIdFromReceipt(receipt);
-    const tokenId = onChainTokenId || Math.floor(Math.random() * 2147483647);
+    const tokenId = onChainTokenId || (Date.now() % 2000000000);
+
+    console.log("[NFA Mint] Syncing to backend:", { tokenId, onChainTokenId, mintNonce: lastMintNonce, txHash });
 
     const resolvedMetadataUri = metadataUri || 
       (onChainTokenId ? `${window.location.origin}/api/nfa/metadata/${onChainTokenId}` : "");

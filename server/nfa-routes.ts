@@ -312,14 +312,20 @@ nfaRouter.get("/agents/token/:tokenId", async (req: Request, res: Response) => {
 
 nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const validated = insertNfaAgentSchema.parse(req.body);
-    
-    // Verify the wallet address matches the authenticated user
+    console.log("[NFA Mint] Received mint request from:", req.walletAddress, "body keys:", Object.keys(req.body));
+
+    let validated;
+    try {
+      validated = insertNfaAgentSchema.parse(req.body);
+    } catch (zodErr: any) {
+      console.error("[NFA Mint] Schema validation failed:", JSON.stringify(zodErr?.errors || zodErr?.message));
+      return res.status(400).json({ error: "Validation failed: " + (zodErr?.errors?.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join(', ') || zodErr?.message || "Invalid data") });
+    }
+
     if (validated.ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
       return res.status(403).json({ error: "Cannot mint NFA for a different wallet" });
     }
 
-    // Validate on-chain registration data format
     if (validated.mintTxHash) {
       const txHashRegex = /^0x[a-fA-F0-9]{64}$/;
       if (!txHashRegex.test(validated.mintTxHash)) {
@@ -335,15 +341,24 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
         return res.status(400).json({ error: "Invalid on-chain token ID" });
       }
     }
-    
+
     const proofOfPrompt = validated.proofOfPrompt || 
       generateProofOfPrompt(validated.systemPrompt || "", validated.modelType);
 
     const memoryRoot = validated.memoryRoot || generateMemoryRoot({});
 
-    // BAP-578 enhanced agent creation
+    let tokenId = validated.tokenId;
+    if (tokenId) {
+      const existing = await db.select({ id: nfaAgents.id }).from(nfaAgents).where(eq(nfaAgents.tokenId, tokenId)).limit(1);
+      if (existing.length > 0) {
+        console.warn("[NFA Mint] TokenId collision:", tokenId, "- generating new one");
+        const maxResult = await db.select({ maxId: sql<number>`COALESCE(MAX(token_id), 0)` }).from(nfaAgents);
+        tokenId = (maxResult[0]?.maxId || 10000) + 1;
+      }
+    }
+
     const result = await db.insert(nfaAgents).values({
-      tokenId: validated.tokenId,
+      tokenId,
       ownerAddress: validated.ownerAddress.toLowerCase(),
       agentId: validated.agentId,
       name: validated.name,
@@ -355,7 +370,6 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       metadataUri: validated.metadataUri,
       category: validated.category,
       systemPrompt: validated.systemPrompt,
-      // BAP-578 enhanced metadata
       persona: validated.persona,
       experience: validated.experience,
       voiceHash: validated.voiceHash,
@@ -363,12 +377,10 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       vaultUri: validated.vaultUri,
       vaultHash: validated.vaultHash,
       logicAddress: validated.logicAddress,
-      // BAP-578 learning configuration
       learningEnabled: validated.learningEnabled || false,
       learningModuleId: validated.learningModuleId,
       learningTreeRoot: validated.learningTreeRoot,
       templateId: validated.templateId,
-      // On-chain registration data
       mintTxHash: validated.mintTxHash,
       onChainTokenId: validated.onChainTokenId,
       contractAddress: validated.contractAddress,
@@ -376,6 +388,7 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
     }).returning();
 
     const agent = result[0];
+    console.log("[NFA Mint] Agent created:", agent.id, agent.name, "tokenId:", agent.tokenId, "nonce:", agent.mintNonce);
 
     await db.insert(nfaStats).values({
       nfaId: agent.id,
@@ -392,7 +405,6 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       status: "UNVERIFIED",
     });
 
-    // Initialize learning metrics if learning is enabled
     if (agent.learningEnabled) {
       await db.insert(nfaLearningMetrics).values({
         nfaId: agent.id,
@@ -409,8 +421,8 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
 
     res.json({ agent, proofOfPrompt, memoryRoot });
   } catch (error: any) {
-    console.error("Error minting NFA agent:", error);
-    const errorMessage = error?.message || error?.toString() || "Failed to mint agent";
+    console.error("[NFA Mint] Error:", error?.message, error?.detail || "", error?.code || "");
+    const errorMessage = error?.detail || error?.message || error?.toString() || "Failed to mint agent";
     res.status(500).json({ error: errorMessage });
   }
 });
