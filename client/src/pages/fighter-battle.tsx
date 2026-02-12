@@ -22,6 +22,9 @@ import {
   Star,
   Medal,
   Target,
+  TrendingUp,
+  Award,
+  Sparkles,
 } from "lucide-react";
 
 interface Fighter {
@@ -35,6 +38,37 @@ interface Fighter {
   special: string;
   specialPower: number;
   icon: string;
+}
+
+interface FighterProfile {
+  id: string;
+  agentName: string;
+  level: number;
+  xp: number;
+  totalWins: number;
+  totalLosses: number;
+  totalDraws: number;
+  winStreak: number;
+  bestStreak: number;
+  title: string;
+  bonusHp: number;
+  bonusAtk: number;
+  bonusDef: number;
+  bonusSpd: number;
+  bonusSpecial: number;
+  xpForNextLevel?: number;
+  xpForCurrentLevel?: number;
+  xpProgress?: number;
+  xpNeeded?: number;
+}
+
+interface XpResult {
+  xpGained: number;
+  newXp: number;
+  newLevel: number;
+  oldLevel: number;
+  levelUp: boolean;
+  title: string;
 }
 
 interface BattleLogEntry {
@@ -68,6 +102,8 @@ interface DuelData {
   creatorFighterData: Fighter | null;
   joinerFighterData: Fighter | null;
   lastTurn?: BattleLogEntry;
+  xpResult?: XpResult | null;
+  creatorProfile?: FighterProfile | null;
 }
 
 const FIGHTER_COLORS: Record<string, string> = {
@@ -95,7 +131,48 @@ const MOVE_INFO = [
   { id: "counter", label: "Counter", icon: RotateCcw, desc: "Reflect attacks back", color: "text-green-400" },
 ];
 
-function FighterCard({ fighter, selected, onClick, disabled }: { fighter: Fighter; selected?: boolean; onClick?: () => void; disabled?: boolean }) {
+function XpBar({ profile }: { profile: FighterProfile }) {
+  const progress = profile.xpProgress || 0;
+  const needed = profile.xpNeeded || 100;
+  const pct = Math.min(100, (progress / needed) * 100);
+
+  return (
+    <div className="space-y-1" data-testid="xp-bar">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="text-amber-400 text-xs" data-testid="text-player-level">
+            Lv.{profile.level}
+          </Badge>
+          <span className="text-xs font-medium text-muted-foreground" data-testid="text-player-title">{profile.title}</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground" data-testid="text-player-xp">{progress}/{needed} XP</span>
+      </div>
+      <div className="w-full h-2 bg-muted rounded-md overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-700 ease-out rounded-md"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StatBonusDisplay({ profile }: { profile: FighterProfile }) {
+  if (profile.level <= 1) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap" data-testid="stat-bonuses">
+      <span className="text-[10px] text-muted-foreground">Level bonuses:</span>
+      {profile.bonusHp > 0 && <Badge variant="outline" className="text-[10px] text-red-400">+{profile.bonusHp} HP</Badge>}
+      {profile.bonusAtk > 0 && <Badge variant="outline" className="text-[10px] text-orange-400">+{profile.bonusAtk} ATK</Badge>}
+      {profile.bonusDef > 0 && <Badge variant="outline" className="text-[10px] text-blue-400">+{profile.bonusDef} DEF</Badge>}
+      {profile.bonusSpd > 0 && <Badge variant="outline" className="text-[10px] text-green-400">+{profile.bonusSpd} SPD</Badge>}
+      {profile.bonusSpecial > 0 && <Badge variant="outline" className="text-[10px] text-amber-400">+{profile.bonusSpecial} Special</Badge>}
+    </div>
+  );
+}
+
+function FighterCard({ fighter, selected, onClick, disabled, profile }: { fighter: Fighter; selected?: boolean; onClick?: () => void; disabled?: boolean; profile?: FighterProfile | null }) {
   return (
     <Card
       className={`cursor-pointer transition-all ${selected ? "ring-2 ring-amber-400 bg-amber-500/10" : "hover-elevate"} ${disabled ? "opacity-50 pointer-events-none" : ""}`}
@@ -115,24 +192,38 @@ function FighterCard({ fighter, selected, onClick, disabled }: { fighter: Fighte
         <div className="grid grid-cols-4 gap-1 mt-2">
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">HP</p>
-            <p className="text-xs font-bold text-red-400">{fighter.hp}</p>
+            <p className="text-xs font-bold text-red-400">
+              {fighter.hp}
+              {profile && profile.bonusHp > 0 && <span className="text-green-400 text-[9px]">+{profile.bonusHp}</span>}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">ATK</p>
-            <p className="text-xs font-bold text-orange-400">{fighter.atk}</p>
+            <p className="text-xs font-bold text-orange-400">
+              {fighter.atk}
+              {profile && profile.bonusAtk > 0 && <span className="text-green-400 text-[9px]">+{profile.bonusAtk}</span>}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">DEF</p>
-            <p className="text-xs font-bold text-blue-400">{fighter.def}</p>
+            <p className="text-xs font-bold text-blue-400">
+              {fighter.def}
+              {profile && profile.bonusDef > 0 && <span className="text-green-400 text-[9px]">+{profile.bonusDef}</span>}
+            </p>
           </div>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">SPD</p>
-            <p className="text-xs font-bold text-green-400">{fighter.spd}</p>
+            <p className="text-xs font-bold text-green-400">
+              {fighter.spd}
+              {profile && profile.bonusSpd > 0 && <span className="text-green-400 text-[9px]">+{profile.bonusSpd}</span>}
+            </p>
           </div>
         </div>
         <div className="mt-2 flex items-center gap-1">
           <Zap className="w-3 h-3 text-amber-400" />
-          <span className="text-[10px] text-muted-foreground">{fighter.special} ({fighter.specialPower} dmg)</span>
+          <span className="text-[10px] text-muted-foreground">
+            {fighter.special} ({fighter.specialPower}{profile && profile.bonusSpecial > 0 ? `+${profile.bonusSpecial}` : ""} dmg)
+          </span>
         </div>
       </CardContent>
     </Card>
@@ -160,7 +251,7 @@ function HpBar({ current, max, label, isLeft }: { current: number; max: number; 
   );
 }
 
-function FighterSelectScreen({ fighters, onSelect }: { fighters: Fighter[]; onSelect: (id: string) => void }) {
+function FighterSelectScreen({ fighters, onSelect, profile }: { fighters: Fighter[]; onSelect: (id: string) => void; profile?: FighterProfile | null }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
@@ -168,10 +259,16 @@ function FighterSelectScreen({ fighters, onSelect }: { fighters: Fighter[]; onSe
       <div className="text-center space-y-1">
         <h3 className="text-lg font-bold">Choose Your Fighter</h3>
         <p className="text-sm text-muted-foreground">Each fighter has unique stats and a special move</p>
+        {profile && profile.level > 1 && (
+          <p className="text-xs text-amber-400">
+            <TrendingUp className="w-3 h-3 inline mr-1" />
+            Your Lv.{profile.level} bonuses will be applied to your chosen fighter
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {fighters.map((f) => (
-          <FighterCard key={f.id} fighter={f} selected={selected === f.id} onClick={() => setSelected(f.id)} />
+          <FighterCard key={f.id} fighter={f} selected={selected === f.id} onClick={() => setSelected(f.id)} profile={profile} />
         ))}
       </div>
       <div className="flex justify-center">
@@ -187,7 +284,7 @@ function FighterSelectScreen({ fighters, onSelect }: { fighters: Fighter[]; onSe
   );
 }
 
-function BattleView({ duel, onMove, isPending }: { duel: DuelData; onMove: (move: string) => void; isPending: boolean }) {
+function BattleView({ duel, onMove, isPending, xpResult }: { duel: DuelData; onMove: (move: string) => void; isPending: boolean; xpResult?: XpResult | null }) {
   const logEndRef = useRef<HTMLDivElement>(null);
   const [lastNarrative, setLastNarrative] = useState<string | null>(null);
   const [showFlash, setShowFlash] = useState<"creator" | "joiner" | null>(null);
@@ -218,9 +315,14 @@ function BattleView({ duel, onMove, isPending }: { duel: DuelData; onMove: (move
   return (
     <div className="space-y-4" data-testid="fighter-battle-view">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <Badge variant="outline">Turn {Math.min(duel.currentTurn, duel.maxTurns)}/{duel.maxTurns}</Badge>
+        <Badge variant="outline" data-testid="text-turn-counter">Turn {Math.min(duel.currentTurn, duel.maxTurns)}/{duel.maxTurns}</Badge>
+        {duel.creatorProfile && (
+          <Badge variant="outline" className="text-amber-400" data-testid="text-battle-level">
+            Lv.{duel.creatorProfile.level} {duel.creatorProfile.title}
+          </Badge>
+        )}
         {isSettled && (
-          <Badge variant={duel.winnerId === "creator" ? "default" : duel.winnerId === "joiner" ? "destructive" : "secondary"}>
+          <Badge variant={duel.winnerId === "creator" ? "default" : duel.winnerId === "joiner" ? "destructive" : "secondary"} data-testid="text-battle-result">
             {duel.winnerId === "creator" ? "YOU WIN!" : duel.winnerId === "joiner" ? "YOU LOSE" : "DRAW"}
           </Badge>
         )}
@@ -295,7 +397,7 @@ function BattleView({ duel, onMove, isPending }: { duel: DuelData; onMove: (move
 
       {isSettled && (
         <Card className={duel.winnerId === "creator" ? "border-amber-400/50 bg-amber-500/5" : duel.winnerId === "joiner" ? "border-red-400/50 bg-red-500/5" : ""}>
-          <CardContent className="p-4 text-center space-y-2">
+          <CardContent className="p-4 text-center space-y-3">
             {duel.winnerId === "creator" ? (
               <>
                 <Crown className="w-8 h-8 text-amber-400 mx-auto" />
@@ -315,6 +417,23 @@ function BattleView({ duel, onMove, isPending }: { duel: DuelData; onMove: (move
                 <p className="text-sm text-muted-foreground">Evenly matched after {duel.maxTurns} turns</p>
               </>
             )}
+
+            {xpResult && (
+              <div className="space-y-2 pt-2 border-t border-border" data-testid="xp-reward-section">
+                <div className="flex items-center justify-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-semibold text-amber-400" data-testid="text-xp-gained">+{xpResult.xpGained} XP</span>
+                </div>
+                {xpResult.levelUp && (
+                  <div className="flex items-center justify-center gap-2">
+                    <Award className="w-5 h-5 text-amber-400 animate-bounce" />
+                    <span className="text-sm font-bold text-amber-400" data-testid="text-level-up">
+                      LEVEL UP! Lv.{xpResult.oldLevel} &rarr; Lv.{xpResult.newLevel} ({xpResult.title})
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -331,7 +450,7 @@ function BattleView({ duel, onMove, isPending }: { duel: DuelData; onMove: (move
           ) : (
             <div className="space-y-2">
               {duel.battleLog.map((entry, i) => (
-                <div key={i} className="text-xs border-b border-border pb-2 last:border-0">
+                <div key={i} className="text-xs border-b border-border pb-2 last:border-0" data-testid={`battle-log-entry-${i}`}>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <Badge variant="outline" className="text-[10px]">Turn {entry.turn}</Badge>
                     <span className="text-muted-foreground">
@@ -356,9 +475,15 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
   const { agent } = useAuth();
   const { toast } = useToast();
   const [showSelect, setShowSelect] = useState(false);
+  const playerName = agent?.name || "Fighter";
 
   const { data: fighters, isLoading: fightersLoading } = useQuery<Fighter[]>({
     queryKey: ["/api/fighters"],
+  });
+
+  const { data: profile } = useQuery<FighterProfile>({
+    queryKey: [`/api/fighters/profile/${playerName}`],
+    enabled: !!playerName,
   });
 
   const { data: leaderboard } = useQuery<any[]>({
@@ -368,12 +493,13 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
   const playBotMutation = useMutation({
     mutationFn: async (fighterId: string) => {
       return await apiRequest<any>("POST", "/api/fighters/play-vs-bot", {
-        playerName: agent?.name || "Fighter",
+        playerName,
         playerFighter: fighterId,
       });
     },
     onSuccess: (duel: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/fighters/leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/fighters/profile/${playerName}`] });
       onStartDuel(duel.id);
     },
     onError: (e: any) => {
@@ -385,6 +511,7 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
     return (
       <FighterSelectScreen
         fighters={fighters}
+        profile={profile}
         onSelect={(id) => {
           playBotMutation.mutate(id);
           setShowSelect(false);
@@ -395,6 +522,25 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
 
   return (
     <div className="space-y-6">
+      {profile && (
+        <Card data-testid="player-profile-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
+              <Award className="w-4 h-4 text-amber-400" /> Your Fighter Profile
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <XpBar profile={profile} />
+            <StatBonusDisplay profile={profile} />
+            <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Trophy className="w-3 h-3 text-amber-400" /> {profile.totalWins}W / {profile.totalLosses}L / {profile.totalDraws}D</span>
+              {profile.winStreak > 0 && <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" /> {profile.winStreak} streak</span>}
+              {profile.bestStreak > 0 && <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-400" /> Best: {profile.bestStreak}</span>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 flex-wrap">
@@ -404,8 +550,7 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Choose a crypto fighter and battle against an AI opponent. Each fighter has unique stats and a powerful special move.
-            Use Attack, Defend, Special, or Counter strategically to win!
+            Choose a crypto fighter and battle against an AI opponent. Win fights to earn XP and level up your agent, unlocking stat bonuses!
           </p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
             <Badge variant="outline"><Swords className="w-3 h-3 mr-1" /> Attack beats Counter</Badge>
@@ -444,7 +589,7 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {fighters.map((f) => (
-                <FighterCard key={f.id} fighter={f} disabled />
+                <FighterCard key={f.id} fighter={f} disabled profile={profile} />
               ))}
             </div>
           </CardContent>
@@ -460,15 +605,15 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
           </CardHeader>
           <CardContent>
             <div className="space-y-1">
-              {leaderboard.slice(0, 10).map((entry, i) => (
+              {leaderboard.slice(0, 10).map((entry: any, i: number) => (
                 <div key={entry.name} className="flex items-center gap-2 p-2 rounded-md hover-elevate" data-testid={`leaderboard-fighter-${i}`}>
                   <span className="text-sm font-bold w-6 text-center text-muted-foreground">
                     {i === 0 ? <Crown className="w-4 h-4 text-amber-400 mx-auto" /> : i === 1 ? <Medal className="w-4 h-4 text-gray-400 mx-auto" /> : `${i + 1}`}
                   </span>
                   <span className="text-sm font-medium flex-1 truncate">{entry.name}</span>
+                  <Badge variant="outline" className="text-amber-400 text-[10px]">Lv.{entry.level}</Badge>
                   <Badge variant="outline" className="text-green-400 text-xs">{entry.wins}W</Badge>
                   <Badge variant="outline" className="text-red-400 text-xs">{entry.losses}L</Badge>
-                  {entry.draws > 0 && <Badge variant="outline" className="text-xs">{entry.draws}D</Badge>}
                 </div>
               ))}
             </div>
@@ -481,8 +626,10 @@ function FighterLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void }
 
 export default function FighterBattle() {
   const [duelId, setDuelId] = useState<string | null>(null);
+  const [lastXpResult, setLastXpResult] = useState<XpResult | null>(null);
   const { toast } = useToast();
   const { agent } = useAuth();
+  const playerName = agent?.name || "Fighter";
 
   const { data: duel, isLoading } = useQuery<DuelData>({
     queryKey: [`/api/fighters/duels/${duelId}`],
@@ -497,16 +644,26 @@ export default function FighterBattle() {
     mutationFn: async (move: string) => {
       return await apiRequest<DuelData>("POST", `/api/fighters/duels/${duelId}/move`, {
         move,
-        playerName: agent?.name || "Fighter",
+        playerName,
       });
     },
-    onSuccess: () => {
+    onSuccess: (data: DuelData) => {
       queryClient.invalidateQueries({ queryKey: [`/api/fighters/duels/${duelId}`] });
+      if (data.xpResult) {
+        setLastXpResult(data.xpResult);
+      }
     },
     onError: (e: any) => {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     },
   });
+
+  const handleBackToLobby = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/fighters/profile/${playerName}`] });
+    queryClient.invalidateQueries({ queryKey: ["/api/fighters/leaderboard"] });
+    setDuelId(null);
+    setLastXpResult(null);
+  };
 
   if (!duelId) {
     return <FighterLobby onStartDuel={setDuelId} />;
@@ -524,11 +681,11 @@ export default function FighterBattle() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={() => setDuelId(null)} data-testid="button-back-fighter-lobby">
+        <Button variant="ghost" size="sm" onClick={handleBackToLobby} data-testid="button-back-fighter-lobby">
           <ChevronRight className="w-4 h-4 mr-1 rotate-180" /> Back to Lobby
         </Button>
       </div>
-      <BattleView duel={duel} onMove={(m) => moveMutation.mutate(m)} isPending={moveMutation.isPending} />
+      <BattleView duel={duel} onMove={(m) => moveMutation.mutate(m)} isPending={moveMutation.isPending} xpResult={lastXpResult} />
     </div>
   );
 }

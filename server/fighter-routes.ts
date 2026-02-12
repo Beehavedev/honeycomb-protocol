@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { db } from "./db";
-import { fighterDuels } from "@shared/schema";
+import { fighterDuels, fighterProfiles } from "@shared/schema";
 import { eq, desc, sql } from "drizzle-orm";
 
 const FIGHTERS = [
@@ -19,6 +19,121 @@ const BOT_PERSONALITIES = [
   { name: "BerserkerBot", style: "berserker", desc: "Gets stronger as HP drops" },
   { name: "GrandMaster", style: "balanced", desc: "Well-rounded fighter" },
 ];
+
+const LEVEL_THRESHOLDS = [
+  0, 100, 250, 500, 800, 1200, 1700, 2300, 3000, 3800,
+  4700, 5700, 6800, 8000, 9500, 11000, 13000, 15000, 17500, 20000,
+];
+
+const TITLES: Record<number, string> = {
+  1: "Rookie",
+  3: "Brawler",
+  5: "Contender",
+  8: "Veteran",
+  10: "Champion",
+  13: "Elite",
+  15: "Legend",
+  18: "Mythic",
+  20: "Grandmaster",
+};
+
+function getLevelFromXp(xp: number): number {
+  for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) {
+    if (xp >= LEVEL_THRESHOLDS[i]) return i + 1;
+  }
+  return 1;
+}
+
+function getXpForNextLevel(level: number): number {
+  if (level >= LEVEL_THRESHOLDS.length) return LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1] + 5000;
+  return LEVEL_THRESHOLDS[level];
+}
+
+function getTitleForLevel(level: number): string {
+  let title = "Rookie";
+  for (const [lvl, t] of Object.entries(TITLES)) {
+    if (level >= parseInt(lvl)) title = t;
+  }
+  return title;
+}
+
+function getLevelBonuses(level: number) {
+  return {
+    bonusHp: Math.floor((level - 1) * 3),
+    bonusAtk: Math.floor((level - 1) * 0.8),
+    bonusDef: Math.floor((level - 1) * 0.6),
+    bonusSpd: Math.floor((level - 1) * 0.4),
+    bonusSpecial: Math.floor((level - 1) * 1.0),
+  };
+}
+
+function applyBonuses(fighter: typeof FIGHTERS[0], profile: { bonusHp: number; bonusAtk: number; bonusDef: number; bonusSpd: number; bonusSpecial: number }) {
+  return {
+    ...fighter,
+    hp: fighter.hp + profile.bonusHp,
+    atk: fighter.atk + profile.bonusAtk,
+    def: fighter.def + profile.bonusDef,
+    spd: fighter.spd + profile.bonusSpd,
+    specialPower: fighter.specialPower + profile.bonusSpecial,
+  };
+}
+
+async function getOrCreateProfile(name: string, address?: string) {
+  const [existing] = await db.select().from(fighterProfiles).where(eq(fighterProfiles.agentName, name));
+  if (existing) return existing;
+
+  const [created] = await db.insert(fighterProfiles).values({
+    agentName: name,
+    agentAddress: address || null,
+  }).returning();
+  return created;
+}
+
+async function awardXp(name: string, outcome: "win" | "loss" | "draw", turnsPlayed: number) {
+  const profile = await getOrCreateProfile(name);
+  let xpGained = 0;
+
+  if (outcome === "win") {
+    xpGained = 50 + turnsPlayed * 3;
+  } else if (outcome === "loss") {
+    xpGained = 15 + turnsPlayed * 1;
+  } else {
+    xpGained = 25 + turnsPlayed * 2;
+  }
+
+  const newXp = profile.xp + xpGained;
+  const newLevel = getLevelFromXp(newXp);
+  const bonuses = getLevelBonuses(newLevel);
+  const newTitle = getTitleForLevel(newLevel);
+
+  const newWins = profile.totalWins + (outcome === "win" ? 1 : 0);
+  const newLosses = profile.totalLosses + (outcome === "loss" ? 1 : 0);
+  const newDraws = profile.totalDraws + (outcome === "draw" ? 1 : 0);
+  const newStreak = outcome === "win" ? profile.winStreak + 1 : 0;
+  const newBest = Math.max(profile.bestStreak, newStreak);
+
+  await db.update(fighterProfiles).set({
+    xp: newXp,
+    level: newLevel,
+    totalWins: newWins,
+    totalLosses: newLosses,
+    totalDraws: newDraws,
+    winStreak: newStreak,
+    bestStreak: newBest,
+    title: newTitle,
+    ...bonuses,
+  }).where(eq(fighterProfiles.id, profile.id));
+
+  return {
+    xpGained,
+    newXp,
+    newLevel,
+    oldLevel: profile.level,
+    levelUp: newLevel > profile.level,
+    title: newTitle,
+    bonuses,
+  };
+}
 
 type Move = "attack" | "defend" | "special" | "counter";
 
@@ -146,6 +261,35 @@ export function registerFighterRoutes(app: Express) {
     res.json(BOT_PERSONALITIES);
   });
 
+  app.get("/api/fighters/profile/:name", async (req, res) => {
+    try {
+      const profile = await getOrCreateProfile(req.params.name);
+      const xpForNext = getXpForNextLevel(profile.level);
+      const xpForCurrent = profile.level > 1 ? LEVEL_THRESHOLDS[profile.level - 1] : 0;
+      res.json({
+        ...profile,
+        xpForNextLevel: xpForNext,
+        xpForCurrentLevel: xpForCurrent,
+        xpProgress: profile.xp - xpForCurrent,
+        xpNeeded: xpForNext - xpForCurrent,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/fighters/levels", (_req, res) => {
+    res.json({
+      thresholds: LEVEL_THRESHOLDS,
+      titles: TITLES,
+      bonusesPerLevel: Array.from({ length: 20 }, (_, i) => ({
+        level: i + 1,
+        ...getLevelBonuses(i + 1),
+        title: getTitleForLevel(i + 1),
+      })),
+    });
+  });
+
   app.post("/api/fighters/play-vs-bot", async (req, res) => {
     try {
       const { playerName, playerFighter } = req.body;
@@ -153,19 +297,22 @@ export function registerFighterRoutes(app: Express) {
         return res.status(400).json({ error: "playerName and playerFighter required" });
       }
 
+      const profile = await getOrCreateProfile(playerName);
+      const playerF = getFighterById(playerFighter);
+      const boostedPlayer = applyBonuses(playerF, profile);
+
       const bot = BOT_PERSONALITIES[Math.floor(Math.random() * BOT_PERSONALITIES.length)];
       const availableFighters = FIGHTERS.filter(f => f.id !== playerFighter);
       const botFighter = availableFighters[Math.floor(Math.random() * availableFighters.length)];
-      const playerF = getFighterById(playerFighter);
 
       const [duel] = await db.insert(fighterDuels).values({
         creatorName: playerName,
         creatorFighter: playerFighter,
         joinerName: bot.name,
         joinerFighter: botFighter.id,
-        creatorHp: playerF.hp,
+        creatorHp: boostedPlayer.hp,
         joinerHp: botFighter.hp,
-        creatorMaxHp: playerF.hp,
+        creatorMaxHp: boostedPlayer.hp,
         joinerMaxHp: botFighter.hp,
         status: "active",
         isBotMatch: true,
@@ -174,7 +321,14 @@ export function registerFighterRoutes(app: Express) {
         startedAt: new Date(),
       }).returning();
 
-      res.json(duel);
+      if (playerFighter !== profile.favoriteFighter) {
+        await db.update(fighterProfiles).set({ favoriteFighter: playerFighter }).where(eq(fighterProfiles.id, profile.id));
+      }
+
+      res.json({
+        ...duel,
+        playerProfile: profile,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -184,11 +338,19 @@ export function registerFighterRoutes(app: Express) {
     try {
       const [duel] = await db.select().from(fighterDuels).where(eq(fighterDuels.id, req.params.id));
       if (!duel) return res.status(404).json({ error: "Duel not found" });
+
+      let creatorProfile = null;
+      try { creatorProfile = await getOrCreateProfile(duel.creatorName); } catch {}
+
+      const creatorFighterBase = duel.creatorFighter ? getFighterById(duel.creatorFighter) : null;
+      const joinerFighterBase = duel.joinerFighter ? getFighterById(duel.joinerFighter) : null;
+
       res.json({
         ...duel,
         battleLog: JSON.parse(duel.battleLog || "[]"),
-        creatorFighterData: duel.creatorFighter ? getFighterById(duel.creatorFighter) : null,
-        joinerFighterData: duel.joinerFighter ? getFighterById(duel.joinerFighter) : null,
+        creatorFighterData: creatorFighterBase && creatorProfile ? applyBonuses(creatorFighterBase, creatorProfile) : creatorFighterBase,
+        joinerFighterData: joinerFighterBase,
+        creatorProfile,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -206,8 +368,13 @@ export function registerFighterRoutes(app: Express) {
       if (!duel) return res.status(404).json({ error: "Duel not found" });
       if (duel.status !== "active") return res.status(400).json({ error: "Duel not active" });
 
-      const creatorFighter = getFighterById(duel.creatorFighter || "satoshi");
+      let creatorProfile = null;
+      try { creatorProfile = await getOrCreateProfile(duel.creatorName); } catch {}
+
+      const creatorFighterBase = getFighterById(duel.creatorFighter || "satoshi");
       const joinerFighter = getFighterById(duel.joinerFighter || "vitalik");
+      const creatorFighter = creatorProfile ? applyBonuses(creatorFighterBase, creatorProfile) : creatorFighterBase;
+
       const battleLog: BattleLogEntry[] = JSON.parse(duel.battleLog || "[]");
 
       let creatorMove: Move = move as Move;
@@ -274,13 +441,29 @@ export function registerFighterRoutes(app: Express) {
 
       await db.update(fighterDuels).set(updateData).where(eq(fighterDuels.id, req.params.id));
 
+      let xpResult = null;
+      if (newStatus === "settled") {
+        const turnsPlayed = duel.currentTurn;
+        if (winnerId === "creator") {
+          xpResult = await awardXp(duel.creatorName, "win", turnsPlayed);
+        } else if (winnerId === "joiner") {
+          xpResult = await awardXp(duel.creatorName, "loss", turnsPlayed);
+        } else {
+          xpResult = await awardXp(duel.creatorName, "draw", turnsPlayed);
+        }
+      }
+
       const [updated] = await db.select().from(fighterDuels).where(eq(fighterDuels.id, req.params.id));
+      const updatedProfile = await getOrCreateProfile(duel.creatorName);
+
       res.json({
         ...updated,
         battleLog: JSON.parse(updated.battleLog || "[]"),
-        creatorFighterData: updated.creatorFighter ? getFighterById(updated.creatorFighter) : null,
+        creatorFighterData: updated.creatorFighter ? applyBonuses(getFighterById(updated.creatorFighter), updatedProfile) : null,
         joinerFighterData: updated.joinerFighter ? getFighterById(updated.joinerFighter) : null,
         lastTurn: logEntry,
+        xpResult,
+        creatorProfile: updatedProfile,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -289,36 +472,21 @@ export function registerFighterRoutes(app: Express) {
 
   app.get("/api/fighters/leaderboard", async (_req, res) => {
     try {
-      const results = await db.select().from(fighterDuels)
-        .where(eq(fighterDuels.status, "settled"))
-        .orderBy(desc(fighterDuels.createdAt))
-        .limit(50);
+      const profiles = await db.select().from(fighterProfiles)
+        .orderBy(desc(fighterProfiles.level), desc(fighterProfiles.xp))
+        .limit(20);
 
-      const stats: Record<string, { name: string; wins: number; losses: number; draws: number }> = {};
-
-      for (const duel of results) {
-        const cName = duel.creatorName;
-        const jName = duel.joinerName || "Unknown";
-        if (!stats[cName]) stats[cName] = { name: cName, wins: 0, losses: 0, draws: 0 };
-        if (!stats[jName]) stats[jName] = { name: jName, wins: 0, losses: 0, draws: 0 };
-
-        if (duel.winnerId === "creator") {
-          stats[cName].wins++;
-          stats[jName].losses++;
-        } else if (duel.winnerId === "joiner") {
-          stats[jName].wins++;
-          stats[cName].losses++;
-        } else {
-          stats[cName].draws++;
-          stats[jName].draws++;
-        }
-      }
-
-      const leaderboard = Object.values(stats)
-        .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-        .slice(0, 20);
-
-      res.json(leaderboard);
+      res.json(profiles.map(p => ({
+        name: p.agentName,
+        level: p.level,
+        xp: p.xp,
+        title: p.title,
+        wins: p.totalWins,
+        losses: p.totalLosses,
+        draws: p.totalDraws,
+        winStreak: p.winStreak,
+        bestStreak: p.bestStreak,
+      })));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
