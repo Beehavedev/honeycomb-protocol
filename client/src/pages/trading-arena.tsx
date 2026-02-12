@@ -57,11 +57,13 @@ import {
   Share2,
   Eye,
   Copy,
+  Brain,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
 
 const LazyPredict = lazy(() => import("@/pages/predict"));
+const LazyTrivia = lazy(() => import("@/pages/trivia-battle"));
 
 function PredictContent() {
   return (
@@ -72,6 +74,19 @@ function PredictContent() {
       </div>
     }>
       <LazyPredict />
+    </Suspense>
+  );
+}
+
+function TriviaContent() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+        <p className="text-sm text-muted-foreground">Loading Trivia Battle...</p>
+      </div>
+    }>
+      <LazyTrivia />
     </Suspense>
   );
 }
@@ -3633,12 +3648,21 @@ export default function TradingArena() {
           >
             <Target className="w-4 h-4 mr-1.5" /> Predict Duel
           </Button>
+          <Button
+            variant={gameMode === "trivia" ? "default" : "outline"}
+            onClick={() => setGameMode("trivia")}
+            data-testid="button-game-trivia"
+          >
+            <Brain className="w-4 h-4 mr-1.5" /> Trivia Battle
+          </Button>
         </div>
 
         {gameMode === "trading" ? (
           <TradingArenaLobby />
-        ) : (
+        ) : gameMode === "predict" ? (
           <PredictContent />
+        ) : (
+          <TriviaContent />
         )}
       </div>
     </div>

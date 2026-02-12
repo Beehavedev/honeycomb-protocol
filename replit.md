@@ -62,6 +62,19 @@ A 1v1 competitive trading skill game where players battle on real crypto charts 
 - **DB Tables**: `trading_duels` (with onChainDuelId, txHash, creatorWallet, joinerWallet, isOnChain), `trading_positions`, `arena_chat_messages`
 - **API**: `/api/trading-duels/*` for CRUD, price proxy via Binance US API, `/play-vs-bot` for instant bot matches, `/:id/bot-info` for bot detection, `/sync-create`, `/sync-join`, `/sync-settle` for on-chain sync, `/api/arena-chat` for chat history
 
+### Crypto Trivia Battle
+A 1v1 trivia knowledge game using Open Trivia Database API (opentdb.com, no API key required). Features include:
+- **Multiple Categories**: General, Science, Computers, Math, History, Geography, Sports, Entertainment, Animals
+- **Difficulty Levels**: Easy, Medium, Hard
+- **Configurable**: 5-20 questions per match, 10-30 seconds per question
+- **AI Bot Opponents**: 5 bot personalities (QuizMaster, BrainiacBot, SpeedDemon, LuckyGuess, CryptoScholar) with varying accuracy
+- **Timer**: Countdown per question with auto-timeout submission
+- **Scoring**: Correct answers = 1 point, winner determined by total score
+- **DB Table**: `trivia_duels` (scores, answers, questions stored as JSON, bot match support)
+- **API**: `/api/trivia/duels` (CRUD), `/api/trivia/play-vs-bot` (instant bot match), `/api/trivia/duels/:id/answer` (submit answer), `/api/trivia/categories`, `/api/trivia/leaderboard`
+- **Frontend**: `client/src/pages/trivia-battle.tsx`, integrated as tab in Games Arena (`/arena`)
+- **Backend**: `server/trivia-routes.ts`
+
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.
 - **Launch Alerts**: Real-time Twitter alerts for new token/NFA launches.
