@@ -266,6 +266,10 @@ export default function GiveawayPage() {
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                Minting is FREE — you only pay gas fees
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
                 Must mint an NFA on-chain during the campaign period
               </li>
               <li className="flex items-start gap-2">
