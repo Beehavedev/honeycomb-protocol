@@ -2575,3 +2575,44 @@ export type InsertGiveawayCampaign = z.infer<typeof insertGiveawayCampaignSchema
 export const insertGiveawayEntrySchema = createInsertSchema(giveawayEntries).omit({ id: true, createdAt: true });
 export type GiveawayEntry = typeof giveawayEntries.$inferSelect;
 export type InsertGiveawayEntry = z.infer<typeof insertGiveawayEntrySchema>;
+
+// ============ Trivia Battle ============
+
+export const triviaDuels = pgTable("trivia_duels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorName: text("creator_name").notNull(),
+  creatorAddress: text("creator_address"),
+  joinerName: text("joiner_name"),
+  joinerAddress: text("joiner_address"),
+  category: text("category").notNull().default("general"),
+  difficulty: text("difficulty").notNull().default("medium"),
+  questionCount: integer("question_count").notNull().default(10),
+  timePerQuestion: integer("time_per_question").notNull().default(15),
+  questions: text("questions").notNull().default("[]"),
+  creatorScore: integer("creator_score").notNull().default(0),
+  joinerScore: integer("joiner_score").notNull().default(0),
+  creatorAnswers: text("creator_answers").notNull().default("[]"),
+  joinerAnswers: text("joiner_answers").notNull().default("[]"),
+  currentQuestion: integer("current_question").notNull().default(0),
+  status: text("status").notNull().default("waiting"),
+  winnerId: text("winner_id"),
+  isBotMatch: boolean("is_bot_match").notNull().default(false),
+  botName: text("bot_name"),
+  botDifficulty: text("bot_difficulty"),
+  potAmount: text("pot_amount").notNull().default("0"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertTriviaDuelSchema = createInsertSchema(triviaDuels).pick({
+  creatorName: true,
+  creatorAddress: true,
+  category: true,
+  difficulty: true,
+  questionCount: true,
+  timePerQuestion: true,
+});
+
+export type TriviaDuel = typeof triviaDuels.$inferSelect;
+export type InsertTriviaDuel = z.infer<typeof insertTriviaDuelSchema>;
