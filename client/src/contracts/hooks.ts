@@ -1494,6 +1494,8 @@ export function useBAP578MintAgent() {
   const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
   const { address: walletAddress } = useAccount();
+  const chainId = useChainId();
+  const registryAddress = getContractAddresses(chainId)?.agentRegistry;
 
   const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
@@ -1519,13 +1521,15 @@ export function useBAP578MintAgent() {
 
     const settingsBytes32 = '0x7b7d000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
+    const registryArg = (registryAddress && registryAddress !== ZERO_ADDR) ? registryAddress : ZERO_ADDR;
+
     return writeContractAsync({
       address,
       abi: BAP578TokenABI,
       functionName: 'createAgent',
       args: [
         walletAddress,
-        ZERO_ADDR,
+        registryArg,
         params.metadataURI || '',
         {
           personality: personalityJson,
@@ -1540,6 +1544,29 @@ export function useBAP578MintAgent() {
   };
 
   return { mintAgent, hash, isPending, isConfirming, isSuccess, receipt, error, contractAddress: address };
+}
+
+export function useRegisterAgentOnRegistry() {
+  const chainId = useChainId();
+  const registryAddress = getContractAddresses(chainId)?.agentRegistry;
+  const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
+
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
+
+  const registerAgent = async (metadataCID: string) => {
+    if (!registryAddress || registryAddress === ZERO_ADDR) {
+      throw new Error('Agent Registry not available on this network');
+    }
+    return writeContractAsync({
+      address: registryAddress,
+      abi: HoneycombAgentRegistryABI,
+      functionName: 'registerAgent',
+      args: [metadataCID],
+    });
+  };
+
+  return { registerAgent, hash, isPending, isConfirming, isSuccess, receipt, error, registryAddress };
 }
 
 export function useBAP578GetAgentMetadata(tokenId?: bigint) {

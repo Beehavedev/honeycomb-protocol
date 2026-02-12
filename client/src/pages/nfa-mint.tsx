@@ -18,7 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getToken } from "@/lib/auth";
 import { Link } from "wouter";
-import { useBAP578MintAgent, useBAP578MintFee, useBAP578TokenAddress } from "@/contracts/hooks";
+import { useBAP578MintAgent, useBAP578MintFee, useBAP578TokenAddress, useRegisterAgentOnRegistry } from "@/contracts/hooks";
 
 const MODEL_TYPES = [
   { value: "gpt-4", label: "GPT-4", provider: "OpenAI" },
@@ -868,6 +868,115 @@ export default function NfaMint() {
           )}
         </CardFooter>
       </Card>
+
+      <RegisterExistingAgent />
     </div>
+  );
+}
+
+function RegisterExistingAgent() {
+  const { isConnected } = useAccount();
+  const { toast } = useToast();
+  const [metadataCID, setMetadataCID] = useState("");
+  const { registerAgent, hash: regHash, isPending: isRegPending, isConfirming: isRegConfirming, isSuccess: isRegSuccess, error: regError, registryAddress } = useRegisterAgentOnRegistry();
+
+  if (!isConnected || !registryAddress) return null;
+
+  const handleRegister = async () => {
+    if (!metadataCID.trim()) {
+      toast({
+        title: "Metadata Required",
+        description: "Enter a metadata CID or URI for your agent.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await registerAgent(metadataCID.trim());
+      toast({
+        title: "Registration Submitted",
+        description: "Confirm the transaction in your wallet to register your agent on the Honeycomb Registry.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Registration Failed",
+        description: error?.message || "Failed to register agent on registry.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Database className="h-4 w-4" />
+          Register Existing Agent on Registry
+        </CardTitle>
+        <CardDescription>
+          Already minted an NFA but it's not showing on the Honeycomb Agent Registry? Register it here with a separate on-chain transaction (gas only).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Label htmlFor="register-cid">Metadata CID / URI</Label>
+          <Input
+            id="register-cid"
+            placeholder="QmYourIPFSHash... or https://metadata-url"
+            value={metadataCID}
+            onChange={(e) => setMetadataCID(e.target.value)}
+            disabled={isRegPending || isRegConfirming}
+            data-testid="input-register-cid"
+          />
+        </div>
+        {isRegSuccess && regHash && (
+          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+            <CheckCircle className="h-4 w-4" />
+            <span>Registered successfully!</span>
+            <a
+              href={`https://bscscan.com/tx/${regHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 underline"
+              data-testid="link-register-tx"
+            >
+              View tx <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        )}
+        {regError && (
+          <p className="text-sm text-destructive">
+            {regError.message?.includes("User rejected")
+              ? "Transaction rejected."
+              : regError.message || "Registration failed."}
+          </p>
+        )}
+      </CardContent>
+      <CardFooter>
+        <Button
+          onClick={handleRegister}
+          disabled={isRegPending || isRegConfirming || !metadataCID.trim()}
+          className="gap-2"
+          data-testid="button-register-agent"
+        >
+          {isRegPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Sign in Wallet...
+            </>
+          ) : isRegConfirming ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Confirming...
+            </>
+          ) : (
+            <>
+              <Shield className="h-4 w-4" />
+              Register on Registry (Gas Only)
+            </>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
