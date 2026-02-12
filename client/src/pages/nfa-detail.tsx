@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
@@ -14,7 +15,7 @@ import {
   Database, Fingerprint, TrendingUp, MessageSquare, Shield, History,
   DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3,
   Send, Loader2, Swords, ArrowUpDown, Coins, ArrowRightLeft, Settings, 
-  CheckCircle, Clock, AlertCircle
+  CheckCircle, Clock, AlertCircle, Copy, Search, Lock, Hash, ShieldCheck, ShieldX
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -152,6 +153,10 @@ export default function NfaDetail() {
   const [agentResponse, setAgentResponse] = useState<string | null>(null);
   const [selectedActionType, setSelectedActionType] = useState("CHAT");
   const [actionFields, setActionFields] = useState<Record<string, string>>({});
+  const [verifyPrompt, setVerifyPrompt] = useState("");
+  const [verifyModel, setVerifyModel] = useState("");
+  const [verifyResult, setVerifyResult] = useState<{ verified: boolean; computedHash: string; storedHash: string; modelMismatch?: boolean; modelType?: string; providedModelType?: string } | null>(null);
+  const [copiedHash, setCopiedHash] = useState(false);
 
   const { data: agentData, isLoading } = useQuery<{
     agent: NfaAgent;
@@ -305,6 +310,24 @@ export default function NfaDetail() {
     },
     onError: (error: Error) => {
       toast({ title: "Rating Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const verifyPromptMutation = useMutation({
+    mutationFn: async (payload: { systemPrompt: string; modelType: string }) => {
+      const res = await fetch(`/api/nfa/agents/${nfaId}/verify-prompt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setVerifyResult(data);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Verification Failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -899,30 +922,154 @@ export default function NfaDetail() {
             </TabsContent>
 
             <TabsContent value="proof" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Fingerprint className="h-5 w-5" />
-                    Proof-of-Prompt
-                  </CardTitle>
-                  <CardDescription>Cryptographic verification of training</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <p className="text-xs text-muted-foreground mb-1">PoP Hash</p>
-                    <code className="text-sm font-mono break-all">{agent.proofOfPrompt}</code>
-                  </div>
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <Shield className="h-5 w-5 text-green-500 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-green-500">Verified On-Chain</p>
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Fingerprint className="h-5 w-5" />
+                      Proof-of-Prompt (BAP-578)
+                    </CardTitle>
+                    <CardDescription>
+                      Cryptographic proof that this agent's training configuration has not been tampered with
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Hash className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-xs text-muted-foreground font-medium">PoP Hash</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            navigator.clipboard.writeText(agent.proofOfPrompt);
+                            setCopiedHash(true);
+                            setTimeout(() => setCopiedHash(false), 2000);
+                          }}
+                          data-testid="button-copy-pop-hash"
+                        >
+                          {copiedHash ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <code className="text-sm font-mono break-all block" data-testid="text-pop-hash">{agent.proofOfPrompt}</code>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">Model Type</p>
+                        <p className="font-medium mt-1">{agent.modelType}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">Training Version</p>
+                        <p className="font-medium mt-1">v{agent.trainingVersion}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border text-sm">
+                      <Lock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                       <p className="text-muted-foreground">
-                        Immutably stored to verify agent's training configuration.
+                        The Proof-of-Prompt is a deterministic SHA-256 hash of the agent's system prompt and model type.
+                        Anyone with the original prompt can independently verify it matches this hash, ensuring the agent's
+                        behavior has not been secretly modified.
                       </p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Search className="h-5 w-5" />
+                      Verify Prompt
+                    </CardTitle>
+                    <CardDescription>
+                      Paste a system prompt to check if it matches this agent's on-chain Proof-of-Prompt
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="verify-prompt">System Prompt</Label>
+                      <Textarea
+                        id="verify-prompt"
+                        placeholder="Paste the agent's system prompt here to verify..."
+                        value={verifyPrompt}
+                        onChange={(e) => { setVerifyPrompt(e.target.value); setVerifyResult(null); }}
+                        rows={4}
+                        data-testid="input-verify-prompt"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="verify-model">Model Type</Label>
+                      <Input
+                        id="verify-model"
+                        placeholder={agent.modelType || "e.g. gpt-4"}
+                        value={verifyModel}
+                        onChange={(e) => { setVerifyModel(e.target.value); setVerifyResult(null); }}
+                        data-testid="input-verify-model"
+                      />
+                    </div>
+                    <Button
+                      className="w-full gap-2"
+                      onClick={() => verifyPromptMutation.mutate({ systemPrompt: verifyPrompt, modelType: verifyModel })}
+                      disabled={!verifyPrompt.trim() || !verifyModel.trim() || verifyPromptMutation.isPending}
+                      data-testid="button-verify-prompt"
+                    >
+                      {verifyPromptMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Fingerprint className="h-4 w-4" />
+                      )}
+                      Verify Against On-Chain Hash
+                    </Button>
+
+                    {verifyResult && (
+                      <div className={`p-4 rounded-lg border space-y-3 ${
+                        verifyResult.verified 
+                          ? "bg-green-500/10 border-green-500/30" 
+                          : "bg-red-500/10 border-red-500/30"
+                      }`} data-testid="container-verify-result">
+                        <div className="flex items-center gap-2">
+                          {verifyResult.verified ? (
+                            <>
+                              <ShieldCheck className="h-5 w-5 text-green-500" />
+                              <span className="font-medium text-green-500" data-testid="text-verify-status">Match Confirmed</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldX className="h-5 w-5 text-red-500" />
+                              <span className="font-medium text-red-500" data-testid="text-verify-status">No Match</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="space-y-2 text-xs">
+                          <div>
+                            <p className="text-muted-foreground mb-1">Computed Hash</p>
+                            <code className="font-mono break-all" data-testid="text-computed-hash">{verifyResult.computedHash}</code>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground mb-1">Stored Hash</p>
+                            <code className="font-mono break-all" data-testid="text-stored-hash">{verifyResult.storedHash}</code>
+                          </div>
+                        </div>
+                        {verifyResult.modelMismatch && !verifyResult.verified && (
+                          <div className="flex items-center gap-2 text-xs text-amber-500">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>Model type mismatch: you entered "{verifyResult.providedModelType}" but this agent uses "{verifyResult.modelType}"</span>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {verifyResult.verified 
+                            ? "The provided prompt produces the same hash as the on-chain record. This agent's training configuration is verified."
+                            : "The provided prompt does not match the on-chain hash. The prompt text or model type may be different from what was originally used."
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="activity" className="mt-4">

@@ -29,7 +29,7 @@ import { authMiddleware, optionalAuthMiddleware } from "./auth";
 export const nfaRouter = Router();
 
 function generateProofOfPrompt(systemPrompt: string, modelType: string): string {
-  const data = `${systemPrompt}:${modelType}:${Date.now()}`;
+  const data = `BAP578:PoP:${systemPrompt}:${modelType}`;
   return "0x" + crypto.createHash("sha256").update(data).digest("hex");
 }
 
@@ -261,10 +261,7 @@ nfaRouter.patch("/agents/:id", authMiddleware, async (req: Request, res: Respons
     if (logicAddress !== undefined) updateData.logicAddress = logicAddress;
     if (systemPrompt !== undefined) {
       updateData.systemPrompt = systemPrompt;
-      // Update proof of prompt hash when system prompt changes
-      updateData.proofOfPrompt = "0x" + crypto.createHash("sha256")
-        .update(`${systemPrompt}:${agents[0].modelType}:${Date.now()}`)
-        .digest("hex");
+      updateData.proofOfPrompt = generateProofOfPrompt(systemPrompt, agents[0].modelType);
     }
 
     const result = await db
@@ -1111,6 +1108,42 @@ nfaRouter.post("/agents/:id/learning-update", authMiddleware, async (req: Reques
   } catch (error) {
     console.error("Error updating learning:", error);
     res.status(500).json({ error: "Failed to update learning" });
+  }
+});
+
+// ==================== BAP-578 Proof-of-Prompt Verification ====================
+
+nfaRouter.post("/agents/:id/verify-prompt", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { systemPrompt, modelType } = req.body;
+
+    if (!systemPrompt || !modelType) {
+      return res.status(400).json({ error: "systemPrompt and modelType are required" });
+    }
+
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+    const agent = agents[0];
+
+    const computedHash = generateProofOfPrompt(systemPrompt, modelType);
+    const match = computedHash === agent.proofOfPrompt;
+    const modelMismatch = modelType !== agent.modelType;
+
+    res.json({
+      verified: match,
+      computedHash,
+      storedHash: agent.proofOfPrompt,
+      agentName: agent.name,
+      modelType: agent.modelType,
+      providedModelType: modelType,
+      modelMismatch,
+    });
+  } catch (error) {
+    console.error("Error verifying proof-of-prompt:", error);
+    res.status(500).json({ error: "Failed to verify proof-of-prompt" });
   }
 });
 

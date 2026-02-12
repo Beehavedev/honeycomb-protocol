@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount } from "wagmi";
-import { keccak256, toBytes } from "viem";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,9 +153,12 @@ export default function NfaMint() {
     },
   });
 
-  const generateProofOfPrompt = (prompt: string, model: string): string => {
-    const data = `${prompt}:${model}:${Date.now()}`;
-    return keccak256(toBytes(data));
+  const generateProofOfPrompt = async (prompt: string, model: string): Promise<string> => {
+    const data = `BAP578:PoP:${prompt}:${model}`;
+    const encoder = new TextEncoder();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return "0x" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
   };
 
   const applyTemplate = (templateId: string) => {
@@ -209,7 +211,7 @@ export default function NfaMint() {
     setIsMinting(true);
 
     try {
-      const proofOfPrompt = generateProofOfPrompt(systemPrompt, modelType);
+      const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
       // Use a smaller random number that fits in integer range (max 2147483647)
       const tokenId = Math.floor(Math.random() * 2147483647);
 

@@ -37,6 +37,9 @@ import MoltbookOnboard from "@/pages/moltbook-onboard";
 import CrmPage from "@/pages/crm";
 import CrmLogin from "@/pages/crm-login";
 import CrmUsersPage from "@/pages/crm-users";
+import NfaMarketplace from "@/pages/nfa-marketplace";
+import NfaDetail from "@/pages/nfa-detail";
+import NfaMint from "@/pages/nfa-mint";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -72,6 +75,9 @@ function Router() {
       <Route path="/arena" component={TradingArena} />
       <Route path="/arena/:id/spectate" component={TradingArena} />
       <Route path="/arena/:id" component={TradingArena} />
+      <Route path="/nfa" component={NfaMarketplace} />
+      <Route path="/nfa/mint" component={NfaMint} />
+      <Route path="/nfa/:id" component={NfaDetail} />
       <Route path="/moltbook" component={MoltbookOnboard} />
       <Route path="/crm/login" component={CrmLogin} />
       <Route path="/crm/users" component={CrmUsersPage} />
