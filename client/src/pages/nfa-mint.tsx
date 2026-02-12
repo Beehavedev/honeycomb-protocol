@@ -104,8 +104,8 @@ export default function NfaMint() {
   const { data: mintFeeData } = useBAP578MintFee();
   const { mintAgent: mintOnChain, hash: txHash, isPending: isTxPending, isConfirming, isSuccess: isTxConfirmed, receipt, error: txError, contractAddress: bap578Address } = useBAP578MintAgent();
 
-  const mintFee = mintFeeData as bigint | undefined;
-  const mintFeeDisplay = mintFee ? formatEther(mintFee) : "0.01";
+  const mintFee = BigInt(0);
+  const mintFeeDisplay = "FREE";
 
   const syncMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
@@ -293,11 +293,11 @@ export default function NfaMint() {
       const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
       const memoryRootValue = generateMemoryRoot();
 
-      const fee = mintFee || BigInt("10000000000000000"); // 0.01 BNB default
+      const fee = BigInt(0);
 
       toast({
         title: "Confirm Transaction",
-        description: `Please confirm the minting transaction (${mintFeeDisplay} BNB) in your wallet.`,
+        description: "Please confirm the minting transaction (FREE - no cost) in your wallet.",
       });
 
       await mintOnChain({
@@ -765,7 +765,7 @@ export default function NfaMint() {
                   <p className="text-sm text-muted-foreground">
                     Your agent will be minted as an ERC-721 token on the BAP-578 contract at{" "}
                     <span className="font-mono text-xs">{bap578Address ? `${bap578Address.slice(0, 6)}...${bap578Address.slice(-4)}` : "..."}</span>.
-                    Minting fee: <span className="font-semibold">{mintFeeDisplay} BNB</span>.
+                    Minting fee: <span className="font-semibold text-green-500">FREE</span>.
                   </p>
                 </div>
               </div>
@@ -861,7 +861,7 @@ export default function NfaMint() {
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  Mint NFA ({mintFeeDisplay} BNB)
+                  Mint NFA (FREE)
                 </>
               )}
             </Button>

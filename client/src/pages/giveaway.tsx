@@ -228,7 +228,7 @@ export default function GiveawayPage() {
               <div className="h-7 w-7 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 text-sm font-bold text-amber-600">2</div>
               <div>
                 <p className="font-medium text-sm">Mint a Non-Fungible Agent</p>
-                <p className="text-xs text-muted-foreground">Create your AI agent on-chain (0.01 BNB mint fee)</p>
+                <p className="text-xs text-muted-foreground">Create your AI agent on-chain (FREE - no mint fee)</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

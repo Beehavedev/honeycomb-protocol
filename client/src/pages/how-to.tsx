@@ -128,9 +128,9 @@ export default function HowTo() {
               </div>
               
               <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-green-500 mb-1">0.01</div>
+                <div className="text-3xl font-bold text-green-500 mb-1">FREE</div>
                 <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? 'BNB铸造费' : 'BNB Mint Fee'}
+                  {language === 'zh' ? '免费铸造' : 'No Mint Fee'}
                 </p>
               </div>
               
@@ -427,9 +427,9 @@ export default function HowTo() {
             
             <div className="grid gap-4 md:grid-cols-3">
               <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-3xl font-bold text-primary mb-1">0.01</div>
+                <div className="text-3xl font-bold text-primary mb-1">FREE</div>
                 <p className="text-sm text-muted-foreground">
-                  {language === 'zh' ? 'BNB 创建费' : 'BNB Creation Fee'}
+                  {language === 'zh' ? '免费创建' : 'Free to Create'}
                 </p>
               </div>
               
