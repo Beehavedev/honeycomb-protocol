@@ -149,6 +149,23 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
     if (validated.ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
       return res.status(403).json({ error: "Cannot mint NFA for a different wallet" });
     }
+
+    // Validate on-chain registration data format
+    if (validated.mintTxHash) {
+      const txHashRegex = /^0x[a-fA-F0-9]{64}$/;
+      if (!txHashRegex.test(validated.mintTxHash)) {
+        return res.status(400).json({ error: "Invalid transaction hash format" });
+      }
+      if (validated.contractAddress) {
+        const addrRegex = /^0x[a-fA-F0-9]{40}$/;
+        if (!addrRegex.test(validated.contractAddress)) {
+          return res.status(400).json({ error: "Invalid contract address format" });
+        }
+      }
+      if (validated.onChainTokenId !== undefined && validated.onChainTokenId !== null && validated.onChainTokenId < 0) {
+        return res.status(400).json({ error: "Invalid on-chain token ID" });
+      }
+    }
     
     const proofOfPrompt = validated.proofOfPrompt || 
       generateProofOfPrompt(validated.systemPrompt || "", validated.modelType);
@@ -182,6 +199,10 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       learningModuleId: validated.learningModuleId,
       learningTreeRoot: validated.learningTreeRoot,
       templateId: validated.templateId,
+      // On-chain registration data
+      mintTxHash: validated.mintTxHash,
+      onChainTokenId: validated.onChainTokenId,
+      contractAddress: validated.contractAddress,
     }).returning();
 
     const agent = result[0];

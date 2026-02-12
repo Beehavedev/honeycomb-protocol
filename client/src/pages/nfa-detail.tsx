@@ -16,7 +16,7 @@ import {
   Database, Fingerprint, TrendingUp, MessageSquare, Shield, History,
   DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3,
   Send, Loader2, Swords, ArrowUpDown, Coins, ArrowRightLeft, Settings,
-  CheckCircle, Clock, AlertCircle, Copy, Search, Lock, Hash, ShieldCheck, ShieldX
+  CheckCircle, Clock, AlertCircle, Copy, Search, Lock, Hash, ShieldCheck, ShieldX, ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -60,6 +60,9 @@ interface NfaAgent {
   learningVersion: number;
   lastLearningUpdate: string | null;
   templateId: string | null;
+  mintTxHash: string | null;
+  onChainTokenId: number | null;
+  contractAddress: string | null;
 }
 
 interface NfaStats {
@@ -472,10 +475,24 @@ export default function NfaDetail() {
                       </Badge>
                     )}
                     {isOwner && <Badge variant="outline" className="text-xs">Owner</Badge>}
+                    {agent.mintTxHash && (
+                      <Badge variant="outline" className="text-xs">On-Chain</Badge>
+                    )}
                   </div>
                   <p className="text-sm text-muted-foreground mt-2 max-w-xl" data-testid="text-description">
                     {agent.description || "No description provided."}
                   </p>
+                  {agent.mintTxHash && (
+                    <a
+                      href={`https://bscscan.com/tx/${agent.mintTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1 transition-colors"
+                      data-testid="link-mint-tx"
+                    >
+                      View mint tx on BscScan <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
               </div>
 

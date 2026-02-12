@@ -1531,6 +1531,9 @@ export const nfaAgents = pgTable("nfa_agents", {
   category: text("category"),
   systemPrompt: text("system_prompt"), // Off-chain storage of system prompt
   templateId: varchar("template_id").references(() => nfaTemplates.id), // Template used
+  mintTxHash: text("mint_tx_hash"), // On-chain minting transaction hash
+  onChainTokenId: integer("on_chain_token_id"), // Token ID assigned by BAP578 contract
+  contractAddress: text("contract_address"), // BAP578 proxy contract address
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastActiveAt: timestamp("last_active_at").defaultNow().notNull(),
 });
@@ -1711,6 +1714,10 @@ export const insertNfaAgentSchema = createInsertSchema(nfaAgents).pick({
   learningModuleId: true,
   learningTreeRoot: true,
   templateId: true,
+  // On-chain registration
+  mintTxHash: true,
+  onChainTokenId: true,
+  contractAddress: true,
 });
 
 export const insertNfaLearningMetricsSchema = createInsertSchema(nfaLearningMetrics).pick({

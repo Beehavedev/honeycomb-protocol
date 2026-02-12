@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
+import { formatEther } from "viem";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Brain, Zap, Fingerprint, Database, Sparkles, ArrowLeft, CheckCircle, Info, FileText, Shield, Cpu, BookOpen, Wand2 } from "lucide-react";
+import { Bot, Brain, Zap, Fingerprint, Database, Sparkles, ArrowLeft, CheckCircle, Info, FileText, Shield, Cpu, BookOpen, Wand2, ExternalLink, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getToken } from "@/lib/auth";
 import { Link } from "wouter";
+import { useBAP578MintAgent, useBAP578MintFee, useBAP578TokenAddress } from "@/contracts/hooks";
 
 const MODEL_TYPES = [
   { value: "gpt-4", label: "GPT-4", provider: "OpenAI" },
@@ -68,6 +70,7 @@ interface LearningModule {
 export default function NfaMint() {
   const [, navigate] = useLocation();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { isAuthenticated, authenticate } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -85,7 +88,7 @@ export default function NfaMint() {
   const [experience, setExperience] = useState("");
   const [learningModuleId, setLearningModuleId] = useState<string>("");
   const [step, setStep] = useState(1);
-  const [isMinting, setIsMinting] = useState(false);
+  const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "done">("idle");
 
   const { data: templatesData } = useQuery<{ templates: Template[] }>({
     queryKey: ["/api/nfa/templates"],
@@ -98,24 +101,14 @@ export default function NfaMint() {
   const templates = templatesData?.templates || [];
   const learningModules = modulesData?.modules || [];
 
-  const mintMutation = useMutation({
-    mutationFn: async (data: {
-      tokenId: number;
-      ownerAddress: string;
-      name: string;
-      description: string;
-      modelType: string;
-      agentType: string;
-      category: string;
-      systemPrompt: string;
-      metadataUri: string;
-      proofOfPrompt: string;
-      persona?: string;
-      experience?: string;
-      learningEnabled?: boolean;
-      learningModuleId?: string;
-      templateId?: string;
-    }) => {
+  const { data: mintFeeData } = useBAP578MintFee();
+  const { mintAgent: mintOnChain, hash: txHash, isPending: isTxPending, isConfirming, isSuccess: isTxConfirmed, receipt, error: txError, contractAddress: bap578Address } = useBAP578MintAgent();
+
+  const mintFee = mintFeeData as bigint | undefined;
+  const mintFeeDisplay = mintFee ? formatEther(mintFee) : "0.01";
+
+  const syncMutation = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => {
       const token = getToken();
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -138,20 +131,40 @@ export default function NfaMint() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/marketplace/listings"] });
+      setMintStep("done");
       toast({
-        title: "NFA Minted Successfully!",
-        description: "Your Non-Fungible Agent has been created.",
+        title: "NFA Minted & Registered",
+        description: "Your Non-Fungible Agent is now registered on-chain via BAP-578.",
       });
-      navigate("/nfa");
     },
     onError: (error: Error) => {
       toast({
-        title: "Minting Failed",
+        title: "Backend Sync Failed",
         description: error.message,
         variant: "destructive",
       });
+      setMintStep("idle");
     },
   });
+
+  useEffect(() => {
+    if (isTxConfirmed && receipt && mintStep === "confirming") {
+      syncToBackend();
+    }
+  }, [isTxConfirmed, receipt]);
+
+  useEffect(() => {
+    if (txError && mintStep !== "idle") {
+      setMintStep("idle");
+      toast({
+        title: "Transaction Failed",
+        description: txError.message?.includes("User rejected")
+          ? "You rejected the transaction in your wallet."
+          : txError.message || "On-chain minting failed.",
+        variant: "destructive",
+      });
+    }
+  }, [txError]);
 
   const generateProofOfPrompt = async (prompt: string, model: string): Promise<string> => {
     const data = `BAP578:PoP:${prompt}:${model}`;
@@ -159,6 +172,13 @@ export default function NfaMint() {
     const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return "0x" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  };
+
+  const generateMemoryRoot = (): string => {
+    const data = `BAP578:Memory:${Date.now()}`;
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    return "0x" + Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
   };
 
   const applyTemplate = (templateId: string) => {
@@ -170,6 +190,66 @@ export default function NfaMint() {
       setPersona(template.defaultPersona);
       setExperience(template.defaultExperience);
     }
+  };
+
+  const parseTokenIdFromReceipt = (receipt: any): number | null => {
+    try {
+      if (receipt?.logs) {
+        for (const log of receipt.logs) {
+          if (log.topics && log.topics.length >= 2) {
+            const eventSig = log.topics[0];
+            const agentMintedSig = "0x" + "AgentMinted".padEnd(64, "0");
+            if (log.topics[0]?.toLowerCase().includes("agent") || log.topics.length >= 3) {
+              const tokenIdHex = log.topics[1];
+              if (tokenIdHex) {
+                return parseInt(tokenIdHex, 16);
+              }
+            }
+          }
+        }
+        if (receipt.logs.length > 0) {
+          const lastLog = receipt.logs[receipt.logs.length - 1];
+          if (lastLog.topics && lastLog.topics[1]) {
+            return parseInt(lastLog.topics[1], 16);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error parsing token ID from receipt:", e);
+    }
+    return null;
+  };
+
+  const syncToBackend = async () => {
+    if (!receipt || !address) return;
+    setMintStep("syncing");
+
+    const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
+    const memoryRootValue = generateMemoryRoot();
+    const onChainTokenId = parseTokenIdFromReceipt(receipt);
+    const tokenId = onChainTokenId || Math.floor(Math.random() * 2147483647);
+
+    syncMutation.mutate({
+      tokenId,
+      ownerAddress: address,
+      name: name.trim(),
+      description: description.trim(),
+      modelType,
+      agentType,
+      category,
+      systemPrompt,
+      metadataUri,
+      proofOfPrompt,
+      memoryRoot: memoryRootValue,
+      persona: persona || undefined,
+      experience: experience || undefined,
+      learningEnabled: agentType === "LEARNING",
+      learningModuleId: agentType === "LEARNING" && learningModuleId ? learningModuleId : undefined,
+      templateId: selectedTemplateId || undefined,
+      mintTxHash: txHash,
+      onChainTokenId: onChainTokenId,
+      contractAddress: bap578Address,
+    });
   };
 
   const handleMint = async () => {
@@ -208,34 +288,34 @@ export default function NfaMint() {
       return;
     }
 
-    setIsMinting(true);
-
     try {
-      const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
-      // Use a smaller random number that fits in integer range (max 2147483647)
-      const tokenId = Math.floor(Math.random() * 2147483647);
+      setMintStep("signing");
 
-      await mintMutation.mutateAsync({
-        tokenId,
-        ownerAddress: address,
-        name: name.trim(),
-        description: description.trim(),
-        modelType,
-        agentType,
-        category,
-        systemPrompt,
-        metadataUri,
-        proofOfPrompt,
-        persona: persona || undefined,
-        experience: experience || undefined,
-        learningEnabled: agentType === "LEARNING",
-        learningModuleId: agentType === "LEARNING" && learningModuleId ? learningModuleId : undefined,
-        templateId: selectedTemplateId || undefined,
+      const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
+      const memoryRootValue = generateMemoryRoot();
+
+      const fee = mintFee || BigInt("10000000000000000"); // 0.01 BNB default
+
+      toast({
+        title: "Confirm Transaction",
+        description: `Please confirm the minting transaction (${mintFeeDisplay} BNB) in your wallet.`,
       });
-    } catch (error) {
+
+      await mintOnChain({
+        name: name.trim(),
+        description: description.trim() || "",
+        modelType,
+        agentType: agentType === "LEARNING" ? 1 : 0,
+        systemPromptHash: proofOfPrompt as `0x${string}`,
+        initialMemoryRoot: memoryRootValue as `0x${string}`,
+        metadataURI: metadataUri || "",
+        mintFee: fee,
+      });
+
+      setMintStep("confirming");
+    } catch (error: any) {
       console.error("Mint error:", error);
-    } finally {
-      setIsMinting(false);
+      setMintStep("idle");
     }
   };
 
@@ -255,6 +335,49 @@ export default function NfaMint() {
     );
   }
 
+  if (mintStep === "done") {
+    return (
+      <div className="container mx-auto px-4 py-6 max-w-3xl">
+        <Card className="py-12">
+          <CardContent className="flex flex-col items-center gap-6 text-center">
+            <div className="p-4 rounded-full bg-green-500/10">
+              <CheckCircle className="h-12 w-12 text-green-500" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold" data-testid="text-mint-success">NFA Minted Successfully</h2>
+              <p className="text-muted-foreground text-sm">
+                Your Non-Fungible Agent has been registered on-chain via BAP-578.
+              </p>
+            </div>
+            {txHash && (
+              <a
+                href={`https://bscscan.com/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="link-tx-hash"
+              >
+                View on BscScan <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            <div className="flex gap-3">
+              <Link href="/nfa">
+                <Button variant="outline" data-testid="button-back-marketplace">
+                  Back to Marketplace
+                </Button>
+              </Link>
+              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); }} data-testid="button-mint-another">
+                Mint Another
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const isMinting = mintStep !== "idle";
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-3xl">
       <div className="mb-4">
@@ -270,12 +393,12 @@ export default function NfaMint() {
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-lg bg-primary/10">
-              <Bot className="h-6 w-6 text-primary" />
+              <Bot className="h-6 w-6 text-foreground" />
             </div>
             <div>
               <CardTitle className="text-2xl" data-testid="text-page-title">Mint NFA (BAP-578)</CardTitle>
               <CardDescription>
-                Create a new Non-Fungible Agent with full BAP-578 compliance
+                Create a new Non-Fungible Agent registered on BNB Chain
               </CardDescription>
             </div>
           </div>
@@ -294,6 +417,7 @@ export default function NfaMint() {
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
                   }`}
+                  data-testid={`step-indicator-${s}`}
                 >
                   {step > s ? <CheckCircle className="h-4 w-4" /> : s}
                 </div>
@@ -343,13 +467,13 @@ export default function NfaMint() {
                           <div className="flex items-start gap-3">
                             <div className="p-2 rounded-lg bg-primary/10">
                               {template.category === "Guardian" ? (
-                                <Shield className="h-5 w-5 text-primary" />
+                                <Shield className="h-5 w-5 text-foreground" />
                               ) : template.category === "Analyst" ? (
-                                <Database className="h-5 w-5 text-primary" />
+                                <Database className="h-5 w-5 text-foreground" />
                               ) : template.category === "Trader" ? (
-                                <Zap className="h-5 w-5 text-primary" />
+                                <Zap className="h-5 w-5 text-foreground" />
                               ) : (
-                                <Bot className="h-5 w-5 text-primary" />
+                                <Bot className="h-5 w-5 text-foreground" />
                               )}
                             </div>
                             <div className="flex-1">
@@ -360,7 +484,7 @@ export default function NfaMint() {
                               <p className="text-sm text-muted-foreground">{template.description}</p>
                             </div>
                             {selectedTemplateId === template.id && (
-                              <CheckCircle className="h-5 w-5 text-primary" />
+                              <CheckCircle className="h-5 w-5 text-green-500" />
                             )}
                           </div>
                         </CardContent>
@@ -484,10 +608,10 @@ export default function NfaMint() {
                 Agent Configuration
               </h3>
 
-              <div className="flex items-center justify-between p-4 rounded-lg border">
+              <div className="flex items-center justify-between gap-2 p-4 rounded-lg border">
                 <div className="flex items-center gap-3">
                   {agentType === "LEARNING" ? (
-                    <Brain className="h-5 w-5 text-primary" />
+                    <Brain className="h-5 w-5 text-foreground" />
                   ) : (
                     <Zap className="h-5 w-5 text-amber-500" />
                   )}
@@ -577,24 +701,24 @@ export default function NfaMint() {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
-                Review & Mint
+                Review & Mint On-Chain
               </h3>
 
               <Card className="bg-muted/30">
                 <CardContent className="p-4 space-y-3">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-muted-foreground">Name</span>
-                    <span className="font-medium">{name || "-"}</span>
+                    <span className="font-medium" data-testid="text-review-name">{name || "-"}</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-muted-foreground">Category</span>
                     <span className="font-medium">{category || "-"}</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-muted-foreground">Model</span>
                     <Badge variant="outline">{modelType}</Badge>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-muted-foreground">Type</span>
                     <Badge variant={agentType === "LEARNING" ? "default" : "secondary"}>
                       {agentType === "LEARNING" ? (
@@ -605,7 +729,7 @@ export default function NfaMint() {
                     </Badge>
                   </div>
                   {agentType === "LEARNING" && learningModuleId && (
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center gap-2">
                       <span className="text-muted-foreground">Learning Module</span>
                       <Badge variant="outline">
                         {learningModules.find(m => m.id === learningModuleId)?.name || "-"}
@@ -613,21 +737,21 @@ export default function NfaMint() {
                     </div>
                   )}
                   {selectedTemplateId && (
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center gap-2">
                       <span className="text-muted-foreground">Template</span>
                       <Badge variant="outline">
                         {templates.find(t => t.id === selectedTemplateId)?.name || "-"}
                       </Badge>
                     </div>
                   )}
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center gap-2">
                     <span className="text-muted-foreground">Proof-of-Prompt</span>
                     <Badge variant="outline" className="font-mono text-xs">
                       {systemPrompt ? "Configured" : "Empty"}
                     </Badge>
                   </div>
                   {persona && (
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center gap-2">
                       <span className="text-muted-foreground">Persona</span>
                       <Badge variant="outline" className="text-xs">Configured</Badge>
                     </div>
@@ -638,13 +762,57 @@ export default function NfaMint() {
               <div className="flex items-start gap-2 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <Database className="h-5 w-5 text-amber-500 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-500">BAP-578 On-Chain Registration</p>
+                  <p className="font-medium text-amber-500">On-Chain Registration</p>
                   <p className="text-sm text-muted-foreground">
-                    Your agent will be registered as a BAP-578 Non-Fungible Agent on BNB Chain.
-                    The Proof-of-Prompt, memory root, and learning tree root will be stored on-chain.
+                    Your agent will be minted as an ERC-721 token on the BAP-578 contract at{" "}
+                    <span className="font-mono text-xs">{bap578Address ? `${bap578Address.slice(0, 6)}...${bap578Address.slice(-4)}` : "..."}</span>.
+                    Minting fee: <span className="font-semibold">{mintFeeDisplay} BNB</span>.
                   </p>
                 </div>
               </div>
+
+              {mintStep !== "idle" && (
+                <Card className="border-primary/30">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      {mintStep === "signing" && (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">Waiting for wallet signature...</p>
+                            <p className="text-sm text-muted-foreground">Please confirm the transaction in your wallet</p>
+                          </div>
+                        </>
+                      )}
+                      {mintStep === "confirming" && (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">Confirming on BNB Chain...</p>
+                            <p className="text-sm text-muted-foreground">
+                              Transaction submitted.{" "}
+                              {txHash && (
+                                <a href={`https://bscscan.com/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline">
+                                  View on BscScan
+                                </a>
+                              )}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                      {mintStep === "syncing" && (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">Syncing to platform...</p>
+                            <p className="text-sm text-muted-foreground">Registering your agent in the Honeycomb database</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </CardContent>
@@ -654,6 +822,7 @@ export default function NfaMint() {
             <Button
               variant="outline"
               onClick={() => setStep(step - 1)}
+              disabled={isMinting}
               data-testid="button-back-step"
             >
               Back
@@ -675,15 +844,25 @@ export default function NfaMint() {
               className="gap-2"
               data-testid="button-mint"
             >
-              {isMinting ? (
+              {mintStep === "signing" ? (
                 <>
-                  <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Minting...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sign in Wallet...
+                </>
+              ) : mintStep === "confirming" ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Confirming...
+                </>
+              ) : mintStep === "syncing" ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Syncing...
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  Mint NFA
+                  Mint NFA ({mintFeeDisplay} BNB)
                 </>
               )}
             </Button>

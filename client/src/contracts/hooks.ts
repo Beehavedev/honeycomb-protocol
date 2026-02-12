@@ -15,8 +15,9 @@ import {
   ERC8004ReputationRegistryABI,
   HoneyTokenABI,
   HoneyStakingABI,
+  BAP578TokenABI,
 } from './abis';
-import { getContractAddresses, getDexConfig, getERC8004Addresses } from './addresses';
+import { getContractAddresses, getDexConfig, getERC8004Addresses, getNFAMarketplaceAddresses } from './addresses';
 
 // ============= Agent Registry Hooks =============
 
@@ -1459,4 +1460,80 @@ export function useFundRewardPool() {
   };
 
   return { fundRewardPool, hash, isPending, isConfirming, isSuccess, error };
+}
+
+// ============= BAP-578 NFA Token Hooks =============
+
+export function useBAP578TokenAddress() {
+  const chainId = useChainId();
+  return getNFAMarketplaceAddresses(chainId)?.nfaToken;
+}
+
+export function useBAP578MintFee() {
+  const address = useBAP578TokenAddress();
+  return useReadContract({
+    address,
+    abi: BAP578TokenABI,
+    functionName: 'mintFee',
+    query: { enabled: !!address && address !== '0x0000000000000000000000000000000000000000' },
+  });
+}
+
+export function useBAP578TotalAgents() {
+  const address = useBAP578TokenAddress();
+  return useReadContract({
+    address,
+    abi: BAP578TokenABI,
+    functionName: 'totalAgents',
+    query: { enabled: !!address && address !== '0x0000000000000000000000000000000000000000' },
+  });
+}
+
+export function useBAP578MintAgent() {
+  const address = useBAP578TokenAddress();
+  const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
+
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
+  const mintAgent = async (params: {
+    name: string;
+    description: string;
+    modelType: string;
+    agentType: number; // 0 = STATIC, 1 = LEARNING
+    systemPromptHash: `0x${string}`;
+    initialMemoryRoot: `0x${string}`;
+    metadataURI: string;
+    mintFee: bigint;
+  }) => {
+    if (!address || address === ZERO_ADDR) throw new Error('BAP-578 contract not available on this network');
+    return writeContractAsync({
+      address,
+      abi: BAP578TokenABI,
+      functionName: 'mintAgent',
+      args: [
+        params.name,
+        params.description,
+        params.modelType,
+        params.agentType,
+        params.systemPromptHash,
+        params.initialMemoryRoot,
+        params.metadataURI,
+      ],
+      value: params.mintFee,
+    });
+  };
+
+  return { mintAgent, hash, isPending, isConfirming, isSuccess, receipt, error, contractAddress: address };
+}
+
+export function useBAP578GetAgentMetadata(tokenId?: bigint) {
+  const address = useBAP578TokenAddress();
+  return useReadContract({
+    address,
+    abi: BAP578TokenABI,
+    functionName: 'getAgentMetadata',
+    args: tokenId !== undefined ? [tokenId] : undefined,
+    query: { enabled: tokenId !== undefined && !!address && address !== '0x0000000000000000000000000000000000000000' },
+  });
 }

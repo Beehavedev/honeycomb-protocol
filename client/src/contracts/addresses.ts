@@ -180,16 +180,16 @@ export interface NFAMarketplaceAddresses {
 export const NFA_FEE_WALLET = "0xEA42922A5c695bD947246988B7927fbD3fD889fF" as `0x${string}`;
 
 export const NFA_MARKETPLACE_ADDRESSES: Record<number, NFAMarketplaceAddresses> = {
-  // BSC Mainnet
+  // BSC Mainnet - BAP-578 deployed via UUPS proxy
   56: {
-    nfaToken: "0x0000000000000000000000000000000000000000", // TODO: Deploy BAP-578 token
-    marketplace: "0x0000000000000000000000000000000000000000", // TODO: Deploy marketplace
+    nfaToken: "0xd7Deb29ddBB13607375Ce50405A574AC2f7d978d",
+    marketplace: "0x0000000000000000000000000000000000000000",
     feeWallet: NFA_FEE_WALLET,
   },
   // BSC Testnet
   97: {
-    nfaToken: "0x0000000000000000000000000000000000000000", // TODO: Deploy BAP-578 token
-    marketplace: "0x0000000000000000000000000000000000000000", // TODO: Deploy marketplace
+    nfaToken: "0x0000000000000000000000000000000000000000",
+    marketplace: "0x0000000000000000000000000000000000000000",
     feeWallet: NFA_FEE_WALLET,
   },
   // Local Hardhat

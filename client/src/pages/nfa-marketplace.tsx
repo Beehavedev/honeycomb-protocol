@@ -39,6 +39,9 @@ interface NfaAgent {
   learningEnabled: boolean;
   learningVersion: number;
   balance: string;
+  mintTxHash: string | null;
+  onChainTokenId: number | null;
+  contractAddress: string | null;
 }
 
 interface NfaListing {
