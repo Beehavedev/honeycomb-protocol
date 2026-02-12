@@ -190,7 +190,7 @@ export default function NfaMint() {
         fetch(`/api/nfa/agents/${createdAgentId}/confirm-registry`, {
           method: "POST",
           headers,
-          body: JSON.stringify({ registryTxHash }),
+          body: JSON.stringify({ registryTxHash, ownerAddress: address, mintTxHash: txHash }),
           credentials: "include",
         }).catch(() => {});
       }
@@ -215,7 +215,7 @@ export default function NfaMint() {
           fetch(`/api/nfa/agents/${createdAgentId}/confirm-registry`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ registryTxHash: "0x" + "0".repeat(64) }),
+            body: JSON.stringify({ registryTxHash: "0x" + "0".repeat(64), ownerAddress: address, mintTxHash: txHash }),
             credentials: "include",
           }).catch(() => {});
         }

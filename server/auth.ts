@@ -82,6 +82,31 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   next();
 }
 
+export function walletFallbackAuthMiddleware(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (payload) {
+      req.walletAddress = payload.address;
+      return next();
+    }
+  }
+
+  const walletAddress = req.body?.ownerAddress;
+  const mintTxHash = req.body?.mintTxHash;
+  if (walletAddress && mintTxHash) {
+    const txHashRegex = /^0x[a-fA-F0-9]{64}$/;
+    const addrRegex = /^0x[a-fA-F0-9]{40}$/;
+    if (txHashRegex.test(mintTxHash) && addrRegex.test(walletAddress)) {
+      req.walletAddress = walletAddress.toLowerCase();
+      return next();
+    }
+  }
+
+  return res.status(401).json({ message: "Authorization required. Please re-login and try again." });
+}
+
 export function optionalAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {

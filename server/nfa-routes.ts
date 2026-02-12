@@ -24,7 +24,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and, sql, gte } from "drizzle-orm";
 import crypto from "crypto";
-import { authMiddleware, optionalAuthMiddleware } from "./auth";
+import { authMiddleware, optionalAuthMiddleware, walletFallbackAuthMiddleware } from "./auth";
 import { autoCreateGiveawayEntry } from "./giveaway-routes";
 import { createPublicClient, http } from "viem";
 import { bsc } from "viem/chains";
@@ -310,7 +310,7 @@ nfaRouter.get("/agents/token/:tokenId", async (req: Request, res: Response) => {
   }
 });
 
-nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Response) => {
+nfaRouter.post("/agents/mint", walletFallbackAuthMiddleware, async (req: Request, res: Response) => {
   try {
     console.log("[NFA Mint] Received mint request from:", req.walletAddress, "body keys:", Object.keys(req.body));
 
@@ -427,7 +427,7 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
   }
 });
 
-nfaRouter.post("/agents/:id/confirm-registry", authMiddleware, async (req: Request, res: Response) => {
+nfaRouter.post("/agents/:id/confirm-registry", walletFallbackAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { registryTxHash } = req.body;
