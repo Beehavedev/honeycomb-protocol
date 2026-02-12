@@ -88,8 +88,8 @@ export default function NfaMint() {
   const [experience, setExperience] = useState("");
   const [learningModuleId, setLearningModuleId] = useState<string>("");
   const [step, setStep] = useState(1);
-  const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "registering" | "done">("idle");
-  const [registrySkipped, setRegistrySkipped] = useState(false);
+  const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "registering" | "registry_failed" | "done">("idle");
+  const [registryErrorMsg, setRegistryErrorMsg] = useState("");
 
   const { data: templatesData } = useQuery<{ templates: Template[] }>({
     queryKey: ["/api/nfa/templates"],
@@ -169,9 +169,9 @@ export default function NfaMint() {
   }, [txError]);
 
   useEffect(() => {
-    if (isRegistrySuccess && mintStep === "registering") {
+    if (isRegistrySuccess && (mintStep === "registering" || mintStep === "registry_failed")) {
       setMintStep("done");
-      setRegistrySkipped(false);
+      setRegistryErrorMsg("");
       toast({
         title: "Fully Registered",
         description: "Your NFA is now registered on both BAP-578 and the HoneycombAgentRegistry.",
@@ -182,28 +182,23 @@ export default function NfaMint() {
   useEffect(() => {
     if (registryError && mintStep === "registering") {
       const msg = registryError.message || "";
-      if (msg.includes("User rejected") || msg.includes("denied")) {
-        toast({
-          title: "Registry Registration Skipped",
-          description: "Your NFA was minted but not registered on the HoneycombAgentRegistry. You can register later from the NFA Showroom.",
-          variant: "destructive",
-        });
-        setRegistrySkipped(true);
-        setMintStep("done");
-      } else if (msg.includes("AgentAlreadyRegistered")) {
+      if (msg.includes("AgentAlreadyRegistered")) {
         toast({
           title: "Already Registered",
           description: "This wallet is already registered on the HoneycombAgentRegistry.",
         });
         setMintStep("done");
       } else {
+        const userMsg = msg.includes("User rejected") || msg.includes("denied")
+          ? "You must complete registry registration. Your NFA won't appear on-chain scanners without it."
+          : msg || "Could not register on HoneycombAgentRegistry. Please try again.";
         toast({
-          title: "Registry Registration Failed",
-          description: msg || "Could not register on HoneycombAgentRegistry. You can try again later.",
+          title: "Registry Registration Required",
+          description: userMsg,
           variant: "destructive",
         });
-        setRegistrySkipped(true);
-        setMintStep("done");
+        setRegistryErrorMsg(userMsg);
+        setMintStep("registry_failed");
       }
     }
   }, [registryError]);
@@ -212,19 +207,21 @@ export default function NfaMint() {
     if (!registryAddress || registryAddress === "0x0000000000000000000000000000000000000000") {
       toast({
         title: "Registry Not Available",
-        description: "HoneycombAgentRegistry is not available on this network.",
+        description: "HoneycombAgentRegistry is not available on this network. Please switch to BNB Chain mainnet.",
         variant: "destructive",
       });
-      setMintStep("done");
-      setRegistrySkipped(true);
+      setRegistryErrorMsg("HoneycombAgentRegistry is not available on this network. Switch to BNB Chain mainnet and try again.");
+      setMintStep("registry_failed");
       return;
     }
 
     try {
+      setMintStep("registering");
+      setRegistryErrorMsg("");
       const metadataCID = `honeycomb:nfa:${name.trim()}:${address}`;
       toast({
         title: "Step 2: Register on HoneycombAgentRegistry",
-        description: "Please confirm the second transaction to complete on-chain registration.",
+        description: "Please confirm the second transaction to complete on-chain registration. This is required.",
       });
       await registerOnRegistry(metadataCID);
     } catch (error: any) {
@@ -414,13 +411,14 @@ export default function NfaMint() {
               <Loader2 className="h-12 w-12 text-primary animate-spin" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold">Step 2: Register on HoneycombAgentRegistry</h2>
+              <h2 className="text-xl font-semibold">Step 2: Register on HoneycombAgentRegistry (Required)</h2>
               <p className="text-muted-foreground text-sm">
                 Your NFA was minted on BAP-578. Now please confirm the second transaction to register on the HoneycombAgentRegistry.
               </p>
-              <p className="text-xs text-muted-foreground">
-                This ensures your agent appears on nfascan.net and is fully on-chain.
-              </p>
+              <Badge variant="secondary" className="gap-1">
+                <Shield className="h-3 w-3" />
+                Registration is mandatory for all NFAs
+              </Badge>
             </div>
             {isRegistryPending && (
               <Badge variant="outline">Waiting for wallet confirmation...</Badge>
@@ -428,6 +426,54 @@ export default function NfaMint() {
             {isRegistryConfirming && (
               <Badge variant="outline">Confirming on-chain...</Badge>
             )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (mintStep === "registry_failed") {
+    return (
+      <div className="container mx-auto px-4 py-6 max-w-3xl">
+        <Card className="py-12 border-destructive/50">
+          <CardContent className="flex flex-col items-center gap-6 text-center">
+            <div className="p-4 rounded-full bg-destructive/10">
+              <Shield className="h-12 w-12 text-destructive" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold" data-testid="text-registry-required">Registry Registration Required</h2>
+              <p className="text-muted-foreground text-sm">
+                Your NFA was minted on BAP-578, but it <strong>must</strong> be registered on the HoneycombAgentRegistry to be valid.
+              </p>
+              {registryErrorMsg && (
+                <p className="text-sm text-destructive">{registryErrorMsg}</p>
+              )}
+              <Badge variant="secondary" className="gap-1">
+                <Shield className="h-3 w-3" />
+                All NFAs must be registered on-chain
+              </Badge>
+            </div>
+            {txHash && (
+              <a
+                href={`https://bscscan.com/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                BAP-578 Mint TX: {txHash.slice(0, 10)}... <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            <Button
+              onClick={handleRegistryRegistration}
+              className="gap-2"
+              data-testid="button-retry-registry"
+            >
+              <Shield className="h-4 w-4" />
+              Register on HoneycombAgentRegistry Now
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              This is a separate on-chain transaction (gas only, no fee). Your NFA will not appear on nfascan.net until registered.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -443,11 +489,9 @@ export default function NfaMint() {
               <CheckCircle className="h-12 w-12 text-green-500" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-semibold" data-testid="text-mint-success">NFA Minted Successfully</h2>
+              <h2 className="text-xl font-semibold" data-testid="text-mint-success">NFA Fully Registered</h2>
               <p className="text-muted-foreground text-sm">
-                {registrySkipped
-                  ? "Your NFA was minted on BAP-578 but NOT registered on the HoneycombAgentRegistry."
-                  : "Your Non-Fungible Agent is registered on both BAP-578 and the HoneycombAgentRegistry."}
+                Your Non-Fungible Agent is registered on both BAP-578 and the HoneycombAgentRegistry. It is now scannable on nfascan.net.
               </p>
             </div>
             {txHash && (
@@ -461,7 +505,7 @@ export default function NfaMint() {
                 View Mint TX on BscScan <ExternalLink className="h-3 w-3" />
               </a>
             )}
-            {registryTxHash && !registrySkipped && (
+            {registryTxHash && (
               <a
                 href={`https://bscscan.com/tx/${registryTxHash}`}
                 target="_blank"
@@ -472,27 +516,13 @@ export default function NfaMint() {
                 View Registry TX on BscScan <ExternalLink className="h-3 w-3" />
               </a>
             )}
-            {registrySkipped && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setMintStep("registering");
-                  setRegistrySkipped(false);
-                  handleRegistryRegistration();
-                }}
-                data-testid="button-retry-registry"
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Register on HoneycombAgentRegistry Now
-              </Button>
-            )}
             <div className="flex gap-3">
               <Link href="/nfa">
                 <Button variant="outline" data-testid="button-back-showroom">
                   Back to Showroom
                 </Button>
               </Link>
-              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); setRegistrySkipped(false); }} data-testid="button-mint-another">
+              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); setRegistryErrorMsg(""); }} data-testid="button-mint-another">
                 Mint Another
               </Button>
             </div>
