@@ -2654,3 +2654,32 @@ export const insertFighterDuelSchema = createInsertSchema(fighterDuels).pick({
 
 export type FighterDuel = typeof fighterDuels.$inferSelect;
 export type InsertFighterDuel = z.infer<typeof insertFighterDuelSchema>;
+
+export const fighterProfiles = pgTable("fighter_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentName: text("agent_name").notNull().unique(),
+  agentAddress: text("agent_address"),
+  level: integer("level").notNull().default(1),
+  xp: integer("xp").notNull().default(0),
+  totalWins: integer("total_wins").notNull().default(0),
+  totalLosses: integer("total_losses").notNull().default(0),
+  totalDraws: integer("total_draws").notNull().default(0),
+  winStreak: integer("win_streak").notNull().default(0),
+  bestStreak: integer("best_streak").notNull().default(0),
+  favoriteFighter: text("favorite_fighter"),
+  bonusHp: integer("bonus_hp").notNull().default(0),
+  bonusAtk: integer("bonus_atk").notNull().default(0),
+  bonusDef: integer("bonus_def").notNull().default(0),
+  bonusSpd: integer("bonus_spd").notNull().default(0),
+  bonusSpecial: integer("bonus_special").notNull().default(0),
+  title: text("title").notNull().default("Rookie"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFighterProfileSchema = createInsertSchema(fighterProfiles).pick({
+  agentName: true,
+  agentAddress: true,
+});
+
+export type FighterProfile = typeof fighterProfiles.$inferSelect;
+export type InsertFighterProfile = z.infer<typeof insertFighterProfileSchema>;
