@@ -1516,43 +1516,29 @@ export function useBAP578MintAgent() {
     if (!address || address === ZERO_ADDR) throw new Error('BAP-578 contract not available on this network');
     if (!walletAddress) throw new Error('Wallet not connected');
 
-    const personalityJson = JSON.stringify({
-      traits: [params.name],
-      style: params.modelType,
-      tone: "engaging",
-      description: params.description,
-    });
-
-    const settingsBytes32 = '0x7b7d000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
-
-    const registryArg = ZERO_ADDR;
-
-    let tokenURI = params.metadataURI;
+    let metadataURI = params.metadataURI;
     let mintNonce: string | null = null;
-    if (!tokenURI) {
+    if (!metadataURI) {
       mintNonce = crypto.randomUUID();
       const appBaseUrl = window.location.origin;
-      tokenURI = `${appBaseUrl}/api/nfa/metadata/by-nonce/${mintNonce}`;
+      metadataURI = `${appBaseUrl}/api/nfa/metadata/by-nonce/${mintNonce}`;
     }
     setLastMintNonce(mintNonce);
 
     return writeContractAsync({
       address,
       abi: BAP578TokenABI,
-      functionName: 'createAgent',
+      functionName: 'mintAgent',
       args: [
-        walletAddress,
-        registryArg,
-        tokenURI,
-        {
-          personality: personalityJson,
-          systemPrompt: params.description || `AI Assistant: ${params.name}`,
-          extra: '',
-          animationURI: '',
-          imageURI: params.metadataURI || '',
-          settings: settingsBytes32,
-        },
+        params.name,
+        params.description || '',
+        params.modelType,
+        params.agentType,
+        params.systemPromptHash,
+        params.initialMemoryRoot,
+        metadataURI,
       ],
+      value: params.mintFee,
     });
   };
 
