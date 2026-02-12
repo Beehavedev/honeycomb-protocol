@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists } from "./seed";
 import { startTwitterScheduler } from "./twitter-scheduler";
+import { twitterService } from "./twitter-service";
 import { storage } from "./storage";
 import { ensureArenaBots } from "./arena-bot-engine";
 import { startAutoDuelSpawner } from "./auto-duel-spawner";
@@ -79,6 +80,7 @@ app.use((req, res, next) => {
   
   setupArenaChatWS(httpServer);
 
+  await twitterService.updateBotForGiveawayPromotion();
   startTwitterScheduler();
 
   // Start auto-duel spawner for live bot-vs-bot games
