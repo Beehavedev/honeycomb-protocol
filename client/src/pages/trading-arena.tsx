@@ -64,6 +64,7 @@ import { ArenaChat } from "@/components/arena-chat";
 
 const LazyPredict = lazy(() => import("@/pages/predict"));
 const LazyTrivia = lazy(() => import("@/pages/trivia-battle"));
+const LazyFighter = lazy(() => import("@/pages/fighter-battle"));
 
 function PredictContent() {
   return (
@@ -87,6 +88,19 @@ function TriviaContent() {
       </div>
     }>
       <LazyTrivia />
+    </Suspense>
+  );
+}
+
+function FighterContent() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-red-400" />
+        <p className="text-sm text-muted-foreground">Loading Crypto Fighters...</p>
+      </div>
+    }>
+      <LazyFighter />
     </Suspense>
   );
 }
@@ -3655,14 +3669,23 @@ export default function TradingArena() {
           >
             <Brain className="w-4 h-4 mr-1.5" /> Trivia Battle
           </Button>
+          <Button
+            variant={gameMode === "fighter" ? "default" : "outline"}
+            onClick={() => setGameMode("fighter")}
+            data-testid="button-game-fighter"
+          >
+            <Swords className="w-4 h-4 mr-1.5" /> Crypto Fighters
+          </Button>
         </div>
 
         {gameMode === "trading" ? (
           <TradingArenaLobby />
         ) : gameMode === "predict" ? (
           <PredictContent />
-        ) : (
+        ) : gameMode === "trivia" ? (
           <TriviaContent />
+        ) : (
+          <FighterContent />
         )}
       </div>
     </div>

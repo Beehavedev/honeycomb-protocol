@@ -75,6 +75,19 @@ A 1v1 trivia knowledge game using Open Trivia Database API (opentdb.com, no API 
 - **Frontend**: `client/src/pages/trivia-battle.tsx`, integrated as tab in Games Arena (`/arena`)
 - **Backend**: `server/trivia-routes.ts`
 
+### Crypto Fighters
+A 1v1 turn-based battle game with crypto-themed fighters. No external API required. Features include:
+- **6 Fighters**: Satoshi (BTC), Vitalik (ETH), CZ (BNB), Doge Lord (DOGE), Cardano Knight (ADA), Solana Flash (SOL)
+- **Unique Stats**: Each fighter has HP, ATK, DEF, SPD, and a special move with unique power
+- **4 Moves**: Attack (direct damage), Defend (block), Special (powerful unique move), Counter (reflect attacks)
+- **Rock-Paper-Scissors Combat**: Counter beats Special, Defend blocks Attack, Special hits hard, Attack beats Counter
+- **AI Bot Opponents**: 5 bot personalities (IronFist, ShieldWall, TrickStar, BerserkerBot, GrandMaster)
+- **15 Turns Max**: Game ends when HP reaches 0 or after 15 turns (highest HP wins)
+- **DB Table**: `fighter_duels` (HP tracking, battle log as JSON, bot match support)
+- **API**: `/api/fighters` (roster), `/api/fighters/play-vs-bot` (instant bot match), `/api/fighters/duels/:id` (get duel), `/api/fighters/duels/:id/move` (submit move), `/api/fighters/leaderboard`
+- **Frontend**: `client/src/pages/fighter-battle.tsx`, integrated as tab in Games Arena (`/arena`)
+- **Backend**: `server/fighter-routes.ts`
+
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.
 - **Launch Alerts**: Real-time Twitter alerts for new token/NFA launches.

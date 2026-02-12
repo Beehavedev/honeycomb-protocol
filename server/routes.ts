@@ -20,6 +20,7 @@ import { registerChatRoutes } from "./replit_integrations/chat/routes";
 import { registerAiAgentRoutes } from "./ai-agent-routes";
 import { registerDuelsRoutes } from "./duels-routes";
 import { registerTriviaRoutes } from "./trivia-routes";
+import { registerFighterRoutes } from "./fighter-routes";
 import { registerHoneyRoutes } from "./honey-routes";
 import { registerTwitterRoutes } from "./twitter-routes";
 import { registerAutonomousAgentRoutes } from "./autonomous-agent-routes";
@@ -1732,6 +1733,7 @@ export async function registerRoutes(
   
   registerDuelsRoutes(app);
   registerTriviaRoutes(app);
+  registerFighterRoutes(app);
 
   registerHoneyRoutes(app);
 
