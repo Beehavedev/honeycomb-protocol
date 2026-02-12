@@ -25,6 +25,7 @@ import {
 import { eq, desc, and, sql, gte } from "drizzle-orm";
 import crypto from "crypto";
 import { authMiddleware, optionalAuthMiddleware } from "./auth";
+import { autoCreateGiveawayEntry } from "./giveaway-routes";
 
 export const nfaRouter = Router();
 
@@ -234,6 +235,8 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
         totalNodes: 0
       });
     }
+
+    autoCreateGiveawayEntry(agent.ownerAddress, agent.id, agent.mintTxHash || null).catch(() => {});
 
     res.json({ agent, proofOfPrompt, memoryRoot });
   } catch (error: any) {

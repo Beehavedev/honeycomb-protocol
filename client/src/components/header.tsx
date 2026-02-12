@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2 } from "lucide-react";
+import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -32,6 +32,7 @@ export function Header() {
 
   const mobileNavItems = [
     { href: "/arena", label: "Trading Arena", icon: Swords },
+    { href: "/giveaway", label: "$500 Giveaway", icon: Gift },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/moltbook", label: "Moltbook", icon: Link2 },
@@ -128,6 +129,18 @@ export function Header() {
                 </Link>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Link href="/giveaway">
+              <Button
+                variant={location === "/giveaway" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-1 text-amber-600 dark:text-amber-400"
+                data-testid="link-giveaway"
+              >
+                <Gift className="h-3.5 w-3.5" />
+                $500 Giveaway
+              </Button>
+            </Link>
 
             <Link href="/rewards">
               <Button

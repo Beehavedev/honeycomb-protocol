@@ -2539,3 +2539,37 @@ export const arenaChatMessages = pgTable("arena_chat_messages", {
 export const insertArenaChatMessageSchema = createInsertSchema(arenaChatMessages).omit({ id: true, createdAt: true });
 export type ArenaChatMessage = typeof arenaChatMessages.$inferSelect;
 export type InsertArenaChatMessage = z.infer<typeof insertArenaChatMessageSchema>;
+
+export const giveawayCampaigns = pgTable("giveaway_campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  prizeAmountUsd: integer("prize_amount_usd").notNull(),
+  taskType: text("task_type").notNull().default("mint_nfa"),
+  startAt: timestamp("start_at").notNull(),
+  endAt: timestamp("end_at").notNull(),
+  status: text("status").notNull().default("active"),
+  winnerEntryId: varchar("winner_entry_id"),
+  winnerWallet: text("winner_wallet"),
+  drawnAt: timestamp("drawn_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const giveawayEntries = pgTable("giveaway_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  nfaId: varchar("nfa_id"),
+  mintTxHash: text("mint_tx_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  unique("unique_campaign_wallet").on(table.campaignId, table.walletAddress),
+]);
+
+export const insertGiveawayCampaignSchema = createInsertSchema(giveawayCampaigns).omit({ id: true, createdAt: true, winnerEntryId: true, winnerWallet: true, drawnAt: true });
+export type GiveawayCampaign = typeof giveawayCampaigns.$inferSelect;
+export type InsertGiveawayCampaign = z.infer<typeof insertGiveawayCampaignSchema>;
+
+export const insertGiveawayEntrySchema = createInsertSchema(giveawayEntries).omit({ id: true, createdAt: true });
+export type GiveawayEntry = typeof giveawayEntries.$inferSelect;
+export type InsertGiveawayEntry = z.infer<typeof insertGiveawayEntrySchema>;
