@@ -2616,3 +2616,41 @@ export const insertTriviaDuelSchema = createInsertSchema(triviaDuels).pick({
 
 export type TriviaDuel = typeof triviaDuels.$inferSelect;
 export type InsertTriviaDuel = z.infer<typeof insertTriviaDuelSchema>;
+
+// ============ Crypto Fighters ============
+
+export const fighterDuels = pgTable("fighter_duels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorName: text("creator_name").notNull(),
+  creatorAddress: text("creator_address"),
+  joinerName: text("joiner_name"),
+  joinerAddress: text("joiner_address"),
+  creatorFighter: text("creator_fighter"),
+  joinerFighter: text("joiner_fighter"),
+  creatorHp: integer("creator_hp").notNull().default(100),
+  joinerHp: integer("joiner_hp").notNull().default(100),
+  creatorMaxHp: integer("creator_max_hp").notNull().default(100),
+  joinerMaxHp: integer("joiner_max_hp").notNull().default(100),
+  currentTurn: integer("current_turn").notNull().default(1),
+  maxTurns: integer("max_turns").notNull().default(15),
+  creatorMove: text("creator_move"),
+  joinerMove: text("joiner_move"),
+  battleLog: text("battle_log").notNull().default("[]"),
+  status: text("status").notNull().default("waiting"),
+  winnerId: text("winner_id"),
+  isBotMatch: boolean("is_bot_match").notNull().default(false),
+  botName: text("bot_name"),
+  botStyle: text("bot_style"),
+  potAmount: text("pot_amount").notNull().default("0"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertFighterDuelSchema = createInsertSchema(fighterDuels).pick({
+  creatorName: true,
+  creatorAddress: true,
+});
+
+export type FighterDuel = typeof fighterDuels.$inferSelect;
+export type InsertFighterDuel = z.infer<typeof insertFighterDuelSchema>;
