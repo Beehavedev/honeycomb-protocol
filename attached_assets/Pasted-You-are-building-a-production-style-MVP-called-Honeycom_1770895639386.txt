@@ -1,0 +1,121 @@
+You are building a production-style MVP called “Honeycomb Game Hub” for BNB Chain.
+
+Goal:
+Create a web app where we can drop in ready-made HTML5 games (Phaser or plain canvas) and run wagered matches:
+- Player vs Player (PvP)
+- Player vs AI Agent (PvE)
+- Agent vs Agent (AvA)
+
+We do NOT build new games from scratch. We build an integration layer:
+- Each game is a “Game Adapter” with a standard interface.
+- BeePay escrow locks funds before match.
+- On match end, we settle via BAP-578 executeAction-like calls (for now mocked, later wired to on-chain).
+
+Tech stack:
+- Next.js (App Router) + TypeScript for frontend
+- Node/Express (or Next API routes) for backend
+- WebSocket for real-time match state (use ws library)
+- ethers v6 for on-chain interactions
+- SQLite (better-sqlite3) for MVP persistence (matches, players, results, leaderboard)
+- Tailwind optional but keep UI clean.
+
+Required pages:
+1) / : Home dashboard with “Create Match”, “Join Match”, “Leaderboards”
+2) /games : list installed games (each game adapter)
+3) /match/[id] : match room (lobby -> escrow -> game -> results)
+4) /admin/games : upload/register a game adapter (MVP: register by config)
+
+Core concepts:
+A) GameAdapter interface (TypeScript):
+- id, name, version
+- modeSupport: ["PVP","PVE","AVA"]
+- init({matchId, players, seed, durationMs}): returns initialState
+- onInput({playerId, inputEvent}): returns updatedState
+- tick({dt}): returns updatedState (for deterministic updates)
+- getScore({state}): returns { [playerId]: number }
+- isOver({state, elapsedMs}): boolean
+- getResult({state}): { winnerId|null, scores, reason }
+- renderClient: game client component path (lazy import)
+
+B) Match lifecycle:
+1. Created -> WaitingForPlayers
+2. EscrowPending (both parties lock stake)
+3. Live (timer running, game active)
+4. Finished (winner decided)
+5. Settled (BeePay releases pot; platform fee deducted)
+6. Leaderboard updated
+
+C) BeePay escrow (MVP):
+- Implement BeePayService with two modes:
+  1) Mock mode (default): simulates locking and releasing funds
+  2) On-chain mode: include contract ABI + functions, but can remain stubbed if not deployable.
+- Expose endpoints:
+  POST /api/match/create {gameId, mode, stakeWei, durationMs}
+  POST /api/match/join {matchId, playerAddress}
+  POST /api/match/escrow/lock {matchId, playerAddress}  -> returns lockTxHash or mock id
+  POST /api/match/start {matchId}
+  POST /api/match/finish {matchId}
+  POST /api/match/settle {matchId} -> triggers executeAction settlement
+
+D) BAP-578 executeAction integration (MVP):
+- Create ExecuteActionService with method:
+  executeAction({actionType, payload}) -> returns {ok, txHash?, mockId}
+- Define action types:
+  ACTION_LOCK_ESCROW
+  ACTION_START_MATCH
+  ACTION_FINISH_MATCH
+  ACTION_SETTLE
+- In MVP, these are mocked but structured so we can wire to real BAP-578 later.
+
+E) WebSocket real-time:
+- ws server at /ws
+- Channels per matchId
+- Events:
+  MATCH_STATE (server->clients)
+  PLAYER_INPUT (client->server)
+  SYSTEM_LOG (server->clients)
+  ESCROW_STATUS
+  MATCH_RESULT
+- Server authoritative: accepts inputs, updates adapter state, broadcasts.
+
+F) Leaderboards:
+- Store per gameId:
+  - wins, losses, totalPnlWei, matchesPlayed
+- Show Daily and Weekly leaderboards (MVP: compute by timestamp filtering).
+
+Games to include as examples:
+1) “Reaction Duel” (simple template): players press a key after a random “GO” signal; fastest wins.
+2) “Aim Trainer Duel” (click targets on canvas; score count).
+3) “PnL Duel (stub)” adapter: no charts; just simulates PnL via random walk for now to test settlement flow.
+
+Important rules:
+- Use deterministic seeds for fair matches.
+- For PvP stake matches: both deposit same stake. Pot = 2*stake. Fee = 10% default configurable. Winner receives pot - fee.
+- If tie: split pot minus fee or refund minus small fee (config).
+- Prevent cheating: server is authoritative, clients only send inputs.
+
+Deliverables:
+- Full working Replit project with instructions in README.
+- Clean folder structure:
+  /apps/web (next)
+  /apps/server (ws + api)
+  /packages/shared (types, adapter interface, utils)
+  /packages/adapters (game adapters)
+  /packages/contracts (BeePay ABI + deploy scripts placeholder)
+- Provide .env.example:
+  RPC_URL, PRIVATE_KEY (optional), CHAIN_ID, FEE_BPS, DB_PATH, MOCK_MODE=true
+
+Implementation steps:
+1) Scaffold monorepo (pnpm or npm workspaces).
+2) Build shared types and adapter interface.
+3) Build server: match engine, ws, sqlite persistence, API endpoints.
+4) Build web UI: create/join match, lobby, escrow buttons, start match, game screen, results.
+5) Implement 3 adapters listed above.
+6) Add a simple “drop-in adapter” registration system: adapters export metadata; /games reads from registry.
+7) Make sure everything runs with one command: npm run dev (starts web + server concurrently).
+
+Testing:
+- Provide a script to simulate 2 players with bot inputs.
+- Ensure match flow works end-to-end in MOCK_MODE.
+
+Now implement it.

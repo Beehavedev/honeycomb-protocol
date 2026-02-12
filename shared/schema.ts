@@ -2683,3 +2683,81 @@ export const insertFighterProfileSchema = createInsertSchema(fighterProfiles).pi
 
 export type FighterProfile = typeof fighterProfiles.$inferSelect;
 export type InsertFighterProfile = z.infer<typeof insertFighterProfileSchema>;
+
+// ===== GAME HUB TABLES =====
+
+export const hubGames = pgTable("hub_games", {
+  id: varchar("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull().default("gamepad"),
+  modeSupport: text("mode_support").array().default(sql`ARRAY['PVP','PVE']::text[]`),
+  minPlayers: integer("min_players").notNull().default(2),
+  maxPlayers: integer("max_players").notNull().default(2),
+  defaultDurationMs: integer("default_duration_ms").notNull().default(60000),
+  defaultStakeWei: text("default_stake_wei").notNull().default("0"),
+  feeBps: integer("fee_bps").notNull().default(1000),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type HubGame = typeof hubGames.$inferSelect;
+
+export const hubMatches = pgTable("hub_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameId: varchar("game_id").notNull(),
+  mode: text("mode").notNull().default("PVE"),
+  status: text("status").notNull().default("created"),
+  stakeWei: text("stake_wei").notNull().default("0"),
+  durationMs: integer("duration_ms").notNull().default(60000),
+  seed: text("seed").notNull(),
+  stateJson: text("state_json").notNull().default("{}"),
+  resultJson: text("result_json"),
+  winnerId: text("winner_id"),
+  potWei: text("pot_wei").notNull().default("0"),
+  feeWei: text("fee_wei").notNull().default("0"),
+  escrowMockId: text("escrow_mock_id"),
+  settleTxHash: text("settle_tx_hash"),
+  isBotMatch: boolean("is_bot_match").notNull().default(false),
+  botName: text("bot_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  settledAt: timestamp("settled_at"),
+});
+
+export const insertHubMatchSchema = createInsertSchema(hubMatches).pick({
+  gameId: true,
+  mode: true,
+  stakeWei: true,
+  durationMs: true,
+});
+
+export type HubMatch = typeof hubMatches.$inferSelect;
+export type InsertHubMatch = z.infer<typeof insertHubMatchSchema>;
+
+export const hubMatchPlayers = pgTable("hub_match_players", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").notNull(),
+  playerName: text("player_name").notNull(),
+  playerAddress: text("player_address"),
+  slot: integer("slot").notNull().default(0),
+  score: integer("score").notNull().default(0),
+  escrowLocked: boolean("escrow_locked").notNull().default(false),
+  isBot: boolean("is_bot").notNull().default(false),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export type HubMatchPlayer = typeof hubMatchPlayers.$inferSelect;
+
+export const hubLeaderboard = pgTable("hub_leaderboard", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameId: varchar("game_id").notNull(),
+  playerName: text("player_name").notNull(),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  draws: integer("draws").notNull().default(0),
+  totalScore: integer("total_score").notNull().default(0),
+  matchesPlayed: integer("matches_played").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

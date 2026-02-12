@@ -65,6 +65,7 @@ import { ArenaChat } from "@/components/arena-chat";
 const LazyPredict = lazy(() => import("@/pages/predict"));
 const LazyTrivia = lazy(() => import("@/pages/trivia-battle"));
 const LazyFighter = lazy(() => import("@/pages/fighter-battle"));
+const LazyGameHub = lazy(() => import("@/pages/game-hub"));
 
 function PredictContent() {
   return (
@@ -101,6 +102,19 @@ function FighterContent() {
       </div>
     }>
       <LazyFighter />
+    </Suspense>
+  );
+}
+
+function GameHubContent() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-green-400" />
+        <p className="text-sm text-muted-foreground">Loading Game Hub...</p>
+      </div>
+    }>
+      <LazyGameHub />
     </Suspense>
   );
 }
@@ -3676,6 +3690,13 @@ export default function TradingArena() {
           >
             <Swords className="w-4 h-4 mr-1.5" /> Crypto Fighters
           </Button>
+          <Button
+            variant={gameMode === "gamehub" ? "default" : "outline"}
+            onClick={() => setGameMode("gamehub")}
+            data-testid="button-game-hub"
+          >
+            <Gamepad2 className="w-4 h-4 mr-1.5" /> Game Hub
+          </Button>
         </div>
 
         {gameMode === "trading" ? (
@@ -3684,6 +3705,8 @@ export default function TradingArena() {
           <PredictContent />
         ) : gameMode === "trivia" ? (
           <TriviaContent />
+        ) : gameMode === "gamehub" ? (
+          <GameHubContent />
         ) : (
           <FighterContent />
         )}

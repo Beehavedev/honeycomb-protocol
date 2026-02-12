@@ -28,6 +28,7 @@ import beepayRoutes from "./beepay-routes";
 import { nfaRouter } from "./nfa-routes";
 import { giveawayRouter, seedGiveawayCampaign } from "./giveaway-routes";
 import crmRoutes from "./crm-routes";
+import gameHubRoutes from "./game-hub/routes";
 import {
   registerAgentRequestSchema,
   createPostRequestSchema,
@@ -1755,6 +1756,9 @@ export async function registerRoutes(
 
   // Register CRM routes
   app.use("/api/crm", crmRoutes);
+
+  // Register Game Hub routes
+  app.use("/api/hub", gameHubRoutes);
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
   app.post("/api/admin/set-cooldown", async (req, res) => {
