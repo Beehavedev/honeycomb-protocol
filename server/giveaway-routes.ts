@@ -8,6 +8,35 @@ export const giveawayRouter = Router();
 
 const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7";
 
+export async function seedGiveawayCampaign() {
+  try {
+    const existing = await db
+      .select()
+      .from(giveawayCampaigns)
+      .where(eq(giveawayCampaigns.taskType, "mint_nfa"))
+      .limit(1);
+
+    if (existing.length === 0) {
+      const now = new Date();
+      const endAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      await db.insert(giveawayCampaigns).values({
+        name: "NFA Mint Giveaway",
+        description: "Mint a Non-Fungible Agent on-chain and get a chance to win $500! One lucky winner will be randomly selected from all participants who mint an NFA during the campaign period.",
+        prizeAmountUsd: 500,
+        taskType: "mint_nfa",
+        startAt: now,
+        endAt: endAt,
+        status: "active",
+      });
+      console.log("[Giveaway] Seeded NFA Mint Giveaway campaign (7-day duration)");
+    } else {
+      console.log("[Giveaway] Campaign already exists, skipping seed");
+    }
+  } catch (error) {
+    console.error("[Giveaway] Error seeding campaign:", error);
+  }
+}
+
 giveawayRouter.get("/active", async (_req: Request, res: Response) => {
   try {
     const now = new Date();

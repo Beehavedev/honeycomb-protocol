@@ -24,7 +24,7 @@ import { registerTwitterRoutes } from "./twitter-routes";
 import { registerAutonomousAgentRoutes } from "./autonomous-agent-routes";
 import beepayRoutes from "./beepay-routes";
 import { nfaRouter } from "./nfa-routes";
-import { giveawayRouter } from "./giveaway-routes";
+import { giveawayRouter, seedGiveawayCampaign } from "./giveaway-routes";
 import crmRoutes from "./crm-routes";
 import {
   registerAgentRequestSchema,
@@ -1747,6 +1747,7 @@ export async function registerRoutes(
 
   // Register Giveaway campaign routes
   app.use("/api/giveaways", giveawayRouter);
+  seedGiveawayCampaign();
 
   // Register CRM routes
   app.use("/api/crm", crmRoutes);
