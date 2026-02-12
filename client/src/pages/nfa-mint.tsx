@@ -18,7 +18,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getToken } from "@/lib/auth";
 import { Link } from "wouter";
-import { useBAP578MintAgent, useBAP578MintFee, useBAP578TokenAddress, useRegisterAgentOnRegistry } from "@/contracts/hooks";
+import { useBAP578MintAgent, useBAP578MintFee, useBAP578FreeMints, useBAP578TokenAddress, useRegisterAgentOnRegistry } from "@/contracts/hooks";
 
 const MODEL_TYPES = [
   { value: "gpt-4", label: "GPT-4", provider: "OpenAI" },
@@ -104,11 +104,15 @@ export default function NfaMint() {
   const learningModules = modulesData?.modules || [];
 
   const { data: mintFeeData } = useBAP578MintFee();
+  const { data: freeMintsData } = useBAP578FreeMints(address);
+  const freeMints = freeMintsData ? Number(freeMintsData) : 0;
+  const mintFeeAmount = mintFeeData ? BigInt(mintFeeData.toString()) : BigInt(0);
+  const effectiveFee = freeMints > 0 ? BigInt(0) : mintFeeAmount;
   const { mintAgent: mintOnChain, hash: txHash, isPending: isTxPending, isConfirming, isSuccess: isTxConfirmed, receipt, error: txError, contractAddress: bap578Address, lastMintNonce } = useBAP578MintAgent();
   const { registerAgent: registerOnRegistry, hash: registryTxHash, isPending: isRegistryPending, isConfirming: isRegistryConfirming, isSuccess: isRegistrySuccess, error: registryError, registryAddress } = useRegisterAgentOnRegistry();
 
-  const mintFee = BigInt(0);
-  const mintFeeDisplay = "FREE";
+  const mintFee = effectiveFee;
+  const mintFeeDisplay = freeMints > 0 ? `FREE (${freeMints} left)` : mintFeeAmount > 0 ? `${Number(mintFeeAmount) / 1e18} BNB` : "FREE";
 
   const syncMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
@@ -397,25 +401,22 @@ export default function NfaMint() {
     try {
       setMintStep("signing");
 
-      const proofOfPrompt = await generateProofOfPrompt(systemPrompt, modelType);
-      const memoryRootValue = generateMemoryRoot();
-
-      const fee = BigInt(0);
+      const feeDescription = freeMints > 0
+        ? `FREE mint (${freeMints} free mints remaining)`
+        : `0.01 BNB mint fee`;
 
       toast({
         title: "Confirm Transaction",
-        description: "Please confirm the minting transaction (FREE - no cost) in your wallet.",
+        description: `Please confirm the minting transaction (${feeDescription}) in your wallet.`,
       });
 
       await mintOnChain({
         name: name.trim(),
         description: description.trim() || "",
-        modelType,
-        agentType: agentType === "LEARNING" ? 1 : 0,
-        systemPromptHash: proofOfPrompt as `0x${string}`,
-        initialMemoryRoot: memoryRootValue as `0x${string}`,
+        persona: persona || name.trim(),
+        experience: experience || description.trim() || "",
         metadataURI: metadataUri || "",
-        mintFee: fee,
+        mintFee: effectiveFee,
       });
 
       setMintStep("confirming");

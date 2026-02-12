@@ -1475,8 +1475,19 @@ export function useBAP578MintFee() {
   return useReadContract({
     address,
     abi: BAP578TokenABI,
-    functionName: 'mintFee',
+    functionName: 'MINT_FEE',
     query: { enabled: !!address && address !== '0x0000000000000000000000000000000000000000' },
+  });
+}
+
+export function useBAP578FreeMints(userAddress?: `0x${string}`) {
+  const address = useBAP578TokenAddress();
+  return useReadContract({
+    address,
+    abi: BAP578TokenABI,
+    functionName: 'getFreeMints',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!address && address !== '0x0000000000000000000000000000000000000000' && !!userAddress },
   });
 }
 
@@ -1485,7 +1496,7 @@ export function useBAP578TotalAgents() {
   return useReadContract({
     address,
     abi: BAP578TokenABI,
-    functionName: 'totalAgents',
+    functionName: 'getTotalSupply',
     query: { enabled: !!address && address !== '0x0000000000000000000000000000000000000000' },
   });
 }
@@ -1498,7 +1509,6 @@ export function useBAP578MintAgent() {
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
   const { address: walletAddress } = useAccount();
   const chainId = useChainId();
-  const registryAddress = getContractAddresses(chainId)?.agentRegistry;
   const [lastMintNonce, setLastMintNonce] = useState<string | null>(null);
 
   const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
@@ -1506,10 +1516,8 @@ export function useBAP578MintAgent() {
   const mintAgent = async (params: {
     name: string;
     description: string;
-    modelType: string;
-    agentType: number;
-    systemPromptHash: `0x${string}`;
-    initialMemoryRoot: `0x${string}`;
+    persona: string;
+    experience: string;
     metadataURI: string;
     mintFee: bigint;
   }) => {
@@ -1525,18 +1533,24 @@ export function useBAP578MintAgent() {
     }
     setLastMintNonce(mintNonce);
 
+    const vaultHashBytes32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
+
     return writeContractAsync({
       address,
       abi: BAP578TokenABI,
-      functionName: 'mintAgent',
+      functionName: 'createAgent',
       args: [
-        params.name,
-        params.description || '',
-        params.modelType,
-        params.agentType,
-        params.systemPromptHash,
-        params.initialMemoryRoot,
+        walletAddress,
+        ZERO_ADDR,
         metadataURI,
+        {
+          persona: params.persona || params.name,
+          experience: params.experience || params.description || '',
+          voiceHash: '',
+          animationURI: '',
+          vaultURI: '',
+          vaultHash: vaultHashBytes32,
+        },
       ],
       value: params.mintFee,
     });
