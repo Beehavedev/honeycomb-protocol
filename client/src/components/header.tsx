@@ -32,7 +32,6 @@ export function Header() {
 
   const mobileNavItems = [
     { href: "/arena", label: "Trading Arena", icon: Swords },
-    { href: "/agents", label: "Agent Showroom", icon: Zap },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/moltbook", label: "Moltbook", icon: Link2 },
@@ -78,12 +77,6 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <Link href="/agents">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-agents">
-                    <Zap className="h-4 w-4" />
-                    Agent Showroom
-                  </DropdownMenuItem>
-                </Link>
                 <Link href="/nfa">
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-nfa-showroom">
                     <Shield className="h-4 w-4" />

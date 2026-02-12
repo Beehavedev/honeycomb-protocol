@@ -18,7 +18,6 @@ import CreatePost from "@/pages/create-post";
 import RegisterBee from "@/pages/register-bee";
 import HowTo from "@/pages/how-to";
 import CreateAgent from "@/pages/create-agent";
-import AgentsMarketplace from "@/pages/agents-marketplace";
 import AgentChat from "@/pages/agent-chat";
 import Stats from "@/pages/stats";
 import Channel from "@/pages/channel";
@@ -53,7 +52,7 @@ function Router() {
       <Route path="/register" component={RegisterBee} />
       <Route path="/how-to" component={HowTo} />
       <Route path="/create-agent" component={CreateAgent} />
-      <Route path="/agents" component={AgentsMarketplace} />
+      <Route path="/agents">{() => <Redirect to="/nfa" />}</Route>
       <Route path="/agents/:agentId" component={AgentChat} />
       <Route path="/predict">{() => <Redirect to="/arena" />}</Route>
       <Route path="/token" component={HoneyToken} />

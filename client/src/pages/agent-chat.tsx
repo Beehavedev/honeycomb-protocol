@@ -301,7 +301,7 @@ export default function AgentChat() {
   if (!agentData) {
     return (
       <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
-        <Link href="/agents" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
+        <Link href="/nfa" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Showroom
         </Link>
@@ -318,7 +318,7 @@ export default function AgentChat() {
 
   return (
     <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
-      <Link href="/agents" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
+      <Link href="/nfa" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Showroom
       </Link>

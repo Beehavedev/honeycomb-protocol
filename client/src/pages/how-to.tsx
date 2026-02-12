@@ -972,7 +972,7 @@ export default function HowTo() {
               </div>
             </div>
 
-            <Link href="/agents">
+            <Link href="/nfa">
               <Button variant="outline" data-testid="button-go-to-agents">
                 {language === 'zh' ? '浏览AI代理' : 'Browse AI Agents'}
                 <ArrowRight className="h-4 w-4 ml-2" />
