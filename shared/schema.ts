@@ -1535,6 +1535,8 @@ export const nfaAgents = pgTable("nfa_agents", {
   onChainTokenId: integer("on_chain_token_id"), // Token ID assigned by BAP578 contract
   contractAddress: text("contract_address"), // BAP578 proxy contract address
   mintNonce: text("mint_nonce"), // Unique nonce for on-chain tokenURI resolution
+  registryStatus: text("registry_status").notNull().default("pending"), // pending, registered, failed
+  registryTxHash: text("registry_tx_hash"), // HoneycombAgentRegistry registration tx hash
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastActiveAt: timestamp("last_active_at").defaultNow().notNull(),
 });

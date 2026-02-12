@@ -38,6 +38,8 @@ interface NfaAgent {
   mintTxHash: string | null;
   onChainTokenId: number | null;
   contractAddress: string | null;
+  registryStatus: string;
+  registryTxHash: string | null;
 }
 
 interface LeaderboardEntry {
@@ -70,15 +72,23 @@ function AgentCard({ agent }: { agent: NfaAgent }) {
                 <span className="text-xs text-muted-foreground">{agent.modelType}</span>
               </div>
             </div>
-            <div className="flex gap-1 flex-shrink-0">
+            <div className="flex gap-1 flex-shrink-0 flex-wrap">
               {agent.agentType === "LEARNING" && (
                 <Badge variant="secondary" className="gap-1 text-xs">
                   <Brain className="h-3 w-3" />
                   Learn
                 </Badge>
               )}
-              {agent.mintTxHash && (
-                <Badge variant="outline" className="text-xs">On-Chain</Badge>
+              {agent.registryStatus === "registered" ? (
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Shield className="h-3 w-3" />
+                  Registered
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="text-xs gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Not Registered
+                </Badge>
               )}
             </div>
           </div>
@@ -470,10 +480,25 @@ export default function NfaMarketplace() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myAgents.map(agent => (
-                  <AgentCard key={agent.id} agent={agent} />
-                ))}
+              <div className="space-y-4">
+                {myAgents.some(a => a.registryStatus !== "registered") && (
+                  <Card className="border-destructive/50">
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Unregistered Agents Detected</p>
+                        <p className="text-xs text-muted-foreground">
+                          Some of your agents are not registered on the HoneycombAgentRegistry. They won't appear in the public showroom until registered. Go to the agent's detail page to complete registration.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {myAgents.map(agent => (
+                    <AgentCard key={agent.id} agent={agent} />
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>

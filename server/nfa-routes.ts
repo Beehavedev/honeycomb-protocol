@@ -26,6 +26,24 @@ import { eq, desc, and, sql, gte } from "drizzle-orm";
 import crypto from "crypto";
 import { authMiddleware, optionalAuthMiddleware } from "./auth";
 import { autoCreateGiveawayEntry } from "./giveaway-routes";
+import { createPublicClient, http } from "viem";
+import { bsc } from "viem/chains";
+
+const REGISTRY_ADDRESS = "0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651" as `0x${string}`;
+const REGISTRY_ABI = [
+  {
+    inputs: [{ name: "owner", type: "address" }],
+    name: "getAgentByOwner",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const bscClient = createPublicClient({
+  chain: bsc,
+  transport: http("https://bsc-dataseed1.binance.org"),
+});
 
 export const nfaRouter = Router();
 
@@ -190,7 +208,7 @@ nfaRouter.get("/metadata/by-nonce/:nonce", async (req: Request, res: Response) =
 
 nfaRouter.get("/agents", async (req: Request, res: Response) => {
   try {
-    const { category, status, agentType, owner, limit = "20", offset = "0" } = req.query;
+    const { category, status, agentType, owner, includeUnregistered, limit = "20", offset = "0" } = req.query;
 
     let agents = await db
       .select()
@@ -199,6 +217,9 @@ nfaRouter.get("/agents", async (req: Request, res: Response) => {
       .limit(parseInt(limit as string))
       .offset(parseInt(offset as string));
 
+    if (!owner && !includeUnregistered) {
+      agents = agents.filter(a => a.registryStatus === "registered");
+    }
     if (category) {
       agents = agents.filter(a => a.category === category);
     }
@@ -391,6 +412,65 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
     console.error("Error minting NFA agent:", error);
     const errorMessage = error?.message || error?.toString() || "Failed to mint agent";
     res.status(500).json({ error: errorMessage });
+  }
+});
+
+nfaRouter.post("/agents/:id/confirm-registry", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { registryTxHash } = req.body;
+
+    if (!registryTxHash) {
+      return res.status(400).json({ error: "registryTxHash is required" });
+    }
+
+    const txHashRegex = /^0x[a-fA-F0-9]{64}$/;
+    if (!txHashRegex.test(registryTxHash)) {
+      return res.status(400).json({ error: "Invalid transaction hash format" });
+    }
+
+    const agents = await db.select().from(nfaAgents).where(eq(nfaAgents.id, id));
+    if (agents.length === 0) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+
+    if (agents[0].ownerAddress.toLowerCase() !== req.walletAddress?.toLowerCase()) {
+      return res.status(403).json({ error: "Only the owner can confirm registry" });
+    }
+
+    let onChainVerified = false;
+    try {
+      const registryAgentId = await bscClient.readContract({
+        address: REGISTRY_ADDRESS,
+        abi: REGISTRY_ABI,
+        functionName: "getAgentByOwner",
+        args: [agents[0].ownerAddress as `0x${string}`],
+      });
+      onChainVerified = registryAgentId !== undefined && Number(registryAgentId) > 0;
+    } catch (rpcErr: any) {
+      console.warn("[NFA] On-chain registry check failed, allowing tx-hash fallback:", rpcErr?.message?.slice(0, 120));
+      const receipt = await bscClient.getTransactionReceipt({ hash: registryTxHash as `0x${string}` }).catch(() => null);
+      onChainVerified = receipt?.status === "success";
+    }
+
+    if (!onChainVerified) {
+      return res.status(400).json({ error: "On-chain registry verification failed. Ensure the registration transaction was confirmed on BNB Chain." });
+    }
+
+    const result = await db
+      .update(nfaAgents)
+      .set({
+        registryStatus: "registered",
+        registryTxHash,
+        lastActiveAt: new Date(),
+      })
+      .where(eq(nfaAgents.id, id))
+      .returning();
+
+    res.json({ agent: result[0] });
+  } catch (error) {
+    console.error("Error confirming registry:", error);
+    res.status(500).json({ error: "Failed to confirm registry registration" });
   }
 });
 

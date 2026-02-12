@@ -90,6 +90,7 @@ export default function NfaMint() {
   const [step, setStep] = useState(1);
   const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "registering" | "registry_failed" | "done">("idle");
   const [registryErrorMsg, setRegistryErrorMsg] = useState("");
+  const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
 
   const { data: templatesData } = useQuery<{ templates: Template[] }>({
     queryKey: ["/api/nfa/templates"],
@@ -130,7 +131,9 @@ export default function NfaMint() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
+      const agentId = data?.agent?.id;
+      if (agentId) setCreatedAgentId(agentId);
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
       setMintStep("registering");
       toast({
@@ -169,25 +172,49 @@ export default function NfaMint() {
   }, [txError]);
 
   useEffect(() => {
-    if (isRegistrySuccess && (mintStep === "registering" || mintStep === "registry_failed")) {
+    if (isRegistrySuccess && registryTxHash && (mintStep === "registering" || mintStep === "registry_failed")) {
+      if (createdAgentId) {
+        const token = getToken();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        fetch(`/api/nfa/agents/${createdAgentId}/confirm-registry`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ registryTxHash }),
+          credentials: "include",
+        }).catch(() => {});
+      }
       setMintStep("done");
       setRegistryErrorMsg("");
       toast({
         title: "Fully Registered",
         description: "Your NFA is now registered on both BAP-578 and the HoneycombAgentRegistry.",
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
     }
-  }, [isRegistrySuccess]);
+  }, [isRegistrySuccess, registryTxHash]);
 
   useEffect(() => {
     if (registryError && mintStep === "registering") {
       const msg = registryError.message || "";
       if (msg.includes("AgentAlreadyRegistered")) {
+        if (createdAgentId) {
+          const token = getToken();
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          fetch(`/api/nfa/agents/${createdAgentId}/confirm-registry`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ registryTxHash: "0x" + "0".repeat(64) }),
+            credentials: "include",
+          }).catch(() => {});
+        }
         toast({
           title: "Already Registered",
           description: "This wallet is already registered on the HoneycombAgentRegistry.",
         });
         setMintStep("done");
+        queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
       } else {
         const userMsg = msg.includes("User rejected") || msg.includes("denied")
           ? "You must complete registry registration. Your NFA won't appear on-chain scanners without it."
@@ -522,7 +549,7 @@ export default function NfaMint() {
                   Back to Showroom
                 </Button>
               </Link>
-              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); setRegistryErrorMsg(""); }} data-testid="button-mint-another">
+              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); setRegistryErrorMsg(""); setCreatedAgentId(null); }} data-testid="button-mint-another">
                 Mint Another
               </Button>
             </div>

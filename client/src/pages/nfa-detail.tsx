@@ -63,6 +63,8 @@ interface NfaAgent {
   mintTxHash: string | null;
   onChainTokenId: number | null;
   contractAddress: string | null;
+  registryStatus: string;
+  registryTxHash: string | null;
 }
 
 interface NfaStats {
@@ -443,9 +445,15 @@ export default function NfaDetail() {
                       </Badge>
                     )}
                     {isOwner && <Badge variant="outline" className="text-xs">Owner</Badge>}
-                    {agent.mintTxHash && (
-                      <Badge variant="outline" className="text-xs">On-Chain</Badge>
-                    )}
+                    {agent.registryStatus === "registered" ? (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Shield className="h-3 w-3" /> Registered
+                      </Badge>
+                    ) : isOwner ? (
+                      <Badge variant="destructive" className="text-xs gap-1">
+                        <ShieldX className="h-3 w-3" /> Not Registered
+                      </Badge>
+                    ) : null}
                   </div>
                   <p className="text-sm text-muted-foreground mt-2 max-w-xl" data-testid="text-description">
                     {agent.description || "No description provided."}
@@ -496,6 +504,28 @@ export default function NfaDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {isOwner && agent.registryStatus !== "registered" && (
+          <Card className="border-destructive/50">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="p-3 rounded-full bg-destructive/10 flex-shrink-0">
+                <ShieldX className="h-6 w-6 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm">Registry Registration Required</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  This agent is NOT registered on the HoneycombAgentRegistry. It won't appear in the public showroom or be discoverable by other users until registered. Please complete registration.
+                </p>
+              </div>
+              <Link href="/nfa/mint">
+                <Button className="gap-2 flex-shrink-0" data-testid="button-register-now">
+                  <Shield className="h-4 w-4" />
+                  Register Now
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
           <div>
