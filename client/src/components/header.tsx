@@ -27,12 +27,13 @@ export function Header() {
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
   const isArenaActive = location.startsWith("/arena");
-  const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery");
+  const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery") || location.startsWith("/nfa");
   const isCommunityActive = location === "/feed" || location === "/create" || location === "/token";
 
   const mobileNavItems = [
     { href: "/arena", label: "Trading Arena", icon: Swords },
-    { href: "/agents", label: "Agent Market", icon: Zap },
+    { href: "/agents", label: "Agent Showroom", icon: Zap },
+    { href: "/nfa", label: "NFA Showroom", icon: Shield },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/moltbook", label: "Moltbook", icon: Link2 },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
@@ -81,6 +82,12 @@ export function Header() {
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-agents">
                     <Zap className="h-4 w-4" />
                     Agent Showroom
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/nfa">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-nfa-showroom">
+                    <Shield className="h-4 w-4" />
+                    NFA Showroom
                   </DropdownMenuItem>
                 </Link>
                 <Link href="/hatchery">
