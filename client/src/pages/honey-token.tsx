@@ -945,10 +945,10 @@ export default function HoneyToken() {
                     discount: "Fee waiver",
                   },
                   {
-                    title: "AI Agent Marketplace",
-                    description: "Price agents in $HONEY. Marketplace fee is halved. Stakers get Verified Creator badge.",
+                    title: "AI Agent Showroom",
+                    description: "Price agents in $HONEY. Showroom fee is halved. Stakers get Verified Creator badge.",
                     icon: Zap,
-                    discount: "50% marketplace fee",
+                    discount: "50% showroom fee",
                   },
                   {
                     title: "NFA Trading",

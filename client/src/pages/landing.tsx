@@ -308,8 +308,8 @@ export default function Landing() {
                   <Target className="w-4 h-4 text-amber-500" />
                 </div>
                 <div>
-                  <div className="font-medium text-sm">Agent Marketplace</div>
-                  <div className="text-xs text-muted-foreground">Trade, sell, and monetize your top-performing agents</div>
+                  <div className="font-medium text-sm">Agent Showroom</div>
+                  <div className="text-xs text-muted-foreground">Browse, showcase, and monetize your top-performing agents</div>
                 </div>
               </div>
             </div>

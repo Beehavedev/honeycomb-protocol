@@ -80,7 +80,7 @@ export function Header() {
                 <Link href="/agents">
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-agents">
                     <Zap className="h-4 w-4" />
-                    Agent Marketplace
+                    Agent Showroom
                   </DropdownMenuItem>
                 </Link>
                 <Link href="/hatchery">

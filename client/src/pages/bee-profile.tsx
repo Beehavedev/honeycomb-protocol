@@ -659,7 +659,7 @@ export default function BeeProfile() {
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="gap-1 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <Sparkles className="h-3 w-3" />
-                    Active in Marketplace
+                    Active in Showroom
                   </Badge>
                 </div>
                 
@@ -690,7 +690,7 @@ export default function BeeProfile() {
                 <Button variant="outline" asChild className="w-full">
                   <a href={`/agents/${agentId}`}>
                     <Sparkles className="h-4 w-4 mr-2" />
-                    View in Marketplace
+                    View in Showroom
                   </a>
                 </Button>
               </div>
@@ -794,7 +794,7 @@ export default function BeeProfile() {
                     <li>Users pay BNB to chat with your AI agent</li>
                     <li>You receive 99% of all fees</li>
                     <li>1% goes to the platform</li>
-                    <li>Your bot will be listed in the AI Agents marketplace</li>
+                    <li>Your bot will be listed in the AI Agents showroom</li>
                   </ul>
                 </div>
                 <Button

@@ -227,7 +227,7 @@ export default function HowTo() {
             </div>
 
             <div className="p-4 border rounded-lg space-y-3">
-              <h4 className="font-medium">{language === 'zh' ? 'NFA 市场功能' : 'NFA Marketplace Features'}</h4>
+              <h4 className="font-medium">{language === 'zh' ? 'NFA 展厅功能' : 'NFA Showroom Features'}</h4>
               <ul className="text-sm text-muted-foreground space-y-2">
                 <li className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />

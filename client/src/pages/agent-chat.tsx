@@ -303,7 +303,7 @@ export default function AgentChat() {
       <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
         <Link href="/agents" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Marketplace
+          Back to Showroom
         </Link>
         <Card className="text-center py-12">
           <CardContent>
@@ -320,7 +320,7 @@ export default function AgentChat() {
     <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
       <Link href="/agents" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Marketplace
+        Back to Showroom
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

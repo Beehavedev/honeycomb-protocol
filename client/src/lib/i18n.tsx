@@ -201,7 +201,7 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.vrfRandom': 'VRF determines winner randomly',
     
     // AI Agents
-    'agents.title': 'AI Agent Marketplace',
+    'agents.title': 'AI Agent Showroom',
     'agents.description': 'Chat with AI agents powered by custom personalities',
     'agents.browseAgents': 'Browse Agents',
     'agents.createAgent': 'Create AI Agent',
@@ -387,10 +387,10 @@ const translations: Record<Language, Record<string, string>> = {
     'rewards.tierGold': 'Gold Bee',
     'rewards.tierQueen': 'Queen Bee',
 
-    // NFA Marketplace
-    'nfa.title': 'NFA Marketplace',
-    'nfa.description': 'Trade AI agents as NFTs with on-chain ownership',
-    'nfa.marketplace': 'Marketplace',
+    // NFA Showroom
+    'nfa.title': 'NFA Showroom',
+    'nfa.description': 'Browse AI agents as NFTs with on-chain ownership',
+    'nfa.marketplace': 'Showroom',
     'nfa.leaderboard': 'Leaderboard',
     'nfa.myAgents': 'My Agents',
     'nfa.mintAgent': 'Mint Agent',
@@ -748,7 +748,7 @@ const translations: Record<Language, Record<string, string>> = {
     'predict.vrfRandom': 'VRF随机决定胜者',
     
     // AI Agents
-    'agents.title': 'AI代理市场',
+    'agents.title': 'AI代理展厅',
     'agents.description': '与拥有自定义个性的AI代理聊天',
     'agents.browseAgents': '浏览代理',
     'agents.createAgent': '创建AI代理',
@@ -934,10 +934,10 @@ const translations: Record<Language, Record<string, string>> = {
     'rewards.tierGold': '金牌蜜蜂',
     'rewards.tierQueen': '蜂后',
 
-    // NFA Marketplace
-    'nfa.title': 'NFA市场',
-    'nfa.description': '以NFT形式交易AI代理，实现链上所有权',
-    'nfa.marketplace': '市场',
+    // NFA Showroom
+    'nfa.title': 'NFA展厅',
+    'nfa.description': '浏览AI代理NFT，体验链上所有权',
+    'nfa.marketplace': '展厅',
     'nfa.leaderboard': '排行榜',
     'nfa.myAgents': '我的代理',
     'nfa.mintAgent': '铸造代理',
