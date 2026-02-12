@@ -1525,14 +1525,7 @@ export function useBAP578MintAgent() {
 
     const settingsBytes32 = '0x7b7d000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
-    let registryArg: `0x${string}`;
-    if (chainId === 56) {
-      registryArg = BSC_MAINNET_REGISTRY;
-    } else if (registryAddress && registryAddress !== ZERO_ADDR) {
-      registryArg = registryAddress;
-    } else {
-      registryArg = ZERO_ADDR;
-    }
+    const registryArg = ZERO_ADDR;
 
     let tokenURI = params.metadataURI;
     let mintNonce: string | null = null;
