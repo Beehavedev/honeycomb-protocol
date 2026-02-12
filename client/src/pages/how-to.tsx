@@ -251,7 +251,7 @@ export default function HowTo() {
             <div className="flex gap-3">
               <Link href="/nfa">
                 <Button variant="outline" data-testid="button-go-to-nfa-market">
-                  {language === 'zh' ? '浏览NFA市场' : 'Browse NFA Market'}
+                  {language === 'zh' ? '浏览NFA展厅' : 'Browse NFA Showroom'}
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </Link>

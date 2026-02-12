@@ -130,7 +130,6 @@ export default function NfaMint() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/nfa/marketplace/listings"] });
       setMintStep("done");
       toast({
         title: "NFA Minted & Registered",
@@ -362,8 +361,8 @@ export default function NfaMint() {
             )}
             <div className="flex gap-3">
               <Link href="/nfa">
-                <Button variant="outline" data-testid="button-back-marketplace">
-                  Back to Marketplace
+                <Button variant="outline" data-testid="button-back-showroom">
+                  Back to Showroom
                 </Button>
               </Link>
               <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); }} data-testid="button-mint-another">
@@ -384,7 +383,7 @@ export default function NfaMint() {
         <Link href="/nfa">
           <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
-            Back to Marketplace
+            Back to Showroom
           </Button>
         </Link>
       </div>

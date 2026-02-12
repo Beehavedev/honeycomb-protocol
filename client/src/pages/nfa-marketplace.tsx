@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,20 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Bot, Brain, ShoppingCart, Star, Zap, Trophy, Search, Plus, TrendingUp,
-  Shield, Pause, XCircle, Wallet, Loader2, Grid3X3,
-  LayoutList, Activity, ArrowUpRight, RefreshCw, User
+  Bot, Brain, Star, Zap, Trophy, Search, Plus, TrendingUp,
+  Shield, Pause, XCircle, Wallet, Grid3X3,
+  LayoutList, ArrowUpRight, RefreshCw, User, ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useHoneyTier } from "@/hooks/use-honey-tier";
-import { FeeDiscountBadge } from "@/components/tier-badge";
-import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseEther } from "viem";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { BAP578MarketplaceABI } from "@/contracts/abis";
-import { getNFAMarketplaceAddresses, NFA_FEE_WALLET } from "@/contracts/addresses";
-import { useI18n } from "@/lib/i18n";
+import { useAccount } from "wagmi";
 
 interface NfaAgent {
   id: string;
@@ -44,18 +36,6 @@ interface NfaAgent {
   contractAddress: string | null;
 }
 
-interface NfaListing {
-  listing: {
-    id: string;
-    nfaId: string;
-    priceWei: string;
-    priceDisplay: string;
-    active: boolean;
-    listedAt: string;
-  };
-  agent: NfaAgent;
-}
-
 interface LeaderboardEntry {
   agent: NfaAgent;
   stats: {
@@ -66,145 +46,84 @@ interface LeaderboardEntry {
   } | null;
 }
 
-function NfaCard({ listing, agent, onBuy, isBuying, isOwner, platformFee }: {
-  listing: NfaListing["listing"];
-  agent: NfaAgent;
-  onBuy: () => void;
-  isBuying: boolean;
-  isOwner: boolean;
-  platformFee: number;
-}) {
+function AgentCard({ agent }: { agent: NfaAgent }) {
   return (
-    <Card className="hover-elevate" data-testid={`card-nfa-${agent.id}`}>
-      <CardContent className="p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <Avatar className="h-10 w-10 border">
-            <AvatarFallback className="bg-primary/10 text-foreground text-sm font-bold">
-              {agent.name.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <Link href={`/nfa/${agent.id}`}>
-              <h3 className="font-semibold truncate hover:text-primary transition-colors cursor-pointer" data-testid={`text-nfa-name-${agent.id}`}>
+    <Link href={`/nfa/${agent.id}`}>
+      <Card className="hover-elevate cursor-pointer h-full" data-testid={`card-nfa-${agent.id}`}>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <Avatar className="h-10 w-10 border">
+              <AvatarFallback className="bg-primary/10 text-foreground text-sm font-bold">
+                {agent.name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold truncate" data-testid={`text-nfa-name-${agent.id}`}>
                 {agent.name}
               </h3>
-            </Link>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Badge variant="outline" className="text-xs">#{agent.tokenId}</Badge>
-              <span className="text-xs text-muted-foreground">{agent.modelType}</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Badge variant="outline" className="text-xs">#{agent.tokenId}</Badge>
+                <span className="text-xs text-muted-foreground">{agent.modelType}</span>
+              </div>
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              {agent.agentType === "LEARNING" && (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <Brain className="h-3 w-3" />
+                  Learn
+                </Badge>
+              )}
+              {agent.mintTxHash && (
+                <Badge variant="outline" className="text-xs">On-Chain</Badge>
+              )}
             </div>
           </div>
-          {agent.agentType === "LEARNING" && (
-            <Badge variant="secondary" className="gap-1 text-xs flex-shrink-0">
-              <Brain className="h-3 w-3" />
-              Learn
-            </Badge>
-          )}
-        </div>
 
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {agent.description || "No description provided."}
-        </p>
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {agent.description || "No description provided."}
+          </p>
 
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Zap className="h-3 w-3" />
-            {agent.interactionCount}
-          </span>
-          <span className="flex items-center gap-1">
-            <Wallet className="h-3 w-3" />
-            {(parseFloat(agent.balance) / 1e18).toFixed(3)} BNB
-          </span>
-          {agent.status !== "ACTIVE" && (
-            <Badge variant={agent.status === "PAUSED" ? "secondary" : "destructive"} className="text-xs gap-1">
-              {agent.status === "PAUSED" ? <Pause className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-              {agent.status}
-            </Badge>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between pt-2 border-t">
-          <div>
-            <span className="text-lg font-bold">{listing.priceDisplay}</span>
-            <span className="text-xs text-muted-foreground ml-1">+ {platformFee}% fee</span>
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Zap className="h-3 w-3" />
+                {agent.interactionCount}
+              </span>
+              <span className="flex items-center gap-1">
+                <Wallet className="h-3 w-3" />
+                {(parseFloat(agent.balance) / 1e18).toFixed(3)} BNB
+              </span>
+              {agent.status !== "ACTIVE" && (
+                <Badge variant={agent.status === "PAUSED" ? "secondary" : "destructive"} className="text-xs gap-1">
+                  {agent.status === "PAUSED" ? <Pause className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                  {agent.status}
+                </Badge>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-view-${agent.id}`}>
+              View <ArrowUpRight className="h-3 w-3" />
+            </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href={`/nfa/${agent.id}`}>
-              <Button variant="ghost" size="sm" className="gap-1" data-testid={`button-view-${agent.id}`}>
-                View <ArrowUpRight className="h-3 w-3" />
-              </Button>
-            </Link>
-            {!isOwner && (
-              <Button
-                size="sm"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onBuy(); }}
-                disabled={isBuying}
-                data-testid={`button-buy-${agent.id}`}
-              >
-                {isBuying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4 mr-1" />}
-                Buy
-              </Button>
-            )}
-            {isOwner && (
-              <Badge variant="outline">Owned</Badge>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
 export default function NfaMarketplace() {
-  const { isAuthenticated, authenticate } = useAuth();
-  const { feeDiscount, hasTier } = useHoneyTier();
+  const { isAuthenticated } = useAuth();
   const { address, isConnected } = useAccount();
-  const chainId = useChainId();
-  const { toast } = useToast();
-  const { t } = useI18n();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<string>("recent");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [buyingId, setBuyingId] = useState<string | null>(null);
-  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | null>(null);
 
-  const marketplaceAddresses = getNFAMarketplaceAddresses(chainId);
-  const isMarketplaceDeployed = marketplaceAddresses?.marketplace !== "0x0000000000000000000000000000000000000000";
-
-  const { writeContractAsync } = useWriteContract();
-
-  const { isLoading: isWaitingTx } = useWaitForTransactionReceipt({
-    hash: pendingTxHash ?? undefined,
-  });
-
-  const ensureAuthenticated = async () => {
-    if (!isAuthenticated) {
-      try {
-        await authenticate();
-        return true;
-      } catch {
-        toast({
-          title: t('nfa.authRequired'),
-          description: t('nfa.authRequiredDesc'),
-          variant: "destructive",
-        });
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const { data: listingsData, isLoading: listingsLoading, refetch } = useQuery<{ listings: NfaListing[] }>({
-    queryKey: ["/api/nfa/marketplace/listings"],
+  const { data: allAgentsData, isLoading: agentsLoading, refetch } = useQuery<{ agents: NfaAgent[] }>({
+    queryKey: ["/api/nfa/agents"],
   });
 
   const { data: leaderboardData } = useQuery<{ agents: LeaderboardEntry[] }>({
     queryKey: ["/api/nfa/leaderboard/interactions"],
-  });
-
-  const { data: feeData } = useQuery<{ platformFeePercent: number; feeWallet: string }>({
-    queryKey: ["/api/nfa/marketplace/fees"],
   });
 
   const { data: myAgentsData, isLoading: myAgentsLoading } = useQuery<{ agents: NfaAgent[] }>({
@@ -212,81 +131,31 @@ export default function NfaMarketplace() {
     enabled: isConnected && !!address,
   });
 
-  const buyMutation = useMutation({
-    mutationFn: async ({ nfaId, tokenId, priceWei }: { nfaId: string; tokenId: number; priceWei: string }) => {
-      if (!await ensureAuthenticated()) throw new Error(t('nfa.notAuthenticated'));
-      setBuyingId(nfaId);
-
-      if (isMarketplaceDeployed && marketplaceAddresses) {
-        const txHash = await writeContractAsync({
-          address: marketplaceAddresses.marketplace,
-          abi: BAP578MarketplaceABI,
-          functionName: "buy",
-          args: [BigInt(tokenId)],
-          value: BigInt(priceWei),
-        });
-
-        setPendingTxHash(txHash);
-
-        const result = await apiRequest("POST", "/api/nfa/marketplace/buy", {
-          nfaId,
-          txHash,
-          onChain: true
-        });
-
-        setPendingTxHash(null);
-        return result;
-      } else {
-        return apiRequest("POST", "/api/nfa/marketplace/buy", { nfaId });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/nfa/marketplace/listings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
-      toast({
-        title: t('nfa.purchaseSuccess'),
-        description: t('nfa.purchaseSuccessDesc'),
-      });
-      setBuyingId(null);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t('nfa.purchaseFailed'),
-        description: error.message,
-        variant: "destructive",
-      });
-      setBuyingId(null);
-      setPendingTxHash(null);
-    },
-  });
-
-  const listings = listingsData?.listings || [];
+  const allAgents = allAgentsData?.agents || [];
   const leaderboard = leaderboardData?.agents || [];
   const myAgents = myAgentsData?.agents || [];
-  const platformFeePercent = feeData?.platformFeePercent || 1;
 
-  const filteredListings = listings.filter(item => {
+  const filteredAgents = allAgents.filter(agent => {
     const matchesSearch = !searchQuery ||
-      item.agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.agent.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
-  const sortedListings = [...filteredListings].sort((a, b) => {
+  const sortedAgents = [...filteredAgents].sort((a, b) => {
     switch (sortBy) {
-      case "price-low":
-        return parseFloat(a.listing.priceWei) - parseFloat(b.listing.priceWei);
-      case "price-high":
-        return parseFloat(b.listing.priceWei) - parseFloat(a.listing.priceWei);
       case "interactions":
-        return b.agent.interactionCount - a.agent.interactionCount;
+        return b.interactionCount - a.interactionCount;
+      case "name":
+        return a.name.localeCompare(b.name);
       case "recent":
       default:
-        return new Date(b.listing.listedAt).getTime() - new Date(a.listing.listedAt).getTime();
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     }
   });
 
-  const totalVolume = listings.reduce((sum, l) => sum + parseFloat(l.listing.priceWei), 0);
+  const learningCount = allAgents.filter(a => a.agentType === "LEARNING").length;
+  const onChainCount = allAgents.filter(a => a.mintTxHash).length;
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -294,13 +163,19 @@ export default function NfaMarketplace() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-page-title">
             <Bot className="h-6 w-6 text-primary" />
-            NFA Marketplace
+            NFA Showroom
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Trade Non-Fungible Agents (BAP-578) on BNB Chain
+            Browse Non-Fungible Agents (BAP-578) on BNB Chain
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <a href="https://nfamarket.io" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" className="gap-2" data-testid="button-trade-nfamarket">
+              <ExternalLink className="h-4 w-4" />
+              Trade on nfamarket.io
+            </Button>
+          </a>
           {isAuthenticated && (
             <Link href="/nfa/mint">
               <Button className="gap-2" data-testid="button-mint-nfa">
@@ -316,25 +191,25 @@ export default function NfaMarketplace() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <Card data-testid="stat-listed">
+        <Card data-testid="stat-total">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="p-2 rounded-md bg-amber-500/10">
               <Bot className="h-4 w-4 text-amber-500" />
             </div>
             <div>
-              <p className="text-xl font-bold">{listings.length}</p>
-              <p className="text-xs text-muted-foreground">Listed</p>
+              <p className="text-xl font-bold">{allAgents.length}</p>
+              <p className="text-xs text-muted-foreground">Total Agents</p>
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-volume">
+        <Card data-testid="stat-onchain">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="p-2 rounded-md bg-green-500/10">
-              <TrendingUp className="h-4 w-4 text-green-500" />
+              <Shield className="h-4 w-4 text-green-500" />
             </div>
             <div>
-              <p className="text-xl font-bold">{(totalVolume / 1e18).toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground">Volume (BNB)</p>
+              <p className="text-xl font-bold">{onChainCount}</p>
+              <p className="text-xs text-muted-foreground">On-Chain</p>
             </div>
           </CardContent>
         </Card>
@@ -344,34 +219,34 @@ export default function NfaMarketplace() {
               <Brain className="h-4 w-4 text-blue-500" />
             </div>
             <div>
-              <p className="text-xl font-bold">
-                {listings.filter(l => l.agent.agentType === "LEARNING").length}
-              </p>
+              <p className="text-xl font-bold">{learningCount}</p>
               <p className="text-xs text-muted-foreground">Learning</p>
             </div>
           </CardContent>
         </Card>
-        <Card data-testid="stat-fee">
+        <Card data-testid="stat-trending">
           <CardContent className="p-3 flex items-center gap-3">
             <div className="p-2 rounded-md bg-purple-500/10">
-              <Shield className="h-4 w-4 text-purple-500" />
+              <TrendingUp className="h-4 w-4 text-purple-500" />
             </div>
             <div>
-              <p className="text-xl font-bold">{platformFeePercent}%</p>
-              <p className="text-xs text-muted-foreground">Platform Fee</p>
+              <p className="text-xl font-bold">
+                {allAgents.reduce((sum, a) => sum + a.interactionCount, 0)}
+              </p>
+              <p className="text-xs text-muted-foreground">Interactions</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="explore" className="w-full">
+      <Tabs defaultValue="all-agents" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="explore" className="gap-1.5" data-testid="tab-marketplace">
-            <ShoppingCart className="h-4 w-4" />
-            Marketplace
+          <TabsTrigger value="all-agents" className="gap-1.5" data-testid="tab-all-agents">
+            <Bot className="h-4 w-4" />
+            All Agents
           </TabsTrigger>
           {isConnected && (
-            <TabsTrigger value="my-nfas" className="gap-1.5" data-testid="tab-my-nfas">
+            <TabsTrigger value="my-agents" className="gap-1.5" data-testid="tab-my-agents">
               <User className="h-4 w-4" />
               My Agents
             </TabsTrigger>
@@ -382,7 +257,7 @@ export default function NfaMarketplace() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="explore">
+        <TabsContent value="all-agents">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -401,10 +276,9 @@ export default function NfaMarketplace() {
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="recent">Recently Listed</SelectItem>
-                  <SelectItem value="price-low">Price: Low to High</SelectItem>
-                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="recent">Most Recent</SelectItem>
                   <SelectItem value="interactions">Most Popular</SelectItem>
+                  <SelectItem value="name">Name A-Z</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -429,14 +303,11 @@ export default function NfaMarketplace() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm text-muted-foreground" data-testid="text-result-count">
-              {sortedListings.length} result{sortedListings.length !== 1 ? "s" : ""}
-            </p>
-            {hasTier && <FeeDiscountBadge feeDiscount={feeDiscount} originalFee={`${platformFeePercent}%`} />}
-          </div>
+          <p className="text-sm text-muted-foreground mb-3" data-testid="text-result-count">
+            {sortedAgents.length} agent{sortedAgents.length !== 1 ? "s" : ""}
+          </p>
 
-          {listingsLoading ? (
+          {agentsLoading ? (
             <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
               {[1, 2, 3, 4, 5, 6].map(i => (
                 <Card key={i} className="animate-pulse">
@@ -453,7 +324,7 @@ export default function NfaMarketplace() {
                 </Card>
               ))}
             </div>
-          ) : sortedListings.length === 0 ? (
+          ) : sortedAgents.length === 0 ? (
             <Card className="py-16">
               <CardContent className="flex flex-col items-center gap-4 text-center">
                 <div className="p-4 rounded-full bg-muted">
@@ -464,8 +335,7 @@ export default function NfaMarketplace() {
                   <p className="text-muted-foreground text-sm max-w-sm">
                     {searchQuery
                       ? "Try adjusting your search query."
-                      : "Be the first to list your NFA on the marketplace."
-                    }
+                      : "Be the first to mint a Non-Fungible Agent."}
                   </p>
                 </div>
                 <Link href="/nfa/mint">
@@ -478,27 +348,15 @@ export default function NfaMarketplace() {
             </Card>
           ) : (
             <div className={`grid gap-4 ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
-              {sortedListings.map(({ listing, agent }) => (
-                <NfaCard
-                  key={agent.id}
-                  listing={listing}
-                  agent={agent}
-                  onBuy={() => buyMutation.mutate({
-                    nfaId: agent.id,
-                    tokenId: agent.tokenId,
-                    priceWei: listing.priceWei
-                  })}
-                  isBuying={buyingId === agent.id || isWaitingTx}
-                  isOwner={agent.ownerAddress.toLowerCase() === address?.toLowerCase()}
-                  platformFee={platformFeePercent}
-                />
+              {sortedAgents.map(agent => (
+                <AgentCard key={agent.id} agent={agent} />
               ))}
             </div>
           )}
         </TabsContent>
 
         {isConnected && (
-          <TabsContent value="my-nfas">
+          <TabsContent value="my-agents">
             {myAgentsLoading ? (
               <div className="text-center py-12 text-muted-foreground">Loading your agents...</div>
             ) : myAgents.length === 0 ? (
@@ -520,48 +378,7 @@ export default function NfaMarketplace() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {myAgents.map(agent => (
-                  <Link key={agent.id} href={`/nfa/${agent.id}`}>
-                    <Card className="hover-elevate cursor-pointer h-full">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9 border">
-                              <AvatarFallback className="bg-primary/10 text-foreground text-xs font-bold">
-                                {agent.name.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <h4 className="font-semibold truncate">{agent.name}</h4>
-                              <p className="text-xs text-muted-foreground">{agent.modelType}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <Badge variant={agent.status === "ACTIVE" ? "default" : agent.status === "PAUSED" ? "secondary" : "destructive"} className="text-xs">
-                              {agent.status}
-                            </Badge>
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {agent.description || "No description"}
-                        </p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground pt-2 border-t">
-                          <span className="flex items-center gap-1">
-                            <Zap className="h-3 w-3" />
-                            {agent.interactionCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Wallet className="h-3 w-3" />
-                            {(parseFloat(agent.balance) / 1e18).toFixed(3)} BNB
-                          </span>
-                          {agent.agentType === "LEARNING" && (
-                            <Badge variant="outline" className="text-xs gap-1">
-                              <Brain className="h-3 w-3" /> v{agent.learningVersion}
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <AgentCard key={agent.id} agent={agent} />
                 ))}
               </div>
             )}

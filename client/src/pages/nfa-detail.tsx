@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Bot, Brain, Zap, ArrowLeft, Star, ShoppingCart, Activity,
+  Bot, Brain, Zap, ArrowLeft, Star, Activity,
   Database, Fingerprint, TrendingUp, MessageSquare, Shield, History,
   DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3,
   Send, Loader2, Swords, ArrowUpDown, Coins, ArrowRightLeft, Settings,
@@ -150,7 +150,6 @@ export default function NfaDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [listPrice, setListPrice] = useState("");
   const [fundAmount, setFundAmount] = useState("");
   const [newRating, setNewRating] = useState(5);
   const [selectedActionType, setSelectedActionType] = useState("CHAT");
@@ -268,37 +267,6 @@ export default function NfaDetail() {
     },
   });
 
-  const listMutation = useMutation({
-    mutationFn: async (price: string) => {
-      if (!await ensureAuthenticated()) throw new Error("Not authenticated");
-      const priceWei = (parseFloat(price) * 1e18).toString();
-      return apiRequest("POST", "/api/nfa/marketplace/list", {
-        nfaId,
-        priceWei,
-        priceDisplay: `${price} BNB`,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId] });
-      toast({ title: "Agent Listed", description: "Your NFA is now for sale." });
-      setListPrice("");
-    },
-    onError: (error: Error) => {
-      toast({ title: "Listing Failed", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const delistMutation = useMutation({
-    mutationFn: async () => {
-      if (!await ensureAuthenticated()) throw new Error("Not authenticated");
-      return apiRequest("POST", `/api/nfa/marketplace/delist/${nfaId}`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId] });
-      toast({ title: "Listing Removed", description: "Your NFA is no longer for sale." });
-    },
-  });
-
   const rateMutation = useMutation({
     mutationFn: async (rating: number) => {
       if (!await ensureAuthenticated()) throw new Error("Not authenticated");
@@ -380,7 +348,7 @@ export default function NfaDetail() {
             <h2 className="text-lg font-semibold">Agent Not Found</h2>
             <p className="text-muted-foreground text-sm">This agent doesn't exist or has been removed.</p>
             <Link href="/nfa">
-              <Button>Back to Marketplace</Button>
+              <Button>Back to Showroom</Button>
             </Link>
           </CardContent>
         </Card>
@@ -444,7 +412,7 @@ export default function NfaDetail() {
         <Link href="/nfa">
           <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
-            Back to Marketplace
+            Back to Showroom
           </Button>
         </Link>
       </div>
@@ -497,16 +465,12 @@ export default function NfaDetail() {
               </div>
 
               <div className="flex flex-wrap gap-2 flex-shrink-0">
-                {listing?.active && !isOwner && isConnected && (
-                  <Button data-testid="button-buy">
-                    <ShoppingCart className="h-4 w-4 mr-1" /> Buy {listing.priceDisplay}
+                <a href="https://nfamarket.io" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="gap-2" data-testid="button-trade-nfamarket">
+                    <ExternalLink className="h-4 w-4" />
+                    Trade on nfamarket.io
                   </Button>
-                )}
-                {listing?.active && (
-                  <Badge variant="outline" className="py-1.5 px-3">
-                    <TrendingUp className="h-3 w-3 mr-1" /> {listing.priceDisplay}
-                  </Badge>
-                )}
+                </a>
               </div>
             </div>
 
@@ -1042,42 +1006,15 @@ export default function NfaDetail() {
             {isOwner && agent.status !== "TERMINATED" && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Marketplace</CardTitle>
+                  <CardTitle className="text-sm font-medium">Trading</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {listing?.active ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => delistMutation.mutate()}
-                      disabled={delistMutation.isPending}
-                      data-testid="button-delist"
-                    >
-                      Remove Listing
+                  <a href="https://nfamarket.io" target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" size="sm" className="w-full gap-2" data-testid="button-trade-sidebar">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Trade on nfamarket.io
                     </Button>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Price in BNB"
-                          value={listPrice}
-                          onChange={(e) => setListPrice(e.target.value)}
-                          data-testid="input-list-price"
-                        />
-                        <Button
-                          size="icon"
-                          onClick={() => listMutation.mutate(listPrice)}
-                          disabled={!listPrice || listMutation.isPending}
-                          data-testid="button-list"
-                        >
-                          <DollarSign className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  </a>
                 </CardContent>
               </Card>
             )}

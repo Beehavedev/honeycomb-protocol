@@ -243,8 +243,8 @@ export default function ERC8004Register() {
 
           <div className="text-center">
             <Link href="/nfa">
-              <Button variant="outline" data-testid="link-nfa-marketplace">
-                View NFA Marketplace
+              <Button variant="outline" data-testid="link-nfa-showroom">
+                View NFA Showroom
               </Button>
             </Link>
           </div>
