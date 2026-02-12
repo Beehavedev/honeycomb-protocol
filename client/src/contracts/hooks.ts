@@ -1,4 +1,5 @@
 // Contract interaction hooks using wagmi
+import { useState } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId, useBalance, useSimulateContract, useAccount } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { 
@@ -1489,6 +1490,8 @@ export function useBAP578TotalAgents() {
   });
 }
 
+const BSC_MAINNET_REGISTRY = '0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651' as `0x${string}`;
+
 export function useBAP578MintAgent() {
   const address = useBAP578TokenAddress();
   const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
@@ -1496,6 +1499,7 @@ export function useBAP578MintAgent() {
   const { address: walletAddress } = useAccount();
   const chainId = useChainId();
   const registryAddress = getContractAddresses(chainId)?.agentRegistry;
+  const [lastMintNonce, setLastMintNonce] = useState<string | null>(null);
 
   const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
@@ -1521,7 +1525,23 @@ export function useBAP578MintAgent() {
 
     const settingsBytes32 = '0x7b7d000000000000000000000000000000000000000000000000000000000000' as `0x${string}`;
 
-    const registryArg = (registryAddress && registryAddress !== ZERO_ADDR) ? registryAddress : ZERO_ADDR;
+    let registryArg: `0x${string}`;
+    if (chainId === 56) {
+      registryArg = BSC_MAINNET_REGISTRY;
+    } else if (registryAddress && registryAddress !== ZERO_ADDR) {
+      registryArg = registryAddress;
+    } else {
+      registryArg = ZERO_ADDR;
+    }
+
+    let tokenURI = params.metadataURI;
+    let mintNonce: string | null = null;
+    if (!tokenURI) {
+      mintNonce = crypto.randomUUID();
+      const appBaseUrl = window.location.origin;
+      tokenURI = `${appBaseUrl}/api/nfa/metadata/by-nonce/${mintNonce}`;
+    }
+    setLastMintNonce(mintNonce);
 
     return writeContractAsync({
       address,
@@ -1530,7 +1550,7 @@ export function useBAP578MintAgent() {
       args: [
         walletAddress,
         registryArg,
-        params.metadataURI || '',
+        tokenURI,
         {
           personality: personalityJson,
           systemPrompt: params.description || `AI Assistant: ${params.name}`,
@@ -1543,7 +1563,7 @@ export function useBAP578MintAgent() {
     });
   };
 
-  return { mintAgent, hash, isPending, isConfirming, isSuccess, receipt, error, contractAddress: address };
+  return { mintAgent, hash, isPending, isConfirming, isSuccess, receipt, error, contractAddress: address, lastMintNonce };
 }
 
 export function useRegisterAgentOnRegistry() {

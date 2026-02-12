@@ -39,6 +39,153 @@ function generateMemoryRoot(memoryData: Record<string, string>): string {
   return "0x" + crypto.createHash("sha256").update(data).digest("hex");
 }
 
+// ==================== NFA On-Chain Metadata (ERC-721) ====================
+
+nfaRouter.get("/metadata/:tokenId", async (req: Request, res: Response) => {
+  try {
+    const tokenId = parseInt(req.params.tokenId);
+    if (isNaN(tokenId)) {
+      return res.status(400).json({ error: "Invalid token ID" });
+    }
+
+    const agents = await db
+      .select()
+      .from(nfaAgents)
+      .where(eq(nfaAgents.onChainTokenId, tokenId))
+      .limit(1);
+
+    let agent = agents[0];
+
+    if (!agent) {
+      const agentsByTokenId = await db
+        .select()
+        .from(nfaAgents)
+        .where(eq(nfaAgents.tokenId, tokenId))
+        .limit(1);
+      agent = agentsByTokenId[0];
+    }
+
+    if (!agent) {
+      return res.status(404).json({ error: "Agent not found" });
+    }
+
+    let personaData: any = {};
+    try {
+      if (agent.persona) personaData = JSON.parse(agent.persona);
+    } catch {}
+
+    const skills: string[] = [];
+    if (agent.category) skills.push(agent.category);
+    if (agent.agentType === "LEARNING") skills.push("Self-Learning");
+    if (personaData.capabilities) skills.push(...personaData.capabilities);
+
+    const metadata = {
+      name: agent.name,
+      description: agent.description || `${agent.name} - BAP-578 Non-Fungible Agent on Honeycomb`,
+      image: agent.animationUri || agent.metadataUri || "",
+      attributes: [
+        { trait_type: "Created By", value: agent.ownerAddress },
+        { trait_type: "Type", value: agent.agentType || "STATIC" },
+        { trait_type: "Model", value: agent.modelType },
+        { trait_type: "Category", value: agent.category || "General" },
+        ...(skills.length > 0 ? [{ trait_type: "Skills", value: skills.join(", ") }] : []),
+      ],
+      properties: {
+        uid: agent.id,
+        type: agent.agentType || "STATIC",
+        model: agent.modelType,
+        category: agent.category || "General",
+        skills,
+        learningEnabled: agent.learningEnabled,
+        contractAddress: agent.contractAddress || "0xd7Deb29ddBB13607375Ce50405A574AC2f7d978d",
+        onChainTokenId: agent.onChainTokenId || tokenId,
+      },
+      agent: {
+        type: agent.agentType || "STATIC",
+        model: agent.modelType,
+        skills,
+        uid: agent.id,
+        persona: personaData,
+      },
+    };
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.json(metadata);
+  } catch (error) {
+    console.error("Error fetching NFA metadata:", error);
+    res.status(500).json({ error: "Failed to fetch metadata" });
+  }
+});
+
+nfaRouter.get("/metadata/by-nonce/:nonce", async (req: Request, res: Response) => {
+  try {
+    const { nonce } = req.params;
+    if (!nonce) {
+      return res.status(400).json({ error: "Invalid nonce" });
+    }
+
+    const agents = await db
+      .select()
+      .from(nfaAgents)
+      .where(eq(nfaAgents.mintNonce, nonce))
+      .limit(1);
+
+    const agent = agents[0];
+    if (!agent) {
+      return res.status(404).json({ error: "Agent not found for this nonce" });
+    }
+
+    let personaData: any = {};
+    try {
+      if (agent.persona) personaData = JSON.parse(agent.persona);
+    } catch {}
+
+    const skills: string[] = [];
+    if (agent.category) skills.push(agent.category);
+    if (agent.agentType === "LEARNING") skills.push("Self-Learning");
+    if (personaData.capabilities) skills.push(...personaData.capabilities);
+
+    const metadata = {
+      name: agent.name,
+      description: agent.description || `${agent.name} - BAP-578 Non-Fungible Agent on Honeycomb`,
+      image: agent.animationUri || agent.metadataUri || "",
+      attributes: [
+        { trait_type: "Created By", value: agent.ownerAddress },
+        { trait_type: "Type", value: agent.agentType || "STATIC" },
+        { trait_type: "Model", value: agent.modelType },
+        { trait_type: "Category", value: agent.category || "General" },
+        ...(skills.length > 0 ? [{ trait_type: "Skills", value: skills.join(", ") }] : []),
+      ],
+      properties: {
+        uid: agent.id,
+        type: agent.agentType || "STATIC",
+        model: agent.modelType,
+        category: agent.category || "General",
+        skills,
+        learningEnabled: agent.learningEnabled,
+        contractAddress: agent.contractAddress || "0xd7Deb29ddBB13607375Ce50405A574AC2f7d978d",
+        onChainTokenId: agent.onChainTokenId,
+        mintNonce: nonce,
+      },
+      agent: {
+        type: agent.agentType || "STATIC",
+        model: agent.modelType,
+        skills,
+        uid: agent.id,
+        persona: personaData,
+      },
+    };
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.json(metadata);
+  } catch (error) {
+    console.error("Error fetching NFA metadata by nonce:", error);
+    res.status(500).json({ error: "Failed to fetch metadata" });
+  }
+});
+
 // ==================== NFA Agents ====================
 
 nfaRouter.get("/agents", async (req: Request, res: Response) => {
@@ -204,6 +351,7 @@ nfaRouter.post("/agents/mint", authMiddleware, async (req: Request, res: Respons
       mintTxHash: validated.mintTxHash,
       onChainTokenId: validated.onChainTokenId,
       contractAddress: validated.contractAddress,
+      mintNonce: validated.mintNonce,
     }).returning();
 
     const agent = result[0];

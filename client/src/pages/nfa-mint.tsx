@@ -102,7 +102,7 @@ export default function NfaMint() {
   const learningModules = modulesData?.modules || [];
 
   const { data: mintFeeData } = useBAP578MintFee();
-  const { mintAgent: mintOnChain, hash: txHash, isPending: isTxPending, isConfirming, isSuccess: isTxConfirmed, receipt, error: txError, contractAddress: bap578Address } = useBAP578MintAgent();
+  const { mintAgent: mintOnChain, hash: txHash, isPending: isTxPending, isConfirming, isSuccess: isTxConfirmed, receipt, error: txError, contractAddress: bap578Address, lastMintNonce } = useBAP578MintAgent();
 
   const mintFee = BigInt(0);
   const mintFeeDisplay = "FREE";
@@ -228,6 +228,9 @@ export default function NfaMint() {
     const onChainTokenId = parseTokenIdFromReceipt(receipt);
     const tokenId = onChainTokenId || Math.floor(Math.random() * 2147483647);
 
+    const resolvedMetadataUri = metadataUri || 
+      (onChainTokenId ? `${window.location.origin}/api/nfa/metadata/${onChainTokenId}` : "");
+
     syncMutation.mutate({
       tokenId,
       ownerAddress: address,
@@ -237,7 +240,7 @@ export default function NfaMint() {
       agentType,
       category,
       systemPrompt,
-      metadataUri,
+      metadataUri: resolvedMetadataUri,
       proofOfPrompt,
       memoryRoot: memoryRootValue,
       persona: persona || undefined,
@@ -248,6 +251,7 @@ export default function NfaMint() {
       mintTxHash: txHash,
       onChainTokenId: onChainTokenId,
       contractAddress: bap578Address,
+      mintNonce: lastMintNonce || undefined,
     });
   };
 

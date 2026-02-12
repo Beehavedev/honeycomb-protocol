@@ -1534,6 +1534,7 @@ export const nfaAgents = pgTable("nfa_agents", {
   mintTxHash: text("mint_tx_hash"), // On-chain minting transaction hash
   onChainTokenId: integer("on_chain_token_id"), // Token ID assigned by BAP578 contract
   contractAddress: text("contract_address"), // BAP578 proxy contract address
+  mintNonce: text("mint_nonce"), // Unique nonce for on-chain tokenURI resolution
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastActiveAt: timestamp("last_active_at").defaultNow().notNull(),
 });
@@ -1718,6 +1719,7 @@ export const insertNfaAgentSchema = createInsertSchema(nfaAgents).pick({
   mintTxHash: true,
   onChainTokenId: true,
   contractAddress: true,
+  mintNonce: true,
 });
 
 export const insertNfaLearningMetricsSchema = createInsertSchema(nfaLearningMetrics).pick({
