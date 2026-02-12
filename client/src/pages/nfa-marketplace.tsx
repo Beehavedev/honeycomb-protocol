@@ -11,10 +11,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Bot, Brain, Star, Zap, Trophy, Search, Plus, TrendingUp,
   Shield, Pause, XCircle, Wallet, Grid3X3,
-  LayoutList, ArrowUpRight, RefreshCw, User, ExternalLink
+  LayoutList, ArrowUpRight, RefreshCw, User, ExternalLink, AlertTriangle, Loader2
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId, useReadContract } from "wagmi";
+import { useRegisterAgentOnRegistry, useBAP578TokenAddress } from "@/contracts/hooks";
+import { BAP578TokenABI, HoneycombAgentRegistryABI } from "@/contracts/abis";
+import { getContractAddresses } from "@/contracts/addresses";
 
 interface NfaAgent {
   id: string;
@@ -107,6 +111,94 @@ function AgentCard({ agent }: { agent: NfaAgent }) {
         </CardContent>
       </Card>
     </Link>
+  );
+}
+
+function RegistryBanner() {
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { toast } = useToast();
+  const bap578Address = useBAP578TokenAddress();
+  const registryAddress = getContractAddresses(chainId)?.agentRegistry;
+  const [registering, setRegistering] = useState(false);
+
+  const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+
+  const { data: nfaBalance } = useReadContract({
+    address: bap578Address,
+    abi: BAP578TokenABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && !!address && !!bap578Address && bap578Address !== ZERO_ADDR },
+  });
+
+  const { data: registryAgentId } = useReadContract({
+    address: registryAddress as `0x${string}`,
+    abi: HoneycombAgentRegistryABI,
+    functionName: 'getAgentByOwner',
+    args: address ? [address] : undefined,
+    query: { enabled: isConnected && !!address && !!registryAddress && registryAddress !== ZERO_ADDR },
+  });
+
+  const { registerAgent, isPending, isConfirming, isSuccess, error } = useRegisterAgentOnRegistry();
+
+  const hasNFA = nfaBalance && Number(nfaBalance) > 0;
+  const isRegistered = registryAgentId && Number(registryAgentId) > 0;
+
+  if (!isConnected || !hasNFA || isRegistered || isSuccess) return null;
+
+  const handleRegister = async () => {
+    setRegistering(true);
+    try {
+      const metadataCID = `honeycomb:nfa:${address}`;
+      toast({
+        title: "Register on HoneycombAgentRegistry",
+        description: "Please confirm the transaction in your wallet.",
+      });
+      await registerAgent(metadataCID);
+      toast({
+        title: "Registered Successfully",
+        description: "Your wallet is now registered on the HoneycombAgentRegistry. Your NFA is fully on-chain.",
+      });
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("AgentAlreadyRegistered")) {
+        toast({ title: "Already Registered", description: "This wallet is already registered." });
+      } else if (!msg.includes("User rejected") && !msg.includes("denied")) {
+        toast({ title: "Registration Failed", description: msg, variant: "destructive" });
+      }
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  return (
+    <Card className="mb-6 border-amber-500/50 bg-amber-500/5" data-testid="banner-registry">
+      <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-sm">Your NFA is not registered on the HoneycombAgentRegistry</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              You have an NFA on the BAP-578 contract but it's not registered on the HoneycombAgentRegistry. Register now to appear on nfascan.net.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={handleRegister}
+          disabled={isPending || isConfirming || registering}
+          className="gap-2 flex-shrink-0"
+          data-testid="button-register-registry"
+        >
+          {(isPending || isConfirming || registering) ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Shield className="h-4 w-4" />
+          )}
+          {isPending ? "Confirm in Wallet..." : isConfirming ? "Confirming..." : "Register Now"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -238,6 +330,8 @@ export default function NfaMarketplace() {
           </CardContent>
         </Card>
       </div>
+
+      <RegistryBanner />
 
       <Tabs defaultValue="all-agents" className="w-full">
         <TabsList className="mb-4">

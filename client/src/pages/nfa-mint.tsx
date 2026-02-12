@@ -88,7 +88,8 @@ export default function NfaMint() {
   const [experience, setExperience] = useState("");
   const [learningModuleId, setLearningModuleId] = useState<string>("");
   const [step, setStep] = useState(1);
-  const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "done">("idle");
+  const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "registering" | "done">("idle");
+  const [registrySkipped, setRegistrySkipped] = useState(false);
 
   const { data: templatesData } = useQuery<{ templates: Template[] }>({
     queryKey: ["/api/nfa/templates"],
@@ -103,6 +104,7 @@ export default function NfaMint() {
 
   const { data: mintFeeData } = useBAP578MintFee();
   const { mintAgent: mintOnChain, hash: txHash, isPending: isTxPending, isConfirming, isSuccess: isTxConfirmed, receipt, error: txError, contractAddress: bap578Address, lastMintNonce } = useBAP578MintAgent();
+  const { registerAgent: registerOnRegistry, hash: registryTxHash, isPending: isRegistryPending, isConfirming: isRegistryConfirming, isSuccess: isRegistrySuccess, error: registryError, registryAddress } = useRegisterAgentOnRegistry();
 
   const mintFee = BigInt(0);
   const mintFeeDisplay = "FREE";
@@ -130,11 +132,12 @@ export default function NfaMint() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents"] });
-      setMintStep("done");
+      setMintStep("registering");
       toast({
-        title: "NFA Minted & Registered",
-        description: "Your Non-Fungible Agent is now registered on-chain via BAP-578.",
+        title: "NFA Minted on BAP-578",
+        description: "Now sign the second transaction to register on the HoneycombAgentRegistry.",
       });
+      handleRegistryRegistration();
     },
     onError: (error: Error) => {
       toast({
@@ -164,6 +167,70 @@ export default function NfaMint() {
       });
     }
   }, [txError]);
+
+  useEffect(() => {
+    if (isRegistrySuccess && mintStep === "registering") {
+      setMintStep("done");
+      setRegistrySkipped(false);
+      toast({
+        title: "Fully Registered",
+        description: "Your NFA is now registered on both BAP-578 and the HoneycombAgentRegistry.",
+      });
+    }
+  }, [isRegistrySuccess]);
+
+  useEffect(() => {
+    if (registryError && mintStep === "registering") {
+      const msg = registryError.message || "";
+      if (msg.includes("User rejected") || msg.includes("denied")) {
+        toast({
+          title: "Registry Registration Skipped",
+          description: "Your NFA was minted but not registered on the HoneycombAgentRegistry. You can register later from the NFA Showroom.",
+          variant: "destructive",
+        });
+        setRegistrySkipped(true);
+        setMintStep("done");
+      } else if (msg.includes("AgentAlreadyRegistered")) {
+        toast({
+          title: "Already Registered",
+          description: "This wallet is already registered on the HoneycombAgentRegistry.",
+        });
+        setMintStep("done");
+      } else {
+        toast({
+          title: "Registry Registration Failed",
+          description: msg || "Could not register on HoneycombAgentRegistry. You can try again later.",
+          variant: "destructive",
+        });
+        setRegistrySkipped(true);
+        setMintStep("done");
+      }
+    }
+  }, [registryError]);
+
+  const handleRegistryRegistration = async () => {
+    if (!registryAddress || registryAddress === "0x0000000000000000000000000000000000000000") {
+      toast({
+        title: "Registry Not Available",
+        description: "HoneycombAgentRegistry is not available on this network.",
+        variant: "destructive",
+      });
+      setMintStep("done");
+      setRegistrySkipped(true);
+      return;
+    }
+
+    try {
+      const metadataCID = `honeycomb:nfa:${name.trim()}:${address}`;
+      toast({
+        title: "Step 2: Register on HoneycombAgentRegistry",
+        description: "Please confirm the second transaction to complete on-chain registration.",
+      });
+      await registerOnRegistry(metadataCID);
+    } catch (error: any) {
+      console.error("Registry registration error:", error);
+    }
+  };
 
   const generateProofOfPrompt = async (prompt: string, model: string): Promise<string> => {
     const data = `BAP578:PoP:${prompt}:${model}`;
@@ -338,6 +405,35 @@ export default function NfaMint() {
     );
   }
 
+  if (mintStep === "registering") {
+    return (
+      <div className="container mx-auto px-4 py-6 max-w-3xl">
+        <Card className="py-12">
+          <CardContent className="flex flex-col items-center gap-6 text-center">
+            <div className="p-4 rounded-full bg-primary/10">
+              <Loader2 className="h-12 w-12 text-primary animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold">Step 2: Register on HoneycombAgentRegistry</h2>
+              <p className="text-muted-foreground text-sm">
+                Your NFA was minted on BAP-578. Now please confirm the second transaction to register on the HoneycombAgentRegistry.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                This ensures your agent appears on nfascan.net and is fully on-chain.
+              </p>
+            </div>
+            {isRegistryPending && (
+              <Badge variant="outline">Waiting for wallet confirmation...</Badge>
+            )}
+            {isRegistryConfirming && (
+              <Badge variant="outline">Confirming on-chain...</Badge>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (mintStep === "done") {
     return (
       <div className="container mx-auto px-4 py-6 max-w-3xl">
@@ -349,7 +445,9 @@ export default function NfaMint() {
             <div className="space-y-2">
               <h2 className="text-xl font-semibold" data-testid="text-mint-success">NFA Minted Successfully</h2>
               <p className="text-muted-foreground text-sm">
-                Your Non-Fungible Agent has been registered on-chain via BAP-578.
+                {registrySkipped
+                  ? "Your NFA was minted on BAP-578 but NOT registered on the HoneycombAgentRegistry."
+                  : "Your Non-Fungible Agent is registered on both BAP-578 and the HoneycombAgentRegistry."}
               </p>
             </div>
             {txHash && (
@@ -360,8 +458,33 @@ export default function NfaMint() {
                 className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 data-testid="link-tx-hash"
               >
-                View on BscScan <ExternalLink className="h-3 w-3" />
+                View Mint TX on BscScan <ExternalLink className="h-3 w-3" />
               </a>
+            )}
+            {registryTxHash && !registrySkipped && (
+              <a
+                href={`https://bscscan.com/tx/${registryTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="link-registry-tx-hash"
+              >
+                View Registry TX on BscScan <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            {registrySkipped && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMintStep("registering");
+                  setRegistrySkipped(false);
+                  handleRegistryRegistration();
+                }}
+                data-testid="button-retry-registry"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Register on HoneycombAgentRegistry Now
+              </Button>
             )}
             <div className="flex gap-3">
               <Link href="/nfa">
@@ -369,7 +492,7 @@ export default function NfaMint() {
                   Back to Showroom
                 </Button>
               </Link>
-              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); }} data-testid="button-mint-another">
+              <Button onClick={() => { setStep(1); setMintStep("idle"); setName(""); setDescription(""); setSystemPrompt(""); setRegistrySkipped(false); }} data-testid="button-mint-another">
                 Mint Another
               </Button>
             </div>
