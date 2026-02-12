@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Bot, Brain, Zap, ArrowLeft, Star, ShoppingCart, Activity, 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Bot, Brain, Zap, ArrowLeft, Star, ShoppingCart, Activity,
   Database, Fingerprint, TrendingUp, MessageSquare, Shield, History,
   DollarSign, Pause, Play, XCircle, Wallet, BookOpen, BarChart3,
-  Send, Loader2, Swords, ArrowUpDown, Coins, ArrowRightLeft, Settings, 
+  Send, Loader2, Swords, ArrowUpDown, Coins, ArrowRightLeft, Settings,
   CheckCircle, Clock, AlertCircle, Copy, Search, Lock, Hash, ShieldCheck, ShieldX
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -145,14 +146,13 @@ export default function NfaDetail() {
   const { isAuthenticated, authenticate } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [listPrice, setListPrice] = useState("");
   const [fundAmount, setFundAmount] = useState("");
   const [newRating, setNewRating] = useState(5);
-  const [messageInput, setMessageInput] = useState("");
-  const [agentResponse, setAgentResponse] = useState<string | null>(null);
   const [selectedActionType, setSelectedActionType] = useState("CHAT");
   const [actionFields, setActionFields] = useState<Record<string, string>>({});
+  const [agentResponse, setAgentResponse] = useState<string | null>(null);
   const [verifyPrompt, setVerifyPrompt] = useState("");
   const [verifyModel, setVerifyModel] = useState("");
   const [verifyResult, setVerifyResult] = useState<{ verified: boolean; computedHash: string; storedHash: string; modelMismatch?: boolean; modelType?: string; providedModelType?: string } | null>(null);
@@ -334,8 +334,7 @@ export default function NfaDetail() {
   const executeMutation = useMutation({
     mutationFn: async (payload: { actionType: string; actionData: any }) => {
       if (!await ensureAuthenticated()) throw new Error("Not authenticated");
-      const response = await apiRequest("POST", `/api/nfa/agents/${nfaId}/execute`, payload);
-      return response;
+      return await apiRequest("POST", `/api/nfa/agents/${nfaId}/execute`, payload);
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId, "interactions"] });
@@ -343,7 +342,6 @@ export default function NfaDetail() {
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId, "actions", "stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/nfa/agents", nfaId] });
       setAgentResponse(data.actionHash ? `Action logged. Hash: ${data.actionHash.slice(0, 18)}...` : "Action executed!");
-      setMessageInput("");
       setActionFields({});
       toast({ title: "Action Executed", description: `${data.action?.actionType || "Action"} logged successfully.` });
     },
@@ -354,11 +352,16 @@ export default function NfaDetail() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
+      <div className="container mx-auto px-4 py-6 max-w-5xl">
         <Card className="animate-pulse">
-          <CardContent className="p-8">
-            <div className="h-8 bg-muted rounded w-1/3 mb-4" />
-            <div className="h-4 bg-muted rounded w-2/3" />
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="h-12 w-12 rounded-full bg-muted" />
+              <div className="flex-1 space-y-2">
+                <div className="h-5 bg-muted rounded w-1/3" />
+                <div className="h-4 bg-muted rounded w-2/3" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -367,16 +370,16 @@ export default function NfaDetail() {
 
   if (!agentData?.agent) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <Card className="text-center p-8">
-          <Bot className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Agent Not Found</h2>
-          <p className="text-muted-foreground mb-4">
-            This Non-Fungible Agent doesn't exist or has been removed.
-          </p>
-          <Link href="/nfa">
-            <Button>Back to Marketplace</Button>
-          </Link>
+      <div className="container mx-auto px-4 py-6 max-w-5xl">
+        <Card className="text-center py-12">
+          <CardContent className="flex flex-col items-center gap-4">
+            <Bot className="h-12 w-12 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Agent Not Found</h2>
+            <p className="text-muted-foreground text-sm">This agent doesn't exist or has been removed.</p>
+            <Link href="/nfa">
+              <Button>Back to Marketplace</Button>
+            </Link>
+          </CardContent>
         </Card>
       </div>
     );
@@ -390,55 +393,12 @@ export default function NfaDetail() {
   const isOwner = isConnected && address?.toLowerCase() === agent.ownerAddress.toLowerCase();
 
   const ACTION_TYPE_CONFIG: Record<string, { label: string; icon: typeof Swords; fields: { key: string; label: string; placeholder: string; type?: string }[] }> = {
-    ENTER_DUEL: {
-      label: "Enter Duel",
-      icon: Swords,
-      fields: [
-        { key: "assetSymbol", label: "Asset", placeholder: "BTCUSDT" },
-        { key: "durationSeconds", label: "Duration (sec)", placeholder: "120", type: "number" },
-      ],
-    },
-    TRADE: {
-      label: "Trade",
-      icon: ArrowUpDown,
-      fields: [
-        { key: "side", label: "Side", placeholder: "long or short" },
-        { key: "assetSymbol", label: "Asset", placeholder: "BTCUSDT" },
-        { key: "amount", label: "Amount", placeholder: "1000", type: "number" },
-        { key: "leverage", label: "Leverage", placeholder: "1", type: "number" },
-      ],
-    },
-    STAKE: {
-      label: "Stake",
-      icon: Coins,
-      fields: [
-        { key: "amount", label: "Amount (BNB)", placeholder: "0.1", type: "number" },
-        { key: "tier", label: "Tier", placeholder: "DRONE" },
-      ],
-    },
-    TRANSFER: {
-      label: "Transfer",
-      icon: ArrowRightLeft,
-      fields: [
-        { key: "toAddress", label: "To Address", placeholder: "0x..." },
-        { key: "amount", label: "Amount (BNB)", placeholder: "0.1", type: "number" },
-      ],
-    },
-    CHAT: {
-      label: "Chat",
-      icon: MessageSquare,
-      fields: [
-        { key: "message", label: "Message", placeholder: "Hello agent..." },
-      ],
-    },
-    CUSTOM: {
-      label: "Custom",
-      icon: Settings,
-      fields: [
-        { key: "action", label: "Action Name", placeholder: "my_custom_action" },
-        { key: "payload", label: "Payload (JSON)", placeholder: '{"key": "value"}' },
-      ],
-    },
+    ENTER_DUEL: { label: "Enter Duel", icon: Swords, fields: [{ key: "assetSymbol", label: "Asset", placeholder: "BTCUSDT" }, { key: "durationSeconds", label: "Duration (sec)", placeholder: "120", type: "number" }] },
+    TRADE: { label: "Trade", icon: ArrowUpDown, fields: [{ key: "side", label: "Side", placeholder: "long or short" }, { key: "assetSymbol", label: "Asset", placeholder: "BTCUSDT" }, { key: "amount", label: "Amount", placeholder: "1000", type: "number" }, { key: "leverage", label: "Leverage", placeholder: "1", type: "number" }] },
+    STAKE: { label: "Stake", icon: Coins, fields: [{ key: "amount", label: "Amount (BNB)", placeholder: "0.1", type: "number" }, { key: "tier", label: "Tier", placeholder: "DRONE" }] },
+    TRANSFER: { label: "Transfer", icon: ArrowRightLeft, fields: [{ key: "toAddress", label: "To Address", placeholder: "0x..." }, { key: "amount", label: "Amount (BNB)", placeholder: "0.1", type: "number" }] },
+    CHAT: { label: "Chat", icon: MessageSquare, fields: [{ key: "message", label: "Message", placeholder: "Hello agent..." }] },
+    CUSTOM: { label: "Custom", icon: Settings, fields: [{ key: "action", label: "Action Name", placeholder: "my_custom_action" }, { key: "payload", label: "Payload (JSON)", placeholder: '{"key": "value"}' }] },
   };
 
   const optionalFields = new Set(["leverage", "tier", "payload"]);
@@ -471,29 +431,13 @@ export default function NfaDetail() {
 
   const getActionTypeIcon = (type: string) => {
     const config = ACTION_TYPE_CONFIG[type];
-    if (config) {
-      const Icon = config.icon;
-      return <Icon className="h-4 w-4" />;
-    }
+    if (config) { const Icon = config.icon; return <Icon className="h-4 w-4" />; }
     return <Zap className="h-4 w-4" />;
   };
 
-  const getStatusBadge = () => {
-    switch (agent.status) {
-      case "ACTIVE":
-        return <Badge variant="default" className="bg-green-500">Active</Badge>;
-      case "PAUSED":
-        return <Badge variant="secondary" className="bg-amber-500 text-white">Paused</Badge>;
-      case "TERMINATED":
-        return <Badge variant="destructive">Terminated</Badge>;
-      default:
-        return <Badge variant="outline">{agent.status}</Badge>;
-    }
-  };
-
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="mb-6">
+    <div className="container mx-auto px-4 py-6 max-w-5xl">
+      <div className="mb-4">
         <Link href="/nfa">
           <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
@@ -502,439 +446,240 @@ export default function NfaDetail() {
         </Link>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 rounded-xl bg-primary/10">
-                    <Bot className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl" data-testid="text-agent-name">
-                      {agent.name}
-                    </CardTitle>
-                    <CardDescription className="flex flex-wrap items-center gap-2 mt-1">
-                      <Badge variant="outline">Token #{agent.tokenId}</Badge>
-                      <Badge variant={agent.agentType === "LEARNING" ? "default" : "secondary"}>
-                        {agent.agentType === "LEARNING" ? (
-                          <><Brain className="h-3 w-3 mr-1" /> Learning</>
-                        ) : (
-                          <><Zap className="h-3 w-3 mr-1" /> Static</>
-                        )}
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-14 w-14 border-2">
+                  <AvatarFallback className="bg-primary/10 text-foreground text-lg font-bold">
+                    {agent.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h1 className="text-2xl font-bold" data-testid="text-agent-name">{agent.name}</h1>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <Badge variant="outline" className="text-xs">#{agent.tokenId}</Badge>
+                    <Badge variant={agent.agentType === "LEARNING" ? "default" : "secondary"} className="text-xs">
+                      {agent.agentType === "LEARNING" ? <><Brain className="h-3 w-3 mr-1" /> Learning</> : <><Zap className="h-3 w-3 mr-1" /> Static</>}
+                    </Badge>
+                    <Badge variant={agent.status === "ACTIVE" ? "default" : agent.status === "PAUSED" ? "secondary" : "destructive"} className="text-xs" data-testid="badge-status">
+                      {agent.status === "ACTIVE" ? "Active" : agent.status === "PAUSED" ? "Paused" : "Terminated"}
+                    </Badge>
+                    {verification.status === "VERIFIED" && (
+                      <Badge variant="outline" className="text-xs">
+                        <Shield className="h-3 w-3 mr-1" /> Verified
                       </Badge>
-                      {getStatusBadge()}
-                      {verification.status === "VERIFIED" && (
-                        <Badge variant="outline" className="text-green-500 border-green-500">
-                          <Shield className="h-3 w-3 mr-1" />
-                          Verified
-                        </Badge>
-                      )}
-                    </CardDescription>
+                    )}
+                    {isOwner && <Badge variant="outline" className="text-xs">Owner</Badge>}
                   </div>
-                </div>
-                {isOwner && (
-                  <Badge variant="outline" className="text-amber-500 border-amber-500">
-                    Owner
-                  </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
-                {agent.description || "No description provided."}
-              </p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Bot className="h-4 w-4" />
-                    Model
-                  </div>
-                  <p className="font-medium mt-1">{agent.modelType}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Activity className="h-4 w-4" />
-                    Interactions
-                  </div>
-                  <p className="font-medium mt-1">{stats.totalInteractions}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Wallet className="h-4 w-4" />
-                    Balance
-                  </div>
-                  <p className="font-medium mt-1">{parseFloat(agent.balance || "0").toFixed(4)} BNB</p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <Star className="h-4 w-4" />
-                    Rating
-                  </div>
-                  <p className="font-medium mt-1">
-                    {stats.ratingCount > 0 ? `${stats.rating.toFixed(1)} (${stats.ratingCount})` : "No ratings"}
+                  <p className="text-sm text-muted-foreground mt-2 max-w-xl" data-testid="text-description">
+                    {agent.description || "No description provided."}
                   </p>
                 </div>
               </div>
 
-              {agent.experience && (
-                <div className="p-3 rounded-lg bg-muted/30 border">
-                  <p className="text-xs text-muted-foreground mb-1">Experience</p>
-                  <p className="text-sm">{agent.experience}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <div className="flex flex-wrap gap-2 flex-shrink-0">
+                {listing?.active && !isOwner && isConnected && (
+                  <Button data-testid="button-buy">
+                    <ShoppingCart className="h-4 w-4 mr-1" /> Buy {listing.priceDisplay}
+                  </Button>
+                )}
+                {listing?.active && (
+                  <Badge variant="outline" className="py-1.5 px-3">
+                    <TrendingUp className="h-3 w-3 mr-1" /> {listing.priceDisplay}
+                  </Badge>
+                )}
+              </div>
+            </div>
 
-          <Card className="bg-gradient-to-br from-amber-500/5 to-amber-600/10 border-amber-500/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-amber-500" />
-                Execute Action (BAP-578)
-              </CardTitle>
-              <CardDescription>
-                Execute typed actions on behalf of this agent
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {agent.status !== "ACTIVE" ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  <Pause className="h-8 w-8 mx-auto mb-2" />
-                  <p>This agent is {agent.status.toLowerCase()} and cannot execute actions</p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label>Action Type</Label>
-                      <Select
-                        value={selectedActionType}
-                        onValueChange={(v) => { setSelectedActionType(v); setActionFields({}); }}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t">
+              <div className="p-2.5 rounded-md bg-muted/50" data-testid="stat-model">
+                <p className="text-xs text-muted-foreground">Model</p>
+                <p className="font-medium text-sm mt-0.5">{agent.modelType}</p>
+              </div>
+              <div className="p-2.5 rounded-md bg-muted/50" data-testid="stat-interactions">
+                <p className="text-xs text-muted-foreground">Interactions</p>
+                <p className="font-medium text-sm mt-0.5">{stats.totalInteractions}</p>
+              </div>
+              <div className="p-2.5 rounded-md bg-muted/50" data-testid="stat-balance">
+                <p className="text-xs text-muted-foreground">Balance</p>
+                <p className="font-medium text-sm mt-0.5">{parseFloat(agent.balance || "0").toFixed(4)} BNB</p>
+              </div>
+              <div className="p-2.5 rounded-md bg-muted/50" data-testid="stat-rating">
+                <p className="text-xs text-muted-foreground">Rating</p>
+                <p className="font-medium text-sm mt-0.5">
+                  {stats.ratingCount > 0 ? `${stats.rating.toFixed(1)} (${stats.ratingCount})` : "No ratings"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr,280px]">
+          <div>
+            <Tabs defaultValue="actions">
+              <TabsList className="mb-4">
+                <TabsTrigger value="actions" className="gap-1.5" data-testid="tab-actions">
+                  <Zap className="h-4 w-4" />
+                  Actions
+                </TabsTrigger>
+                <TabsTrigger value="proof" className="gap-1.5" data-testid="tab-proof">
+                  <Fingerprint className="h-4 w-4" />
+                  Proof
+                </TabsTrigger>
+                <TabsTrigger value="memory" className="gap-1.5" data-testid="tab-memory">
+                  <Database className="h-4 w-4" />
+                  Memory
+                </TabsTrigger>
+                <TabsTrigger value="learning" className="gap-1.5" data-testid="tab-learning">
+                  <Brain className="h-4 w-4" />
+                  Learning
+                </TabsTrigger>
+                <TabsTrigger value="reputation" className="gap-1.5" data-testid="tab-reputation">
+                  <Star className="h-4 w-4" />
+                  Reputation
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="actions" className="space-y-4">
+                {agent.status === "ACTIVE" && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        Execute Action
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-sm">Action Type</Label>
+                        <Select
+                          value={selectedActionType}
+                          onValueChange={(v) => { setSelectedActionType(v); setActionFields({}); }}
+                        >
+                          <SelectTrigger data-testid="select-action-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ACTION_TYPE_CONFIG).map(([key, config]) => {
+                              const Icon = config.icon;
+                              return (
+                                <SelectItem key={key} value={key}>
+                                  <span className="flex items-center gap-2">
+                                    <Icon className="h-3.5 w-3.5" />
+                                    {config.label}
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {ACTION_TYPE_CONFIG[selectedActionType]?.fields.map((field) => (
+                        <div key={field.key} className="space-y-1">
+                          <Label className="text-sm">{field.label}</Label>
+                          <Input
+                            type={field.type || "text"}
+                            placeholder={field.placeholder}
+                            value={actionFields[field.key] || ""}
+                            onChange={(e) => setActionFields(prev => ({ ...prev, [field.key]: e.target.value }))}
+                            disabled={executeMutation.isPending}
+                            data-testid={`input-action-${field.key}`}
+                          />
+                        </div>
+                      ))}
+
+                      <Button
+                        className="w-full gap-2"
+                        onClick={handleExecuteAction}
+                        disabled={executeMutation.isPending || !isActionFormValid}
+                        data-testid="button-execute-action"
                       >
-                        <SelectTrigger data-testid="select-action-type">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(ACTION_TYPE_CONFIG).map(([key, config]) => {
-                            const Icon = config.icon;
-                            return (
-                              <SelectItem key={key} value={key}>
-                                <span className="flex items-center gap-2">
-                                  <Icon className="h-3.5 w-3.5" />
-                                  {config.label}
-                                </span>
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        {executeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                        Execute {ACTION_TYPE_CONFIG[selectedActionType]?.label || "Action"}
+                      </Button>
 
-                    {ACTION_TYPE_CONFIG[selectedActionType]?.fields.map((field) => (
-                      <div key={field.key} className="space-y-1">
-                        <Label>{field.label}</Label>
-                        <Input
-                          type={field.type || "text"}
-                          placeholder={field.placeholder}
-                          value={actionFields[field.key] || ""}
-                          onChange={(e) => setActionFields(prev => ({ ...prev, [field.key]: e.target.value }))}
-                          disabled={executeMutation.isPending}
-                          data-testid={`input-action-${field.key}`}
-                        />
-                      </div>
-                    ))}
-
-                    <Button
-                      className="w-full gap-2"
-                      onClick={handleExecuteAction}
-                      disabled={executeMutation.isPending || !isActionFormValid}
-                      data-testid="button-execute-action"
-                    >
-                      {executeMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Zap className="h-4 w-4" />
-                      )}
-                      Execute {ACTION_TYPE_CONFIG[selectedActionType]?.label || "Action"}
-                    </Button>
-                  </div>
-
-                  {agentResponse && (
-                    <div className="p-3 rounded-lg bg-muted/50 border">
-                      <p className="text-xs text-muted-foreground mb-1">Result</p>
-                      <p className="text-sm font-mono break-all">{agentResponse}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-xs" data-testid="badge-total-actions">
-                      {actionStats.total} total actions
-                    </Badge>
-                    {actionStats.pending > 0 && (
-                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50" data-testid="badge-pending-actions">
-                        {actionStats.pending} pending
-                      </Badge>
-                    )}
-                    {!isOwner && <span data-testid="text-permission-note">Execute permission required</span>}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Tabs defaultValue="actions">
-            <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-              <TabsTrigger value="actions" className="gap-2" data-testid="tab-actions">
-                <Zap className="h-4 w-4" />
-                Actions
-              </TabsTrigger>
-              <TabsTrigger value="memory" className="gap-2" data-testid="tab-memory">
-                <Database className="h-4 w-4" />
-                Memory
-              </TabsTrigger>
-              <TabsTrigger value="learning" className="gap-2" data-testid="tab-learning">
-                <BarChart3 className="h-4 w-4" />
-                Learning
-              </TabsTrigger>
-              <TabsTrigger value="proof" className="gap-2" data-testid="tab-proof">
-                <Fingerprint className="h-4 w-4" />
-                Proof
-              </TabsTrigger>
-              <TabsTrigger value="activity" className="gap-2" data-testid="tab-activity">
-                <Activity className="h-4 w-4" />
-                Activity
-              </TabsTrigger>
-              <TabsTrigger value="reputation" className="gap-2" data-testid="tab-reputation">
-                <Star className="h-4 w-4" />
-                Reputation
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="actions" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Zap className="h-5 w-5" />
-                    Action History (BAP-578)
-                  </CardTitle>
-                  <CardDescription>
-                    On-chain actions with cryptographic verification
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {actionStats.total > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" data-testid="stats-action-grid">
-                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-total">
-                        <p className="text-xs text-muted-foreground">Total</p>
-                        <p className="text-xl font-bold">{actionStats.total}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-completed">
-                        <p className="text-xs text-muted-foreground">Completed</p>
-                        <p className="text-xl font-bold text-green-500">{actionStats.completed}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-pending">
-                        <p className="text-xs text-muted-foreground">Pending</p>
-                        <p className="text-xl font-bold text-amber-500">{actionStats.pending}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted/50" data-testid="stat-actions-failed">
-                        <p className="text-xs text-muted-foreground">Failed</p>
-                        <p className="text-xl font-bold text-red-500">{actionStats.failed}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {Object.keys(actionStats.byType).length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4" data-testid="stats-action-by-type">
-                      {Object.entries(actionStats.byType).map(([type, count]) => (
-                        <Badge key={type} variant="outline" className="gap-1" data-testid={`badge-action-type-${type}`}>
-                          {getActionTypeIcon(type)}
-                          {ACTION_TYPE_CONFIG[type]?.label || type}: {count}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {actions.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Zap className="h-8 w-8 mx-auto mb-2" />
-                      <p>No actions executed yet</p>
-                      <p className="text-xs mt-1">Use the Execute Action panel above to get started</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2" data-testid="list-actions">
-                      {actions.slice(0, 20).map(action => {
-                        let parsedData: any = null;
-                        try { parsedData = action.actionData ? JSON.parse(action.actionData) : null; } catch {}
-                        let parsedResult: any = null;
-                        try { parsedResult = action.result ? JSON.parse(action.result) : null; } catch {}
-                        return (
-                          <div key={action.id} className="p-3 rounded-lg border space-y-2" data-testid={`row-action-${action.id}`}>
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                {getActionTypeIcon(action.actionType)}
-                                <span className="font-medium text-sm" data-testid={`text-action-type-${action.id}`}>
-                                  {ACTION_TYPE_CONFIG[action.actionType]?.label || action.actionType}
-                                </span>
-                                {getActionStatusIcon(action.status)}
-                              </div>
-                              <span className="text-xs text-muted-foreground" data-testid={`text-action-time-${action.id}`}>
-                                {new Date(action.createdAt).toLocaleString()}
-                              </span>
-                            </div>
-                            {parsedData && (
-                              <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded break-all" data-testid={`text-action-data-${action.id}`}>
-                                {Object.entries(parsedData).map(([k, v]) => (
-                                  <span key={k} className="mr-3">{k}: {String(v)}</span>
-                                ))}
-                              </div>
-                            )}
-                            {parsedResult && (
-                              <div className="text-xs font-mono bg-green-500/5 border border-green-500/20 p-2 rounded break-all" data-testid={`text-action-result-${action.id}`}>
-                                {parsedResult.message || JSON.stringify(parsedResult)}
-                              </div>
-                            )}
-                            {action.txHash && (
-                              <div className="text-xs text-muted-foreground" data-testid={`text-action-tx-${action.id}`}>
-                                TX: <code className="font-mono">{action.txHash.slice(0, 16)}...</code>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-mono" data-testid={`text-action-executor-${action.id}`}>
-                                {action.executorAddress.slice(0, 6)}...{action.executorAddress.slice(-4)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="memory" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Memory Vault</CardTitle>
-                  <CardDescription>On-chain memory storage</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {memory.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Database className="h-8 w-8 mx-auto mb-2" />
-                      <p>No memory entries yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {memory.map(m => (
-                        <div key={m.id} className="p-3 rounded-lg border">
-                          <div className="flex justify-between items-start">
-                            <code className="text-sm font-medium">{m.memoryKey}</code>
-                            <Badge variant="outline" className="text-xs">v{m.version}</Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1 break-all">
-                            {m.memoryValue}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {agent.memoryRoot && (
-                    <div className="mt-4 p-3 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">Memory Root</p>
-                      <code className="text-xs font-mono break-all">{agent.memoryRoot}</code>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="learning" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Brain className="h-5 w-5" />
-                    Learning Metrics (BAP-578)
-                  </CardTitle>
-                  <CardDescription>
-                    {agent.learningEnabled ? "Learning agent with Merkle Tree verification" : "Static agent (not learning-enabled)"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {agent.learningEnabled && learningMetrics ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Learning Events</p>
-                          <p className="text-xl font-bold">{learningMetrics.learningEvents}</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Confidence Score</p>
-                          <p className="text-xl font-bold">{parseFloat(learningMetrics.confidenceScore).toFixed(2)}%</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Tree Depth</p>
-                          <p className="text-xl font-bold">{learningMetrics.treeDepth}</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Total Nodes</p>
-                          <p className="text-xl font-bold">{learningMetrics.totalNodes}</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Learning Version</p>
-                          <p className="text-xl font-bold">v{agent.learningVersion}</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Velocity</p>
-                          <p className="text-xl font-bold">{parseFloat(learningMetrics.learningVelocity).toFixed(2)}</p>
-                        </div>
-                      </div>
-                      {learningModule && (
-                        <div className="p-3 rounded-lg border">
-                          <div className="flex items-center gap-2 mb-1">
-                            <BookOpen className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">Learning Module</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span>{learningModule.name}</span>
-                            <Badge variant="outline" className="text-xs">{learningModule.moduleType}</Badge>
-                          </div>
+                      {agentResponse && (
+                        <div className="p-3 rounded-md bg-muted/50 border text-sm">
+                          <p className="text-xs text-muted-foreground mb-1">Result</p>
+                          <p className="font-mono text-xs break-all">{agentResponse}</p>
                         </div>
                       )}
-                      {agent.learningTreeRoot && (
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Learning Tree Root (Merkle)</p>
-                          <code className="text-xs font-mono break-all">{agent.learningTreeRoot}</code>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Zap className="h-8 w-8 mx-auto mb-2" />
-                      <p>Static agent - no learning capabilities</p>
-                      <p className="text-xs mt-1">Uses JSON Light Memory instead of Merkle Tree Learning</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                    </CardContent>
+                  </Card>
+                )}
 
-            <TabsContent value="proof" className="mt-4">
-              <div className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Fingerprint className="h-5 w-5" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Action History</CardTitle>
+                    {actionStats.total > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Badge variant="outline" className="text-xs">{actionStats.total} total</Badge>
+                        <Badge variant="outline" className="text-xs">{actionStats.completed} completed</Badge>
+                        {actionStats.pending > 0 && <Badge variant="outline" className="text-xs">{actionStats.pending} pending</Badge>}
+                        {actionStats.failed > 0 && <Badge variant="outline" className="text-xs">{actionStats.failed} failed</Badge>}
+                      </div>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {actions.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No actions executed yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2" data-testid="list-actions">
+                        {actions.slice(0, 20).map(action => {
+                          let parsedData: any = null;
+                          try { parsedData = action.actionData ? JSON.parse(action.actionData) : null; } catch {}
+                          let parsedResult: any = null;
+                          try { parsedResult = action.result ? JSON.parse(action.result) : null; } catch {}
+                          return (
+                            <div key={action.id} className="p-3 rounded-md border space-y-1.5" data-testid={`row-action-${action.id}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  {getActionTypeIcon(action.actionType)}
+                                  <span className="font-medium text-sm">{ACTION_TYPE_CONFIG[action.actionType]?.label || action.actionType}</span>
+                                  {getActionStatusIcon(action.status)}
+                                </div>
+                                <span className="text-xs text-muted-foreground">{new Date(action.createdAt).toLocaleString()}</span>
+                              </div>
+                              {parsedData && (
+                                <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded break-all">
+                                  {Object.entries(parsedData).map(([k, v]) => (
+                                    <span key={k} className="mr-3">{k}: {String(v)}</span>
+                                  ))}
+                                </div>
+                              )}
+                              {parsedResult && (
+                                <div className="text-xs font-mono bg-green-500/5 border border-green-500/20 p-2 rounded break-all">
+                                  {parsedResult.message || JSON.stringify(parsedResult)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="proof" className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Fingerprint className="h-4 w-4" />
                       Proof-of-Prompt (BAP-578)
                     </CardTitle>
-                    <CardDescription>
-                      Cryptographic proof that this agent's training configuration has not been tampered with
+                    <CardDescription className="text-sm">
+                      Cryptographic proof that this agent's training hasn't been tampered with
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                    <div className="p-3 rounded-md bg-muted/50 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <Hash className="h-4 w-4 text-muted-foreground" />
@@ -953,57 +698,46 @@ export default function NfaDetail() {
                           {copiedHash ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                         </Button>
                       </div>
-                      <code className="text-sm font-mono break-all block" data-testid="text-pop-hash">{agent.proofOfPrompt}</code>
+                      <code className="text-xs font-mono break-all block" data-testid="text-pop-hash">{agent.proofOfPrompt}</code>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">Model Type</p>
-                        <p className="font-medium mt-1">{agent.modelType}</p>
+                      <div className="p-3 rounded-md bg-muted/50">
+                        <p className="text-xs text-muted-foreground">Algorithm</p>
+                        <p className="text-sm font-medium mt-0.5">SHA-256</p>
                       </div>
-                      <div className="p-3 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">Training Version</p>
-                        <p className="font-medium mt-1">v{agent.trainingVersion}</p>
+                      <div className="p-3 rounded-md bg-muted/50">
+                        <p className="text-xs text-muted-foreground">Format</p>
+                        <p className="text-sm font-medium mt-0.5">BAP578:PoP</p>
                       </div>
-                    </div>
-
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border text-sm">
-                      <Lock className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                      <p className="text-muted-foreground">
-                        The Proof-of-Prompt is a deterministic SHA-256 hash of the agent's system prompt and model type.
-                        Anyone with the original prompt can independently verify it matches this hash, ensuring the agent's
-                        behavior has not been secretly modified.
-                      </p>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Search className="h-5 w-5" />
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Search className="h-4 w-4" />
                       Verify Prompt
                     </CardTitle>
-                    <CardDescription>
-                      Paste a system prompt to check if it matches this agent's on-chain Proof-of-Prompt
+                    <CardDescription className="text-sm">
+                      Provide a system prompt and model type to verify against the stored hash
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="verify-prompt">System Prompt</Label>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm">System Prompt</Label>
                       <Textarea
-                        id="verify-prompt"
-                        placeholder="Paste the agent's system prompt here to verify..."
+                        placeholder="Paste the system prompt to verify..."
                         value={verifyPrompt}
                         onChange={(e) => { setVerifyPrompt(e.target.value); setVerifyResult(null); }}
-                        rows={4}
+                        rows={3}
                         data-testid="input-verify-prompt"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="verify-model">Model Type</Label>
+                    <div className="space-y-1">
+                      <Label className="text-sm">Model Type</Label>
                       <Input
-                        id="verify-model"
                         placeholder={agent.modelType || "e.g. gpt-4"}
                         value={verifyModel}
                         onChange={(e) => { setVerifyModel(e.target.value); setVerifyResult(null); }}
@@ -1016,18 +750,14 @@ export default function NfaDetail() {
                       disabled={!verifyPrompt.trim() || !verifyModel.trim() || verifyPromptMutation.isPending}
                       data-testid="button-verify-prompt"
                     >
-                      {verifyPromptMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Fingerprint className="h-4 w-4" />
-                      )}
+                      {verifyPromptMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
                       Verify Against On-Chain Hash
                     </Button>
 
                     {verifyResult && (
-                      <div className={`p-4 rounded-lg border space-y-3 ${
-                        verifyResult.verified 
-                          ? "bg-green-500/10 border-green-500/30" 
+                      <div className={`p-4 rounded-md border space-y-3 ${
+                        verifyResult.verified
+                          ? "bg-green-500/10 border-green-500/30"
                           : "bg-red-500/10 border-red-500/30"
                       }`} data-testid="container-verify-result">
                         <div className="flex items-center gap-2">
@@ -1045,11 +775,11 @@ export default function NfaDetail() {
                         </div>
                         <div className="space-y-2 text-xs">
                           <div>
-                            <p className="text-muted-foreground mb-1">Computed Hash</p>
+                            <p className="text-muted-foreground mb-0.5">Computed Hash</p>
                             <code className="font-mono break-all" data-testid="text-computed-hash">{verifyResult.computedHash}</code>
                           </div>
                           <div>
-                            <p className="text-muted-foreground mb-1">Stored Hash</p>
+                            <p className="text-muted-foreground mb-0.5">Stored Hash</p>
                             <code className="font-mono break-all" data-testid="text-stored-hash">{verifyResult.storedHash}</code>
                           </div>
                         </div>
@@ -1060,190 +790,227 @@ export default function NfaDetail() {
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {verifyResult.verified 
-                            ? "The provided prompt produces the same hash as the on-chain record. This agent's training configuration is verified."
-                            : "The provided prompt does not match the on-chain hash. The prompt text or model type may be different from what was originally used."
+                          {verifyResult.verified
+                            ? "The provided prompt produces the same hash as the on-chain record."
+                            : "The provided prompt does not match. The prompt text or model type may differ."
                           }
                         </p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              </div>
-            </TabsContent>
+              </TabsContent>
 
-            <TabsContent value="activity" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent Activity</CardTitle>
-                  <CardDescription>Last {interactions.length} interactions</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {interactions.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Activity className="h-8 w-8 mx-auto mb-2" />
-                      <p>No interactions recorded</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {interactions.slice(0, 10).map(i => (
-                        <div key={i.id} className="flex items-center justify-between p-2 rounded-lg border text-sm">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                            <span className="capitalize">{i.interactionType}</span>
+              <TabsContent value="memory">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Memory Vault</CardTitle>
+                    <CardDescription className="text-sm">On-chain memory storage</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {memory.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No memory entries yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {memory.map(m => (
+                          <div key={m.id} className="p-3 rounded-md border">
+                            <div className="flex justify-between items-start gap-2">
+                              <code className="text-sm font-medium">{m.memoryKey}</code>
+                              <Badge variant="outline" className="text-xs flex-shrink-0">v{m.version}</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1 break-all">{m.memoryValue}</p>
                           </div>
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {i.callerAddress.slice(0, 6)}...{i.callerAddress.slice(-4)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(i.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                        ))}
+                      </div>
+                    )}
+                    {agent.memoryRoot && (
+                      <div className="mt-4 p-3 rounded-md bg-muted/50">
+                        <p className="text-xs text-muted-foreground">Memory Root</p>
+                        <code className="text-xs font-mono break-all">{agent.memoryRoot}</code>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-            <TabsContent value="reputation" className="mt-4">
-              <div className="space-y-6">
-                <ERC8004IdentityBanner 
+              <TabsContent value="learning">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Brain className="h-4 w-4" />
+                      Learning Metrics
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      {agent.learningEnabled ? "Learning agent with Merkle Tree verification" : "Static agent (not learning-enabled)"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {agent.learningEnabled && learningMetrics ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          <div className="p-2.5 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Learning Events</p>
+                            <p className="text-lg font-bold mt-0.5">{learningMetrics.learningEvents}</p>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Confidence</p>
+                            <p className="text-lg font-bold mt-0.5">{parseFloat(learningMetrics.confidenceScore).toFixed(2)}%</p>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Tree Depth</p>
+                            <p className="text-lg font-bold mt-0.5">{learningMetrics.treeDepth}</p>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Nodes</p>
+                            <p className="text-lg font-bold mt-0.5">{learningMetrics.totalNodes}</p>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Version</p>
+                            <p className="text-lg font-bold mt-0.5">v{agent.learningVersion}</p>
+                          </div>
+                          <div className="p-2.5 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Velocity</p>
+                            <p className="text-lg font-bold mt-0.5">{parseFloat(learningMetrics.learningVelocity).toFixed(2)}</p>
+                          </div>
+                        </div>
+                        {learningModule && (
+                          <div className="p-3 rounded-md border">
+                            <div className="flex items-center gap-2">
+                              <BookOpen className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm font-medium">{learningModule.name}</span>
+                              <Badge variant="outline" className="text-xs">{learningModule.moduleType}</Badge>
+                            </div>
+                          </div>
+                        )}
+                        {agent.learningTreeRoot && (
+                          <div className="p-3 rounded-md bg-muted/50">
+                            <p className="text-xs text-muted-foreground">Merkle Tree Root</p>
+                            <code className="text-xs font-mono break-all">{agent.learningTreeRoot}</code>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Static agent - no learning capabilities</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="reputation" className="space-y-4">
+                <ERC8004IdentityBanner
                   agentId={BigInt(agent.tokenId)}
                   agentName={agent.name}
                 />
 
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Star className="h-5 w-5 text-amber-500" />
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Star className="h-4 w-4 text-amber-500" />
                         Reputation Score
                       </CardTitle>
-                      <CardDescription>
-                        Aggregated on-chain reputation from the ERC-8004 registry
-                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <ERC8004ReputationScore 
-                        agentId={BigInt(agent.tokenId)} 
+                      <ERC8004ReputationScore
+                        agentId={BigInt(agent.tokenId)}
                         className="mb-4"
                       />
                       <div className="flex items-center gap-2 mt-4">
-                        <span className="text-sm text-muted-foreground">Trust Level:</span>
+                        <span className="text-sm text-muted-foreground">Trust:</span>
                         <ERC8004TrustBadge agentId={BigInt(agent.tokenId)} size="md" />
                       </div>
                     </CardContent>
                   </Card>
 
-                  <ERC8004FeedbackForm 
+                  <ERC8004FeedbackForm
                     agentId={BigInt(agent.tokenId)}
                     endpoint={`/nfa/${agent.tokenId}`}
                   />
                 </div>
 
-                <ERC8004ActivityHistory 
+                <ERC8004ActivityHistory
                   agentId={BigInt(agent.tokenId)}
                   maxItems={10}
                 />
 
                 <ERC8004AgentVerification />
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+              </TabsContent>
+            </Tabs>
+          </div>
 
-        <div className="space-y-4">
-          {listing?.active && (
-            <Card className="border-green-500/20 bg-gradient-to-br from-green-500/5 to-green-600/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5 text-green-500" />
-                  For Sale
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="h-6 w-6 text-green-500" />
-                  <span className="text-2xl font-bold">{listing.priceDisplay}</span>
-                </div>
-                {!isOwner && isConnected && (
-                  <Button className="w-full" data-testid="button-buy">
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Buy Now
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {isOwner && agent.status !== "TERMINATED" && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Lifecycle Controls</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {agent.status === "ACTIVE" ? (
-                  <Button 
-                    variant="outline" 
+          <div className="space-y-4">
+            {isOwner && agent.status !== "TERMINATED" && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Controls</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {agent.status === "ACTIVE" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => pauseMutation.mutate()}
+                      disabled={pauseMutation.isPending}
+                      data-testid="button-pause"
+                    >
+                      <Pause className="h-4 w-4" /> Pause
+                    </Button>
+                  ) : agent.status === "PAUSED" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => unpauseMutation.mutate()}
+                      disabled={unpauseMutation.isPending}
+                      data-testid="button-unpause"
+                    >
+                      <Play className="h-4 w-4" /> Resume
+                    </Button>
+                  )}
+                  <Button
+                    variant="destructive"
+                    size="sm"
                     className="w-full gap-2"
-                    onClick={() => pauseMutation.mutate()}
-                    disabled={pauseMutation.isPending}
-                    data-testid="button-pause"
+                    onClick={() => {
+                      if (window.confirm("Are you sure? This is permanent.")) {
+                        terminateMutation.mutate();
+                      }
+                    }}
+                    disabled={terminateMutation.isPending}
+                    data-testid="button-terminate"
                   >
-                    <Pause className="h-4 w-4" />
-                    Pause Agent
+                    <XCircle className="h-4 w-4" /> Terminate
                   </Button>
-                ) : agent.status === "PAUSED" && (
-                  <Button 
-                    variant="outline" 
-                    className="w-full gap-2"
-                    onClick={() => unpauseMutation.mutate()}
-                    disabled={unpauseMutation.isPending}
-                    data-testid="button-unpause"
-                  >
-                    <Play className="h-4 w-4" />
-                    Resume Agent
-                  </Button>
-                )}
-                <Button 
-                  variant="destructive" 
-                  className="w-full gap-2"
-                  onClick={() => {
-                    if (window.confirm("Are you sure? This action is permanent and cannot be undone.")) {
-                      terminateMutation.mutate();
-                    }
-                  }}
-                  disabled={terminateMutation.isPending}
-                  data-testid="button-terminate"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Terminate Agent
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
-          {isOwner && agent.status !== "TERMINATED" && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Wallet className="h-5 w-5" />
-                  Fund Agent
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
+            {isOwner && agent.status !== "TERMINATED" && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+                    <Wallet className="h-3.5 w-3.5" /> Fund
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="flex gap-2">
                     <Input
                       type="number"
                       step="0.01"
-                      placeholder="0.1"
+                      placeholder="0.1 BNB"
                       value={fundAmount}
                       onChange={(e) => setFundAmount(e.target.value)}
                       data-testid="input-fund-amount"
                     />
                     <Button
+                      size="icon"
                       onClick={() => fundMutation.mutate(fundAmount)}
                       disabled={!fundAmount || fundMutation.isPending}
                       data-testid="button-fund"
@@ -1251,127 +1018,118 @@ export default function NfaDetail() {
                       <DollarSign className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Amount in BNB</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
-          {isOwner && agent.status !== "TERMINATED" && (
+            {isOwner && agent.status !== "TERMINATED" && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Marketplace</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {listing?.active ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => delistMutation.mutate()}
+                      disabled={delistMutation.isPending}
+                      data-testid="button-delist"
+                    >
+                      Remove Listing
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Price in BNB"
+                          value={listPrice}
+                          onChange={(e) => setListPrice(e.target.value)}
+                          data-testid="input-list-price"
+                        />
+                        <Button
+                          size="icon"
+                          onClick={() => listMutation.mutate(listPrice)}
+                          disabled={!listPrice || listMutation.isPending}
+                          data-testid="button-list"
+                        >
+                          <DollarSign className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {!isOwner && isConnected && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Rate Agent</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-center gap-1">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button
+                        key={star}
+                        onClick={() => setNewRating(star)}
+                        className="p-0.5"
+                        data-testid={`button-star-${star}`}
+                      >
+                        <Star className={`h-5 w-5 ${star <= newRating ? "text-amber-500 fill-amber-500" : "text-muted-foreground"}`} />
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => rateMutation.mutate(newRating)}
+                    disabled={rateMutation.isPending}
+                    data-testid="button-submit-rating"
+                  >
+                    Submit Rating
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Marketplace</CardTitle>
+                <CardTitle className="text-sm font-medium">Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {listing?.active ? (
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => delistMutation.mutate()}
-                    disabled={delistMutation.isPending}
-                    data-testid="button-delist"
-                  >
-                    Remove Listing
-                  </Button>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="listPrice">List for Sale</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="listPrice"
-                        type="number"
-                        step="0.01"
-                        placeholder="0.1"
-                        value={listPrice}
-                        onChange={(e) => setListPrice(e.target.value)}
-                        data-testid="input-list-price"
-                      />
-                      <Button
-                        onClick={() => listMutation.mutate(listPrice)}
-                        disabled={!listPrice || listMutation.isPending}
-                        data-testid="button-list"
-                      >
-                        <DollarSign className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Price in BNB</p>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Owner</span>
+                  <code className="font-mono text-xs">{agent.ownerAddress.slice(0, 6)}...{agent.ownerAddress.slice(-4)}</code>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Created</span>
+                  <span className="text-xs">{new Date(agent.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Last Active</span>
+                  <span className="text-xs">{new Date(agent.lastActiveAt).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Category</span>
+                  <Badge variant="outline" className="text-xs">{agent.category || "Uncategorized"}</Badge>
+                </div>
+                {template && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Template</span>
+                    <Badge variant="outline" className="text-xs">{template.name}</Badge>
                   </div>
                 )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Version</span>
+                  <span className="text-xs">v{agent.trainingVersion}</span>
+                </div>
               </CardContent>
             </Card>
-          )}
-
-          {!isOwner && isConnected && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Rate Agent</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-center gap-1">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      onClick={() => setNewRating(star)}
-                      className="p-1"
-                      data-testid={`button-star-${star}`}
-                    >
-                      <Star
-                        className={`h-6 w-6 ${
-                          star <= newRating
-                            ? "text-amber-500 fill-amber-500"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={() => rateMutation.mutate(newRating)}
-                  disabled={rateMutation.isPending}
-                  data-testid="button-submit-rating"
-                >
-                  Submit Rating
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Owner</span>
-                <code className="font-mono">
-                  {agent.ownerAddress.slice(0, 6)}...{agent.ownerAddress.slice(-4)}
-                </code>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Created</span>
-                <span>{new Date(agent.createdAt).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Last Active</span>
-                <span>{new Date(agent.lastActiveAt).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Category</span>
-                <Badge variant="outline">{agent.category || "Uncategorized"}</Badge>
-              </div>
-              {template && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Template</span>
-                  <Badge variant="outline">{template.name}</Badge>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Version</span>
-                <span>v{agent.trainingVersion}</span>
-              </div>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

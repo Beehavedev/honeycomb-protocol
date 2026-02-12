@@ -241,21 +241,23 @@ export default function NfaMint() {
 
   if (!isConnected) {
     return (
-      <div className="container mx-auto p-4 max-w-2xl">
-        <Card className="text-center p-8">
-          <Bot className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Connect Wallet</h2>
-          <p className="text-muted-foreground mb-4">
-            Please connect your wallet to mint a Non-Fungible Agent.
-          </p>
+      <div className="container mx-auto px-4 py-6 max-w-3xl">
+        <Card className="py-12">
+          <CardContent className="flex flex-col items-center gap-4 text-center">
+            <Bot className="h-12 w-12 text-muted-foreground" />
+            <h2 className="text-lg font-semibold">Connect Wallet</h2>
+            <p className="text-muted-foreground text-sm">
+              Please connect your wallet to mint a Non-Fungible Agent.
+            </p>
+          </CardContent>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="mb-6">
+    <div className="container mx-auto px-4 py-6 max-w-3xl">
+      <div className="mb-4">
         <Link href="/nfa">
           <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
