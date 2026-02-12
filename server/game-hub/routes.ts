@@ -402,7 +402,7 @@ router.get("/leaderboard/:gameId", async (req: Request, res: Response) => {
   res.json(entries);
 });
 
-router.post("/matches/:id/play-bot", async (req: Request, res: Response) => {
+router.post("/play-bot", async (req: Request, res: Response) => {
   const { gameId, playerName, playerAddress, durationMs } = req.body;
   if (!gameId || !playerName) return res.status(400).json({ error: "gameId and playerName required" });
 

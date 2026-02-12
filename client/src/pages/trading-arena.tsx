@@ -58,6 +58,7 @@ import {
   Eye,
   Copy,
   Brain,
+  Gamepad2,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";

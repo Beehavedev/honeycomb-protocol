@@ -509,7 +509,7 @@ function GameLobby({ game, onBack }: { game: HubGame; onBack: () => void }) {
 
   const playBotMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest<any>("POST", "/api/hub/matches/play-bot/start", {
+      return await apiRequest<any>("POST", "/api/hub/play-bot", {
         gameId: game.id,
         playerName,
       });
