@@ -41,13 +41,13 @@ export const FONT_DISPLAY = "'Inter', 'Segoe UI', 'SF Pro Display', -apple-syste
 export const FONT_MONO = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
 
 export const C = {
-  bgDeep: 0x0a0800,
-  bgMid: 0x1a1000,
-  bgTop: 0x2a1a00,
+  bgDeep: 0x020204,
+  bgMid: 0x060608,
+  bgTop: 0x0a0a10,
 
-  tunnelDark: 0x0c0800,
-  tunnelMid: 0x1e1208,
-  tunnelDeep: 0x080500,
+  tunnelDark: 0x040406,
+  tunnelMid: 0x080810,
+  tunnelDeep: 0x020204,
 
   amber: 0xf0a500,
   amberBright: 0xffc040,
@@ -106,11 +106,11 @@ export const C = {
   white: 0xffffff,
   black: 0x000000,
 
-  hudBg: 0x0a0800,
-  hudBorder: 0x3a2810,
+  hudBg: 0x050508,
+  hudBorder: 0x1a1a20,
   hudAccent: 0xf0a500,
 
-  glass: 0x1a1008,
-  glassBorder: 0x3a2818,
-  glassHighlight: 0x4a3420,
+  glass: 0x0a0a12,
+  glassBorder: 0x1a1a24,
+  glassHighlight: 0x2a2a30,
 };

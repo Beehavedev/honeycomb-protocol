@@ -68,7 +68,7 @@ function drawGlassPanel(g: Phaser.GameObjects.Graphics, x: number, y: number, w:
 
 function drawGlassBtn(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, col: number, alpha = 0.7) {
   const r = h / 2;
-  g.fillStyle(0x0a0800, alpha);
+  g.fillStyle(0x050508, alpha);
   g.fillRoundedRect(x - w / 2, y - h / 2, w, h, r);
   g.lineStyle(2.5, col, 0.85);
   g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, r);
@@ -112,83 +112,15 @@ class BootScene extends Phaser.Scene {
     g.clear();
     for (let y = 0; y < H; y += 1) {
       const t = y / H;
-      const col = lerpColor(0x1a1000, 0x0a0800, t);
+      const col = lerpColor(0x060608, 0x020204, t);
       g.fillStyle(col, 1);
       g.fillRect(0, y, W, 1);
     }
 
-    for (let i = 24; i >= 0; i--) {
-      const rad = 5 + i * 20;
-      const a = 0.5 - i * 0.018;
-      if (a <= 0) continue;
-      const col = lerpColor(0xffffff, 0xf0a500, Math.min(1, i / 7));
-      g.fillStyle(col, a);
-      g.fillCircle(VX, VY, rad);
-    }
-    g.fillStyle(0xf0a500, 0.18);
-    g.fillCircle(VX, VY, 180);
-    g.fillStyle(0xf0a500, 0.1);
-    g.fillCircle(VX, VY, 300);
-    g.fillStyle(0xff9500, 0.05);
-    g.fillCircle(VX, VY, 400);
-
-    const S = 96;
-    for (let i = 0; i < S; i++) {
-      const angle = (TAU / S) * i;
-      const spread = 0.012 + Math.random() * 0.03;
-      const len = 220 + Math.random() * 900;
-      const x1 = VX + Math.cos(angle - spread) * len;
-      const y1 = VY + Math.sin(angle - spread) * len;
-      const x2 = VX + Math.cos(angle + spread) * len;
-      const y2 = VY + Math.sin(angle + spread) * len;
-      const cols = [0xf0a500, 0xff7800, 0xffd050, 0xf5b800, 0xffaa00, 0xff9500, 0xffc040, 0xffd050];
-      g.fillStyle(cols[i % cols.length], 0.06 + Math.random() * 0.12);
-      g.beginPath(); g.moveTo(VX, VY); g.lineTo(x1, y1); g.lineTo(x2, y2); g.closePath(); g.fillPath();
-    }
-
-    for (let i = 0; i < 60; i++) {
-      const angle = (TAU / 60) * i;
-      const len = 300 + Math.random() * 750;
-      const col = i % 4 === 0 ? C.orange : i % 4 === 1 ? C.amber : i % 4 === 2 ? C.gold : C.honeyGlow;
-      g.lineStyle(0.8 + Math.random() * 2.5, col, 0.12 + Math.random() * 0.2);
-      g.lineBetween(VX, VY, VX + Math.cos(angle) * len, VY + Math.sin(angle) * len);
-    }
-
-    const rings = 22;
-    for (let i = rings; i >= 0; i--) {
-      const t = i / rings;
-      const baseR = 12 + t * (W * 1.1);
-      const cy = VY + t * (H * 0.65);
-      const rr = baseR * (0.4 + t * 0.6);
-      fillHex(g, VX, cy, rr, 0x0a0800, 0.08 + t * 0.2);
-      const ea = 0.3 + t * 0.8;
-      const ew = 0.8 + t * 4;
-      strokeHex(g, VX, cy, rr, C.amber, ea, ew);
-      if (t > 0.08) strokeHex(g, VX, cy, rr + 3, C.amberBright, ea * 0.25, ew + 6);
-      if (t > 0.2) strokeHex(g, VX, cy, rr, C.orange, ea * 0.35, ew * 0.5);
-      if (t > 0.4) strokeHex(g, VX, cy, rr + 1, C.goldDim, ea * 0.15, ew * 0.4);
-      if (t > 0.3) {
-        const pts = hexVerts(VX, cy, rr);
-        for (let j = 0; j < 6; j++) {
-          g.fillStyle(C.amberBright, 0.45 + t * 0.5);
-          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 5.5);
-          g.fillStyle(C.orangeHot, 0.1 + t * 0.15);
-          g.fillCircle(pts[j][0], pts[j][1], 3 + t * 9);
-        }
-      }
-    }
-
-    const laserY = VY + H * 0.24;
-    g.lineStyle(6, C.orange, 0.75);
-    g.lineBetween(0, laserY, W, laserY);
-    g.lineStyle(16, C.orangeHot, 0.2);
-    g.lineBetween(0, laserY, W, laserY);
-    g.lineStyle(36, C.orange, 0.05);
-    g.lineBetween(0, laserY, W, laserY);
-    for (let px = 0; px < W; px += 2) {
-      g.fillStyle(C.orangeBright, 0.3 + Math.random() * 0.5);
-      g.fillRect(px, laserY - 2, 2, 4);
-    }
+    g.fillStyle(0xf0a500, 0.015);
+    g.fillCircle(VX, VY + 40, 350);
+    g.fillStyle(0xf0a500, 0.008);
+    g.fillCircle(VX, VY + 40, 500);
 
     g.generateTexture("bg_tunnel", W, H);
     g.clear();
@@ -196,36 +128,29 @@ class BootScene extends Phaser.Scene {
 
   private genStars(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    for (let i = 0; i < 600; i++) {
+    for (let i = 0; i < 500; i++) {
       const x = Math.random() * W, y = Math.random() * H;
-      const s = 0.3 + Math.random() * 2.5;
+      const s = 0.2 + Math.random() * 1.8;
       const b = Math.random();
-      if (b > 0.9) {
-        g.fillStyle(C.amber, 0.95);
-        g.fillCircle(x, y, s + 1.8);
-        g.fillStyle(C.amberWhite, 0.35);
-        g.fillCircle(x, y, s + 8);
-        g.fillStyle(C.amber, 0.08);
-        g.fillCircle(x, y, s + 20);
-      } else if (b > 0.78) {
-        g.fillStyle(C.honeyBright, 0.85);
-        g.fillCircle(x, y, s + 0.8);
-        g.fillStyle(C.honey, 0.18);
+      if (b > 0.97) {
+        g.fillStyle(C.white, 0.95);
+        g.fillCircle(x, y, s + 1.5);
+        g.fillStyle(C.white, 0.15);
         g.fillCircle(x, y, s + 6);
-      } else if (b > 0.66) {
-        g.fillStyle(C.gold, 0.6);
-        g.fillCircle(x, y, s * 0.9);
-        g.fillStyle(C.gold, 0.1);
+      } else if (b > 0.92) {
+        g.fillStyle(C.amber, 0.7);
+        g.fillCircle(x, y, s + 0.8);
+        g.fillStyle(C.amber, 0.08);
         g.fillCircle(x, y, s + 5);
-      } else if (b > 0.54) {
-        g.fillStyle(C.orangeHot, 0.4 + Math.random() * 0.35);
-        g.fillCircle(x, y, s * 0.7);
-      } else if (b > 0.42) {
-        g.fillStyle(C.amberHot, 0.2 + Math.random() * 0.2);
+      } else if (b > 0.85) {
+        g.fillStyle(0xaaccff, 0.6);
+        g.fillCircle(x, y, s + 0.3);
+      } else if (b > 0.5) {
+        g.fillStyle(C.white, 0.25 + Math.random() * 0.35);
         g.fillCircle(x, y, s * 0.5);
       } else {
-        g.fillStyle(C.white, 0.12 + Math.random() * 0.25);
-        g.fillCircle(x, y, s * 0.4);
+        g.fillStyle(C.white, 0.08 + Math.random() * 0.15);
+        g.fillCircle(x, y, s * 0.3);
       }
     }
     g.generateTexture("stars", W, H);
@@ -246,13 +171,13 @@ class BootScene extends Phaser.Scene {
     g.clear();
     for (let i = 0; i < 32; i++) {
       const t = i / 32;
-      g.fillStyle(0x0a0800, (1 - t) * (1 - t) * 0.12);
+      g.fillStyle(0x000000, (1 - t) * (1 - t) * 0.15);
       g.fillEllipse(CX, H / 2, W * (0.25 + t * 0.75), H * (0.25 + t * 0.75));
     }
-    g.fillStyle(0x0a0800, 0.65);
+    g.fillStyle(0x000000, 0.7);
     g.fillRect(0, 0, W, 12);
     g.fillRect(0, H - 12, W, 12);
-    g.fillStyle(0x0a0800, 0.5);
+    g.fillStyle(0x000000, 0.55);
     g.fillRect(0, 0, 6, H);
     g.fillRect(W - 6, 0, 6, H);
     g.generateTexture("vignette", W, H);
@@ -695,36 +620,18 @@ class BootScene extends Phaser.Scene {
 
     for (let y = 0; y < tH; y++) {
       const t = y / tH;
-      g.fillStyle(lerpColor(0x140a00, 0x0a0500, t), 0.92 + t * 0.08);
+      g.fillStyle(C.amber, 0.02 * (1 - t));
       g.fillRect(0, y, tW, 1);
     }
 
-    for (let i = 0; i < tW; i += 3) {
-      const tick = i % 14 === 0;
-      g.fillStyle(C.amber, tick ? 0.1 : 0.04);
-      g.fillRect(i, 0, 1, tH);
-      if (tick) {
-        g.fillStyle(C.orange, 0.025);
-        g.fillRect(i, 0, 1, tH);
-      }
-    }
-
-    g.lineStyle(4, C.amber, 0.9);
+    g.lineStyle(2, C.amber, 0.5);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(12, C.amberBright, 0.18);
+    g.lineStyle(8, C.amber, 0.06);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(28, C.amber, 0.05);
-    g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(2.5, C.orange, 0.3);
-    g.lineBetween(0, tH - 1, tW, tH - 1);
-    g.lineStyle(8, C.orange, 0.05);
-    g.lineBetween(0, tH - 1, tW, tH - 1);
 
     for (let i = 1; i < 3; i++) {
       const lx = i * LANE_WIDTH + 12;
-      g.lineStyle(1.2, C.amber, 0.3);
-      g.lineBetween(lx, 0, lx, tH);
-      g.lineStyle(4, C.amber, 0.04);
+      g.lineStyle(0.8, C.amber, 0.12);
       g.lineBetween(lx, 0, lx, tH);
     }
     g.generateTexture("ground_tile", tW, tH);
@@ -921,7 +828,7 @@ class BootScene extends Phaser.Scene {
     ];
     for (const b of buildings) {
       const by = sh - b.h;
-      g.fillStyle(0x0a0600, 0.95);
+      g.fillStyle(0x050508, 0.95);
       g.fillRect(b.x, by, b.w, b.h);
       g.lineStyle(1, C.amber, 0.1);
       g.strokeRect(b.x, by, b.w, b.h);
@@ -970,7 +877,7 @@ class BootScene extends Phaser.Scene {
     g.clear();
 
     const bw = 240, bh = 56;
-    g.fillStyle(0x0a0800, 0.75);
+    g.fillStyle(0x050508, 0.75);
     g.fillRoundedRect(0, 0, bw, bh, bh / 2);
     g.lineStyle(2.5, C.amber, 0.8);
     g.strokeRoundedRect(0, 0, bw, bh, bh / 2);
@@ -980,7 +887,7 @@ class BootScene extends Phaser.Scene {
     g.clear();
 
     const mw = 200, mh = 48;
-    g.fillStyle(0x0a0800, 0.75);
+    g.fillStyle(0x050508, 0.75);
     g.fillRoundedRect(0, 0, mw, mh, mh / 2);
     g.lineStyle(2, C.orange, 0.6);
     g.strokeRoundedRect(0, 0, mw, mh, mh / 2);
@@ -1007,21 +914,17 @@ class MenuScene extends Phaser.Scene {
   constructor() { super({ key: "Menu" }); }
   create() {
     this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0);
-    const stars = this.add.image(CX, H / 2, "stars").setAlpha(0.55);
-    this.tweens.add({ targets: stars, alpha: 0.3, duration: 4000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const stars = this.add.image(CX, H / 2, "stars").setAlpha(0.7);
+    this.tweens.add({ targets: stars, alpha: 0.45, duration: 4000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    this.add.image(CX, H / 2, "noise_overlay").setAlpha(0.25);
-
-    this.add.rectangle(CX, H / 2, W, H, 0x0a0800, 0.1);
+    this.add.image(CX, H / 2, "noise_overlay").setAlpha(0.08);
 
     const frameGfx = this.add.graphics();
-    const frameRadii = [75, 110, 150, 200, 255, 315];
+    const frameRadii = [120, 180, 260];
     for (let i = 0; i < frameRadii.length; i++) {
-      const a = [0.45, 0.3, 0.2, 0.12, 0.06, 0.03][i];
-      const lw = [4, 3, 2.5, 2, 1.2, 1][i];
+      const a = [0.06, 0.03, 0.015][i];
+      const lw = [1.5, 1, 0.5][i];
       strokeHex(frameGfx, CX, H * 0.3, frameRadii[i], C.amber, a, lw);
-      if (i < 4) strokeHex(frameGfx, CX, H * 0.3, frameRadii[i] + 4, C.amberBright, a * 0.2, lw + 6);
-      if (i < 3) strokeHex(frameGfx, CX, H * 0.3, frameRadii[i], C.orange, a * 0.25, lw * 0.6);
     }
 
     const tGlow = this.add.text(CX, 55, "HONEY", {
@@ -1036,12 +939,12 @@ class MenuScene extends Phaser.Scene {
 
     this.add.text(CX, 55, "HONEY", {
       fontSize: "64px", fontFamily: FONT_DISPLAY, color: "#f0a500",
-      fontStyle: "bold", stroke: "#0a0800", strokeThickness: 12,
+      fontStyle: "bold", stroke: "#020204", strokeThickness: 12,
     }).setOrigin(0.5);
 
     this.add.text(CX, 124, "RUNNER", {
       fontSize: "48px", fontFamily: FONT_DISPLAY, color: "#ff7800",
-      fontStyle: "bold", stroke: "#1a0a00", strokeThickness: 10,
+      fontStyle: "bold", stroke: "#020204", strokeThickness: 10,
     }).setOrigin(0.5);
 
     const sub = this.add.text(CX, 166, "C Y B E R   H I V E", {
@@ -1125,7 +1028,7 @@ class MenuScene extends Phaser.Scene {
     });
 
     this.add.text(CX, H - 30, "A Honeycomb Arena Game", {
-      fontSize: "10px", fontFamily: FONT_UI, color: "#3a2810",
+      fontSize: "10px", fontFamily: FONT_UI, color: "#303040",
     }).setOrigin(0.5);
 
     this.add.image(CX, H / 2, "scanlines").setAlpha(0.06);
@@ -1201,7 +1104,6 @@ class GameScene extends Phaser.Scene {
 
   private trailImages: Phaser.GameObjects.Image[] = [];
   private trailTimer = 0;
-  private citySkyline!: Phaser.GameObjects.TileSprite;
   private chromAbGfx?: Phaser.GameObjects.Graphics;
   private chromAbTimer = 0;
   private bossWarningActive = false;
@@ -1221,21 +1123,16 @@ class GameScene extends Phaser.Scene {
     this.updatePhaseColors();
 
     this.bgTunnel = this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0).setScrollFactor(0);
-    this.bgStars = this.add.image(CX, H / 2, "stars").setAlpha(0.3);
+    this.bgStars = this.add.image(CX, H / 2, "stars").setAlpha(0.6);
 
-    this.citySkyline = this.add.tileSprite(0, H * 0.18, W, 170, "city_skyline").setOrigin(0, 0).setAlpha(0.35).setDepth(0).setScrollFactor(0);
-
-    this.add.image(CX, H / 2, "noise_overlay").setAlpha(0.12).setDepth(0);
+    this.add.image(CX, H / 2, "noise_overlay").setAlpha(0.06).setDepth(0);
 
     this.tunnelRingsGfx = this.add.graphics().setDepth(1);
-
-    this.add.rectangle(CX, GROUND_Y - 60, LANE_WIDTH * 3 + 20, 280, C.tunnelDark, 0.22).setDepth(2);
 
     for (let i = 0; i <= LANE_COUNT; i++) {
       const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
       const edge = (i === 0 || i === LANE_COUNT);
-      this.add.line(0, 0, lx, GROUND_Y - 220, lx, GROUND_Y + 40, C.amber, edge ? 0.14 : 0.05).setOrigin(0, 0).setDepth(2);
-      if (edge) this.add.line(0, 0, lx, GROUND_Y - 220, lx, GROUND_Y + 40, C.amber, 0.02).setOrigin(0, 0).setLineWidth(5).setDepth(2);
+      this.add.line(0, 0, lx, GROUND_Y - 220, lx, GROUND_Y + 40, C.amber, edge ? 0.08 : 0.03).setOrigin(0, 0).setDepth(2);
     }
 
     this.gTiles.push(this.add.tileSprite(CX, GROUND_Y, LANE_WIDTH * 3 + 24, 40, "ground_tile").setDepth(3));
@@ -1642,35 +1539,17 @@ class GameScene extends Phaser.Scene {
   private drawTunnelRings() {
     const g = this.tunnelRingsGfx;
     g.clear();
-    const numRings = 18;
-    const baseOffset = this.tunnelOffset % 55;
+    const numRings = 8;
+    const baseOffset = this.tunnelOffset % 80;
 
     for (let i = numRings; i >= 0; i--) {
-      const t = (i * 55 + baseOffset) / (numRings * 55);
-      const r = 12 + t * (W * 0.95);
-      const cy = VY + t * (H * 0.6);
-      const rr = r * (0.45 + t * 0.55);
-
-      const ea = 0.25 + t * 0.7;
-      const ew = 1 + t * 3.5;
+      const t = (i * 80 + baseOffset) / (numRings * 80);
+      const r = 20 + t * (W * 0.8);
+      const cy = VY + t * (H * 0.55);
+      const rr = r * (0.5 + t * 0.5);
+      const ea = 0.04 + t * 0.08;
+      const ew = 0.5 + t * 1.5;
       strokeHex(g, VX, cy, rr, this.phaseColor1, ea, ew);
-      if (t > 0.12) strokeHex(g, VX, cy, rr + 3, this.phaseColor1, ea * 0.2, ew + 5);
-      if (t > 0.22) strokeHex(g, VX, cy, rr, this.phaseColor2, ea * 0.22, ew * 0.4);
-
-      if (t > 0.3) {
-        const pts = hexVerts(VX, cy, rr);
-        for (let j = 0; j < 6; j++) {
-          g.fillStyle(this.phaseColor1, 0.25 + t * 0.4);
-          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 4);
-        }
-      }
-    }
-
-    for (let i = 0; i < 6; i++) {
-      const angle = (PI / 3) * i - PI / 6;
-      const len = W * 0.7;
-      g.lineStyle(0.7, this.phaseColor1, 0.07);
-      g.lineBetween(VX, VY, VX + Math.cos(angle) * len, VY + Math.sin(angle) * len);
     }
   }
 
@@ -1723,8 +1602,6 @@ class GameScene extends Phaser.Scene {
     this.drawTunnelRings();
 
     this.bgTunnel.tilePositionY -= es * 0.2;
-    this.citySkyline.tilePositionX += es * 0.12;
-
     if (this.chromAbTimer > 0) {
       this.chromAbTimer -= delta;
       if (this.chromAbTimer <= 0 && this.chromAbGfx) { this.chromAbGfx.setAlpha(0); this.chromAbGfx.clear(); }
@@ -1824,8 +1701,9 @@ class GameOverScene extends Phaser.Scene {
   constructor() { super({ key: "GameOver" }); }
   create(data: { score: number; coins: number; distance: number; bestScore: number; isNewBest: boolean; speed: number; maxCombo: number }) {
     this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0);
-    this.add.rectangle(CX, H / 2, W, H, 0x0a0800, 0.6);
-    this.add.image(CX, H / 2, "noise_overlay").setAlpha(0.18);
+    this.add.image(CX, H / 2, "stars").setAlpha(0.4);
+    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.4);
+    this.add.image(CX, H / 2, "noise_overlay").setAlpha(0.06);
 
     const tg = this.add.text(CX, 52, "GAME OVER", {
       fontSize: "52px", fontFamily: FONT_DISPLAY, color: "#ff3858", fontStyle: "bold",
@@ -1839,13 +1717,13 @@ class GameOverScene extends Phaser.Scene {
 
     this.add.text(CX, 52, "GAME OVER", {
       fontSize: "50px", fontFamily: FONT_DISPLAY, color: "#ff3858",
-      fontStyle: "bold", stroke: "#180010", strokeThickness: 10,
+      fontStyle: "bold", stroke: "#020204", strokeThickness: 10,
     }).setOrigin(0.5);
 
     if (data.isNewBest) {
       const nb = this.add.text(CX, 98, "NEW BEST!", {
         fontSize: "26px", fontFamily: FONT_DISPLAY, color: "#ffd050",
-        fontStyle: "bold", stroke: "#281800", strokeThickness: 6,
+        fontStyle: "bold", stroke: "#020204", strokeThickness: 6,
       }).setOrigin(0.5);
       this.tweens.add({ targets: nb, scaleX: 1.06, scaleY: 1.06, duration: 600, yoyo: true, repeat: -1 });
     }
@@ -1872,7 +1750,7 @@ class GameOverScene extends Phaser.Scene {
     stats.forEach((s, i) => {
       const y = panelY + 22 + i * 48;
       const rowGfx = this.add.graphics();
-      rowGfx.fillStyle(0x000018, 0.4);
+      rowGfx.fillStyle(0x000000, 0.4);
       rowGfx.fillRoundedRect(CX - panelW / 2 + 16, y, panelW - 32, 40, 10);
       rowGfx.lineStyle(1, C.glassBorder, 0.25);
       rowGfx.strokeRoundedRect(CX - panelW / 2 + 16, y, panelW - 32, 40, 10);
@@ -1918,7 +1796,7 @@ export function createHoneyRunnerGame(parent: HTMLElement): Phaser.Game {
     width: W,
     height: H,
     parent,
-    backgroundColor: "#0a0800",
+    backgroundColor: "#020204",
     physics: { default: "arcade", arcade: { gravity: { x: 0, y: 0 }, debug: false } },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [BootScene, MenuScene, GameScene, GameOverScene],
