@@ -7,107 +7,112 @@ import {
   COIN_SPAWN_INTERVAL, POWERUP_SPAWN_INTERVAL,
   MAGNET_DURATION, SHIELD_DURATION, BOOST_DURATION, BOOST_SPEED_MULT,
   COIN_SCORE, C, LANE_WIDTH,
+  STINGER_DASH_DURATION, STINGER_DASH_COOLDOWN, COMBO_DECAY_TIME,
+  PHASE_THRESHOLDS, PHASE_NAMES,
 } from "./constants";
 import { getBestScore, setBestScore, addCoins, incrementRuns } from "./storage";
 
 const W = GAME_WIDTH, H = GAME_HEIGHT;
 const CX = W / 2;
 const PI = Math.PI;
+const TAU = PI * 2;
 
-function hv(cx: number, cy: number, r: number, rot = -PI / 6) {
-  const p: number[][] = [];
+function hexVerts(cx: number, cy: number, r: number, rot = -PI / 6): number[][] {
+  const pts: number[][] = [];
   for (let i = 0; i < 6; i++) {
     const a = (PI / 3) * i + rot;
-    p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
   }
-  return p;
+  return pts;
 }
-function sH(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, col: number, a: number, lw = 1) {
-  const p = hv(cx, cy, r);
-  g.lineStyle(lw, col, a);
-  g.beginPath(); g.moveTo(p[0][0], p[0][1]);
+
+function strokeHex(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, col: number, alpha: number, lw = 1) {
+  const p = hexVerts(cx, cy, r);
+  g.lineStyle(lw, col, alpha);
+  g.beginPath();
+  g.moveTo(p[0][0], p[0][1]);
   for (let i = 1; i < 6; i++) g.lineTo(p[i][0], p[i][1]);
-  g.closePath(); g.strokePath();
+  g.closePath();
+  g.strokePath();
 }
-function fH(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, col: number, a: number) {
-  const p = hv(cx, cy, r);
-  g.fillStyle(col, a);
-  g.beginPath(); g.moveTo(p[0][0], p[0][1]);
+
+function fillHex(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, col: number, alpha: number) {
+  const p = hexVerts(cx, cy, r);
+  g.fillStyle(col, alpha);
+  g.beginPath();
+  g.moveTo(p[0][0], p[0][1]);
   for (let i = 1; i < 6; i++) g.lineTo(p[i][0], p[i][1]);
-  g.closePath(); g.fillPath();
+  g.closePath();
+  g.fillPath();
+}
+
+function lerpColor(c1: number, c2: number, t: number): number {
+  const r1 = (c1 >> 16) & 0xff, g1 = (c1 >> 8) & 0xff, b1 = c1 & 0xff;
+  const r2 = (c2 >> 16) & 0xff, g2 = (c2 >> 8) & 0xff, b2 = c2 & 0xff;
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return (r << 16) | (g << 8) | b;
 }
 
 class BootScene extends Phaser.Scene {
   constructor() { super({ key: "Boot" }); }
   create() {
     const g = this.make.graphics({ x: 0, y: 0 });
-    this.bg(g);
-    this.nebula(g);
-    this.stars(g);
-    this.scan(g);
-    this.vig(g);
-    this.bee(g);
-    this.beeSlide(g);
-    this.shadow(g);
-    this.wingL(g);
-    this.wingR(g);
-    this.obs(g);
-    this.coin(g);
-    this.pups(g);
-    this.ground(g);
-    this.parts(g);
-    this.hexFrame(g);
-    this.godRays(g);
+    this.genBg(g);
+    this.genStars(g);
+    this.genScanlines(g);
+    this.genVignette(g);
+    this.genCyberBee(g);
+    this.genCyberBeeSlide(g);
+    this.genBeeShadow(g);
+    this.genWings(g);
+    this.genObstacles(g);
+    this.genCoin(g);
+    this.genPowerups(g);
+    this.genGround(g);
+    this.genParticles(g);
+    this.genDashIcon(g);
     g.destroy();
     this.scene.start("Menu");
   }
 
-  private bg(g: Phaser.GameObjects.Graphics) {
+  private genBg(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillGradientStyle(C.bg0, C.bg0, C.bg1, C.bg1, 1);
+    const vx = CX, vy = H * 0.12;
+    g.fillGradientStyle(C.bgDeep, C.bgDeep, C.bgMid, C.bgMid, 1);
     g.fillRect(0, 0, W, H);
 
-    const vx = W / 2, vy = H * 0.13;
-
-    for (let i = 0; i < 5; i++) {
-      const r = 60 + i * 50;
-      g.fillStyle(C.hexAmberDim, 0.008 - i * 0.001);
-      g.fillCircle(vx, vy, r);
+    for (let i = 0; i < 4; i++) {
+      g.fillStyle(C.cyan, 0.005 - i * 0.001);
+      g.fillCircle(vx, vy, 50 + i * 40);
     }
 
-    const rings = 14;
+    const rings = 16;
     for (let i = rings; i >= 0; i--) {
       const t = i / rings;
-      const r = 16 + t * (W * 0.92);
-      const cy = vy + t * (H * 0.6);
-      const sq = 0.7 + t * 0.3;
+      const r = 12 + t * (W * 0.95);
+      const cy = vy + t * (H * 0.65);
+      const sq = 0.65 + t * 0.35;
       const rr = r * sq;
 
-      fH(g, vx, cy, rr, C.tunnelFill, 0.04 + t * 0.08);
-      fH(g, vx, cy, rr * 0.92, C.tunnelDeep, 0.03 + t * 0.04);
+      fillHex(g, vx, cy, rr, C.tunnelDark, 0.06 + t * 0.12);
 
-      if (i % 2 === 0) {
-        fH(g, vx, cy, rr, C.tunnelFillLight, 0.015);
+      const ea = 0.15 + t * 0.6;
+      const ew = 1 + t * 2.5;
+      strokeHex(g, vx, cy, rr, C.cyan, ea * 0.7, ew);
+      strokeHex(g, vx, cy, rr + 2, C.cyanBright, ea * 0.15, ew + 3);
+      strokeHex(g, vx, cy, rr + 5, C.cyan, ea * 0.04, ew + 8);
+
+      if (t > 0.3) {
+        strokeHex(g, vx, cy, rr, C.magenta, ea * 0.15, ew * 0.5);
       }
 
-      const ea = 0.12 + t * 0.55;
-      const ew = 1.5 + t * 2;
-      sH(g, vx, cy, rr, C.hexAmber, ea, ew);
-      sH(g, vx, cy, rr + 1, C.hexAmberHot, ea * 0.2, ew + 2);
-      sH(g, vx, cy, rr + 3, C.hexAmber, ea * 0.08, ew + 6);
-      sH(g, vx, cy, rr + 6, C.hexAmberDim, ea * 0.03, ew + 12);
-
-      if (t > 0.4) {
-        sH(g, vx, cy, rr - 3, C.hexAmberHot, (t - 0.4) * 0.08, 1);
-      }
-
-      if (t > 0.6) {
-        const pts = hv(vx, cy, rr);
+      if (t > 0.5) {
+        const pts = hexVerts(vx, cy, rr);
         for (let j = 0; j < 6; j++) {
-          g.fillStyle(C.hexAmberHot, 0.15 + t * 0.15);
-          g.fillCircle(pts[j][0], pts[j][1], 2 + t * 2);
-          g.fillStyle(C.hexAmberWhite, 0.06);
-          g.fillCircle(pts[j][0], pts[j][1], 4 + t * 3);
+          g.fillStyle(C.cyanBright, 0.12 + t * 0.12);
+          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 2);
         }
       }
     }
@@ -116,504 +121,380 @@ class BootScene extends Phaser.Scene {
       const angle = (PI / 3) * i - PI / 6;
       const ex = vx + Math.cos(angle) * W * 1.5;
       const ey = vy + Math.sin(angle) * H * 1.5;
-      g.lineStyle(1.5, C.hexAmber, 0.04);
+      g.lineStyle(1, C.cyan, 0.03);
       g.lineBetween(vx, vy, ex, ey);
-      g.lineStyle(4, C.hexAmberDim, 0.015);
-      g.lineBetween(vx, vy, ex, ey);
+      g.lineStyle(1, C.magenta, 0.015);
+      g.lineBetween(vx + 2, vy, ex + 2, ey);
     }
 
-    const hr = 18;
-    const hh = hr * Math.sqrt(3);
-    for (let row = -1; row < H / hh + 1; row++) {
-      for (let col = -1; col < W / (hr * 1.5) + 1; col++) {
-        const hx = col * hr * 1.5;
-        const hy = row * hh + (col % 2 ? hh / 2 : 0);
-        const d = Math.sqrt((hx - vx) ** 2 + (hy - vy) ** 2) / (W * 0.8);
-        if (d > 1.2) continue;
-        const a = Math.max(0.005, 0.06 - d * 0.05);
-        sH(g, hx, hy, hr - 3, C.cyan, a * 0.3);
-        if (Math.random() < 0.025) {
-          fH(g, hx, hy, hr - 4, C.cyan, 0.008 + Math.random() * 0.015);
-        }
-      }
+    for (let i = 0; i < 14; i++) {
+      const angle = (TAU / 14) * i + PI / 14;
+      const spread = 0.03 + Math.random() * 0.025;
+      const len = 180 + Math.random() * 300;
+      const x1 = vx + Math.cos(angle - spread) * len;
+      const y1 = vy + Math.sin(angle - spread) * len;
+      const x2 = vx + Math.cos(angle + spread) * len;
+      const y2 = vy + Math.sin(angle + spread) * len;
+      const rc = i % 2 === 0 ? C.cyan : C.magenta;
+      g.fillStyle(rc, 0.006 + Math.random() * 0.006);
+      g.beginPath(); g.moveTo(vx, vy); g.lineTo(x1, y1); g.lineTo(x2, y2); g.closePath(); g.fillPath();
     }
 
     g.generateTexture("bg_tunnel", W, H);
     g.clear();
   }
 
-  private godRays(g: Phaser.GameObjects.Graphics) {
+  private genStars(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    const vx = W / 2, vy = H * 0.13;
-    for (let i = 0; i < 12; i++) {
-      const angle = (PI * 2 / 12) * i + PI / 12;
-      const spread = 0.04 + Math.random() * 0.03;
-      const len = 200 + Math.random() * 250;
-      const x1 = vx + Math.cos(angle - spread) * len;
-      const y1 = vy + Math.sin(angle - spread) * len;
-      const x2 = vx + Math.cos(angle + spread) * len;
-      const y2 = vy + Math.sin(angle + spread) * len;
-      g.fillStyle(C.hexAmber, 0.008 + Math.random() * 0.008);
-      g.beginPath();
-      g.moveTo(vx, vy);
-      g.lineTo(x1, y1);
-      g.lineTo(x2, y2);
-      g.closePath();
-      g.fillPath();
-    }
-    g.generateTexture("god_rays", W, H);
-    g.clear();
-  }
-
-  private nebula(g: Phaser.GameObjects.Graphics) {
-    g.clear();
-    const cols = [C.purpleDim, C.tunnelFill, C.pinkDim, C.cyanDim, C.bg2];
-    for (let i = 0; i < 20; i++) {
-      const x = Math.random() * W;
-      const y = Math.random() * H;
-      const r = 20 + Math.random() * 70;
-      g.fillStyle(cols[Math.floor(Math.random() * cols.length)], 0.01 + Math.random() * 0.02);
-      g.fillCircle(x, y, r);
-      g.fillStyle(cols[Math.floor(Math.random() * cols.length)], 0.005);
-      g.fillCircle(x + Phaser.Math.Between(-20, 20), y + Phaser.Math.Between(-20, 20), r * 1.4);
-    }
-    g.generateTexture("nebula", W, H);
-    g.clear();
-  }
-
-  private stars(g: Phaser.GameObjects.Graphics) {
-    g.clear();
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 180; i++) {
       const x = Math.random() * W, y = Math.random() * H;
-      const s = 0.15 + Math.random() * 1;
+      const s = 0.2 + Math.random() * 1;
       const b = Math.random();
-      if (b > 0.93) {
-        g.fillStyle(C.hexAmberHot, 0.5 + Math.random() * 0.4);
-        g.fillCircle(x, y, s + 0.5);
-        g.fillStyle(C.hexAmberWhite, 0.12);
-        g.fillCircle(x, y, s + 2.5);
-      } else if (b > 0.82) {
-        g.fillStyle(C.cyanBright, 0.3 + Math.random() * 0.35);
+      if (b > 0.92) {
+        g.fillStyle(C.cyan, 0.4 + Math.random() * 0.4);
+        g.fillCircle(x, y, s + 0.3);
+        g.fillStyle(C.cyanWhite, 0.08);
+        g.fillCircle(x, y, s + 2);
+      } else if (b > 0.84) {
+        g.fillStyle(C.magentaBright, 0.25 + Math.random() * 0.3);
         g.fillCircle(x, y, s);
-        g.fillStyle(C.cyanWhite, 0.06);
-        g.fillCircle(x, y, s + 1.5);
       } else {
-        const sc = [C.white, C.cyanBright, C.purpleBright, C.hexAmberHot];
-        g.fillStyle(sc[Math.floor(Math.random() * sc.length)], 0.08 + Math.random() * 0.2);
-        g.fillCircle(x, y, s * 0.6);
+        g.fillStyle(C.white, 0.06 + Math.random() * 0.12);
+        g.fillCircle(x, y, s * 0.5);
       }
     }
     g.generateTexture("stars", W, H);
     g.clear();
   }
 
-  private scan(g: Phaser.GameObjects.Graphics) {
+  private genScanlines(g: Phaser.GameObjects.Graphics) {
     g.clear();
     for (let y = 0; y < H; y += 2) {
-      g.fillStyle(0x000000, y % 4 === 0 ? 0.06 : 0.03);
+      g.fillStyle(0x000000, y % 4 === 0 ? 0.05 : 0.025);
       g.fillRect(0, y, W, 1);
     }
     g.generateTexture("scanlines", W, H);
     g.clear();
   }
 
-  private vig(g: Phaser.GameObjects.Graphics) {
+  private genVignette(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    for (let i = 0; i < 30; i++) {
-      const t = i / 30;
-      g.fillStyle(0x000000, (1 - t) * (1 - t) * 0.06);
-      g.fillEllipse(W / 2, H / 2, W * (0.4 + t * 0.6), H * (0.4 + t * 0.6));
+    for (let i = 0; i < 25; i++) {
+      const t = i / 25;
+      g.fillStyle(0x000000, (1 - t) * (1 - t) * 0.07);
+      g.fillEllipse(CX, H / 2, W * (0.4 + t * 0.6), H * (0.4 + t * 0.6));
     }
-    g.fillStyle(0x000000, 0.45);
-    g.fillRect(0, 0, W, 12);
-    g.fillRect(0, H - 12, W, 12);
-    g.fillStyle(0x000000, 0.3);
-    g.fillRect(0, 0, 6, H);
-    g.fillRect(W - 6, 0, 6, H);
+    g.fillStyle(0x000000, 0.5);
+    g.fillRect(0, 0, W, 10);
+    g.fillRect(0, H - 10, W, 10);
+    g.fillStyle(0x000000, 0.35);
+    g.fillRect(0, 0, 5, H);
+    g.fillRect(W - 5, 0, 5, H);
     g.generateTexture("vignette", W, H);
     g.clear();
   }
 
-  private bee(g: Phaser.GameObjects.Graphics) {
-    const bw = 56, bh = 66;
+  private genCyberBee(g: Phaser.GameObjects.Graphics) {
+    const bw = 56, bh = 72;
     g.clear();
 
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(bw / 2, 18, 24, 22);
-    for (let i = 0; i < 15; i++) {
-      const fx = bw / 2 + Phaser.Math.Between(-9, 9);
-      const fy = 18 + Phaser.Math.Between(-8, 8);
-      g.fillStyle(C.beeFuzz, 0.04 + Math.random() * 0.04);
-      g.fillCircle(fx, fy, 1 + Math.random() * 2);
-    }
-    g.fillStyle(C.beeHighlight, 0.2);
-    g.fillEllipse(bw / 2 - 4, 13, 12, 10);
-    g.fillStyle(C.beeBodyDark, 0.2);
-    g.fillEllipse(bw / 2 + 4, 22, 14, 10);
+    g.fillEllipse(bw / 2, 16, 22, 20);
+    g.fillStyle(C.beeBodyLight, 0.3);
+    g.fillEllipse(bw / 2 - 3, 12, 10, 10);
 
-    g.fillStyle(C.beeEyeOuter, 1);
-    g.fillEllipse(bw / 2 - 7, 14, 10, 11);
-    g.fillEllipse(bw / 2 + 7, 14, 10, 11);
-    g.fillStyle(C.beeEyeIris, 0.85);
-    g.fillEllipse(bw / 2 - 7, 13.5, 8, 9);
-    g.fillEllipse(bw / 2 + 7, 13.5, 8, 9);
-    for (let e = 0; e < 2; e++) {
-      const ex = bw / 2 + (e === 0 ? -7 : 7);
-      for (let fi = 0; fi < 5; fi++) {
-        const fa = (PI * 2 / 5) * fi;
-        const fx = ex + Math.cos(fa) * 2.5;
-        const fy = 13.5 + Math.sin(fa) * 3;
-        sH(g, fx, fy, 1.5, C.beeEyeOuter, 0.15, 0.3);
-      }
-    }
-    g.fillStyle(C.beeEyeCore, 0.7);
-    g.fillCircle(bw / 2 - 7, 12.5, 2.5);
-    g.fillCircle(bw / 2 + 7, 12.5, 2.5);
-    g.fillStyle(C.beeEyeWhite, 0.9);
-    g.fillCircle(bw / 2 - 6, 11, 1.2);
-    g.fillCircle(bw / 2 + 8, 11, 1.2);
-    g.fillStyle(C.white, 0.5);
-    g.fillCircle(bw / 2 - 8, 13, 0.6);
-    g.fillCircle(bw / 2 + 6, 13, 0.6);
+    g.fillStyle(C.beeEye, 0.9);
+    g.fillCircle(bw / 2 - 6, 12, 4);
+    g.fillCircle(bw / 2 + 6, 12, 4);
+    g.fillStyle(C.beeEyeBright, 0.6);
+    g.fillCircle(bw / 2 - 6, 11, 2);
+    g.fillCircle(bw / 2 + 6, 11, 2);
+    g.fillStyle(C.white, 0.4);
+    g.fillCircle(bw / 2 - 5, 10, 0.8);
+    g.fillCircle(bw / 2 + 7, 10, 0.8);
 
-    g.lineStyle(1.8, C.beeAntenna, 0.85);
-    g.beginPath(); g.moveTo(bw / 2 - 5, 7);
-    g.lineTo(bw / 2 - 7, 3); g.lineTo(bw / 2 - 10, -1);
-    g.strokePath();
-    g.beginPath(); g.moveTo(bw / 2 + 5, 7);
-    g.lineTo(bw / 2 + 7, 3); g.lineTo(bw / 2 + 10, -1);
-    g.strokePath();
+    g.lineStyle(1.5, C.beeStripe, 0.7);
+    g.beginPath(); g.moveTo(bw / 2 - 4, 6); g.lineTo(bw / 2 - 8, -2); g.strokePath();
+    g.beginPath(); g.moveTo(bw / 2 + 4, 6); g.lineTo(bw / 2 + 8, -2); g.strokePath();
+    g.fillStyle(C.cyan, 0.9);
+    g.fillCircle(bw / 2 - 8, -2, 2);
+    g.fillCircle(bw / 2 + 8, -2, 2);
+    g.fillStyle(C.cyanBright, 0.5);
+    g.fillCircle(bw / 2 - 8, -2, 4);
+    g.fillCircle(bw / 2 + 8, -2, 4);
+    g.fillStyle(C.cyan, 0.1);
+    g.fillCircle(bw / 2 - 8, -2, 7);
+    g.fillCircle(bw / 2 + 8, -2, 7);
 
-    const ax = [bw / 2 - 10, bw / 2 + 10];
-    for (const x of ax) {
-      g.fillStyle(C.beeAntennaGlow, 1);
-      g.fillCircle(x, -1, 2.5);
-      g.fillStyle(C.cyanBright, 0.45);
-      g.fillCircle(x, -1, 4);
-      g.fillStyle(C.cyan, 0.12);
-      g.fillCircle(x, -1, 7);
-      g.fillStyle(C.cyanWhite, 0.7);
-      g.fillCircle(x, -1.5, 1);
-    }
+    g.lineStyle(1, C.beeBody, 0.5);
+    g.lineBetween(bw / 2 - 3, 24, bw / 2 - 3, 28);
+    g.lineBetween(bw / 2 + 3, 24, bw / 2 + 3, 28);
 
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(bw / 2, 42, 30, 34);
-    g.fillStyle(C.beeBodyDark, 0.2);
-    g.fillEllipse(bw / 2 + 5, 46, 16, 22);
-    g.fillStyle(C.beeHighlight, 0.15);
-    g.fillEllipse(bw / 2 - 6, 35, 14, 18);
-    for (let i = 0; i < 20; i++) {
-      const fx = bw / 2 + Phaser.Math.Between(-13, 13);
-      const fy = 42 + Phaser.Math.Between(-14, 14);
-      const d = Math.sqrt((fx - bw / 2) ** 2 + (fy - 42) ** 2);
-      if (d > 16) continue;
-      g.fillStyle(C.beeFuzz, 0.02 + Math.random() * 0.03);
-      g.fillCircle(fx, fy, 1 + Math.random() * 1.5);
+    g.fillEllipse(bw / 2, 44, 28, 36);
+    g.fillStyle(C.beeBodyLight, 0.15);
+    g.fillEllipse(bw / 2 - 5, 36, 12, 16);
+
+    const stripes = [32, 38, 44, 50, 56];
+    for (let i = 0; i < stripes.length; i++) {
+      const sw = 11 - Math.abs(i - 2) * 2;
+      g.fillStyle(C.beeStripe, 0.85);
+      g.fillEllipse(bw / 2, stripes[i], sw * 2, 3);
+      g.fillStyle(C.beeStripeBright, 0.2);
+      g.fillEllipse(bw / 2 - 2, stripes[i] - 0.5, sw, 1.5);
     }
 
-    const sy = [30, 37, 44, 51];
-    for (let si = 0; si < sy.length; si++) {
-      const sw = 12 + (si < 2 ? si * 2 : (3 - si) * 2);
-      g.fillStyle(C.beeStripe1, 0.85);
-      g.fillEllipse(bw / 2, sy[si], sw * 2, 3.5);
-      g.fillStyle(C.beeStripe2, 0.4);
-      g.fillEllipse(bw / 2, sy[si] + 0.5, sw * 2 - 2, 1.5);
-      g.fillStyle(C.beeHighlight, 0.04);
-      g.fillEllipse(bw / 2 - 3, sy[si] - 0.5, sw, 1.5);
+    g.lineStyle(0.5, C.cyan, 0.15);
+    for (let i = 0; i < 4; i++) {
+      const ly = 30 + i * 8;
+      g.lineBetween(bw / 2 - 10, ly, bw / 2 - 4, ly + 4);
+      g.lineBetween(bw / 2 + 10, ly, bw / 2 + 4, ly + 4);
     }
+    g.fillStyle(C.cyan, 0.06);
+    g.fillCircle(bw / 2, 42, 3);
 
-    g.lineStyle(1, C.hexAmberMid, 0.2);
-    g.strokeEllipse(bw / 2, 42, 30, 34);
+    g.lineStyle(1, C.beeBody, 0.4);
+    g.strokeEllipse(bw / 2, 44, 28, 36);
 
-    g.fillStyle(C.beeBodyDeep, 1);
-    g.fillTriangle(bw / 2, bh - 2, bw / 2 - 4, bh - 12, bw / 2 + 4, bh - 12);
-    g.fillStyle(C.hexAmberHot, 0.35);
-    g.fillTriangle(bw / 2, bh - 4, bw / 2 - 1.5, bh - 10, bw / 2 + 1.5, bh - 10);
-    g.fillStyle(C.white, 0.15);
-    g.fillTriangle(bw / 2, bh - 6, bw / 2 - 0.5, bh - 9, bw / 2 + 0.5, bh - 9);
+    g.fillStyle(C.beeBody, 0.9);
+    g.fillTriangle(bw / 2, bh - 1, bw / 2 - 4, bh - 12, bw / 2 + 4, bh - 12);
+    g.fillStyle(C.beeStripe, 0.3);
+    g.fillTriangle(bw / 2, bh - 3, bw / 2 - 1.5, bh - 10, bw / 2 + 1.5, bh - 10);
 
-    g.fillStyle(C.hexAmber, 0.025);
-    g.fillCircle(bw / 2, 38, 34);
+    g.fillStyle(C.cyan, 0.02);
+    g.fillCircle(bw / 2, 36, 30);
 
     g.generateTexture("runner", bw, bh);
     g.clear();
   }
 
-  private beeSlide(g: Phaser.GameObjects.Graphics) {
-    const sw = 58, sh = 30;
+  private genCyberBeeSlide(g: Phaser.GameObjects.Graphics) {
+    const sw = 58, sh = 28;
     g.clear();
-
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(14, sh / 2, 20, 18);
-    g.fillStyle(C.beeHighlight, 0.15);
-    g.fillEllipse(12, sh / 2 - 2, 10, 9);
-
-    g.fillStyle(C.beeEyeOuter, 1);
-    g.fillEllipse(9, sh / 2 - 2, 7, 8);
-    g.fillEllipse(17, sh / 2 - 2, 7, 8);
-    g.fillStyle(C.beeEyeIris, 0.85);
-    g.fillEllipse(9, sh / 2 - 2.5, 5.5, 6.5);
-    g.fillEllipse(17, sh / 2 - 2.5, 5.5, 6.5);
-    g.fillStyle(C.beeEyeCore, 0.6);
-    g.fillCircle(9, sh / 2 - 3, 1.5);
-    g.fillCircle(17, sh / 2 - 3, 1.5);
-    g.fillStyle(C.beeEyeWhite, 0.8);
-    g.fillCircle(9, sh / 2 - 4, 0.8);
-    g.fillCircle(17, sh / 2 - 4, 0.8);
-
+    g.fillEllipse(14, sh / 2, 18, 16);
+    g.fillStyle(C.beeEye, 0.8);
+    g.fillCircle(10, sh / 2 - 2, 3);
+    g.fillCircle(18, sh / 2 - 2, 3);
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(sw / 2 + 3, sh / 2, 34, 22);
-    g.fillStyle(C.beeHighlight, 0.12);
-    g.fillEllipse(sw / 2, sh / 2 - 4, 16, 10);
-    g.fillStyle(C.beeBodyDark, 0.15);
-    g.fillEllipse(sw / 2 + 6, sh / 2 + 3, 16, 10);
-
+    g.fillEllipse(sw / 2 + 3, sh / 2, 32, 20);
     const sx = [24, 31, 38, 44];
     for (const x of sx) {
-      g.fillStyle(C.beeStripe1, 0.8);
-      g.fillRect(x, sh / 2 - 9, 3.5, 18);
+      g.fillStyle(C.beeStripe, 0.75);
+      g.fillRect(x, sh / 2 - 8, 3, 16);
     }
-    g.lineStyle(1, C.hexAmberMid, 0.15);
-    g.strokeEllipse(sw / 2 + 3, sh / 2, 34, 22);
-
-    g.fillStyle(C.beeWingBase, 0.12);
-    g.fillEllipse(18, 3, 22, 8);
-    g.fillEllipse(34, 2, 16, 6);
-
+    g.lineStyle(0.8, C.beeBody, 0.3);
+    g.strokeEllipse(sw / 2 + 3, sh / 2, 32, 20);
     g.generateTexture("runner_slide", sw, sh);
     g.clear();
   }
 
-  private shadow(g: Phaser.GameObjects.Graphics) {
+  private genBeeShadow(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.black, 0.12);
+    g.fillStyle(C.black, 0.1);
     g.fillEllipse(24, 8, 44, 14);
-    g.fillStyle(C.black, 0.06);
-    g.fillEllipse(24, 8, 52, 18);
-    g.fillStyle(C.hexAmber, 0.01);
-    g.fillEllipse(24, 8, 56, 20);
+    g.fillStyle(C.cyan, 0.015);
+    g.fillEllipse(24, 8, 50, 18);
     g.generateTexture("bee_shadow", 48, 16);
     g.clear();
   }
 
-  private wingL(g: Phaser.GameObjects.Graphics) {
+  private genWings(g: Phaser.GameObjects.Graphics) {
+    const ww = 32, wh = 40;
+
     g.clear();
-    const ww = 30, wh = 36;
-    g.fillStyle(C.beeWingBase, 0.28);
+    g.fillStyle(C.beeWing, 0.12);
     g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.fillStyle(C.beeWingSheen, 0.1);
-    g.fillEllipse(ww / 2 - 4, wh / 2 - 5, ww * 0.45, wh * 0.5);
-    g.fillStyle(C.white, 0.04);
-    g.fillEllipse(ww / 2 - 5, wh / 2 - 6, ww * 0.3, wh * 0.35);
+    g.fillStyle(C.beeWingTip, 0.06);
+    g.fillEllipse(ww / 2 - 6, wh / 2 - 8, ww * 0.4, wh * 0.35);
 
-    g.lineStyle(0.5, C.beeWingVein, 0.2);
-    g.lineBetween(5, 5, ww / 2, wh - 5);
-    g.lineBetween(3, wh / 2 - 2, ww - 3, wh / 2 - 5);
-    g.lineBetween(4, wh / 2 + 5, ww - 5, wh / 2 + 2);
-    g.lineBetween(ww / 2 - 3, 4, ww / 2 + 2, wh - 6);
+    g.lineStyle(0.4, C.cyan, 0.15);
+    g.lineBetween(4, 6, ww / 2, wh - 6);
+    g.lineBetween(3, wh / 2, ww - 3, wh / 2 - 4);
+    g.lineBetween(ww / 2 - 4, 5, ww / 2 + 1, wh - 8);
+    g.lineStyle(0.4, C.magenta, 0.08);
+    g.lineBetween(5, wh / 2 + 6, ww - 6, wh / 2 + 3);
 
-    g.lineStyle(1.2, C.beeWingEdge, 0.35);
+    g.lineStyle(1.5, C.cyan, 0.3);
     g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.lineStyle(4, C.beeWingEdge, 0.04);
+    g.lineStyle(4, C.beeWingTip, 0.04);
     g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
     g.generateTexture("wing_l", ww, wh);
     g.clear();
-  }
 
-  private wingR(g: Phaser.GameObjects.Graphics) {
-    g.clear();
-    const ww = 30, wh = 36;
-    g.fillStyle(C.beeWingBase, 0.28);
+    g.fillStyle(C.beeWing, 0.12);
     g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.fillStyle(C.beeWingSheen, 0.1);
-    g.fillEllipse(ww / 2 + 4, wh / 2 - 5, ww * 0.45, wh * 0.5);
-    g.fillStyle(C.white, 0.04);
-    g.fillEllipse(ww / 2 + 5, wh / 2 - 6, ww * 0.3, wh * 0.35);
+    g.fillStyle(C.beeWingTip, 0.06);
+    g.fillEllipse(ww / 2 + 6, wh / 2 - 8, ww * 0.4, wh * 0.35);
 
-    g.lineStyle(0.5, C.beeWingVein, 0.2);
-    g.lineBetween(ww - 5, 5, ww / 2, wh - 5);
-    g.lineBetween(ww - 3, wh / 2 - 2, 3, wh / 2 - 5);
-    g.lineBetween(ww - 4, wh / 2 + 5, 5, wh / 2 + 2);
-    g.lineBetween(ww / 2 + 3, 4, ww / 2 - 2, wh - 6);
+    g.lineStyle(0.4, C.cyan, 0.15);
+    g.lineBetween(ww - 4, 6, ww / 2, wh - 6);
+    g.lineBetween(ww - 3, wh / 2, 3, wh / 2 - 4);
+    g.lineBetween(ww / 2 + 4, 5, ww / 2 - 1, wh - 8);
+    g.lineStyle(0.4, C.magenta, 0.08);
+    g.lineBetween(ww - 5, wh / 2 + 6, 6, wh / 2 + 3);
 
-    g.lineStyle(1.2, C.beeWingEdge, 0.35);
+    g.lineStyle(1.5, C.cyan, 0.3);
     g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.lineStyle(4, C.beeWingEdge, 0.04);
+    g.lineStyle(4, C.beeWingTip, 0.04);
     g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
     g.generateTexture("wing_r", ww, wh);
     g.clear();
   }
 
-  private obs(g: Phaser.GameObjects.Graphics) {
+  private genObstacles(g: Phaser.GameObjects.Graphics) {
+    const bw = 80, bh = 54;
     g.clear();
-    const bw = 78, bh = 54;
 
-    g.fillStyle(C.laserGlow, 0.03);
-    g.fillRoundedRect(-4, -4, bw + 8, bh + 8, 8);
-    g.fillStyle(C.tunnelDeep, 0.92);
-    g.fillRoundedRect(0, 0, bw, bh, 5);
+    g.fillStyle(C.laserRedGlow, 0.03);
+    g.fillRoundedRect(-4, -4, bw + 8, bh + 8, 6);
+    g.fillStyle(C.tunnelDark, 0.9);
+    g.fillRoundedRect(0, 0, bw, bh, 4);
 
-    for (let ly = 0; ly < bh; ly += 2) {
-      g.fillStyle(C.laserCore, 0.01 + (ly % 4 === 0 ? 0.01 : 0));
-      g.fillRect(3, ly, bw - 6, 1);
-    }
-
-    for (let i = 0; i < 5; i++) {
-      const ly = 7 + i * 10;
-      g.lineStyle(2.5, C.laserCore, 0.6 - i * 0.06);
+    for (let ly = 4; ly < bh; ly += 6) {
+      g.lineStyle(2, C.laserRed, 0.5);
       g.lineBetween(6, ly, bw - 6, ly);
-      g.lineStyle(6, C.laserEdge, 0.05);
-      g.lineBetween(6, ly, bw - 6, ly);
-      g.lineStyle(14, C.laserGlow, 0.012);
+      g.lineStyle(5, C.laserRedGlow, 0.04);
       g.lineBetween(6, ly, bw - 6, ly);
     }
+    for (let lx = 10; lx < bw; lx += 12) {
+      g.lineStyle(1, C.laserRed, 0.25);
+      g.lineBetween(lx, 4, lx, bh - 4);
+    }
 
-    g.lineStyle(2, C.laserCore, 0.8);
-    g.strokeRoundedRect(1, 1, bw - 2, bh - 2, 5);
-    g.lineStyle(5, C.laserEdge, 0.1);
-    g.strokeRoundedRect(0, 0, bw, bh, 6);
-    g.lineStyle(12, C.laserGlow, 0.02);
-    g.strokeRoundedRect(-2, -2, bw + 4, bh + 4, 8);
+    g.lineStyle(2.5, C.laserRed, 0.85);
+    g.strokeRoundedRect(1, 1, bw - 2, bh - 2, 4);
+    g.lineStyle(6, C.laserRedGlow, 0.08);
+    g.strokeRoundedRect(0, 0, bw, bh, 5);
+    g.lineStyle(14, C.laserRedGlow, 0.015);
+    g.strokeRoundedRect(-3, -3, bw + 6, bh + 6, 8);
 
-    const cn = [[7, 7], [bw - 7, 7], [7, bh - 7], [bw - 7, bh - 7]];
-    for (const [cx, cy] of cn) {
-      g.fillStyle(C.laserWhite, 0.85);
-      g.fillCircle(cx, cy, 3.5);
-      g.fillStyle(C.white, 0.6);
-      g.fillCircle(cx, cy - 0.5, 1.5);
-      g.fillStyle(C.laserEdge, 0.15);
+    const corners = [[6, 6], [bw - 6, 6], [6, bh - 6], [bw - 6, bh - 6]];
+    for (const [cx, cy] of corners) {
+      g.fillStyle(C.laserRedWhite, 0.8);
+      g.fillCircle(cx, cy, 3);
+      g.fillStyle(C.laserRedBright, 0.15);
       g.fillCircle(cx, cy, 7);
-      g.fillStyle(C.laserGlow, 0.04);
-      g.fillCircle(cx, cy, 12);
     }
     g.generateTexture("barrier", bw, bh);
     g.clear();
 
-    g.fillStyle(C.tunnelDeep, 0.88);
-    g.fillRoundedRect(0, 0, bw, 20, 3);
-    g.fillStyle(C.pink, 0.02);
-    g.fillRoundedRect(2, 2, bw - 4, 16, 2);
-    g.lineStyle(3.5, C.pink, 0.8);
-    g.lineBetween(0, 10, bw, 10);
-    g.lineStyle(8, C.pinkBright, 0.06);
-    g.lineBetween(0, 10, bw, 10);
-    g.lineStyle(20, C.pink, 0.012);
-    g.lineBetween(0, 10, bw, 10);
-    g.lineStyle(1, C.pink, 0.3);
+    g.fillStyle(C.tunnelDark, 0.85);
+    g.fillRoundedRect(0, 0, bw, 18, 3);
+    g.lineStyle(3, C.laserRed, 0.75);
+    g.lineBetween(0, 9, bw, 9);
+    g.lineStyle(8, C.laserRedGlow, 0.06);
+    g.lineBetween(0, 9, bw, 9);
+    g.lineStyle(18, C.laserRedGlow, 0.01);
+    g.lineBetween(0, 9, bw, 9);
+    g.lineStyle(1, C.laserRed, 0.25);
     g.lineBetween(0, 3, bw, 3);
-    g.lineBetween(0, 17, bw, 17);
+    g.lineBetween(0, 15, bw, 15);
     for (const cx of [4, bw - 4]) {
-      g.fillStyle(C.pinkBright, 1);
-      g.fillCircle(cx, 10, 4.5);
-      g.fillStyle(C.white, 0.6);
-      g.fillCircle(cx, 9, 2);
-      g.fillStyle(C.pink, 0.1);
-      g.fillCircle(cx, 10, 9);
+      g.fillStyle(C.laserRedWhite, 0.9);
+      g.fillCircle(cx, 9, 4);
+      g.fillStyle(C.laserRedGlow, 0.1);
+      g.fillCircle(cx, 9, 8);
     }
-    g.generateTexture("low_gate", bw, 20);
+    g.generateTexture("low_gate", bw, 18);
     g.clear();
 
-    g.fillStyle(C.tunnelDeep, 0.92);
-    g.fillRoundedRect(0, 0, 32, 84, 5);
-    g.fillStyle(C.purple, 0.02);
-    g.fillRoundedRect(2, 2, 28, 80, 4);
-    g.lineStyle(2, C.purple, 0.75);
-    g.strokeRoundedRect(1, 1, 30, 82, 5);
-    g.lineStyle(5, C.purpleDim, 0.1);
-    g.strokeRoundedRect(0, 0, 32, 84, 6);
-    for (let i = 0; i < 7; i++) {
-      g.fillStyle(C.purple, 0.03 + (i % 2) * 0.04);
-      g.fillRect(4, 4 + i * 11, 24, 9);
+    const gw = 80, gh = 54;
+    g.fillStyle(C.tunnelDark, 0.8);
+    g.fillRoundedRect(0, 0, gw, gh, 4);
+    for (let i = 0; i < 8; i++) {
+      const ox = Phaser.Math.Between(4, gw - 12);
+      const oy = Phaser.Math.Between(4, gh - 8);
+      const ow = Phaser.Math.Between(6, 20);
+      const oh = Phaser.Math.Between(3, 10);
+      g.fillStyle(C.glitchPurple, 0.2 + Math.random() * 0.3);
+      g.fillRect(ox, oy, ow, oh);
     }
-    g.lineStyle(1, C.purple, 0.4);
-    g.lineBetween(16, 3, 16, 81);
+    for (let i = 0; i < 4; i++) {
+      const gy = Phaser.Math.Between(2, gh - 2);
+      g.lineStyle(1 + Math.random() * 2, C.glitchBlue, 0.3 + Math.random() * 0.3);
+      g.lineBetween(0, gy, gw, gy);
+    }
+    g.lineStyle(2, C.glitchPurple, 0.6);
+    g.strokeRoundedRect(1, 1, gw - 2, gh - 2, 4);
+    g.lineStyle(5, C.glitchPurple, 0.06);
+    g.strokeRoundedRect(0, 0, gw, gh, 5);
+    g.generateTexture("glitch_wall", gw, gh);
+    g.clear();
+
+    g.fillStyle(C.tunnelDark, 0.9);
+    g.fillRoundedRect(0, 0, 30, 84, 4);
+    g.lineStyle(2, C.laserRed, 0.7);
+    g.strokeRoundedRect(1, 1, 28, 82, 4);
+    g.lineStyle(1, C.laserRed, 0.35);
+    g.lineBetween(15, 3, 15, 81);
     for (const cy of [8, 76]) {
-      g.fillStyle(C.purpleBright, 0.8);
-      g.fillCircle(16, cy, 4);
-      g.fillStyle(C.white, 0.45);
-      g.fillCircle(16, cy - 1, 1.8);
-      g.fillStyle(C.purple, 0.08);
-      g.fillCircle(16, cy, 8);
+      g.fillStyle(C.laserRedWhite, 0.75);
+      g.fillCircle(15, cy, 3.5);
+      g.fillStyle(C.laserRedGlow, 0.08);
+      g.fillCircle(15, cy, 7);
     }
-    g.generateTexture("lane_blocker", 32, 84);
+    g.generateTexture("lane_blocker", 30, 84);
     g.clear();
   }
 
-  private coin(g: Phaser.GameObjects.Graphics) {
+  private genCoin(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    const s = 15, pad = 6, cs = s + pad;
-
-    g.fillStyle(C.coinGlow, 0.04);
-    g.fillCircle(cs, cs, s + 6);
-    g.fillStyle(C.coinGlow, 0.02);
-    g.fillCircle(cs, cs, s + 10);
-
-    fH(g, cs, cs, s, C.coinBody, 1);
-    fH(g, cs, cs, s - 1, C.coinLight, 0.2);
-    fH(g, cs, cs, s - 3, C.coinBody, 0.25);
-
-    g.fillStyle(C.coinShine, 0.12);
-    g.fillEllipse(cs - 4, cs - 4, 7, 12);
-
-    sH(g, cs, cs, s, C.coinShine, 0.55, 2);
-    sH(g, cs, cs, s + 2, C.coinGlow, 0.1, 3);
-    sH(g, cs, cs, s + 4, C.coinGlow, 0.03, 6);
-
-    fH(g, cs, cs, 6, C.coinGlow, 0.45);
-    sH(g, cs, cs, 6, C.coinShine, 0.35, 1);
-
-    g.fillStyle(C.coinShine, 0.2);
-    g.fillCircle(cs - 2, cs - 2, 2);
-
+    const s = 14, pad = 5, cs = s + pad;
+    g.fillStyle(C.coinGlow, 0.03);
+    g.fillCircle(cs, cs, s + 5);
+    fillHex(g, cs, cs, s, C.coinBody, 1);
+    fillHex(g, cs, cs, s - 1.5, C.coinLight, 0.2);
+    fillHex(g, cs, cs, s - 3, C.coinBody, 0.2);
+    g.fillStyle(C.coinShine, 0.1);
+    g.fillEllipse(cs - 3, cs - 3, 6, 10);
+    strokeHex(g, cs, cs, s, C.coinShine, 0.5, 1.5);
+    strokeHex(g, cs, cs, s + 2, C.coinGlow, 0.08, 3);
+    fillHex(g, cs, cs, 5, C.coinGlow, 0.4);
+    strokeHex(g, cs, cs, 5, C.coinShine, 0.3, 1);
     g.generateTexture("coin", cs * 2, cs * 2);
     g.clear();
   }
 
-  private pups(g: Phaser.GameObjects.Graphics) {
-    g.clear();
+  private genPowerups(g: Phaser.GameObjects.Graphics) {
     const s = 18;
+    g.clear();
 
     const drawBase = (col: number, colB: number) => {
-      g.fillStyle(col, 0.03);
-      g.fillCircle(s, s, s + 4);
-      g.fillStyle(C.tunnelDeep, 0.93);
-      g.fillRoundedRect(0, 0, s * 2, s * 2, 10);
-      g.fillStyle(col, 0.02);
-      g.fillRoundedRect(2, 2, s * 2 - 4, s * 2 - 4, 8);
-      g.lineStyle(2, col, 0.8);
-      g.strokeRoundedRect(0, 0, s * 2, s * 2, 10);
-      g.lineStyle(5, colB, 0.06);
-      g.strokeRoundedRect(-1, -1, s * 2 + 2, s * 2 + 2, 11);
+      g.fillStyle(col, 0.025);
+      g.fillCircle(s, s, s + 3);
+      g.fillStyle(C.tunnelDark, 0.92);
+      g.fillRoundedRect(0, 0, s * 2, s * 2, 8);
+      g.lineStyle(2, col, 0.75);
+      g.strokeRoundedRect(0, 0, s * 2, s * 2, 8);
+      g.lineStyle(4, colB, 0.05);
+      g.strokeRoundedRect(-1, -1, s * 2 + 2, s * 2 + 2, 9);
     };
 
     drawBase(C.magnetBlue, C.magnetBright);
-    g.lineStyle(3.5, C.magnetBlue, 0.75);
+    g.lineStyle(3, C.magnetBlue, 0.7);
     g.beginPath(); g.arc(s, s - 2, 7, PI, 0, false); g.strokePath();
     g.fillStyle(C.magnetBlue, 1);
-    g.fillRect(s - 7, s - 2, 4, 14);
-    g.fillRect(s + 3, s - 2, 4, 14);
-    g.fillStyle(C.laserEdge, 0.9);
-    g.fillRect(s - 7, s + 8, 4, 4);
-    g.fillStyle(C.cyan, 0.9);
-    g.fillRect(s + 3, s + 8, 4, 4);
-    g.fillStyle(C.white, 0.2);
-    g.fillRect(s - 6, s - 1, 2, 4);
+    g.fillRect(s - 7, s - 2, 4, 13);
+    g.fillRect(s + 3, s - 2, 4, 13);
+    g.fillStyle(C.laserRed, 0.85);
+    g.fillRect(s - 7, s + 7, 4, 4);
+    g.fillStyle(C.cyan, 0.85);
+    g.fillRect(s + 3, s + 7, 4, 4);
     g.generateTexture("magnet", s * 2, s * 2);
     g.clear();
 
     drawBase(C.shieldGreen, C.shieldBright);
-    g.lineStyle(2.5, C.shieldGreen, 0.75);
+    g.lineStyle(2.5, C.shieldGreen, 0.7);
     g.beginPath();
     g.moveTo(s, 4); g.lineTo(s + 9, 9); g.lineTo(s + 9, 20);
     g.lineTo(s, 28); g.lineTo(s - 9, 20); g.lineTo(s - 9, 9);
     g.closePath(); g.strokePath();
-    g.fillStyle(C.shieldGreen, 0.15);
+    g.fillStyle(C.shieldGreen, 0.12);
     g.beginPath();
     g.moveTo(s, 4); g.lineTo(s + 9, 9); g.lineTo(s + 9, 20);
     g.lineTo(s, 28); g.lineTo(s - 9, 20); g.lineTo(s - 9, 9);
     g.closePath(); g.fillPath();
-    g.fillStyle(C.shieldBright, 0.1);
-    g.fillEllipse(s - 2, 12, 6, 8);
     g.generateTexture("shield_pu", s * 2, s * 2);
     g.clear();
 
@@ -622,51 +503,45 @@ class BootScene extends Phaser.Scene {
     g.fillTriangle(s - 5, s + 8, s + 1, s - 10, s + 3, s + 2);
     g.fillStyle(C.boostBright, 1);
     g.fillTriangle(s - 3, s + 2, s + 5, s + 2, s + 1, s + 10);
-    g.fillStyle(C.white, 0.25);
-    g.fillTriangle(s - 2, s + 4, s, s - 5, s + 1, s + 1);
     g.generateTexture("boost_pu", s * 2, s * 2);
     g.clear();
   }
 
-  private ground(g: Phaser.GameObjects.Graphics) {
+  private genGround(g: Phaser.GameObjects.Graphics) {
     const tW = LANE_WIDTH * 3 + 20;
     g.clear();
-    g.fillGradientStyle(C.tunnelMid, C.tunnelMid, C.tunnelDeep, C.tunnelDeep, 0.7);
+    g.fillGradientStyle(C.tunnelMid, C.tunnelMid, C.tunnelDark, C.tunnelDark, 0.65);
     g.fillRect(0, 0, tW, 28);
 
-    for (let i = 0; i < tW; i += 4) {
-      g.fillStyle(C.cyan, (i % 8 === 0) ? 0.025 : 0.01);
-      g.fillRect(i, 0, 1.5, 28);
+    for (let i = 0; i < tW; i += 5) {
+      g.fillStyle(C.cyan, (i % 10 === 0) ? 0.02 : 0.008);
+      g.fillRect(i, 0, 1, 28);
     }
 
-    g.lineStyle(3, C.hexAmber, 0.5);
+    g.lineStyle(2.5, C.cyan, 0.45);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(8, C.hexAmberHot, 0.05);
+    g.lineStyle(6, C.cyanBright, 0.04);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(18, C.hexAmber, 0.012);
+    g.lineStyle(14, C.cyan, 0.01);
     g.lineBetween(0, 0, tW, 0);
-
-    g.lineStyle(1, C.cyanDim, 0.1);
+    g.lineStyle(1, C.magenta, 0.08);
     g.lineBetween(0, 27, tW, 27);
 
     for (let i = 1; i < 3; i++) {
       const lx = i * LANE_WIDTH + 10;
-      g.lineStyle(1, C.hexAmber, 0.1);
+      g.lineStyle(1, C.cyan, 0.08);
       g.lineBetween(lx, 0, lx, 28);
     }
-
     g.generateTexture("ground_tile", tW, 28);
     g.clear();
   }
 
-  private parts(g: Phaser.GameObjects.Graphics) {
+  private genParticles(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.hexAmberHot, 0.8);
+    g.fillStyle(C.amberHot, 0.8);
     g.fillCircle(6, 6, 5);
-    g.fillStyle(C.hexAmberWhite, 0.3);
+    g.fillStyle(C.amberWhite, 0.3);
     g.fillCircle(5, 5, 2.5);
-    g.fillStyle(C.white, 0.2);
-    g.fillCircle(4.5, 4.5, 1);
     g.generateTexture("particle_amber", 12, 12);
     g.clear();
 
@@ -677,46 +552,54 @@ class BootScene extends Phaser.Scene {
     g.generateTexture("particle_cyan", 10, 10);
     g.clear();
 
-    g.fillStyle(C.white, 0.45);
-    g.fillRect(0, 0, 2, 16);
+    g.fillStyle(C.white, 0.4);
+    g.fillRect(0, 0, 2, 18);
     g.fillStyle(C.cyan, 0.2);
-    g.fillRect(0, 0, 2, 16);
-    g.fillStyle(C.white, 0.35);
-    g.fillRect(0, 0, 2, 4);
-    g.generateTexture("speed_line", 2, 16);
+    g.fillRect(0, 0, 2, 18);
+    g.generateTexture("speed_line", 2, 18);
     g.clear();
 
-    g.fillStyle(C.hexAmberHot, 0.6);
+    g.fillStyle(C.amberHot, 0.5);
     g.fillRect(0, 0, 3, 3);
-    g.fillStyle(C.white, 0.3);
-    g.fillRect(0, 0, 1, 1);
     g.generateTexture("spark", 3, 3);
+    g.clear();
+
+    fillHex(g, 6, 6, 5, C.coinBody, 0.5);
+    strokeHex(g, 6, 6, 5, C.coinShine, 0.3, 0.5);
+    g.generateTexture("hex_dust", 12, 12);
+    g.clear();
+
+    g.fillStyle(C.magenta, 0.6);
+    g.fillCircle(4, 4, 3);
+    g.fillStyle(C.magentaBright, 0.2);
+    g.fillCircle(3, 3, 1.5);
+    g.generateTexture("particle_magenta", 8, 8);
     g.clear();
   }
 
-  private hexFrame(g: Phaser.GameObjects.Graphics) {
+  private genDashIcon(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    const cx = W / 2, cy = H * 0.4;
-    const sizes = [100, 125, 155, 190, 230];
-    for (let i = 0; i < sizes.length; i++) {
-      const a = [0.3, 0.18, 0.1, 0.05, 0.02][i];
-      const lw = [2.5, 2, 1.5, 1, 0.5][i];
-      sH(g, cx, cy, sizes[i], C.hexAmber, a, lw);
-      if (i < 3) {
-        sH(g, cx, cy, sizes[i] + 2, C.hexAmberHot, a * 0.25, lw + 3);
-        sH(g, cx, cy, sizes[i] + 5, C.hexAmber, a * 0.06, lw + 8);
-      }
-      if (i < 2) {
-        const pts = hv(cx, cy, sizes[i]);
-        for (const p of pts) {
-          g.fillStyle(C.hexAmberHot, 0.2 - i * 0.06);
-          g.fillCircle(p[0], p[1], 3 - i);
-          g.fillStyle(C.hexAmber, 0.06);
-          g.fillCircle(p[0], p[1], 6 - i * 2);
-        }
-      }
-    }
-    g.generateTexture("hex_frame", W, H);
+    const s = 30;
+    g.lineStyle(3, C.cyan, 0.15);
+    g.strokeCircle(s, s, s - 2);
+    g.lineStyle(3, C.cyan, 0.6);
+    g.beginPath(); g.arc(s, s, s - 2, -PI / 2, PI, false); g.strokePath();
+    g.fillStyle(C.cyanBright, 0.1);
+    g.fillCircle(s, s, s - 6);
+    g.fillStyle(C.cyan, 0.08);
+    g.fillTriangle(s - 5, s - 8, s + 8, s, s - 5, s + 8);
+    g.generateTexture("dash_icon_bg", s * 2, s * 2);
+    g.clear();
+
+    g.lineStyle(3, C.cyan, 0.7);
+    g.strokeCircle(s, s, s - 2);
+    g.fillStyle(C.cyanBright, 0.2);
+    g.fillCircle(s, s, s - 6);
+    g.fillStyle(C.cyan, 0.4);
+    g.fillTriangle(s - 5, s - 8, s + 8, s, s - 5, s + 8);
+    g.fillStyle(C.white, 0.15);
+    g.fillTriangle(s - 3, s - 5, s + 5, s, s - 3, s + 5);
+    g.generateTexture("dash_icon_ready", s * 2, s * 2);
     g.clear();
   }
 }
@@ -725,92 +608,108 @@ class MenuScene extends Phaser.Scene {
   constructor() { super({ key: "Menu" }); }
   create() {
     this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0);
-    this.add.image(CX, H / 2, "nebula").setAlpha(0.6);
-    const stars = this.add.image(CX, H / 2, "stars").setAlpha(0.7);
-    this.tweens.add({ targets: stars, alpha: 0.4, duration: 3500, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const stars = this.add.image(CX, H / 2, "stars").setAlpha(0.6);
+    this.tweens.add({ targets: stars, alpha: 0.3, duration: 3000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    const rays = this.add.image(CX, H / 2, "god_rays").setAlpha(0.6);
-    this.tweens.add({ targets: rays, alpha: 0.3, angle: 3, duration: 6000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.2);
 
-    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.15);
-    this.add.image(CX, H * 0.4, "hex_frame").setAlpha(0.85);
-
-    const titleGlow = this.add.text(CX, 70, "HONEY", {
-      fontSize: "60px", fontFamily: "monospace", color: "#f0a000", fontStyle: "bold",
-    }).setOrigin(0.5).setAlpha(0.06);
-    this.tweens.add({ targets: titleGlow, alpha: 0.12, scaleX: 1.03, scaleY: 1.03, duration: 2800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-
-    this.add.text(CX, 70, "HONEY", {
-      fontSize: "56px", fontFamily: "monospace", color: "#ffc030",
-      fontStyle: "bold", stroke: "#503000", strokeThickness: 7,
-    }).setOrigin(0.5);
-
-    this.add.text(CX, 126, "RUNNER", {
-      fontSize: "38px", fontFamily: "monospace", color: "#ffd860",
-      fontStyle: "bold", stroke: "#503000", strokeThickness: 5,
-    }).setOrigin(0.5);
-
-    const sub = this.add.text(CX, 158, "C Y B E R   H I V E", {
-      fontSize: "10px", fontFamily: "monospace", color: "#00d4f0",
-      letterSpacing: 5,
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: sub, alpha: 0.35, duration: 2200, yoyo: true, repeat: -1 });
-
-    for (let i = 0; i < 3; i++) {
-      const pulse = this.add.circle(CX, 250, 35 + i * 18, C.hexAmber, 0.015 - i * 0.003);
-      this.tweens.add({ targets: pulse, scaleX: 1.4 + i * 0.2, scaleY: 1.4 + i * 0.2, alpha: 0, duration: 2200 + i * 300, repeat: -1, delay: i * 300 });
+    const frameGfx = this.add.graphics();
+    const frameLines = [100, 130, 165, 210, 260];
+    for (let i = 0; i < frameLines.length; i++) {
+      const a = [0.25, 0.15, 0.08, 0.04, 0.02][i];
+      const lw = [2.5, 2, 1.5, 1, 0.5][i];
+      strokeHex(frameGfx, CX, H * 0.38, frameLines[i], C.cyan, a, lw);
+      if (i < 3) {
+        strokeHex(frameGfx, CX, H * 0.38, frameLines[i] + 2, C.cyanBright, a * 0.2, lw + 2);
+      }
+      if (i < 2) {
+        strokeHex(frameGfx, CX, H * 0.38, frameLines[i], C.magenta, a * 0.12, lw * 0.5);
+      }
     }
 
-    const shadow = this.add.image(CX, 302, "bee_shadow").setScale(4.2).setAlpha(0.3);
-    const body = this.add.image(CX, 250, "runner").setScale(3.8);
-    const wL = this.add.image(CX - 22, 224, "wing_l").setScale(3.5).setAlpha(0.65);
-    const wR = this.add.image(CX + 22, 224, "wing_r").setScale(3.5).setAlpha(0.65);
+    const tGlow = this.add.text(CX, 60, "HONEY", {
+      fontSize: "56px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
+    }).setOrigin(0.5).setAlpha(0.06);
+    this.tweens.add({ targets: tGlow, alpha: 0.12, scaleX: 1.02, duration: 2500, yoyo: true, repeat: -1 });
 
-    this.tweens.add({ targets: body, y: 244, duration: 1700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.tweens.add({ targets: shadow, scaleX: 3.8, alpha: 0.2, duration: 1700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.tweens.add({ targets: wL, scaleY: 1.2, scaleX: 3.8, alpha: 0.3, duration: 45, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: wR, scaleY: 1.2, scaleX: 3.8, alpha: 0.3, duration: 45, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: [wL, wR], y: 218, duration: 1700, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.add.text(CX, 60, "HONEY", {
+      fontSize: "52px", fontFamily: "monospace", color: "#00e5ff",
+      fontStyle: "bold", stroke: "#001828", strokeThickness: 8,
+    }).setOrigin(0.5);
+
+    this.add.text(CX, 114, "RUNNER", {
+      fontSize: "36px", fontFamily: "monospace", color: "#ff0090",
+      fontStyle: "bold", stroke: "#280014", strokeThickness: 6,
+    }).setOrigin(0.5);
+
+    const sub = this.add.text(CX, 148, "C Y B E R   H I V E", {
+      fontSize: "10px", fontFamily: "monospace", color: "#00e5ff",
+    }).setOrigin(0.5);
+    this.tweens.add({ targets: sub, alpha: 0.3, duration: 2000, yoyo: true, repeat: -1 });
+
+    for (let i = 0; i < 3; i++) {
+      const pulse = this.add.circle(CX, 240, 30 + i * 15, C.cyan, 0.012 - i * 0.003);
+      this.tweens.add({ targets: pulse, scaleX: 1.5 + i * 0.2, scaleY: 1.5 + i * 0.2, alpha: 0, duration: 2000 + i * 250, repeat: -1, delay: i * 250 });
+    }
+
+    const shadow = this.add.image(CX, 290, "bee_shadow").setScale(3.8).setAlpha(0.2);
+    const body = this.add.image(CX, 240, "runner").setScale(3.5);
+    const wL = this.add.image(CX - 22, 216, "wing_l").setScale(3.2).setAlpha(0.55).setDepth(9);
+    const wR = this.add.image(CX + 22, 216, "wing_r").setScale(3.2).setAlpha(0.55).setDepth(11);
+    body.setDepth(10);
+
+    this.tweens.add({ targets: body, y: 234, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: shadow, scaleX: 3.4, alpha: 0.12, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: wL, scaleY: 1, alpha: 0.2, duration: 40, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: wR, scaleY: 1, alpha: 0.2, duration: 40, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: [wL, wR], y: 210, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+
+    const trailEmitter = this.add.particles(0, 0, "hex_dust", {
+      speed: { min: 10, max: 40 }, scale: { start: 0.8, end: 0 },
+      alpha: { start: 0.5, end: 0 }, lifespan: 800, frequency: 80,
+      follow: body, followOffset: { x: 0, y: 30 },
+      blendMode: "ADD", tint: [C.amberHot, C.coinBody, C.amberWhite],
+    }).setDepth(8);
 
     const best = getBestScore();
     if (best > 0) {
-      this.add.text(CX, 330, `BEST: ${best.toLocaleString()}`, {
-        fontSize: "18px", fontFamily: "monospace", color: "#ffd860",
+      this.add.text(CX, 322, `BEST: ${best.toLocaleString()}`, {
+        fontSize: "16px", fontFamily: "monospace", color: "#ffc030",
         fontStyle: "bold", stroke: "#000", strokeThickness: 4,
       }).setOrigin(0.5);
     }
 
-    const bg = this.add.rectangle(CX, 386, 200, 58, C.hexAmber, 0.03);
-    this.tweens.add({ targets: bg, scaleX: 1.3, scaleY: 1.4, alpha: 0, duration: 2200, repeat: -1 });
+    const btnGlow = this.add.rectangle(CX, 378, 200, 56, C.cyan, 0.025);
+    this.tweens.add({ targets: btnGlow, scaleX: 1.3, scaleY: 1.4, alpha: 0, duration: 2000, repeat: -1 });
 
-    const btn = this.add.rectangle(CX, 386, 188, 54, C.beeBody, 1).setInteractive({ useHandCursor: true });
-    btn.setStrokeStyle(3, C.hexAmberHot);
-    this.add.text(CX, 386, "PLAY", {
-      fontSize: "26px", fontFamily: "monospace", color: "#1a0800", fontStyle: "bold",
+    const btn = this.add.rectangle(CX, 378, 188, 52, C.bgDeep, 0.95).setInteractive({ useHandCursor: true });
+    btn.setStrokeStyle(2.5, C.cyan);
+    this.add.text(CX, 378, "PLAY", {
+      fontSize: "24px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
     }).setOrigin(0.5);
     btn.on("pointerdown", () => this.scene.start("Game"));
-    this.tweens.add({ targets: btn, scaleX: 1.03, scaleY: 1.03, duration: 1100, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: btn, scaleX: 1.03, scaleY: 1.03, duration: 1000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     const ctrl = [
       "CONTROLS:",
       "",
-      "Arrow Left / Right \u2013 Change Lane",
-      "Arrow Up / Swipe Up \u2013 Jump",
-      "Arrow Down / Swipe Down \u2013 Slide",
+      "Left / Right \u2013 Change Lane",
+      "Up / Swipe Up \u2013 Jump / Stinger Dash",
+      "Down / Swipe Down \u2013 Slide",
       "",
-      "Collect honey & dodge lasers!",
+      "Collect hex-honey & dodge lasers!",
     ];
-    this.add.text(CX, 498, ctrl.join("\n"), {
-      fontSize: "9px", fontFamily: "monospace", color: "#2a4060",
+    this.add.text(CX, 480, ctrl.join("\n"), {
+      fontSize: "9px", fontFamily: "monospace", color: "#1a3050",
       align: "center", lineSpacing: 5,
     }).setOrigin(0.5);
 
     this.add.text(CX, H - 28, "A Honeycomb Arena Game", {
-      fontSize: "8px", fontFamily: "monospace", color: "#141e30",
+      fontSize: "8px", fontFamily: "monospace", color: "#0c1828",
     }).setOrigin(0.5);
 
-    this.add.image(CX, H / 2, "scanlines").setAlpha(0.25);
-    this.add.image(CX, H / 2, "vignette").setAlpha(0.85);
+    this.add.image(CX, H / 2, "scanlines").setAlpha(0.2);
+    this.add.image(CX, H / 2, "vignette").setAlpha(0.8);
   }
 }
 
@@ -841,16 +740,32 @@ class GameScene extends Phaser.Scene {
 
   private pu: PUState = { magnet: false, shield: false, boost: false };
 
+  private combo = 0;
+  private comboTimer = 0;
+  private maxCombo = 0;
+
+  private dashReady = true;
+  private dashing = false;
+  private dashCooldownTimer = 0;
+  private dashCooldownTotal = STINGER_DASH_COOLDOWN;
+
+  private phase = 0;
+  private phaseColor1 = C.cyan;
+  private phaseColor2 = C.magenta;
+
   private scoreTxt!: Phaser.GameObjects.Text;
   private coinTxt!: Phaser.GameObjects.Text;
   private spdTxt!: Phaser.GameObjects.Text;
+  private comboTxt!: Phaser.GameObjects.Text;
+  private phaseTxt!: Phaser.GameObjects.Text;
+  private dashIcon!: Phaser.GameObjects.Image;
+  private dashLabel!: Phaser.GameObjects.Text;
   private puIcons: Phaser.GameObjects.Container[] = [];
 
   private bgTunnel!: Phaser.GameObjects.TileSprite;
-  private bgNeb!: Phaser.GameObjects.TileSprite;
   private bgStars!: Phaser.GameObjects.Image;
-  private bgRays!: Phaser.GameObjects.Image;
   private gTiles: Phaser.GameObjects.TileSprite[] = [];
+  private tunnelRingsGfx!: Phaser.GameObjects.Graphics;
 
   private obsTimer?: Phaser.Time.TimerEvent;
   private coinTimer?: Phaser.Time.TimerEvent;
@@ -858,8 +773,11 @@ class GameScene extends Phaser.Scene {
 
   private swipe: { x: number; y: number; t: number } | null = null;
   private particles!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private hexDust!: Phaser.GameObjects.Particles.ParticleEmitter;
   private shieldVis?: Phaser.GameObjects.Arc;
+  private dashVis?: Phaser.GameObjects.Arc;
   private fc = 0;
+  private tunnelOffset = 0;
 
   constructor() { super({ key: "Game" }); }
 
@@ -868,50 +786,65 @@ class GameScene extends Phaser.Scene {
     this.dist = 0; this.score = 0; this.coins = 0; this.alive = true;
     this.pu = { magnet: false, shield: false, boost: false };
     this.puIcons = []; this.gTiles = []; this.fc = 0;
+    this.combo = 0; this.comboTimer = 0; this.maxCombo = 0;
+    this.dashReady = true; this.dashing = false; this.dashCooldownTimer = 0;
+    this.phase = 0; this.tunnelOffset = 0;
+    this.updatePhaseColors();
 
     this.bgTunnel = this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0).setScrollFactor(0);
-    this.bgNeb = this.add.tileSprite(0, 0, W, H, "nebula").setOrigin(0, 0).setScrollFactor(0).setAlpha(0.35);
-    this.bgStars = this.add.image(CX, H / 2, "stars").setAlpha(0.4);
-    this.bgRays = this.add.image(CX, H / 2, "god_rays").setAlpha(0.3);
+    this.bgStars = this.add.image(CX, H / 2, "stars").setAlpha(0.3);
 
-    this.add.rectangle(CX, GROUND_Y - 50, LANE_WIDTH * 3 + 14, 230, C.tunnelDeep, 0.25);
+    this.tunnelRingsGfx = this.add.graphics().setDepth(1);
+
+    this.add.rectangle(CX, GROUND_Y - 50, LANE_WIDTH * 3 + 14, 220, C.tunnelDark, 0.2).setDepth(2);
 
     for (let i = 0; i <= LANE_COUNT; i++) {
       const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
       const edge = (i === 0 || i === LANE_COUNT);
-      this.add.line(0, 0, lx, GROUND_Y - 165, lx, GROUND_Y + 28, C.hexAmber, edge ? 0.16 : 0.05).setOrigin(0, 0);
-      if (edge) this.add.line(0, 0, lx, GROUND_Y - 165, lx, GROUND_Y + 28, C.hexAmber, 0.025).setOrigin(0, 0).setLineWidth(5);
+      this.add.line(0, 0, lx, GROUND_Y - 160, lx, GROUND_Y + 28, C.cyan, edge ? 0.12 : 0.04).setOrigin(0, 0).setDepth(2);
+      if (edge) this.add.line(0, 0, lx, GROUND_Y - 160, lx, GROUND_Y + 28, C.cyan, 0.02).setOrigin(0, 0).setLineWidth(4).setDepth(2);
     }
 
-    this.gTiles.push(this.add.tileSprite(CX, GROUND_Y, LANE_WIDTH * 3 + 20, 28, "ground_tile"));
+    this.gTiles.push(this.add.tileSprite(CX, GROUND_Y, LANE_WIDTH * 3 + 20, 28, "ground_tile").setDepth(3));
 
     this.obsGroup = this.physics.add.group({ allowGravity: false });
     this.coinGroup = this.physics.add.group({ allowGravity: false });
     this.puGroup = this.physics.add.group({ allowGravity: false });
 
-    this.beeShadow = this.add.image(CX, GROUND_Y - 6, "bee_shadow").setScale(1.8).setAlpha(0.25).setDepth(4);
+    this.beeShadow = this.add.image(CX, GROUND_Y - 6, "bee_shadow").setScale(1.8).setAlpha(0.2).setDepth(4);
 
     this.runner = this.physics.add.sprite(CX, RUNNER_Y, "runner");
     this.runner.setCollideWorldBounds(false);
     this.runner.setGravityY(GRAVITY);
-    this.runner.setSize(40, 52);
+    this.runner.setSize(40, 56);
     this.runner.setDepth(10);
 
-    this.wingL = this.add.image(CX - 20, RUNNER_Y - 14, "wing_l").setScale(1.35).setAlpha(0.6).setDepth(9);
-    this.wingR = this.add.image(CX + 20, RUNNER_Y - 14, "wing_r").setScale(1.35).setAlpha(0.6).setDepth(11);
-    this.tweens.add({ targets: this.wingL, scaleY: 0.35, alpha: 0.2, duration: 40, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: this.wingR, scaleY: 0.35, alpha: 0.2, duration: 40, yoyo: true, repeat: -1 });
+    this.wingL = this.add.image(CX - 20, RUNNER_Y - 16, "wing_l").setScale(1.4).setAlpha(0.5).setDepth(9);
+    this.wingR = this.add.image(CX + 20, RUNNER_Y - 16, "wing_r").setScale(1.4).setAlpha(0.5).setDepth(11);
+    this.tweens.add({ targets: this.wingL, scaleY: 0.3, alpha: 0.15, duration: 38, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.wingR, scaleY: 0.3, alpha: 0.15, duration: 38, yoyo: true, repeat: -1 });
 
     this.particles = this.add.particles(0, 0, "particle_amber", {
-      speed: { min: 20, max: 65 }, scale: { start: 0.5, end: 0 },
-      alpha: { start: 0.6, end: 0 }, lifespan: 600, frequency: 40,
-      follow: this.runner, followOffset: { x: 0, y: 28 },
-      blendMode: "ADD", tint: [C.hexAmberHot, C.hexAmberWhite, C.cyan],
+      speed: { min: 15, max: 50 }, scale: { start: 0.5, end: 0 },
+      alpha: { start: 0.5, end: 0 }, lifespan: 500, frequency: 50,
+      follow: this.runner, followOffset: { x: 0, y: 30 },
+      blendMode: "ADD", tint: [C.amberHot, C.amberWhite, C.cyan],
     }).setDepth(8);
 
-    this.shieldVis = this.add.circle(CX, RUNNER_Y, 38, C.shieldGreen, 0.08);
-    this.shieldVis.setStrokeStyle(2, C.shieldBright, 0.4);
+    this.hexDust = this.add.particles(0, 0, "hex_dust", {
+      speed: { min: 8, max: 30 }, scale: { start: 0.6, end: 0 },
+      alpha: { start: 0.4, end: 0 }, lifespan: 700, frequency: 120,
+      follow: this.runner, followOffset: { x: 0, y: 35 },
+      blendMode: "ADD", tint: [C.coinBody, C.amberHot],
+    }).setDepth(8);
+
+    this.shieldVis = this.add.circle(CX, RUNNER_Y, 38, C.shieldGreen, 0.06);
+    this.shieldVis.setStrokeStyle(2, C.shieldBright, 0.35);
     this.shieldVis.setVisible(false).setDepth(12);
+
+    this.dashVis = this.add.circle(CX, RUNNER_Y, 42, C.cyan, 0.04);
+    this.dashVis.setStrokeStyle(2, C.cyanBright, 0.5);
+    this.dashVis.setVisible(false).setDepth(12);
 
     this.physics.add.overlap(this.runner, this.obsGroup, this.hitObs, undefined, this);
     this.physics.add.overlap(this.runner, this.coinGroup, this.getCoin, undefined, this);
@@ -924,23 +857,53 @@ class GameScene extends Phaser.Scene {
     this.setupInput();
     this.makeHUD();
 
-    this.add.image(CX, H / 2, "scanlines").setAlpha(0.12).setDepth(99).setScrollFactor(0);
-    this.add.image(CX, H / 2, "vignette").setAlpha(0.55).setDepth(100).setScrollFactor(0);
+    this.add.image(CX, H / 2, "scanlines").setAlpha(0.1).setDepth(99).setScrollFactor(0);
+    this.add.image(CX, H / 2, "vignette").setAlpha(0.5).setDepth(100).setScrollFactor(0);
+  }
+
+  private updatePhaseColors() {
+    const colors = [
+      [C.cyan, C.magenta],
+      [C.magenta, C.amberHot],
+      [C.lime, C.cyan],
+      [C.amberHot, C.magenta],
+    ];
+    const c = colors[Math.min(this.phase, colors.length - 1)];
+    this.phaseColor1 = c[0];
+    this.phaseColor2 = c[1];
   }
 
   private makeHUD() {
-    const bg = this.add.rectangle(CX, 18, W - 14, 32, C.hudBg, 0.8).setDepth(90).setScrollFactor(0);
-    bg.setStrokeStyle(1, C.hudBorder, 0.25);
-    this.scoreTxt = this.add.text(CX, 18, "0", {
-      fontSize: "18px", fontFamily: "monospace", color: "#ffc030", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+    const hudBar = this.add.rectangle(CX, 16, W - 10, 28, C.hudBg, 0.85).setDepth(90).setScrollFactor(0);
+    hudBar.setStrokeStyle(1, C.hudBorder, 0.3);
+
+    this.scoreTxt = this.add.text(CX, 16, "0", {
+      fontSize: "16px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
     }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
-    this.coinTxt = this.add.text(68, 18, " 0", {
-      fontSize: "13px", fontFamily: "monospace", color: "#ffd040", stroke: "#000", strokeThickness: 2,
+
+    this.add.image(50, 16, "coin").setScale(0.45).setDepth(91).setScrollFactor(0);
+    this.coinTxt = this.add.text(64, 16, " 0", {
+      fontSize: "12px", fontFamily: "monospace", color: "#ffd040", stroke: "#000", strokeThickness: 2,
     }).setOrigin(0, 0.5).setDepth(91).setScrollFactor(0);
-    this.add.image(54, 18, "coin").setScale(0.55).setDepth(91).setScrollFactor(0);
-    this.spdTxt = this.add.text(W - 14, 18, `${INITIAL_SPEED.toFixed(1)}x`, {
-      fontSize: "11px", fontFamily: "monospace", color: "#00d4f0", stroke: "#000", strokeThickness: 2,
+
+    this.spdTxt = this.add.text(W - 12, 16, `${INITIAL_SPEED.toFixed(1)}x`, {
+      fontSize: "10px", fontFamily: "monospace", color: "#ff0090", stroke: "#000", strokeThickness: 2,
     }).setOrigin(1, 0.5).setDepth(91).setScrollFactor(0);
+
+    const comboBar = this.add.rectangle(CX, 40, W - 10, 18, C.hudBg, 0.65).setDepth(90).setScrollFactor(0);
+    comboBar.setStrokeStyle(1, C.hudBorder, 0.15);
+    this.comboTxt = this.add.text(CX, 40, "1x NEURAL OVERLOAD", {
+      fontSize: "10px", fontFamily: "monospace", color: "#ffc030", fontStyle: "bold", stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
+
+    this.phaseTxt = this.add.text(CX, 58, PHASE_NAMES[0], {
+      fontSize: "8px", fontFamily: "monospace", color: "#00e5ff", stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(91).setScrollFactor(0).setAlpha(0.6);
+
+    this.dashIcon = this.add.image(38, H - 38, "dash_icon_ready").setScale(0.9).setDepth(91).setScrollFactor(0);
+    this.dashLabel = this.add.text(38, H - 12, "DASH", {
+      fontSize: "7px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
   }
 
   private setupInput() {
@@ -948,9 +911,10 @@ class GameScene extends Phaser.Scene {
     if (c) {
       c.left?.on("down", () => this.mvL());
       c.right?.on("down", () => this.mvR());
-      c.up?.on("down", () => this.jump());
+      c.up?.on("down", () => this.jumpOrDash());
       c.down?.on("down", () => this.slide());
     }
+    this.input.keyboard?.on("keydown-SPACE", () => this.triggerDash());
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => { this.swipe = { x: p.x, y: p.y, t: this.time.now }; });
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       if (!this.swipe) return;
@@ -961,28 +925,66 @@ class GameScene extends Phaser.Scene {
       const ax = Math.abs(dx), ay = Math.abs(dy);
       if (ax < 30 && ay < 30) return;
       if (ax > ay) { dx > 0 ? this.mvR() : this.mvL(); }
-      else { dy < 0 ? this.jump() : this.slide(); }
+      else { dy < 0 ? this.jumpOrDash() : this.slide(); }
     });
   }
 
-  private mvL() { if (this.alive && this.lane > 0) { this.lane--; this.tweens.add({ targets: this.runner, x: CX + LANE_POSITIONS[this.lane], duration: 120, ease: "Power2" }); } }
-  private mvR() { if (this.alive && this.lane < LANE_COUNT - 1) { this.lane++; this.tweens.add({ targets: this.runner, x: CX + LANE_POSITIONS[this.lane], duration: 120, ease: "Power2" }); } }
+  private mvL() { if (this.alive && this.lane > 0) { this.lane--; this.tweens.add({ targets: this.runner, x: CX + LANE_POSITIONS[this.lane], duration: 110, ease: "Power2" }); } }
+  private mvR() { if (this.alive && this.lane < LANE_COUNT - 1) { this.lane++; this.tweens.add({ targets: this.runner, x: CX + LANE_POSITIONS[this.lane], duration: 110, ease: "Power2" }); } }
+
+  private jumpOrDash() {
+    if (!this.alive) return;
+    if (this.dashReady) {
+      this.triggerDash();
+    } else {
+      this.jump();
+    }
+  }
+
   private jump() {
     if (!this.alive) return;
     const b = this.runner.body as Phaser.Physics.Arcade.Body;
     if (b.y + b.height >= GROUND_Y - 2) b.setVelocityY(JUMP_VELOCITY);
   }
+
   private slide() {
     if (!this.alive || this.sliding) return;
     this.sliding = true;
     this.runner.setTexture("runner_slide");
-    this.runner.setSize(50, 24);
-    this.runner.y = GROUND_Y - 16;
+    this.runner.setSize(50, 22);
+    this.runner.y = GROUND_Y - 14;
     this.slideTimer = this.time.delayedCall(SLIDE_DURATION, () => {
       if (!this.alive) return;
       this.sliding = false;
       this.runner.setTexture("runner");
-      this.runner.setSize(40, 52);
+      this.runner.setSize(40, 56);
+    });
+  }
+
+  private triggerDash() {
+    if (!this.alive || !this.dashReady || this.dashing) return;
+    this.dashing = true;
+    this.dashReady = false;
+    this.dashCooldownTimer = STINGER_DASH_COOLDOWN;
+    this.runner.setAlpha(0.5);
+    this.runner.setTint(C.cyanBright);
+    this.dashVis?.setVisible(true);
+
+    this.cameras.main.flash(200, 0, 229, 255, false);
+
+    for (let i = 0; i < 8; i++) {
+      const s = this.add.image(this.runner.x + Phaser.Math.Between(-30, 30), this.runner.y + Phaser.Math.Between(-30, 30), "particle_cyan")
+        .setScale(2.5).setAlpha(0.7).setDepth(15).setBlendMode("ADD");
+      this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(-60, 60), y: s.y + Phaser.Math.Between(-60, 60), alpha: 0, scale: 0, duration: 400, onComplete: () => s.destroy() });
+    }
+
+    this.dashIcon.setTexture("dash_icon_bg").setAlpha(0.4);
+
+    this.time.delayedCall(STINGER_DASH_DURATION, () => {
+      this.dashing = false;
+      this.runner.setAlpha(1);
+      this.runner.clearTint();
+      this.dashVis?.setVisible(false);
     });
   }
 
@@ -990,32 +992,47 @@ class GameScene extends Phaser.Scene {
     const d = Phaser.Math.Between(OBSTACLE_SPAWN_INTERVAL_MIN, OBSTACLE_SPAWN_INTERVAL_MAX);
     this.obsTimer = this.time.delayedCall(d, () => { this.spawnObs(); if (this.alive) this.schedObs(); });
   }
+
   private spawnObs() {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
-    const t = Phaser.Math.Between(0, 2);
-    const tx = ["barrier", "low_gate", "lane_blocker"];
+    const t = Phaser.Math.Between(0, 3);
+    const tx = ["barrier", "low_gate", "lane_blocker", "glitch_wall"];
     const o = this.obsGroup.create(CX + LANE_POSITIONS[l], -60, tx[t]) as Phaser.Physics.Arcade.Sprite;
     o.setImmovable(true).setDepth(6);
-    if (t === 1) { o.y = -20; o.setSize(78, 16); }
-    else if (t === 2) o.setSize(28, 78);
+    if (t === 1) { o.y = -20; o.setSize(78, 14); }
+    else if (t === 2) o.setSize(26, 78);
+    else if (t === 3) { o.setSize(72, 48); if (Math.random() > 0.5) this.tweens.add({ targets: o, alpha: 0.3, duration: 80, yoyo: true, repeat: 3 }); }
     else o.setSize(72, 48);
   }
+
   private spawnCoin() {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
     const c = this.coinGroup.create(CX + LANE_POSITIONS[l], -30, "coin") as Phaser.Physics.Arcade.Sprite;
-    c.setDepth(5).setSize(24, 24);
-    this.tweens.add({ targets: c, scaleX: 0.65, duration: 350, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    c.setDepth(5).setSize(22, 22);
+    this.tweens.add({ targets: c, scaleX: 0.6, duration: 320, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
   }
+
   private spawnPU() {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
     const ts = ["magnet", "shield_pu", "boost_pu"];
     const p = this.puGroup.create(CX + LANE_POSITIONS[l], -30, ts[Phaser.Math.Between(0, 2)]) as Phaser.Physics.Arcade.Sprite;
-    p.setDepth(5).setSize(30, 30);
-    this.tweens.add({ targets: p, angle: 360, duration: 3000, repeat: -1 });
-    this.tweens.add({ targets: p, scaleX: 1.12, scaleY: 1.12, duration: 500, yoyo: true, repeat: -1 });
+    p.setDepth(5).setSize(28, 28);
+    this.tweens.add({ targets: p, angle: 360, duration: 2800, repeat: -1 });
+    this.tweens.add({ targets: p, scaleX: 1.1, scaleY: 1.1, duration: 450, yoyo: true, repeat: -1 });
   }
 
   private hitObs(_r: any, o: any) {
+    if (this.dashing) {
+      o.destroy();
+      this.score += 50;
+      this.bumpCombo();
+      const p = this.add.text(this.runner.x, this.runner.y - 30, "PHASED!", {
+        fontSize: "14px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+      }).setDepth(30);
+      this.tweens.add({ targets: p, y: p.y - 45, alpha: 0, duration: 500, onComplete: () => p.destroy() });
+      return;
+    }
+
     if (this.pu.shield) {
       o.destroy();
       this.pu.shield = false;
@@ -1028,15 +1045,17 @@ class GameScene extends Phaser.Scene {
       }
       return;
     }
+
     if (!this.alive) return;
     this.alive = false;
 
-    this.cameras.main.shake(300, 0.015);
-    this.cameras.main.flash(250, 255, 15, 15);
+    this.cameras.main.shake(400, 0.02);
+    this.cameras.main.flash(300, 255, 16, 64);
 
-    for (let i = 0; i < 16; i++) {
-      const s = this.add.image(this.runner.x, this.runner.y, "spark").setScale(3).setAlpha(0.9).setDepth(20).setTint(C.laserWhite);
-      this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(-90, 90), y: s.y + Phaser.Math.Between(-90, 90), alpha: 0, scale: 0, duration: 500, onComplete: () => s.destroy() });
+    for (let i = 0; i < 18; i++) {
+      const tint = i % 2 === 0 ? C.laserRedWhite : C.magentaBright;
+      const s = this.add.image(this.runner.x, this.runner.y, "spark").setScale(3).setAlpha(0.9).setDepth(20).setTint(tint);
+      this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(-100, 100), y: s.y + Phaser.Math.Between(-100, 100), alpha: 0, scale: 0, duration: 550, onComplete: () => s.destroy() });
     }
 
     const fs = this.score + Math.floor(this.dist);
@@ -1050,20 +1069,30 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.runner, alpha: 0, duration: 600 });
     this.tweens.add({ targets: [this.wingL, this.wingR], alpha: 0, duration: 350 });
 
-    this.time.delayedCall(800, () => {
+    this.time.delayedCall(900, () => {
       this.gTiles = [];
-      this.scene.start("GameOver", { score: fs, coins: this.coins, distance: Math.floor(this.dist), bestScore: nb ? fs : bs, isNewBest: nb, speed: this.speed });
+      this.scene.start("GameOver", { score: fs, coins: this.coins, distance: Math.floor(this.dist), bestScore: nb ? fs : bs, isNewBest: nb, speed: this.speed, maxCombo: this.maxCombo });
     });
   }
 
   private getCoin(_r: any, c: any) {
     c.destroy();
     this.coins++;
-    this.score += COIN_SCORE;
-    const p = this.add.text(this.runner.x + 15, this.runner.y - 22, `+${COIN_SCORE}`, {
-      fontSize: "14px", fontFamily: "monospace", color: "#ffd040", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+    this.score += COIN_SCORE * Math.max(1, Math.floor(this.combo));
+    this.bumpCombo();
+
+    this.cameras.main.shake(60, 0.004);
+
+    const p = this.add.text(this.runner.x + 15, this.runner.y - 22, `+${COIN_SCORE * Math.max(1, Math.floor(this.combo))}`, {
+      fontSize: "13px", fontFamily: "monospace", color: "#ffd040", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
     }).setDepth(30);
-    this.tweens.add({ targets: p, y: p.y - 40, alpha: 0, duration: 500, onComplete: () => p.destroy() });
+    this.tweens.add({ targets: p, y: p.y - 40, alpha: 0, duration: 450, onComplete: () => p.destroy() });
+  }
+
+  private bumpCombo() {
+    this.combo = Math.min(20, this.combo + 1);
+    this.comboTimer = COMBO_DECAY_TIME;
+    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
   }
 
   private getPU(_r: any, p: any) {
@@ -1085,15 +1114,47 @@ class GameScene extends Phaser.Scene {
     });
     if (type === "shield") this.shieldVis?.setVisible(true);
     this.rmPUIcon(type);
-    const bg = this.add.rectangle(0, 0, 28, 28, col, 0.12).setStrokeStyle(1, col, 0.45);
-    const lb = this.add.text(0, 0, type[0].toUpperCase(), { fontSize: "12px", fontFamily: "monospace", color: `#${col.toString(16).padStart(6, "0")}`, fontStyle: "bold" }).setOrigin(0.5);
-    const ct = this.add.container(20 + this.puIcons.length * 32, 50, [bg, lb]).setDepth(91);
+    const bg = this.add.rectangle(0, 0, 26, 26, col, 0.1).setStrokeStyle(1, col, 0.4);
+    const lb = this.add.text(0, 0, type[0].toUpperCase(), { fontSize: "11px", fontFamily: "monospace", color: `#${col.toString(16).padStart(6, "0")}`, fontStyle: "bold" }).setOrigin(0.5);
+    const ct = this.add.container(W - 30 - this.puIcons.length * 30, H - 38, [bg, lb]).setDepth(91);
     (ct as any).__t = type;
     this.puIcons.push(ct);
   }
 
   private rmPUIcon(type: string) {
     this.puIcons = this.puIcons.filter((c) => { if ((c as any).__t === type) { c.destroy(); return false; } return true; });
+  }
+
+  private drawTunnelRings() {
+    const g = this.tunnelRingsGfx;
+    g.clear();
+    const vx = CX, vy = H * 0.12;
+    const numRings = 8;
+    const baseOffset = this.tunnelOffset % 50;
+
+    for (let i = numRings; i >= 0; i--) {
+      const t = (i * 50 + baseOffset) / (numRings * 50);
+      const r = 12 + t * (W * 0.65);
+      const cy = vy + t * (H * 0.5);
+      const sq = 0.6 + t * 0.4;
+      const rr = r * sq;
+
+      const ea = (0.05 + t * 0.3) * 0.6;
+      const ew = 0.5 + t * 1.5;
+      strokeHex(g, vx, cy, rr, this.phaseColor1, ea, ew);
+      if (t > 0.3) {
+        strokeHex(g, vx, cy, rr, this.phaseColor2, ea * 0.15, ew * 0.5);
+      }
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const angle = (PI / 3) * i - PI / 6;
+      const len = W * 0.5;
+      const ex = vx + Math.cos(angle) * len;
+      const ey = vy + Math.sin(angle) * len;
+      g.lineStyle(0.5, this.phaseColor1, 0.02);
+      g.lineBetween(vx, vy, ex, ey);
+    }
   }
 
   update(_t: number, delta: number) {
@@ -1105,22 +1166,56 @@ class GameScene extends Phaser.Scene {
     this.dist += es * (delta / 16) * 0.15;
     this.score += Math.floor(es * (delta / 16) * 0.1);
 
-    this.bgTunnel.tilePositionY -= es * 0.3;
-    this.bgNeb.tilePositionY -= es * 0.15;
-    this.bgNeb.tilePositionX += 0.06;
+    const newPhase = PHASE_THRESHOLDS.reduce((p, thresh, i) => this.score >= thresh ? i : p, 0);
+    if (newPhase !== this.phase) {
+      this.phase = newPhase;
+      this.updatePhaseColors();
+      this.cameras.main.flash(300, 0, 229, 255, false);
+      if (this.phaseTxt) {
+        this.phaseTxt.setText(PHASE_NAMES[this.phase] || "");
+        this.tweens.add({ targets: this.phaseTxt, scaleX: 1.3, scaleY: 1.3, duration: 200, yoyo: true });
+      }
+    }
+
+    if (this.comboTimer > 0) {
+      this.comboTimer -= delta;
+      if (this.comboTimer <= 0) {
+        this.combo = Math.max(0, this.combo - 1);
+        if (this.combo > 0) this.comboTimer = COMBO_DECAY_TIME;
+      }
+    }
+
+    if (!this.dashReady && !this.dashing) {
+      this.dashCooldownTimer -= delta;
+      if (this.dashCooldownTimer <= 0) {
+        this.dashReady = true;
+        this.dashIcon.setTexture("dash_icon_ready").setAlpha(1);
+        const flash = this.add.circle(38, H - 38, 28, C.cyan, 0.2).setDepth(92);
+        this.tweens.add({ targets: flash, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
+      } else {
+        const pct = 1 - (this.dashCooldownTimer / this.dashCooldownTotal);
+        this.dashIcon.setAlpha(0.3 + pct * 0.7);
+      }
+    }
+
+    this.tunnelOffset += es * 2;
+    this.drawTunnelRings();
+
+    this.bgTunnel.tilePositionY -= es * 0.25;
 
     this.gTiles.forEach((gt) => { gt.tilePositionY -= es * 0.5; });
 
-    this.wingL.x = this.runner.x - 20;
-    this.wingR.x = this.runner.x + 20;
-    this.wingL.y = this.runner.y - 16;
-    this.wingR.y = this.runner.y - 16;
+    this.wingL.x = this.runner.x - 22;
+    this.wingR.x = this.runner.x + 22;
+    this.wingL.y = this.runner.y - 18;
+    this.wingR.y = this.runner.y - 18;
 
     this.beeShadow.x = this.runner.x;
     const sd = Math.max(0, GROUND_Y - this.runner.y);
-    this.beeShadow.setScale(Math.max(0.4, 1.8 - sd * 0.01)).setAlpha(Math.max(0.06, 0.25 - sd * 0.002));
+    this.beeShadow.setScale(Math.max(0.4, 1.8 - sd * 0.01)).setAlpha(Math.max(0.04, 0.2 - sd * 0.002));
 
     if (this.shieldVis) { this.shieldVis.x = this.runner.x; this.shieldVis.y = this.runner.y; }
+    if (this.dashVis) { this.dashVis.x = this.runner.x; this.dashVis.y = this.runner.y; }
 
     const body = this.runner.body as Phaser.Physics.Arcade.Body;
     if (!this.sliding && body.y + body.height > GROUND_Y) {
@@ -1129,9 +1224,15 @@ class GameScene extends Phaser.Scene {
     }
 
     if (es > 6.5 && this.fc % 2 === 0) {
-      const sl = this.add.image(Phaser.Math.Between(15, W - 15), -10, "speed_line")
-        .setAlpha(0.12 + (es - 6.5) * 0.05).setScale(1, 1 + es * 0.18).setDepth(2);
-      this.tweens.add({ targets: sl, y: H + 20, alpha: 0, duration: 250 + Phaser.Math.Between(0, 150), onComplete: () => sl.destroy() });
+      const sl = this.add.image(Phaser.Math.Between(10, W - 10), -10, "speed_line")
+        .setAlpha(0.1 + (es - 6.5) * 0.04).setScale(1, 1 + es * 0.2).setDepth(2).setTint(this.phaseColor1);
+      this.tweens.add({ targets: sl, y: H + 20, alpha: 0, duration: 220 + Phaser.Math.Between(0, 120), onComplete: () => sl.destroy() });
+    }
+
+    if (this.combo >= 10 && this.fc % 3 === 0) {
+      const sl2 = this.add.image(Phaser.Math.Between(5, W - 5), -5, "speed_line")
+        .setAlpha(0.2).setScale(1.5, 2 + es * 0.15).setDepth(2).setTint(this.phaseColor2);
+      this.tweens.add({ targets: sl2, y: H + 20, alpha: 0, duration: 180, onComplete: () => sl2.destroy() });
     }
 
     this.obsGroup.getChildren().forEach((o) => {
@@ -1158,75 +1259,85 @@ class GameScene extends Phaser.Scene {
     this.scoreTxt.setText(this.score.toLocaleString());
     this.coinTxt.setText(` ${this.coins}`);
     this.spdTxt.setText(`${es.toFixed(1)}x`);
+
+    const comboDisplay = Math.max(1, Math.floor(this.combo));
+    this.comboTxt.setText(`${comboDisplay}x NEURAL OVERLOAD`);
+    if (comboDisplay >= 10) {
+      this.comboTxt.setColor("#ff0090");
+    } else if (comboDisplay >= 5) {
+      this.comboTxt.setColor("#ffc030");
+    } else {
+      this.comboTxt.setColor("#00e5ff");
+    }
   }
 }
 
 class GameOverScene extends Phaser.Scene {
   constructor() { super({ key: "GameOver" }); }
-  create(data: { score: number; coins: number; distance: number; bestScore: number; isNewBest: boolean; speed: number }) {
+  create(data: { score: number; coins: number; distance: number; bestScore: number; isNewBest: boolean; speed: number; maxCombo: number }) {
     this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0);
-    this.add.image(CX, H / 2, "nebula").setAlpha(0.35);
-    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.45);
+    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.5);
 
-    const tg = this.add.text(CX, 48, "GAME OVER", {
-      fontSize: "42px", fontFamily: "monospace", color: "#ff1040", fontStyle: "bold",
+    const tg = this.add.text(CX, 44, "GAME OVER", {
+      fontSize: "40px", fontFamily: "monospace", color: "#ff1040", fontStyle: "bold",
     }).setOrigin(0.5).setAlpha(0.08);
-    this.tweens.add({ targets: tg, alpha: 0.15, duration: 2000, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: tg, alpha: 0.15, duration: 1800, yoyo: true, repeat: -1 });
 
-    this.add.text(CX, 48, "GAME OVER", {
-      fontSize: "40px", fontFamily: "monospace", color: "#ff1040",
-      fontStyle: "bold", stroke: "#300008", strokeThickness: 6,
+    this.add.text(CX, 44, "GAME OVER", {
+      fontSize: "38px", fontFamily: "monospace", color: "#ff1040",
+      fontStyle: "bold", stroke: "#200008", strokeThickness: 6,
     }).setOrigin(0.5);
 
     if (data.isNewBest) {
-      const nb = this.add.text(CX, 88, "NEW BEST!", {
-        fontSize: "22px", fontFamily: "monospace", color: "#ffd860",
-        fontStyle: "bold", stroke: "#503000", strokeThickness: 4,
+      const nb = this.add.text(CX, 82, "NEW BEST!", {
+        fontSize: "20px", fontFamily: "monospace", color: "#ffd860",
+        fontStyle: "bold", stroke: "#302000", strokeThickness: 4,
       }).setOrigin(0.5);
-      this.tweens.add({ targets: nb, scaleX: 1.06, scaleY: 1.06, duration: 650, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: nb, scaleX: 1.05, scaleY: 1.05, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    const bg = this.add.circle(CX, 136, 28, C.hexAmber, 0.03);
-    this.tweens.add({ targets: bg, scaleX: 1.6, scaleY: 1.6, alpha: 0, duration: 2200, repeat: -1 });
-    const bee = this.add.image(CX, 136, "runner").setScale(2.6);
-    this.tweens.add({ targets: bee, y: 130, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const beeGlow = this.add.circle(CX, 126, 24, C.cyan, 0.015);
+    this.tweens.add({ targets: beeGlow, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 2000, repeat: -1 });
+    const bee = this.add.image(CX, 126, "runner").setScale(2.4);
+    this.tweens.add({ targets: bee, y: 120, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    const sy = 178;
+    const sy = 164;
     const stats = [
-      { l: "SCORE", v: data.score.toLocaleString(), c: "#ffc030" },
-      { l: "HONEY", v: data.coins.toString(), c: "#ffd860" },
-      { l: "DISTANCE", v: `${data.distance.toLocaleString()}m`, c: "#00d4f0" },
+      { l: "SCORE", v: data.score.toLocaleString(), c: "#00e5ff" },
+      { l: "HONEY", v: data.coins.toString(), c: "#ffd040" },
+      { l: "DISTANCE", v: `${data.distance.toLocaleString()}m`, c: "#ff0090" },
+      { l: "MAX COMBO", v: `${data.maxCombo}x`, c: "#39ff14" },
       { l: "TOP SPEED", v: `${data.speed.toFixed(1)}x`, c: "#ff6000" },
-      { l: "BEST", v: data.bestScore.toLocaleString(), c: "#f0a000" },
+      { l: "BEST", v: data.bestScore.toLocaleString(), c: "#ffc030" },
     ];
     stats.forEach((s, i) => {
-      const y = sy + i * 46;
-      this.add.rectangle(CX, y + 8, 296, 38, C.hudBg, 0.85).setStrokeStyle(1, C.hudBorder, 0.2);
-      this.add.text(CX - 134, y, s.l, { fontSize: "10px", fontFamily: "monospace", color: "#2a4060" });
-      const val = this.add.text(CX + 134, y + 13, s.v, {
-        fontSize: "20px", fontFamily: "monospace", color: s.c, fontStyle: "bold", stroke: "#000", strokeThickness: 3,
-      }).setOrigin(1, 0.5).setAlpha(0).setScale(0.8);
-      this.tweens.add({ targets: val, alpha: 1, scaleX: 1, scaleY: 1, duration: 350, delay: 200 + i * 120, ease: "Back.easeOut" });
+      const y = sy + i * 42;
+      this.add.rectangle(CX, y + 7, 290, 34, C.hudBg, 0.85).setStrokeStyle(1, C.hudBorder, 0.2);
+      this.add.text(CX - 130, y, s.l, { fontSize: "9px", fontFamily: "monospace", color: "#1a3050" });
+      const val = this.add.text(CX + 130, y + 12, s.v, {
+        fontSize: "18px", fontFamily: "monospace", color: s.c, fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+      }).setOrigin(1, 0.5).setAlpha(0).setScale(0.7);
+      this.tweens.add({ targets: val, alpha: 1, scaleX: 1, scaleY: 1, duration: 350, delay: 200 + i * 100, ease: "Back.easeOut" });
     });
 
-    const btnG = this.add.rectangle(CX, 452, 210, 56, C.hexAmber, 0.03);
-    this.tweens.add({ targets: btnG, scaleX: 1.25, scaleY: 1.25, alpha: 0, duration: 1800, repeat: -1 });
-    const retry = this.add.rectangle(CX, 452, 204, 52, C.beeBody, 1).setInteractive({ useHandCursor: true });
-    retry.setStrokeStyle(3, C.hexAmberHot);
-    this.add.text(CX, 452, "PLAY AGAIN", { fontSize: "18px", fontFamily: "monospace", color: "#1a0800", fontStyle: "bold" }).setOrigin(0.5);
+    const btnGlow = this.add.rectangle(CX, 432, 210, 54, C.cyan, 0.02);
+    this.tweens.add({ targets: btnGlow, scaleX: 1.25, scaleY: 1.25, alpha: 0, duration: 1800, repeat: -1 });
+    const retry = this.add.rectangle(CX, 432, 200, 50, C.bgDeep, 0.95).setInteractive({ useHandCursor: true });
+    retry.setStrokeStyle(2.5, C.cyan);
+    this.add.text(CX, 432, "PLAY AGAIN", { fontSize: "16px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold" }).setOrigin(0.5);
     retry.on("pointerdown", () => this.scene.start("Game"));
-    this.tweens.add({ targets: retry, scaleX: 1.03, scaleY: 1.03, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: retry, scaleX: 1.03, scaleY: 1.03, duration: 800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    const menu = this.add.rectangle(CX, 516, 204, 42, C.tunnelMid, 1).setInteractive({ useHandCursor: true });
-    menu.setStrokeStyle(1, C.hexAmber, 0.18);
-    this.add.text(CX, 516, "MENU", { fontSize: "14px", fontFamily: "monospace", color: "#f0a000" }).setOrigin(0.5);
+    const menu = this.add.rectangle(CX, 490, 200, 40, C.tunnelMid, 0.95).setInteractive({ useHandCursor: true });
+    menu.setStrokeStyle(1, C.magenta, 0.3);
+    this.add.text(CX, 490, "MENU", { fontSize: "13px", fontFamily: "monospace", color: "#ff0090" }).setOrigin(0.5);
     menu.on("pointerdown", () => this.scene.start("Menu"));
 
     this.input.keyboard?.once("keydown-SPACE", () => this.scene.start("Game"));
     this.input.keyboard?.once("keydown-ENTER", () => this.scene.start("Game"));
 
-    this.add.image(CX, H / 2, "scanlines").setAlpha(0.18);
-    this.add.image(CX, H / 2, "vignette").setAlpha(0.75);
+    this.add.image(CX, H / 2, "scanlines").setAlpha(0.15);
+    this.add.image(CX, H / 2, "vignette").setAlpha(0.7);
   }
 }
 
@@ -1236,7 +1347,7 @@ export function createHoneyRunnerGame(parent: HTMLElement): Phaser.Game {
     width: W,
     height: H,
     parent,
-    backgroundColor: "#020010",
+    backgroundColor: "#020014",
     physics: { default: "arcade", arcade: { gravity: { x: 0, y: 0 }, debug: false } },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [BootScene, MenuScene, GameScene, GameOverScene],
