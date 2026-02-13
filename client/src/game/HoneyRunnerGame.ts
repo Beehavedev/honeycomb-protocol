@@ -1736,17 +1736,16 @@ class GameScene extends Phaser.Scene {
 
     const perspMove = (sprite: Phaser.Physics.Arcade.Sprite) => {
       const linProgress = Math.min(1, (sprite.y - VY) / tunnelLen);
-      const accel = 1 + linProgress * linProgress * 3;
+      const accel = 1 + linProgress * 0.8;
       sprite.y += baseMoveSpd * accel;
 
       const p = Math.min(1, (sprite.y - VY) / tunnelLen);
       const perspP = this.perspT(p);
 
-      const sc = 0.08 + perspP * 0.92;
+      const sc = 0.12 + perspP * 0.88;
       sprite.setScale(sc);
 
-      const fogAlpha = perspP * perspP;
-      sprite.setAlpha(Math.min(1, fogAlpha * 1.2));
+      sprite.setAlpha(Math.min(1, 0.15 + p * 1.1));
 
       const laneOff = sprite.getData("laneOffset") || 0;
       sprite.x = CX + laneOff * perspP;
