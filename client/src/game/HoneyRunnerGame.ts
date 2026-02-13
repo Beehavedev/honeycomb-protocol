@@ -12,18 +12,19 @@ import { getBestScore, setBestScore, addCoins, incrementRuns } from "./storage";
 
 const CX = GAME_WIDTH / 2;
 const PI = Math.PI;
+const TAU = PI * 2;
 
-function hexVerts(cx: number, cy: number, r: number, rotation = -PI / 6): { x: number; y: number }[] {
+function hexPts(cx: number, cy: number, r: number, rot = -PI / 6): { x: number; y: number }[] {
   const pts: { x: number; y: number }[] = [];
   for (let i = 0; i < 6; i++) {
-    const a = (PI / 3) * i + rotation;
+    const a = (PI / 3) * i + rot;
     pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
   }
   return pts;
 }
 
 function strokeHex(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, color: number, alpha: number, lw = 1) {
-  const pts = hexVerts(cx, cy, r);
+  const pts = hexPts(cx, cy, r);
   g.lineStyle(lw, color, alpha);
   g.beginPath();
   g.moveTo(pts[0].x, pts[0].y);
@@ -33,7 +34,7 @@ function strokeHex(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: nu
 }
 
 function fillHex(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: number, color: number, alpha: number) {
-  const pts = hexVerts(cx, cy, r);
+  const pts = hexPts(cx, cy, r);
   g.fillStyle(color, alpha);
   g.beginPath();
   g.moveTo(pts[0].x, pts[0].y);
@@ -42,13 +43,25 @@ function fillHex(g: Phaser.GameObjects.Graphics, cx: number, cy: number, r: numb
   g.fillPath();
 }
 
+function lerpColor(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+  const r = Math.round(ar + (br - ar) * t);
+  const gg = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (gg << 8) | bl;
+}
+
 class BootScene extends Phaser.Scene {
   constructor() { super({ key: "Boot" }); }
 
   create() {
     const g = this.make.graphics({ x: 0, y: 0 });
     this.genTunnelBg(g);
-    this.genTunnelFg(g);
+    this.genNebula(g);
+    this.genStars(g);
+    this.genScanlines(g);
+    this.genVignette(g);
     this.genBee(g);
     this.genBeeSlide(g);
     this.genBeeShadow(g);
@@ -59,6 +72,7 @@ class BootScene extends Phaser.Scene {
     this.genPowerups(g);
     this.genGround(g);
     this.genParticles(g);
+    this.genHexFrame(g);
     g.destroy();
     this.scene.start("Menu");
   }
@@ -67,169 +81,263 @@ class BootScene extends Phaser.Scene {
     g.clear();
     const W = GAME_WIDTH, H = GAME_HEIGHT;
 
-    g.fillGradientStyle(0x08021a, 0x08021a, 0x140830, 0x140830, 1);
+    g.fillGradientStyle(0x030008, 0x030008, 0x0e0525, 0x0e0525, 1);
     g.fillRect(0, 0, W, H);
 
-    const vanishX = W / 2, vanishY = H * 0.18;
-    const ringCount = 8;
-    for (let i = ringCount; i >= 0; i--) {
-      const t = i / ringCount;
-      const r = 30 + t * (W * 0.75);
-      const cy = vanishY + t * (H * 0.55);
-      const squeeze = 0.8 + t * 0.2;
+    const vx = W / 2, vy = H * 0.15;
+    g.fillStyle(C.hexRingAmber, 0.012);
+    g.fillCircle(vx, vy, 180);
+    g.fillStyle(C.hexRingAmber, 0.008);
+    g.fillCircle(vx, vy, 260);
 
-      fillHex(g, vanishX, cy, r * squeeze, C.tunnelWall, 0.15 + t * 0.15);
+    const rings = 12;
+    for (let i = rings; i >= 0; i--) {
+      const t = i / rings;
+      const r = 20 + t * (W * 0.85);
+      const cy = vy + t * (H * 0.58);
+      const sq = 0.75 + t * 0.25;
+      const rr = r * sq;
 
-      const ringAlpha = 0.2 + t * 0.4;
-      strokeHex(g, vanishX, cy, r * squeeze, C.hexRingAmber, ringAlpha, 1.5 + t);
-      if (t > 0.3) {
-        strokeHex(g, vanishX, cy, r * squeeze + 3, C.hexRingAmber, ringAlpha * 0.25, 3);
+      const wallAlpha = 0.06 + t * 0.12;
+      fillHex(g, vx, cy, rr, C.tunnelWall, wallAlpha);
+
+      if (i % 2 === 0) {
+        fillHex(g, vx, cy, rr, C.tunnelDeep, 0.04);
       }
-    }
 
-    const hexR = 22;
-    const hexH = hexR * Math.sqrt(3);
-    for (let row = -1; row < H / hexH + 1; row++) {
-      for (let col = -1; col < W / (hexR * 1.5) + 1; col++) {
-        const hx = col * hexR * 1.5;
-        const hy = row * hexH + (col % 2 ? hexH / 2 : 0);
-        const distToVanish = Math.sqrt((hx - vanishX) ** 2 + (hy - vanishY) ** 2) / (W * 0.7);
-        const a = Math.max(0.02, 0.1 - distToVanish * 0.08);
-        strokeHex(g, hx, hy, hexR - 2, C.neonCyan, a * 0.5);
+      const edgeAlpha = 0.15 + t * 0.5;
+      const edgeWidth = 1 + t * 1.5;
+      const edgeColor = lerpColor(C.hexRingAmberDim, C.hexRingAmberBright, t);
+      strokeHex(g, vx, cy, rr, edgeColor, edgeAlpha, edgeWidth);
 
-        if (Math.random() < 0.04) {
-          fillHex(g, hx, hy, hexR - 3, C.neonCyan, 0.02 + Math.random() * 0.03);
-        }
+      if (t > 0.2) {
+        strokeHex(g, vx, cy, rr + 2, C.hexRingAmber, edgeAlpha * 0.15, edgeWidth + 3);
+        strokeHex(g, vx, cy, rr + 5, C.hexRingAmber, edgeAlpha * 0.04, edgeWidth + 8);
+      }
+
+      if (t > 0.5) {
+        const innerGlowAlpha = (t - 0.5) * 0.06;
+        strokeHex(g, vx, cy, rr - 4, C.hexRingAmberBright, innerGlowAlpha, 1);
       }
     }
 
     for (let i = 0; i < 6; i++) {
       const angle = (PI / 3) * i - PI / 6;
-      const ex = vanishX + Math.cos(angle) * W * 1.2;
-      const ey = vanishY + Math.sin(angle) * H * 1.2;
-      g.lineStyle(1, C.hexRingAmberDim, 0.08);
-      g.lineBetween(vanishX, vanishY, ex, ey);
+      const ex = vx + Math.cos(angle) * W * 1.4;
+      const ey = vy + Math.sin(angle) * H * 1.4;
+      g.lineStyle(1, C.hexRingAmber, 0.05);
+      g.lineBetween(vx, vy, ex, ey);
+      g.lineStyle(4, C.hexRingAmber, 0.012);
+      g.lineBetween(vx, vy, ex, ey);
+    }
+
+    const hexR = 20;
+    const hexH = hexR * Math.sqrt(3);
+    for (let row = -1; row < H / hexH + 1; row++) {
+      for (let col = -1; col < W / (hexR * 1.5) + 1; col++) {
+        const hx = col * hexR * 1.5;
+        const hy = row * hexH + (col % 2 ? hexH / 2 : 0);
+        const d = Math.sqrt((hx - vx) ** 2 + (hy - vy) ** 2) / (W * 0.7);
+        const a = Math.max(0.01, 0.08 - d * 0.06);
+        strokeHex(g, hx, hy, hexR - 3, C.neonCyan, a * 0.35);
+
+        if (Math.random() < 0.03) {
+          fillHex(g, hx, hy, hexR - 4, C.neonCyan, 0.01 + Math.random() * 0.02);
+        }
+        if (Math.random() < 0.008) {
+          fillHex(g, hx, hy, hexR - 4, C.hexRingAmber, 0.015);
+        }
+      }
     }
 
     g.generateTexture("bg_tunnel", W, H);
     g.clear();
   }
 
-  private genTunnelFg(g: Phaser.GameObjects.Graphics) {
+  private genNebula(g: Phaser.GameObjects.Graphics) {
     g.clear();
     const W = GAME_WIDTH, H = GAME_HEIGHT;
 
-    for (let i = 0; i < 100; i++) {
-      const sx = Math.random() * W;
-      const sy = Math.random() * H;
-      const sr = 0.3 + Math.random() * 1.5;
-      const colors = [C.neonCyan, C.neonPink, C.neonPurple, C.white, C.hexRingAmberBright];
-      g.fillStyle(colors[Math.floor(Math.random() * colors.length)], 0.1 + Math.random() * 0.5);
-      g.fillCircle(sx, sy, sr);
-    }
-
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       const x = Math.random() * W;
       const y = Math.random() * H;
-      g.fillStyle(C.neonPurple, 0.015 + Math.random() * 0.015);
-      g.fillCircle(x, y, 25 + Math.random() * 40);
+      const r = 30 + Math.random() * 60;
+      const colors = [C.neonPurpleDim, C.tunnelWall, C.neonPinkDim, C.neonCyanDim];
+      g.fillStyle(colors[Math.floor(Math.random() * colors.length)], 0.015 + Math.random() * 0.02);
+      g.fillCircle(x, y, r);
+      g.fillStyle(colors[Math.floor(Math.random() * colors.length)], 0.008);
+      g.fillCircle(x + 10, y - 10, r * 1.3);
     }
 
-    g.generateTexture("bg_particles", W, H);
+    g.generateTexture("nebula", W, H);
+    g.clear();
+  }
+
+  private genStars(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const W = GAME_WIDTH, H = GAME_HEIGHT;
+
+    for (let i = 0; i < 160; i++) {
+      const sx = Math.random() * W;
+      const sy = Math.random() * H;
+      const sr = 0.2 + Math.random() * 1.2;
+      const bright = Math.random();
+      if (bright > 0.92) {
+        g.fillStyle(C.hexRingAmberBright, 0.4 + Math.random() * 0.4);
+        g.fillCircle(sx, sy, sr + 0.3);
+        g.fillStyle(C.white, 0.15);
+        g.fillCircle(sx, sy, sr + 1.5);
+      } else if (bright > 0.8) {
+        g.fillStyle(C.neonCyanBright, 0.3 + Math.random() * 0.3);
+        g.fillCircle(sx, sy, sr);
+      } else {
+        const starColors = [C.white, C.neonCyanBright, C.neonPurpleBright, C.hexRingAmberHot];
+        g.fillStyle(starColors[Math.floor(Math.random() * starColors.length)], 0.1 + Math.random() * 0.25);
+        g.fillCircle(sx, sy, sr * 0.7);
+      }
+    }
+
+    g.generateTexture("stars", W, H);
+    g.clear();
+  }
+
+  private genScanlines(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const W = GAME_WIDTH, H = GAME_HEIGHT;
+    for (let y = 0; y < H; y += 3) {
+      g.fillStyle(0x000000, 0.04);
+      g.fillRect(0, y, W, 1);
+    }
+    g.generateTexture("scanlines", W, H);
+    g.clear();
+  }
+
+  private genVignette(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const W = GAME_WIDTH, H = GAME_HEIGHT;
+    const steps = 20;
+    for (let i = steps; i >= 0; i--) {
+      const t = i / steps;
+      const a = (1 - t) * 0.6;
+      const rx = (W / 2) * (0.5 + t * 0.5);
+      const ry = (H / 2) * (0.5 + t * 0.5);
+      g.fillStyle(0x000000, a * 0.08);
+      g.fillEllipse(W / 2, H / 2, rx * 2, ry * 2);
+    }
+    g.fillStyle(0x000000, 0.3);
+    g.fillRect(0, 0, W, 15);
+    g.fillRect(0, H - 15, W, 15);
+    g.fillStyle(0x000000, 0.15);
+    g.fillRect(0, 0, 8, H);
+    g.fillRect(W - 8, 0, 8, H);
+    g.generateTexture("vignette", W, H);
     g.clear();
   }
 
   private genBee(g: Phaser.GameObjects.Graphics) {
-    const w = 44, h = 52;
+    const w = 48, h = 56;
     g.clear();
 
     g.fillStyle(C.beeGold, 1);
-    g.fillEllipse(w / 2, 15, 20, 18);
-
-    g.fillStyle(C.beeGoldDark, 0.4);
-    g.fillEllipse(w / 2, 17, 16, 12);
+    g.fillEllipse(w / 2, 16, 22, 20);
+    g.fillStyle(C.beeGoldLight, 0.35);
+    g.fillEllipse(w / 2 - 2, 14, 10, 10);
+    g.fillStyle(C.beeGoldDark, 0.25);
+    g.fillEllipse(w / 2 + 3, 19, 12, 10);
 
     g.fillStyle(C.black, 1);
-    g.fillCircle(w / 2 - 5, 12, 3.5);
-    g.fillCircle(w / 2 + 5, 12, 3.5);
+    g.fillCircle(w / 2 - 6, 12, 4);
+    g.fillCircle(w / 2 + 6, 12, 4);
+    g.fillStyle(C.beeEye, 0.9);
+    g.fillCircle(w / 2 - 6, 11.5, 2.8);
+    g.fillCircle(w / 2 + 6, 11.5, 2.8);
+    g.fillStyle(C.beeEyeGlow, 0.5);
+    g.fillCircle(w / 2 - 6, 11, 1.8);
+    g.fillCircle(w / 2 + 6, 11, 1.8);
+    g.fillStyle(C.white, 0.9);
+    g.fillCircle(w / 2 - 5, 10, 1);
+    g.fillCircle(w / 2 + 7, 10, 1);
 
-    g.fillStyle(C.beeEye, 1);
-    g.fillCircle(w / 2 - 5, 11, 2);
-    g.fillCircle(w / 2 + 5, 11, 2);
-    g.fillStyle(C.white, 0.8);
-    g.fillCircle(w / 2 - 4, 10, 0.8);
-    g.fillCircle(w / 2 + 6, 10, 0.8);
-
-    g.lineStyle(1.5, C.beeGoldDark, 0.9);
-    g.beginPath();
-    g.moveTo(w / 2 - 4, 6);
-    g.lineTo(w / 2 - 7, 1);
-    g.strokePath();
-    g.beginPath();
-    g.moveTo(w / 2 + 4, 6);
-    g.lineTo(w / 2 + 7, 1);
-    g.strokePath();
-    g.fillStyle(C.neonCyan, 0.9);
-    g.fillCircle(w / 2 - 7, 1, 2);
-    g.fillCircle(w / 2 + 7, 1, 2);
+    g.lineStyle(1.5, C.beeGoldDark, 0.8);
+    g.beginPath(); g.moveTo(w / 2 - 4, 5); g.lineTo(w / 2 - 8, 0); g.strokePath();
+    g.beginPath(); g.moveTo(w / 2 + 4, 5); g.lineTo(w / 2 + 8, 0); g.strokePath();
+    g.fillStyle(C.neonCyan, 1);
+    g.fillCircle(w / 2 - 8, 0, 2.2);
+    g.fillCircle(w / 2 + 8, 0, 2.2);
+    g.fillStyle(C.neonCyanBright, 0.5);
+    g.fillCircle(w / 2 - 8, 0, 3.5);
+    g.fillCircle(w / 2 + 8, 0, 3.5);
 
     g.fillStyle(C.beeGold, 1);
-    g.fillEllipse(w / 2, 34, 26, 28);
+    g.fillEllipse(w / 2, 36, 28, 30);
+    g.fillStyle(C.beeGoldMetal, 0.4);
+    g.fillEllipse(w / 2 + 6, 32, 12, 18);
+    g.fillStyle(C.beeGoldLight, 0.25);
+    g.fillEllipse(w / 2 - 5, 30, 12, 16);
 
-    g.fillStyle(C.beeGoldLight, 0.3);
-    g.fillEllipse(w / 2 - 4, 30, 10, 14);
-
-    const stripes = [27, 33, 39];
+    const stripes = [28, 34, 40];
     for (const sy of stripes) {
-      g.fillStyle(C.beeStripe, 0.9);
-      g.fillRect(w / 2 - 12, sy, 24, 3);
+      g.fillStyle(C.beeStripeDark, 0.85);
+      g.fillRect(w / 2 - 13, sy, 26, 3);
+      g.fillStyle(C.beeStripe, 0.5);
+      g.fillRect(w / 2 - 13, sy + 1, 26, 1);
     }
 
-    g.lineStyle(1.5, C.hexRingAmber, 0.4);
-    g.strokeEllipse(w / 2, 34, 26, 28);
+    g.lineStyle(1.5, C.hexRingAmber, 0.35);
+    g.strokeEllipse(w / 2, 36, 28, 30);
+    g.lineStyle(3, C.hexRingAmber, 0.06);
+    g.strokeEllipse(w / 2, 36, 32, 34);
 
     g.fillStyle(C.beeGoldDark, 1);
-    g.fillTriangle(w / 2, h - 4, w / 2 - 3, h - 10, w / 2 + 3, h - 10);
+    g.fillTriangle(w / 2, h - 2, w / 2 - 3.5, h - 10, w / 2 + 3.5, h - 10);
+    g.fillStyle(C.hexRingAmberBright, 0.5);
+    g.fillTriangle(w / 2, h - 4, w / 2 - 1.5, h - 9, w / 2 + 1.5, h - 9);
 
-    g.fillStyle(C.hexRingAmber, 0.06);
-    g.fillCircle(w / 2, 30, 28);
+    g.fillStyle(C.hexRingAmber, 0.04);
+    g.fillCircle(w / 2, 32, 30);
 
     g.generateTexture("runner", w, h);
     g.clear();
   }
 
   private genBeeSlide(g: Phaser.GameObjects.Graphics) {
-    const w = 50, h = 26;
+    const w = 54, h = 28;
     g.clear();
 
     g.fillStyle(C.beeGold, 1);
-    g.fillEllipse(12, h / 2, 16, 14);
+    g.fillEllipse(13, h / 2, 18, 16);
+    g.fillStyle(C.beeGoldLight, 0.3);
+    g.fillEllipse(11, h / 2 - 2, 8, 8);
 
     g.fillStyle(C.black, 1);
-    g.fillCircle(8, h / 2 - 2, 2.5);
-    g.fillCircle(14, h / 2 - 2, 2.5);
-    g.fillStyle(C.beeEye, 1);
-    g.fillCircle(8, h / 2 - 3, 1.3);
-    g.fillCircle(14, h / 2 - 3, 1.3);
+    g.fillCircle(9, h / 2 - 2, 3);
+    g.fillCircle(15, h / 2 - 2, 3);
+    g.fillStyle(C.beeEye, 0.9);
+    g.fillCircle(9, h / 2 - 3, 1.6);
+    g.fillCircle(15, h / 2 - 3, 1.6);
+    g.fillStyle(C.white, 0.8);
+    g.fillCircle(9, h / 2 - 3.5, 0.8);
+    g.fillCircle(15, h / 2 - 3.5, 0.8);
 
     g.fillStyle(C.beeGold, 1);
-    g.fillEllipse(w / 2 + 3, h / 2, 30, 18);
+    g.fillEllipse(w / 2 + 3, h / 2, 32, 20);
+    g.fillStyle(C.beeGoldMetal, 0.3);
+    g.fillEllipse(w / 2 + 5, h / 2 - 3, 14, 10);
+    g.fillStyle(C.beeGoldLight, 0.2);
+    g.fillEllipse(w / 2, h / 2 - 4, 14, 8);
 
-    g.fillStyle(C.beeGoldLight, 0.25);
-    g.fillEllipse(w / 2, h / 2 - 3, 16, 8);
-
-    const sx = [22, 29, 36];
+    const sx = [23, 30, 37];
     for (const x of sx) {
-      g.fillStyle(C.beeStripe, 0.9);
-      g.fillRect(x, h / 2 - 7, 3, 14);
+      g.fillStyle(C.beeStripeDark, 0.85);
+      g.fillRect(x, h / 2 - 8, 3, 16);
     }
 
-    g.lineStyle(1.5, C.hexRingAmber, 0.35);
-    g.strokeEllipse(w / 2 + 3, h / 2, 30, 18);
+    g.lineStyle(1.5, C.hexRingAmber, 0.3);
+    g.strokeEllipse(w / 2 + 3, h / 2, 32, 20);
 
-    g.fillStyle(C.beeWing, 0.2);
-    g.fillEllipse(16, 3, 18, 8);
-    g.fillEllipse(30, 2, 14, 6);
+    g.fillStyle(C.beeWing, 0.15);
+    g.fillEllipse(17, 3, 20, 8);
+    g.fillEllipse(32, 2, 16, 6);
 
     g.generateTexture("runner_slide", w, h);
     g.clear();
@@ -237,168 +345,225 @@ class BootScene extends Phaser.Scene {
 
   private genBeeShadow(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.black, 0.25);
-    g.fillEllipse(20, 6, 36, 10);
-    g.fillStyle(C.black, 0.1);
-    g.fillEllipse(20, 6, 44, 14);
-    g.generateTexture("bee_shadow", 40, 12);
+    g.fillStyle(C.black, 0.18);
+    g.fillEllipse(22, 7, 40, 12);
+    g.fillStyle(C.black, 0.08);
+    g.fillEllipse(22, 7, 48, 16);
+    g.fillStyle(C.hexRingAmber, 0.015);
+    g.fillEllipse(22, 7, 52, 18);
+    g.generateTexture("bee_shadow", 44, 14);
     g.clear();
   }
 
   private genWingL(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.beeWing, 0.35);
-    g.fillEllipse(12, 14, 22, 26);
-    g.lineStyle(1, C.beeWingGlow, 0.5);
-    g.strokeEllipse(12, 14, 22, 26);
-    g.fillStyle(C.beeWingGlow, 0.15);
-    g.fillEllipse(10, 12, 14, 18);
-    g.lineStyle(0.5, C.white, 0.2);
-    g.lineBetween(6, 5, 14, 20);
-    g.lineBetween(4, 14, 18, 10);
-    g.generateTexture("wing_l", 24, 28);
+    const ww = 28, wh = 32;
+    g.fillStyle(C.beeWing, 0.3);
+    g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
+    g.fillStyle(C.beeWingShine, 0.12);
+    g.fillEllipse(ww / 2 - 3, wh / 2 - 4, ww * 0.5, wh * 0.6);
+    g.lineStyle(1.2, C.beeWingGlow, 0.45);
+    g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
+    g.lineStyle(0.6, C.white, 0.15);
+    g.lineBetween(6, 6, ww / 2 + 2, wh - 6);
+    g.lineBetween(4, wh / 2, ww - 4, wh / 2 - 4);
+    g.lineBetween(8, wh / 2 + 4, ww - 6, wh / 2 + 2);
+    g.lineStyle(3, C.beeWingGlow, 0.06);
+    g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
+    g.generateTexture("wing_l", ww, wh);
     g.clear();
   }
 
   private genWingR(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.beeWing, 0.35);
-    g.fillEllipse(12, 14, 22, 26);
-    g.lineStyle(1, C.beeWingGlow, 0.5);
-    g.strokeEllipse(12, 14, 22, 26);
-    g.fillStyle(C.beeWingGlow, 0.15);
-    g.fillEllipse(14, 12, 14, 18);
-    g.lineStyle(0.5, C.white, 0.2);
-    g.lineBetween(18, 5, 10, 20);
-    g.lineBetween(20, 14, 6, 10);
-    g.generateTexture("wing_r", 24, 28);
+    const ww = 28, wh = 32;
+    g.fillStyle(C.beeWing, 0.3);
+    g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
+    g.fillStyle(C.beeWingShine, 0.12);
+    g.fillEllipse(ww / 2 + 3, wh / 2 - 4, ww * 0.5, wh * 0.6);
+    g.lineStyle(1.2, C.beeWingGlow, 0.45);
+    g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
+    g.lineStyle(0.6, C.white, 0.15);
+    g.lineBetween(ww - 6, 6, ww / 2 - 2, wh - 6);
+    g.lineBetween(ww - 4, wh / 2, 4, wh / 2 - 4);
+    g.lineBetween(ww - 8, wh / 2 + 4, 6, wh / 2 + 2);
+    g.lineStyle(3, C.beeWingGlow, 0.06);
+    g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
+    g.generateTexture("wing_r", ww, wh);
     g.clear();
   }
 
   private genObstacles(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.tunnelDark, 0.85);
-    g.fillRoundedRect(0, 0, 74, 50, 3);
+    const bw = 76, bh = 52;
+    g.fillStyle(C.tunnelDeep, 0.9);
+    g.fillRoundedRect(0, 0, bw, bh, 4);
+    g.fillStyle(C.laserRed, 0.03);
+    g.fillRoundedRect(2, 2, bw - 4, bh - 4, 3);
     for (let i = 0; i < 5; i++) {
-      const ly = 6 + i * 10;
-      g.lineStyle(1.5, C.laserRed, 0.7 - i * 0.1);
-      g.lineBetween(4, ly, 70, ly);
-      g.lineStyle(3, C.laserRed, 0.08);
-      g.lineBetween(4, ly, 70, ly);
+      const ly = 7 + i * 10;
+      g.lineStyle(2, C.laserRed, 0.65 - i * 0.08);
+      g.lineBetween(5, ly, bw - 5, ly);
+      g.lineStyle(5, C.laserRedGlow, 0.06);
+      g.lineBetween(5, ly, bw - 5, ly);
+      g.lineStyle(10, C.laserRed, 0.015);
+      g.lineBetween(5, ly, bw - 5, ly);
     }
-    g.lineStyle(2, C.laserRed, 0.9);
-    g.strokeRoundedRect(1, 1, 72, 48, 3);
-    g.lineStyle(4, C.laserRedGlow, 0.12);
-    g.strokeRoundedRect(0, 0, 74, 50, 4);
-    g.fillStyle(C.laserRedGlow, 0.9);
-    g.fillCircle(5, 5, 3); g.fillCircle(69, 5, 3);
-    g.fillCircle(5, 45, 3); g.fillCircle(69, 45, 3);
-    g.fillStyle(C.laserRed, 0.04);
-    g.fillRect(2, 2, 70, 46);
-    g.generateTexture("barrier", 74, 50);
+    g.lineStyle(2, C.laserRed, 0.85);
+    g.strokeRoundedRect(1, 1, bw - 2, bh - 2, 4);
+    g.lineStyle(5, C.laserRedGlow, 0.1);
+    g.strokeRoundedRect(0, 0, bw, bh, 5);
+    g.lineStyle(10, C.laserRed, 0.02);
+    g.strokeRoundedRect(-2, -2, bw + 4, bh + 4, 6);
+    const corners = [[6, 6], [bw - 6, 6], [6, bh - 6], [bw - 6, bh - 6]];
+    for (const [cx, cy] of corners) {
+      g.fillStyle(C.laserRedBright, 0.9);
+      g.fillCircle(cx, cy, 3);
+      g.fillStyle(C.white, 0.6);
+      g.fillCircle(cx, cy, 1.5);
+      g.fillStyle(C.laserRedGlow, 0.15);
+      g.fillCircle(cx, cy, 6);
+    }
+    g.generateTexture("barrier", bw, bh);
     g.clear();
 
-    g.fillStyle(C.tunnelDark, 0.8);
-    g.fillRoundedRect(0, 0, 74, 16, 2);
-    g.lineStyle(3, C.neonPink, 0.9);
-    g.lineBetween(0, 8, 74, 8);
-    g.lineStyle(8, C.neonPink, 0.08);
-    g.lineBetween(0, 8, 74, 8);
-    g.lineStyle(1, C.neonPink, 0.4);
-    g.lineBetween(0, 3, 74, 3);
-    g.lineBetween(0, 13, 74, 13);
-    g.fillStyle(C.neonPink, 1);
-    g.fillCircle(3, 8, 4); g.fillCircle(71, 8, 4);
-    g.fillStyle(C.white, 0.7);
-    g.fillCircle(3, 7, 1.5); g.fillCircle(71, 7, 1.5);
-    g.generateTexture("low_gate", 74, 16);
+    g.fillStyle(C.tunnelDeep, 0.85);
+    g.fillRoundedRect(0, 0, bw, 18, 2);
+    g.lineStyle(3, C.neonPink, 0.85);
+    g.lineBetween(0, 9, bw, 9);
+    g.lineStyle(8, C.neonPinkBright, 0.06);
+    g.lineBetween(0, 9, bw, 9);
+    g.lineStyle(16, C.neonPink, 0.015);
+    g.lineBetween(0, 9, bw, 9);
+    g.lineStyle(1, C.neonPink, 0.35);
+    g.lineBetween(0, 3, bw, 3);
+    g.lineBetween(0, 15, bw, 15);
+    g.fillStyle(C.neonPinkBright, 1);
+    g.fillCircle(4, 9, 4);
+    g.fillCircle(bw - 4, 9, 4);
+    g.fillStyle(C.white, 0.6);
+    g.fillCircle(4, 8, 1.8);
+    g.fillCircle(bw - 4, 8, 1.8);
+    g.fillStyle(C.neonPink, 0.1);
+    g.fillCircle(4, 9, 8);
+    g.fillCircle(bw - 4, 9, 8);
+    g.generateTexture("low_gate", bw, 18);
     g.clear();
 
-    g.fillStyle(C.tunnelDark, 0.85);
-    g.fillRoundedRect(0, 0, 28, 80, 3);
-    g.lineStyle(2, C.neonPurple, 0.85);
-    g.strokeRoundedRect(1, 1, 26, 78, 3);
-    g.lineStyle(4, C.neonPurpleDim, 0.15);
-    g.strokeRoundedRect(0, 0, 28, 80, 4);
+    g.fillStyle(C.tunnelDeep, 0.9);
+    g.fillRoundedRect(0, 0, 30, 82, 4);
+    g.lineStyle(2, C.neonPurple, 0.8);
+    g.strokeRoundedRect(1, 1, 28, 80, 4);
+    g.lineStyle(5, C.neonPurpleDim, 0.12);
+    g.strokeRoundedRect(0, 0, 30, 82, 5);
     for (let i = 0; i < 7; i++) {
-      g.fillStyle(C.neonPurple, 0.06 + (i % 2) * 0.06);
-      g.fillRect(3, 3 + i * 11, 22, 9);
+      g.fillStyle(C.neonPurple, 0.04 + (i % 2) * 0.05);
+      g.fillRect(4, 4 + i * 11, 22, 9);
     }
-    g.lineStyle(1, C.neonPurple, 0.5);
-    g.lineBetween(14, 2, 14, 78);
-    g.fillStyle(C.neonPurple, 0.8);
-    g.fillCircle(14, 6, 3); g.fillCircle(14, 74, 3);
-    g.generateTexture("lane_blocker", 28, 80);
+    g.lineStyle(1, C.neonPurple, 0.45);
+    g.lineBetween(15, 3, 15, 79);
+    g.fillStyle(C.neonPurpleBright, 0.85);
+    g.fillCircle(15, 7, 3.5);
+    g.fillCircle(15, 75, 3.5);
+    g.fillStyle(C.white, 0.5);
+    g.fillCircle(15, 6, 1.5);
+    g.fillCircle(15, 74, 1.5);
+    g.fillStyle(C.neonPurple, 0.08);
+    g.fillCircle(15, 7, 7);
+    g.fillCircle(15, 75, 7);
+    g.generateTexture("lane_blocker", 30, 82);
     g.clear();
   }
 
   private genCoin(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    const s = 13;
+    const s = 14;
+    const pad = 5;
+    const cs = s + pad;
 
-    g.fillStyle(C.coinAmber, 0.1);
-    g.fillCircle(s, s, s + 3);
+    g.fillStyle(C.coinAmber, 0.06);
+    g.fillCircle(cs, cs, s + 4);
 
-    fillHex(g, s, s, s, C.coinGold, 1);
-    fillHex(g, s, s, s - 2, C.coinGoldLight, 0.35);
-    strokeHex(g, s, s, s, C.coinGoldLight, 0.9, 2);
-    strokeHex(g, s, s, s + 2, C.coinAmber, 0.15, 3);
+    fillHex(g, cs, cs, s, C.coinGold, 1);
+    fillHex(g, cs, cs, s - 1.5, C.coinGoldLight, 0.25);
+    fillHex(g, cs, cs, s - 3, C.coinGold, 0.3);
+    strokeHex(g, cs, cs, s, C.coinShine, 0.6, 2);
+    strokeHex(g, cs, cs, s + 2, C.coinAmber, 0.12, 3);
+    strokeHex(g, cs, cs, s + 4, C.coinAmber, 0.03, 5);
 
-    fillHex(g, s, s, 5, C.coinAmber, 0.5);
-    strokeHex(g, s, s, 5, C.coinGold, 0.6, 1);
+    fillHex(g, cs, cs, 5.5, C.coinAmber, 0.55);
+    strokeHex(g, cs, cs, 5.5, C.coinShine, 0.4, 1);
 
-    g.generateTexture("coin", s * 2 + 6, s * 2 + 6);
+    g.fillStyle(C.coinShine, 0.15);
+    g.fillEllipse(cs - 3, cs - 3, 6, 10);
+
+    g.generateTexture("coin", cs * 2, cs * 2);
     g.clear();
   }
 
   private genPowerups(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    const s = 16;
-    g.fillStyle(C.magnetBlue, 0.08);
-    g.fillCircle(s, s, s + 2);
-    g.fillStyle(C.tunnelDark, 0.92);
+    const s = 17;
+
+    g.fillStyle(C.magnetBlue, 0.05);
+    g.fillCircle(s, s, s + 3);
+    g.fillStyle(C.tunnelDeep, 0.92);
     g.fillRoundedRect(0, 0, s * 2, s * 2, 10);
-    g.lineStyle(2, C.magnetBlue, 0.9);
+    g.lineStyle(2, C.magnetBlue, 0.85);
     g.strokeRoundedRect(0, 0, s * 2, s * 2, 10);
-    g.lineStyle(3.5, C.magnetBlue, 0.8);
+    g.lineStyle(4, C.magnetBlueBright, 0.08);
+    g.strokeRoundedRect(-1, -1, s * 2 + 2, s * 2 + 2, 11);
+    g.lineStyle(3.5, C.magnetBlue, 0.75);
     g.beginPath(); g.arc(s, s - 2, 7, PI, 0, false); g.strokePath();
     g.fillStyle(C.magnetBlue, 1);
-    g.fillRect(s - 7, s - 2, 4, 13);
-    g.fillRect(s + 3, s - 2, 4, 13);
+    g.fillRect(s - 7, s - 2, 4, 14);
+    g.fillRect(s + 3, s - 2, 4, 14);
     g.fillStyle(C.laserRedGlow, 0.9);
-    g.fillRect(s - 7, s + 7, 4, 4);
+    g.fillRect(s - 7, s + 8, 4, 4);
     g.fillStyle(C.neonCyan, 0.9);
-    g.fillRect(s + 3, s + 7, 4, 4);
+    g.fillRect(s + 3, s + 8, 4, 4);
+    g.fillStyle(C.white, 0.2);
+    g.fillRect(s - 6, s - 1, 2, 4);
     g.generateTexture("magnet", s * 2, s * 2);
     g.clear();
 
-    g.fillStyle(C.shieldGreen, 0.08);
-    g.fillCircle(s, s, s + 2);
-    g.fillStyle(C.tunnelDark, 0.92);
+    g.fillStyle(C.shieldGreen, 0.05);
+    g.fillCircle(s, s, s + 3);
+    g.fillStyle(C.tunnelDeep, 0.92);
     g.fillRoundedRect(0, 0, s * 2, s * 2, 10);
-    g.lineStyle(2, C.shieldGreen, 0.9);
+    g.lineStyle(2, C.shieldGreen, 0.85);
     g.strokeRoundedRect(0, 0, s * 2, s * 2, 10);
-    g.lineStyle(2.5, C.shieldGreen, 0.85);
+    g.lineStyle(4, C.shieldGreenBright, 0.08);
+    g.strokeRoundedRect(-1, -1, s * 2 + 2, s * 2 + 2, 11);
+    g.lineStyle(2.5, C.shieldGreen, 0.8);
     g.beginPath();
-    g.moveTo(s, 4); g.lineTo(s + 9, 9); g.lineTo(s + 9, 18); g.lineTo(s, 26);
-    g.lineTo(s - 9, 18); g.lineTo(s - 9, 9); g.closePath(); g.strokePath();
-    g.fillStyle(C.shieldGreen, 0.2);
+    g.moveTo(s, 4); g.lineTo(s + 9, 9); g.lineTo(s + 9, 19);
+    g.lineTo(s, 27); g.lineTo(s - 9, 19); g.lineTo(s - 9, 9);
+    g.closePath(); g.strokePath();
+    g.fillStyle(C.shieldGreen, 0.18);
     g.beginPath();
-    g.moveTo(s, 4); g.lineTo(s + 9, 9); g.lineTo(s + 9, 18); g.lineTo(s, 26);
-    g.lineTo(s - 9, 18); g.lineTo(s - 9, 9); g.closePath(); g.fillPath();
+    g.moveTo(s, 4); g.lineTo(s + 9, 9); g.lineTo(s + 9, 19);
+    g.lineTo(s, 27); g.lineTo(s - 9, 19); g.lineTo(s - 9, 9);
+    g.closePath(); g.fillPath();
+    g.fillStyle(C.shieldGreenBright, 0.15);
+    g.fillEllipse(s - 2, 12, 6, 8);
     g.generateTexture("shield_pu", s * 2, s * 2);
     g.clear();
 
-    g.fillStyle(C.boostOrange, 0.08);
-    g.fillCircle(s, s, s + 2);
-    g.fillStyle(C.tunnelDark, 0.92);
+    g.fillStyle(C.boostOrange, 0.05);
+    g.fillCircle(s, s, s + 3);
+    g.fillStyle(C.tunnelDeep, 0.92);
     g.fillRoundedRect(0, 0, s * 2, s * 2, 10);
-    g.lineStyle(2, C.boostOrange, 0.9);
+    g.lineStyle(2, C.boostOrange, 0.85);
     g.strokeRoundedRect(0, 0, s * 2, s * 2, 10);
+    g.lineStyle(4, C.boostOrangeBright, 0.08);
+    g.strokeRoundedRect(-1, -1, s * 2 + 2, s * 2 + 2, 11);
     g.fillStyle(C.boostOrange, 1);
     g.fillTriangle(s - 5, s + 8, s + 1, s - 10, s + 3, s + 2);
-    g.fillStyle(C.coinGoldLight, 1);
+    g.fillStyle(C.boostOrangeBright, 1);
     g.fillTriangle(s - 3, s + 2, s + 5, s + 2, s + 1, s + 10);
+    g.fillStyle(C.white, 0.3);
+    g.fillTriangle(s - 2, s + 5, s, s - 6, s + 1, s + 1);
     g.generateTexture("boost_pu", s * 2, s * 2);
     g.clear();
   }
@@ -407,53 +572,84 @@ class BootScene extends Phaser.Scene {
     const tW = LANE_WIDTH * 3 + 20;
     g.clear();
 
-    g.fillGradientStyle(C.tunnelMid, C.tunnelMid, C.tunnelDark, C.tunnelDark, 0.6);
-    g.fillRect(0, 0, tW, 24);
+    g.fillGradientStyle(C.tunnelMid, C.tunnelMid, C.tunnelDeep, C.tunnelDeep, 0.65);
+    g.fillRect(0, 0, tW, 26);
 
-    for (let i = 0; i < tW; i += 6) {
-      g.fillStyle(C.neonCyan, 0.02 + (i % 12 === 0 ? 0.02 : 0));
-      g.fillRect(i, 0, 3, 24);
+    for (let i = 0; i < tW; i += 5) {
+      const brightness = (i % 10 === 0) ? 0.03 : 0.015;
+      g.fillStyle(C.neonCyan, brightness);
+      g.fillRect(i, 0, 2, 26);
     }
 
-    g.lineStyle(2.5, C.hexRingAmber, 0.6);
+    g.lineStyle(2.5, C.hexRingAmber, 0.55);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(6, C.hexRingAmber, 0.08);
+    g.lineStyle(6, C.hexRingAmberBright, 0.06);
+    g.lineBetween(0, 0, tW, 0);
+    g.lineStyle(14, C.hexRingAmber, 0.015);
     g.lineBetween(0, 0, tW, 0);
 
-    g.lineStyle(1, C.neonCyanDim, 0.15);
-    g.lineBetween(0, 23, tW, 23);
+    g.lineStyle(1, C.neonCyanDim, 0.12);
+    g.lineBetween(0, 25, tW, 25);
 
     for (let i = 1; i < 3; i++) {
       const lx = i * LANE_WIDTH + 10;
-      g.lineStyle(1, C.hexRingAmber, 0.15);
-      g.lineBetween(lx, 0, lx, 24);
+      g.lineStyle(1, C.hexRingAmber, 0.12);
+      g.lineBetween(lx, 0, lx, 26);
     }
 
-    g.generateTexture("ground_tile", tW, 24);
+    g.generateTexture("ground_tile", tW, 26);
     g.clear();
   }
 
   private genParticles(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.hexRingAmberBright, 0.9);
-    g.fillCircle(5, 5, 5);
-    g.fillStyle(C.white, 0.5);
+    g.fillStyle(C.hexRingAmberBright, 0.85);
+    g.fillCircle(6, 6, 5);
+    g.fillStyle(C.hexRingAmberHot, 0.4);
+    g.fillCircle(5, 5, 2.5);
+    g.fillStyle(C.white, 0.3);
+    g.fillCircle(4.5, 4.5, 1.2);
+    g.generateTexture("particle_amber", 12, 12);
+    g.clear();
+
+    g.fillStyle(C.neonCyan, 0.75);
+    g.fillCircle(5, 5, 4.5);
+    g.fillStyle(C.neonCyanBright, 0.35);
     g.fillCircle(4, 4, 2);
-    g.generateTexture("particle_amber", 10, 10);
+    g.fillStyle(C.white, 0.25);
+    g.fillCircle(3.5, 3.5, 1);
+    g.generateTexture("particle_cyan", 10, 10);
     g.clear();
 
-    g.fillStyle(C.neonCyan, 0.8);
-    g.fillCircle(4, 4, 4);
+    g.fillStyle(C.white, 0.5);
+    g.fillRect(0, 0, 2, 14);
+    g.fillStyle(C.neonCyan, 0.25);
+    g.fillRect(0, 0, 2, 14);
     g.fillStyle(C.white, 0.4);
-    g.fillCircle(3, 3, 1.5);
-    g.generateTexture("particle_cyan", 8, 8);
+    g.fillRect(0, 0, 2, 3);
+    g.generateTexture("speed_line", 2, 14);
     g.clear();
 
-    g.fillStyle(C.white, 0.6);
-    g.fillRect(0, 0, 2, 12);
-    g.fillStyle(C.neonCyan, 0.3);
-    g.fillRect(0, 0, 2, 12);
-    g.generateTexture("speed_line", 2, 12);
+    g.fillStyle(C.hexRingAmber, 0.5);
+    g.fillRect(0, 0, 3, 3);
+    g.generateTexture("spark", 3, 3);
+    g.clear();
+  }
+
+  private genHexFrame(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const W = GAME_WIDTH, H = GAME_HEIGHT;
+    const cx = W / 2, cy = H * 0.42;
+    const sizes = [110, 130, 155, 185];
+    const alphas = [0.25, 0.15, 0.08, 0.04];
+    const widths = [2, 1.5, 1, 0.5];
+    for (let i = 0; i < sizes.length; i++) {
+      strokeHex(g, cx, cy, sizes[i], C.hexRingAmber, alphas[i], widths[i]);
+      if (i < 2) {
+        strokeHex(g, cx, cy, sizes[i] + 3, C.hexRingAmber, alphas[i] * 0.3, widths[i] + 3);
+      }
+    }
+    g.generateTexture("hex_frame", W, H);
     g.clear();
   }
 }
@@ -463,80 +659,91 @@ class MenuScene extends Phaser.Scene {
 
   create() {
     this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, "bg_tunnel").setOrigin(0, 0);
-    this.add.image(CX, GAME_HEIGHT / 2, "bg_particles").setOrigin(0.5).setAlpha(0.6);
-    this.add.rectangle(CX, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.25);
+    this.add.image(CX, GAME_HEIGHT / 2, "nebula").setOrigin(0.5).setAlpha(0.7);
+    const stars = this.add.image(CX, GAME_HEIGHT / 2, "stars").setOrigin(0.5).setAlpha(0.8);
+    this.tweens.add({ targets: stars, alpha: 0.5, duration: 3000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    const glowTitle = this.add.text(CX, 88, "HONEY", {
-      fontSize: "52px", fontFamily: "monospace", color: "#f5a000",
+    this.add.rectangle(CX, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.2);
+
+    this.add.image(CX, GAME_HEIGHT * 0.42, "hex_frame").setOrigin(0.5).setAlpha(0.9);
+
+    const titleGlow = this.add.text(CX, 78, "HONEY", {
+      fontSize: "56px", fontFamily: "monospace", color: "#f5a000",
       fontStyle: "bold",
-    }).setOrigin(0.5).setAlpha(0.12);
-    this.tweens.add({ targets: glowTitle, alpha: 0.2, duration: 2000, yoyo: true, repeat: -1 });
+    }).setOrigin(0.5).setAlpha(0.08);
+    this.tweens.add({ targets: titleGlow, alpha: 0.15, scaleX: 1.02, scaleY: 1.02, duration: 2500, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    this.add.text(CX, 88, "HONEY", {
-      fontSize: "48px", fontFamily: "monospace", color: "#ffb300",
-      fontStyle: "bold", stroke: "#7a4a00", strokeThickness: 5,
+    this.add.text(CX, 78, "HONEY", {
+      fontSize: "52px", fontFamily: "monospace", color: "#ffb300",
+      fontStyle: "bold", stroke: "#6a3a00", strokeThickness: 6,
     }).setOrigin(0.5);
 
-    this.add.text(CX, 138, "RUNNER", {
-      fontSize: "34px", fontFamily: "monospace", color: "#ffd54f",
-      fontStyle: "bold", stroke: "#7a4a00", strokeThickness: 3,
+    this.add.text(CX, 130, "RUNNER", {
+      fontSize: "36px", fontFamily: "monospace", color: "#ffd54f",
+      fontStyle: "bold", stroke: "#6a3a00", strokeThickness: 4,
     }).setOrigin(0.5);
 
-    this.add.text(CX, 166, "CYBER HIVE", {
-      fontSize: "11px", fontFamily: "monospace", color: "#00e5ff",
-      letterSpacing: 6,
+    const subtitle = this.add.text(CX, 160, "C Y B E R   H I V E", {
+      fontSize: "10px", fontFamily: "monospace", color: "#00e5ff",
+      letterSpacing: 4,
     }).setOrigin(0.5);
+    this.tweens.add({ targets: subtitle, alpha: 0.4, duration: 2000, yoyo: true, repeat: -1 });
 
-    const beeGlow = this.add.circle(CX, 245, 40, C.hexRingAmber, 0.05);
-    this.tweens.add({ targets: beeGlow, scaleX: 1.4, scaleY: 1.4, alpha: 0, duration: 2000, repeat: -1 });
+    const beeGlowOuter = this.add.circle(CX, 248, 50, C.hexRingAmber, 0.02);
+    this.tweens.add({ targets: beeGlowOuter, scaleX: 1.6, scaleY: 1.6, alpha: 0, duration: 2500, repeat: -1 });
+    const beeGlowInner = this.add.circle(CX, 248, 35, C.hexRingAmberBright, 0.04);
+    this.tweens.add({ targets: beeGlowInner, scaleX: 1.3, scaleY: 1.3, alpha: 0, duration: 2000, repeat: -1, delay: 400 });
 
-    const shadow = this.add.image(CX, 288, "bee_shadow").setScale(3.5).setAlpha(0.4);
-    const beeBody = this.add.image(CX, 245, "runner").setScale(3.2);
-    const wingL = this.add.image(CX - 18, 225, "wing_l").setScale(3).setAlpha(0.7);
-    const wingR = this.add.image(CX + 18, 225, "wing_r").setScale(3).setAlpha(0.7);
+    const shadow = this.add.image(CX, 296, "bee_shadow").setScale(4).setAlpha(0.35);
+    const beeBody = this.add.image(CX, 248, "runner").setScale(3.5);
+    const wingL = this.add.image(CX - 20, 226, "wing_l").setScale(3.2).setAlpha(0.7);
+    const wingR = this.add.image(CX + 20, 226, "wing_r").setScale(3.2).setAlpha(0.7);
 
-    this.tweens.add({ targets: beeBody, y: 240, duration: 1500, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.tweens.add({ targets: shadow, scaleX: 3.2, scaleY: 3.2, alpha: 0.3, duration: 1500, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.tweens.add({ targets: wingL, scaleY: 2, scaleX: 3.2, alpha: 0.4, duration: 80, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: wingR, scaleY: 2, scaleX: 3.2, alpha: 0.4, duration: 80, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: [wingL, wingR], y: 220, duration: 1500, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: beeBody, y: 242, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: shadow, scaleX: 3.5, alpha: 0.25, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: wingL, scaleY: 1.5, scaleX: 3.5, alpha: 0.35, duration: 55, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: wingR, scaleY: 1.5, scaleX: 3.5, alpha: 0.35, duration: 55, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: [wingL, wingR], y: 220, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     const bestScore = getBestScore();
     if (bestScore > 0) {
-      this.add.text(CX, 320, `BEST: ${bestScore.toLocaleString()}`, {
-        fontSize: "16px", fontFamily: "monospace", color: "#ffd54f",
-        stroke: "#000", strokeThickness: 3,
+      this.add.text(CX, 326, `BEST: ${bestScore.toLocaleString()}`, {
+        fontSize: "17px", fontFamily: "monospace", color: "#ffd54f",
+        fontStyle: "bold", stroke: "#000", strokeThickness: 4,
       }).setOrigin(0.5);
     }
 
-    const btnPulse = this.add.rectangle(CX, 380, 194, 54, C.hexRingAmber, 0.06);
-    this.tweens.add({ targets: btnPulse, scaleX: 1.2, scaleY: 1.2, alpha: 0, duration: 1800, repeat: -1 });
+    const btnGlowOuter = this.add.rectangle(CX, 382, 200, 58, C.hexRingAmber, 0.04);
+    this.tweens.add({ targets: btnGlowOuter, scaleX: 1.25, scaleY: 1.3, alpha: 0, duration: 2000, repeat: -1 });
 
-    const playBtn = this.add.rectangle(CX, 380, 180, 50, C.beeGold, 1).setInteractive({ useHandCursor: true });
-    playBtn.setStrokeStyle(2, C.hexRingAmberBright);
-    this.add.text(CX, 380, "PLAY", {
-      fontSize: "22px", fontFamily: "monospace", color: "#1a0a00", fontStyle: "bold",
+    const playBtn = this.add.rectangle(CX, 382, 184, 52, C.beeGold, 1).setInteractive({ useHandCursor: true });
+    playBtn.setStrokeStyle(2.5, C.hexRingAmberBright);
+    this.add.text(CX, 382, "PLAY", {
+      fontSize: "24px", fontFamily: "monospace", color: "#1a0a00", fontStyle: "bold",
     }).setOrigin(0.5);
     playBtn.on("pointerdown", () => this.scene.start("Game"));
-    this.tweens.add({ targets: playBtn, scaleX: 1.04, scaleY: 1.04, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: playBtn, scaleX: 1.03, scaleY: 1.03, duration: 1000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     const controls = [
       "CONTROLS:",
       "",
-      "Arrow Left / Right - Change lane",
-      "Arrow Up / Swipe Up - Jump",
-      "Arrow Down / Swipe Down - Slide",
+      "Arrow Left / Right \u2013 Change Lane",
+      "Arrow Up / Swipe Up \u2013 Jump",
+      "Arrow Down / Swipe Down \u2013 Slide",
       "",
       "Collect honey & dodge lasers!",
     ];
-    this.add.text(CX, 498, controls.join("\n"), {
-      fontSize: "10px", fontFamily: "monospace", color: "#4a6a8a",
-      align: "center", lineSpacing: 4,
+    this.add.text(CX, 492, controls.join("\n"), {
+      fontSize: "9px", fontFamily: "monospace", color: "#3a5570",
+      align: "center", lineSpacing: 5,
     }).setOrigin(0.5);
 
-    this.add.text(CX, GAME_HEIGHT - 28, "A Honeycomb Arena Game", {
-      fontSize: "9px", fontFamily: "monospace", color: "#1a2a40",
+    this.add.text(CX, GAME_HEIGHT - 30, "A Honeycomb Arena Game", {
+      fontSize: "8px", fontFamily: "monospace", color: "#1a2535",
     }).setOrigin(0.5);
+
+    this.add.image(CX, GAME_HEIGHT / 2, "scanlines").setOrigin(0.5).setAlpha(0.3);
+    this.add.image(CX, GAME_HEIGHT / 2, "vignette").setOrigin(0.5).setAlpha(0.8);
   }
 }
 
@@ -575,7 +782,8 @@ class GameScene extends Phaser.Scene {
   private powerupIcons: Phaser.GameObjects.Container[] = [];
 
   private bgTunnel!: Phaser.GameObjects.TileSprite;
-  private bgParticles!: Phaser.GameObjects.TileSprite;
+  private bgNebula!: Phaser.GameObjects.TileSprite;
+  private bgStars!: Phaser.GameObjects.Image;
   private groundTiles: Phaser.GameObjects.TileSprite[] = [];
 
   private obstacleTimer?: Phaser.Time.TimerEvent;
@@ -588,6 +796,9 @@ class GameScene extends Phaser.Scene {
   private shieldSprite?: Phaser.GameObjects.Arc;
   private speedLines: Phaser.GameObjects.Image[] = [];
   private frameCount = 0;
+
+  private scanlineOverlay!: Phaser.GameObjects.Image;
+  private vignetteOverlay!: Phaser.GameObjects.Image;
 
   constructor() { super({ key: "Game" }); }
 
@@ -605,400 +816,341 @@ class GameScene extends Phaser.Scene {
     this.frameCount = 0;
 
     this.bgTunnel = this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, "bg_tunnel").setOrigin(0, 0).setScrollFactor(0);
-    this.bgParticles = this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, "bg_particles").setOrigin(0, 0).setScrollFactor(0).setAlpha(0.5);
+    this.bgNebula = this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, "nebula").setOrigin(0, 0).setScrollFactor(0).setAlpha(0.4);
+    this.bgStars = this.add.image(CX, GAME_HEIGHT / 2, "stars").setOrigin(0.5).setAlpha(0.5);
 
-    const laneArea = this.add.rectangle(CX, GROUND_Y - 50, LANE_WIDTH * 3 + 14, 220, C.tunnelDark, 0.35);
+    const laneArea = this.add.rectangle(CX, GROUND_Y - 50, LANE_WIDTH * 3 + 14, 220, C.tunnelDeep, 0.3);
 
     for (let i = 0; i <= LANE_COUNT; i++) {
       const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
       const isEdge = (i === 0 || i === LANE_COUNT);
-      this.add.line(0, 0, lx, GROUND_Y - 160, lx, GROUND_Y + 24, C.hexRingAmber, isEdge ? 0.2 : 0.07).setOrigin(0, 0);
+      this.add.line(0, 0, lx, GROUND_Y - 160, lx, GROUND_Y + 26, C.hexRingAmber, isEdge ? 0.18 : 0.06).setOrigin(0, 0);
       if (isEdge) {
-        this.add.line(0, 0, lx, GROUND_Y - 160, lx, GROUND_Y + 24, C.hexRingAmber, 0.04).setOrigin(0, 0).setLineWidth(3);
+        this.add.line(0, 0, lx, GROUND_Y - 160, lx, GROUND_Y + 26, C.hexRingAmber, 0.03).setOrigin(0, 0).setLineWidth(4);
       }
     }
 
-    const gt = this.add.tileSprite(CX, GROUND_Y, LANE_WIDTH * 3 + 20, 24, "ground_tile");
+    const gt = this.add.tileSprite(CX, GROUND_Y, LANE_WIDTH * 3 + 20, 26, "ground_tile");
     this.groundTiles.push(gt);
 
     this.obstacles = this.physics.add.group({ allowGravity: false });
     this.coins = this.physics.add.group({ allowGravity: false });
     this.powerups = this.physics.add.group({ allowGravity: false });
 
-    this.beeShadow = this.add.image(CX, GROUND_Y - 6, "bee_shadow").setScale(1.8).setAlpha(0.35).setDepth(4);
+    this.beeShadow = this.add.image(CX, GROUND_Y - 6, "bee_shadow").setScale(1.8).setAlpha(0.3).setDepth(4);
 
     this.runner = this.physics.add.sprite(CX, RUNNER_Y, "runner");
     this.runner.setCollideWorldBounds(false);
     this.runner.setGravityY(GRAVITY);
-    this.runner.setSize(36, 46);
+    this.runner.setSize(38, 48);
     this.runner.setDepth(10);
 
-    this.wingL = this.add.image(CX - 16, RUNNER_Y - 12, "wing_l").setScale(1.2).setAlpha(0.65).setDepth(9);
-    this.wingR = this.add.image(CX + 16, RUNNER_Y - 12, "wing_r").setScale(1.2).setAlpha(0.65).setDepth(11);
+    this.wingL = this.add.image(CX - 18, RUNNER_Y - 12, "wing_l").setScale(1.3).setAlpha(0.65).setDepth(9);
+    this.wingR = this.add.image(CX + 18, RUNNER_Y - 12, "wing_r").setScale(1.3).setAlpha(0.65).setDepth(11);
 
-    this.tweens.add({ targets: this.wingL, scaleY: 0.5, alpha: 0.3, duration: 50, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: this.wingR, scaleY: 0.5, alpha: 0.3, duration: 50, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.wingL, scaleY: 0.4, alpha: 0.25, duration: 45, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: this.wingR, scaleY: 0.4, alpha: 0.25, duration: 45, yoyo: true, repeat: -1 });
 
     this.particles = this.add.particles(0, 0, "particle_amber", {
-      speed: { min: 30, max: 80 },
+      speed: { min: 25, max: 70 },
       scale: { start: 0.5, end: 0 },
-      alpha: { start: 0.7, end: 0 },
-      lifespan: 500,
-      frequency: 50,
+      alpha: { start: 0.65, end: 0 },
+      lifespan: 550,
+      frequency: 45,
       follow: this.runner,
-      followOffset: { x: 0, y: 24 },
+      followOffset: { x: 0, y: 26 },
       blendMode: "ADD",
-      tint: [C.hexRingAmberBright, C.neonCyan],
+      tint: [C.hexRingAmberBright, C.hexRingAmberHot, C.neonCyan],
     }).setDepth(8);
 
-    this.shieldSprite = this.add.circle(CX, RUNNER_Y, 34, C.shieldGreen, 0.12);
-    this.shieldSprite.setStrokeStyle(2, C.shieldGreen, 0.6);
+    this.shieldSprite = this.add.circle(CX, RUNNER_Y, 36, C.shieldGreen, 0.1);
+    this.shieldSprite.setStrokeStyle(2, C.shieldGreenBright, 0.5);
     this.shieldSprite.setVisible(false);
     this.shieldSprite.setDepth(12);
 
+    this.physics.add.overlap(this.runner, this.obstacles, this.hitObstacle, undefined, this);
     this.physics.add.overlap(this.runner, this.coins, this.collectCoin, undefined, this);
     this.physics.add.overlap(this.runner, this.powerups, this.collectPowerup, undefined, this);
-    this.physics.add.overlap(this.runner, this.obstacles, this.hitObstacle, undefined, this);
 
-    const floorZone = this.add.zone(CX, GROUND_Y, GAME_WIDTH, 10);
-    this.physics.add.existing(floorZone, true);
-    this.physics.add.collider(this.runner, floorZone);
-
-    this.add.rectangle(GAME_WIDTH / 2, 0, GAME_WIDTH, 58, 0x000000, 0.5).setOrigin(0.5, 0).setScrollFactor(0).setDepth(99);
-
-    this.scoreText = this.add.text(16, 10, "0", {
-      fontSize: "22px", fontFamily: "monospace", color: "#ffb300", fontStyle: "bold",
-      stroke: "#000", strokeThickness: 4,
-    }).setScrollFactor(0).setDepth(100);
-
-    this.add.image(14, 40, "coin").setScale(0.4).setScrollFactor(0).setDepth(100);
-    this.coinText = this.add.text(26, 34, "0", {
-      fontSize: "13px", fontFamily: "monospace", color: "#ffd54f",
-      stroke: "#000", strokeThickness: 3,
-    }).setScrollFactor(0).setDepth(100);
-
-    this.speedText = this.add.text(GAME_WIDTH - 16, 12, `${this.speed.toFixed(1)}x`, {
-      fontSize: "11px", fontFamily: "monospace", color: "#00e5ff",
-      stroke: "#000", strokeThickness: 3,
-    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+    this.scheduleObstacle();
+    this.coinTimer = this.time.addEvent({ delay: COIN_SPAWN_INTERVAL, callback: this.spawnCoin, callbackScope: this, loop: true });
+    this.powerupTimer = this.time.addEvent({ delay: POWERUP_SPAWN_INTERVAL, callback: this.spawnPowerup, callbackScope: this, loop: true });
 
     this.setupInput();
-    this.startSpawners();
-    this.createMobileButtons();
+    this.createHUD();
+
+    this.scanlineOverlay = this.add.image(CX, GAME_HEIGHT / 2, "scanlines").setOrigin(0.5).setAlpha(0.15).setDepth(99).setScrollFactor(0);
+    this.vignetteOverlay = this.add.image(CX, GAME_HEIGHT / 2, "vignette").setOrigin(0.5).setAlpha(0.6).setDepth(100).setScrollFactor(0);
+  }
+
+  private createHUD() {
+    const hudBg = this.add.rectangle(CX, 18, GAME_WIDTH - 16, 32, C.hudBg, 0.75).setDepth(90).setScrollFactor(0);
+    hudBg.setStrokeStyle(1, C.hudBorder, 0.3);
+
+    this.scoreText = this.add.text(CX, 18, "0", {
+      fontSize: "18px", fontFamily: "monospace", color: "#ffb300",
+      fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
+
+    this.coinText = this.add.text(66, 18, " 0", {
+      fontSize: "13px", fontFamily: "monospace", color: "#ffd740",
+      stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0, 0.5).setDepth(91).setScrollFactor(0);
+
+    const coinIcon = this.add.image(52, 18, "coin").setScale(0.6).setDepth(91).setScrollFactor(0);
+
+    this.speedText = this.add.text(GAME_WIDTH - 16, 18, `${INITIAL_SPEED.toFixed(1)}x`, {
+      fontSize: "11px", fontFamily: "monospace", color: "#00e5ff",
+      stroke: "#000", strokeThickness: 2,
+    }).setOrigin(1, 0.5).setDepth(91).setScrollFactor(0);
   }
 
   private setupInput() {
-    this.input.keyboard?.on("keydown-LEFT", () => this.moveLane(-1));
-    this.input.keyboard?.on("keydown-RIGHT", () => this.moveLane(1));
-    this.input.keyboard?.on("keydown-UP", () => this.jump());
-    this.input.keyboard?.on("keydown-DOWN", () => this.slide());
-    this.input.keyboard?.on("keydown-A", () => this.moveLane(-1));
-    this.input.keyboard?.on("keydown-D", () => this.moveLane(1));
-    this.input.keyboard?.on("keydown-W", () => this.jump());
-    this.input.keyboard?.on("keydown-S", () => this.slide());
+    const cursors = this.input.keyboard?.createCursorKeys();
+    if (cursors) {
+      cursors.left?.on("down", () => this.moveLeft());
+      cursors.right?.on("down", () => this.moveRight());
+      cursors.up?.on("down", () => this.jump());
+      cursors.down?.on("down", () => this.slide());
+    }
 
-    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      this.swipeStart = { x: pointer.x, y: pointer.y, time: Date.now() };
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      this.swipeStart = { x: p.x, y: p.y, time: this.time.now };
     });
 
-    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       if (!this.swipeStart) return;
-      const dx = pointer.x - this.swipeStart.x;
-      const dy = pointer.y - this.swipeStart.y;
-      const dt = Date.now() - this.swipeStart.time;
+      const dx = p.x - this.swipeStart.x;
+      const dy = p.y - this.swipeStart.y;
+      const dt = this.time.now - this.swipeStart.time;
       this.swipeStart = null;
       if (dt > 500) return;
-      const minSwipe = 40;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > minSwipe) {
-        this.moveLane(dx > 0 ? 1 : -1);
-      } else if (Math.abs(dy) > minSwipe) {
-        if (dy < 0) this.jump(); else this.slide();
-      }
+      const absDx = Math.abs(dx), absDy = Math.abs(dy);
+      if (absDx < 30 && absDy < 30) return;
+      if (absDx > absDy) { dx > 0 ? this.moveRight() : this.moveLeft(); }
+      else { dy < 0 ? this.jump() : this.slide(); }
     });
   }
 
-  private createMobileButtons() {
-    const btnY = GAME_HEIGHT - 48;
-    const btnSize = 44;
-
-    const makeBtn = (x: number, label: string, action: () => void) => {
-      const bg = this.add.rectangle(x, btnY, btnSize, btnSize, 0x000000, 0.2)
-        .setInteractive().setScrollFactor(0).setDepth(99);
-      bg.setStrokeStyle(1, C.hexRingAmber, 0.2);
-      this.add.text(x, btnY, label, { fontSize: "20px", fontFamily: "monospace", color: "#f5a000" })
-        .setOrigin(0.5).setScrollFactor(0).setDepth(100);
-      bg.on("pointerdown", action);
-    };
-
-    makeBtn(50, "<", () => this.moveLane(-1));
-    makeBtn(GAME_WIDTH - 50, ">", () => this.moveLane(1));
-    makeBtn(CX - 40, "^", () => this.jump());
-    makeBtn(CX + 40, "v", () => this.slide());
-  }
-
-  private moveLane(dir: number) {
-    if (!this.isAlive) return;
-    const newLane = Phaser.Math.Clamp(this.laneIndex + dir, 0, LANE_COUNT - 1);
-    if (newLane === this.laneIndex) return;
-    this.laneIndex = newLane;
-    const targetX = CX + LANE_POSITIONS[this.laneIndex];
-    this.tweens.add({ targets: this.runner, x: targetX, duration: 120, ease: "Power2" });
-  }
+  private moveLeft() { if (this.isAlive && this.laneIndex > 0) { this.laneIndex--; this.tweens.add({ targets: this.runner, x: CX + LANE_POSITIONS[this.laneIndex], duration: 120, ease: "Power2" }); } }
+  private moveRight() { if (this.isAlive && this.laneIndex < LANE_COUNT - 1) { this.laneIndex++; this.tweens.add({ targets: this.runner, x: CX + LANE_POSITIONS[this.laneIndex], duration: 120, ease: "Power2" }); } }
 
   private jump() {
     if (!this.isAlive) return;
     const body = this.runner.body as Phaser.Physics.Arcade.Body;
-    if (body.blocked.down || body.touching.down) {
-      if (this.isSliding) this.endSlide();
-      body.setVelocityY(JUMP_VELOCITY);
-    }
+    const onGround = body.y + body.height >= GROUND_Y - 2;
+    if (onGround) body.setVelocityY(JUMP_VELOCITY);
   }
 
   private slide() {
     if (!this.isAlive || this.isSliding) return;
-    const body = this.runner.body as Phaser.Physics.Arcade.Body;
-    if (!body.blocked.down && !body.touching.down) return;
     this.isSliding = true;
     this.runner.setTexture("runner_slide");
-    body.setSize(42, 22);
-    body.setOffset(4, 4);
-    this.slideTimer = this.time.delayedCall(SLIDE_DURATION, () => this.endSlide());
+    this.runner.setSize(46, 22);
+    this.runner.y = GROUND_Y - 14;
+    this.slideTimer = this.time.delayedCall(SLIDE_DURATION, () => {
+      if (!this.isAlive) return;
+      this.isSliding = false;
+      this.runner.setTexture("runner");
+      this.runner.setSize(38, 48);
+    });
   }
 
-  private endSlide() {
-    if (!this.isSliding) return;
-    this.isSliding = false;
-    this.runner.setTexture("runner");
-    const body = this.runner.body as Phaser.Physics.Arcade.Body;
-    body.setSize(36, 46);
-    body.setOffset(4, 3);
-    if (this.slideTimer) this.slideTimer.destroy();
-  }
-
-  private startSpawners() {
-    this.scheduleNextObstacle();
-    this.coinTimer = this.time.addEvent({ delay: COIN_SPAWN_INTERVAL, callback: this.spawnCoinPattern, callbackScope: this, loop: true });
-    this.powerupTimer = this.time.addEvent({ delay: POWERUP_SPAWN_INTERVAL, callback: this.spawnPowerup, callbackScope: this, loop: true });
-  }
-
-  private scheduleNextObstacle() {
-    const speedFactor = 1 - (this.speed - INITIAL_SPEED) / (MAX_SPEED - INITIAL_SPEED) * 0.6;
-    const delay = Phaser.Math.Between(OBSTACLE_SPAWN_INTERVAL_MIN * speedFactor, OBSTACLE_SPAWN_INTERVAL_MAX * speedFactor);
+  private scheduleObstacle() {
+    const delay = Phaser.Math.Between(OBSTACLE_SPAWN_INTERVAL_MIN, OBSTACLE_SPAWN_INTERVAL_MAX);
     this.obstacleTimer = this.time.delayedCall(delay, () => {
       this.spawnObstacle();
-      if (this.isAlive) this.scheduleNextObstacle();
+      if (this.isAlive) this.scheduleObstacle();
     });
   }
 
   private spawnObstacle() {
-    if (!this.isAlive) return;
-    const types = ["barrier", "low_gate", "lane_blocker"];
-    const weights = [0.4, 0.3, 0.3];
-    const r = Math.random();
-    let cum = 0, type = types[0];
-    for (let i = 0; i < weights.length; i++) { cum += weights[i]; if (r < cum) { type = types[i]; break; } }
-
     const lane = Phaser.Math.Between(0, LANE_COUNT - 1);
-    const x = CX + LANE_POSITIONS[lane];
-    const obs = this.obstacles.create(x, -60, type) as Phaser.Physics.Arcade.Sprite;
+    const type = Phaser.Math.Between(0, 2);
+    const textures = ["barrier", "low_gate", "lane_blocker"];
+    const obs = this.obstacles.create(CX + LANE_POSITIONS[lane], -60, textures[type]) as Phaser.Physics.Arcade.Sprite;
     obs.setImmovable(true);
-    (obs.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    obs.setData("type", type);
     obs.setDepth(6);
-
-    if (type === "barrier") obs.setY(-50);
-    else if (type === "low_gate") obs.setY(-20);
-    else obs.setY(-80);
-
-    if (this.speed > 6 && Math.random() < 0.3) {
-      const lane2 = (lane + (Math.random() < 0.5 ? 1 : -1) + LANE_COUNT) % LANE_COUNT;
-      if (lane2 !== lane) {
-        const obs2 = this.obstacles.create(CX + LANE_POSITIONS[lane2], obs.y, type) as Phaser.Physics.Arcade.Sprite;
-        obs2.setImmovable(true);
-        (obs2.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-        obs2.setData("type", type);
-        obs2.setDepth(6);
-      }
-    }
+    if (type === 1) { obs.y = -20; obs.setSize(76, 14); }
+    else if (type === 2) { obs.setSize(26, 76); }
+    else obs.setSize(70, 44);
   }
 
-  private spawnCoinPattern() {
-    if (!this.isAlive) return;
+  private spawnCoin() {
     const lane = Phaser.Math.Between(0, LANE_COUNT - 1);
-    const x = CX + LANE_POSITIONS[lane];
-    const count = Phaser.Math.Between(3, 6);
-    for (let i = 0; i < count; i++) {
-      const coin = this.coins.create(x, -40 - i * 40, "coin") as Phaser.Physics.Arcade.Sprite;
-      coin.setImmovable(true);
-      (coin.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-      coin.setDepth(7);
-      this.tweens.add({ targets: coin, angle: 360, duration: 2000, repeat: -1, ease: "Linear" });
-    }
+    const coin = this.coins.create(CX + LANE_POSITIONS[lane], -30, "coin") as Phaser.Physics.Arcade.Sprite;
+    coin.setDepth(5);
+    coin.setSize(22, 22);
+    this.tweens.add({ targets: coin, scaleX: 0.7, duration: 400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
   }
 
   private spawnPowerup() {
-    if (!this.isAlive) return;
     const lane = Phaser.Math.Between(0, LANE_COUNT - 1);
-    const x = CX + LANE_POSITIONS[lane];
     const types = ["magnet", "shield_pu", "boost_pu"];
-    const type = types[Phaser.Math.Between(0, types.length - 1)];
-    const pu = this.powerups.create(x, -50, type) as Phaser.Physics.Arcade.Sprite;
-    pu.setImmovable(true);
-    (pu.body as Phaser.Physics.Arcade.Body).allowGravity = false;
-    pu.setData("puType", type);
-    pu.setDepth(7);
-    this.tweens.add({ targets: pu, y: pu.y - 6, duration: 600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const tex = types[Phaser.Math.Between(0, 2)];
+    const pu = this.powerups.create(CX + LANE_POSITIONS[lane], -30, tex) as Phaser.Physics.Arcade.Sprite;
+    pu.setDepth(5);
+    pu.setSize(28, 28);
+    this.tweens.add({ targets: pu, angle: 360, duration: 3000, repeat: -1 });
+    this.tweens.add({ targets: pu, scaleX: 1.15, scaleY: 1.15, duration: 600, yoyo: true, repeat: -1 });
   }
 
-  private collectCoin(_r: any, co: any) {
-    const coin = co as Phaser.Physics.Arcade.Sprite;
+  private hitObstacle(_runner: any, obstacle: any) {
+    if (this.powerupState.shield) {
+      obstacle.destroy();
+      this.powerupState.shield = false;
+      if (this.powerupState.shieldTimer) this.powerupState.shieldTimer.destroy();
+      this.shieldSprite?.setVisible(false);
+      this.removePowerupIcon("shield");
+
+      for (let i = 0; i < 8; i++) {
+        const spark = this.add.image(this.runner.x, this.runner.y, "spark")
+          .setScale(2).setAlpha(0.8).setDepth(20).setTint(C.shieldGreenBright);
+        this.tweens.add({
+          targets: spark, x: spark.x + Phaser.Math.Between(-60, 60), y: spark.y + Phaser.Math.Between(-60, 60),
+          alpha: 0, scale: 0, duration: 400, onComplete: () => spark.destroy()
+        });
+      }
+      return;
+    }
+    if (!this.isAlive) return;
+    this.isAlive = false;
+
+    this.cameras.main.shake(250, 0.012);
+    this.cameras.main.flash(200, 255, 20, 20, false, undefined, undefined);
+
+    for (let i = 0; i < 12; i++) {
+      const spark = this.add.image(this.runner.x, this.runner.y, "spark")
+        .setScale(2.5).setAlpha(0.9).setDepth(20).setTint(C.laserRedBright);
+      this.tweens.add({
+        targets: spark, x: spark.x + Phaser.Math.Between(-80, 80), y: spark.y + Phaser.Math.Between(-80, 80),
+        alpha: 0, scale: 0, duration: 500, onComplete: () => spark.destroy()
+      });
+    }
+
+    const finalScore = this.score + Math.floor(this.distance);
+    const bestScore = getBestScore();
+    const isNewBest = finalScore > bestScore;
+    if (isNewBest) setBestScore(finalScore);
+    addCoins(this.coinCount);
+    incrementRuns();
+
+    this.runner.setTint(0xff3333);
+    this.tweens.add({ targets: this.runner, alpha: 0, duration: 600 });
+    this.tweens.add({ targets: [this.wingL, this.wingR], alpha: 0, duration: 400 });
+
+    this.time.delayedCall(800, () => {
+      this.groundTiles = [];
+      this.scene.start("GameOver", {
+        score: finalScore, coins: this.coinCount,
+        distance: Math.floor(this.distance), bestScore: isNewBest ? finalScore : bestScore,
+        isNewBest, speed: this.speed,
+      });
+    });
+  }
+
+  private collectCoin(_runner: any, coin: any) {
     coin.destroy();
     this.coinCount++;
     this.score += COIN_SCORE;
-    this.tweens.add({ targets: this.coinText, scaleX: 1.3, scaleY: 1.3, duration: 100, yoyo: true });
+
+    const popup = this.add.text(this.runner.x + 15, this.runner.y - 20, `+${COIN_SCORE}`, {
+      fontSize: "13px", fontFamily: "monospace", color: "#ffd740", fontStyle: "bold",
+      stroke: "#000", strokeThickness: 2,
+    }).setDepth(30);
+    this.tweens.add({ targets: popup, y: popup.y - 35, alpha: 0, duration: 500, onComplete: () => popup.destroy() });
   }
 
-  private collectPowerup(_r: any, po: any) {
-    const pu = po as Phaser.Physics.Arcade.Sprite;
-    const type = pu.getData("puType") as string;
+  private collectPowerup(_runner: any, pu: any) {
+    const tex = pu.texture.key;
     pu.destroy();
-    if (type === "magnet") this.activateMagnet();
-    else if (type === "shield_pu") this.activateShield();
-    else if (type === "boost_pu") this.activateBoost();
-    this.showPowerupFlash(type);
+
+    if (tex === "magnet") this.activatePowerup("magnet", MAGNET_DURATION, C.magnetBlueBright);
+    else if (tex === "shield_pu") this.activatePowerup("shield", SHIELD_DURATION, C.shieldGreenBright);
+    else if (tex === "boost_pu") this.activatePowerup("boost", BOOST_DURATION, C.boostOrangeBright);
   }
 
-  private activateMagnet() {
-    this.powerupState.magnet = true;
-    if (this.powerupState.magnetTimer) this.powerupState.magnetTimer.destroy();
-    this.powerupState.magnetTimer = this.time.delayedCall(MAGNET_DURATION, () => { this.powerupState.magnet = false; });
-    this.updatePowerupIcons();
-  }
-  private activateShield() {
-    this.powerupState.shield = true;
-    this.shieldSprite?.setVisible(true);
-    if (this.powerupState.shieldTimer) this.powerupState.shieldTimer.destroy();
-    this.powerupState.shieldTimer = this.time.delayedCall(SHIELD_DURATION, () => { this.powerupState.shield = false; this.shieldSprite?.setVisible(false); });
-    this.updatePowerupIcons();
-  }
-  private activateBoost() {
-    this.powerupState.boost = true;
-    if (this.powerupState.boostTimer) this.powerupState.boostTimer.destroy();
-    this.powerupState.boostTimer = this.time.delayedCall(BOOST_DURATION, () => { this.powerupState.boost = false; });
-    this.updatePowerupIcons();
+  private activatePowerup(type: "magnet" | "shield" | "boost", duration: number, color: number) {
+    this.powerupState[type] = true;
+    const timerKey = `${type}Timer` as "magnetTimer" | "shieldTimer" | "boostTimer";
+    if (this.powerupState[timerKey]) this.powerupState[timerKey]!.destroy();
+    this.powerupState[timerKey] = this.time.delayedCall(duration, () => {
+      this.powerupState[type] = false;
+      this.removePowerupIcon(type);
+      if (type === "shield") this.shieldSprite?.setVisible(false);
+    });
+
+    if (type === "shield") this.shieldSprite?.setVisible(true);
+
+    this.removePowerupIcon(type);
+    const iconBg = this.add.rectangle(0, 0, 26, 26, color, 0.15).setStrokeStyle(1, color, 0.5);
+    const label = this.add.text(0, 0, type[0].toUpperCase(), {
+      fontSize: "12px", fontFamily: "monospace", color: `#${color.toString(16).padStart(6, "0")}`,
+      fontStyle: "bold",
+    }).setOrigin(0.5);
+    const container = this.add.container(20 + this.powerupIcons.length * 30, 48, [iconBg, label]).setDepth(91);
+    (container as any).__puType = type;
+    this.powerupIcons.push(container);
   }
 
-  private showPowerupFlash(type: string) {
-    const color = type === "magnet" ? "#448aff" : type === "shield_pu" ? "#00e676" : "#ff6d00";
-    const label = type === "magnet" ? "MAGNET!" : type === "shield_pu" ? "SHIELD!" : "BOOST!";
-    const txt = this.add.text(CX, RUNNER_Y - 60, label, {
-      fontSize: "18px", fontFamily: "monospace", color, fontStyle: "bold",
-      stroke: "#000", strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(101);
-    this.tweens.add({ targets: txt, y: txt.y - 40, alpha: 0, duration: 800, onComplete: () => txt.destroy() });
-  }
-
-  private updatePowerupIcons() {
-    this.powerupIcons.forEach(c => c.destroy());
-    this.powerupIcons = [];
-    let ix = GAME_WIDTH - 20;
-    const iy = 42;
-    const addIcon = (key: string) => {
-      const icon = this.add.container(ix, iy, [this.add.image(0, 0, key)]).setScrollFactor(0).setDepth(100);
-      this.powerupIcons.push(icon);
-      ix -= 36;
-    };
-    if (this.powerupState.magnet) addIcon("magnet");
-    if (this.powerupState.shield) addIcon("shield_pu");
-    if (this.powerupState.boost) addIcon("boost_pu");
-  }
-
-  private hitObstacle(_r: any, oo: any) {
-    if (!this.isAlive) return;
-    const obs = oo as Phaser.Physics.Arcade.Sprite;
-    const type = obs.getData("type") as string;
-    if (type === "low_gate" && this.isSliding) return;
-    const body = this.runner.body as Phaser.Physics.Arcade.Body;
-    if (type === "barrier" && !body.blocked.down && !body.touching.down && body.velocity.y < 0) return;
-    if (this.powerupState.shield) {
-      this.powerupState.shield = false;
-      this.shieldSprite?.setVisible(false);
-      if (this.powerupState.shieldTimer) this.powerupState.shieldTimer.destroy();
-      obs.destroy();
-      this.updatePowerupIcons();
-      this.cameras.main.shake(100, 0.01);
-      return;
-    }
-    this.die();
-  }
-
-  private die() {
-    this.isAlive = false;
-    this.runner.setTint(0xff0000);
-    this.particles.stop();
-    this.cameras.main.shake(300, 0.02);
-    this.cameras.main.flash(200, 255, 0, 0, false, undefined, this);
-    if (this.obstacleTimer) this.obstacleTimer.destroy();
-    if (this.coinTimer) this.coinTimer.destroy();
-    if (this.powerupTimer) this.powerupTimer.destroy();
-    const isNewBest = setBestScore(this.score);
-    addCoins(this.coinCount);
-    incrementRuns();
-    this.time.delayedCall(800, () => {
-      this.scene.start("GameOver", { score: this.score, coins: this.coinCount, distance: Math.floor(this.distance), bestScore: getBestScore(), isNewBest, speed: this.speed });
+  private removePowerupIcon(type: string) {
+    this.powerupIcons = this.powerupIcons.filter((c) => {
+      if ((c as any).__puType === type) { c.destroy(); return false; }
+      return true;
     });
   }
 
   update(_time: number, delta: number) {
     if (!this.isAlive) return;
+
     this.frameCount++;
 
+    this.speed = Math.min(MAX_SPEED, this.speed + SPEED_RAMP * (delta / 16));
     const effectiveSpeed = this.powerupState.boost ? this.speed * BOOST_SPEED_MULT : this.speed;
-    this.speed = Math.min(this.speed + SPEED_RAMP * (delta / 16), MAX_SPEED);
-    this.distance += effectiveSpeed * (delta / 16);
-    this.score = Math.floor(this.distance) + this.coinCount * COIN_SCORE;
+    this.distance += effectiveSpeed * (delta / 16) * 0.15;
+    this.score += Math.floor(effectiveSpeed * (delta / 16) * 0.1);
 
-    this.bgTunnel.tilePositionY -= effectiveSpeed * 0.4;
-    this.bgParticles.tilePositionY -= effectiveSpeed * 0.2;
+    this.bgTunnel.tilePositionY -= effectiveSpeed * 0.3;
+    this.bgNebula.tilePositionY -= effectiveSpeed * 0.15;
+    this.bgNebula.tilePositionX += 0.08;
 
-    const beeHover = Math.sin(this.frameCount * 0.08) * 3;
+    this.groundTiles.forEach((gt) => { gt.tilePositionY -= effectiveSpeed * 0.5; });
+
     const beeBaseY = this.runner.y;
+    const targetX = CX + LANE_POSITIONS[this.laneIndex];
+    this.wingL.x = this.runner.x - 18;
+    this.wingR.x = this.runner.x + 18;
+    this.wingL.y = beeBaseY - 14;
+    this.wingR.y = beeBaseY - 14;
 
-    if (!this.isSliding) {
-      this.wingL.setPosition(this.runner.x - 18, beeBaseY - 14 + beeHover * 0.3);
-      this.wingR.setPosition(this.runner.x + 18, beeBaseY - 14 + beeHover * 0.3);
-      this.wingL.setVisible(true);
-      this.wingR.setVisible(true);
-    } else {
-      this.wingL.setPosition(this.runner.x - 10, beeBaseY - 6);
-      this.wingR.setPosition(this.runner.x + 10, beeBaseY - 6);
-      this.wingL.setScale(0.8, 0.4);
-      this.wingR.setScale(0.8, 0.4);
+    this.beeShadow.x = this.runner.x;
+    const shadowDist = Math.max(0, GROUND_Y - beeBaseY);
+    const shadowScale = Math.max(0.5, 1.8 - shadowDist * 0.009);
+    const shadowAlpha = Math.max(0.08, 0.3 - shadowDist * 0.002);
+    this.beeShadow.setScale(shadowScale).setAlpha(shadowAlpha);
+
+    if (this.shieldSprite) {
+      this.shieldSprite.x = this.runner.x;
+      this.shieldSprite.y = this.runner.y;
     }
 
-    const shadowDist = Math.max(0, GROUND_Y - beeBaseY);
-    const shadowScale = Math.max(0.6, 1.8 - shadowDist * 0.008);
-    const shadowAlpha = Math.max(0.1, 0.35 - shadowDist * 0.002);
-    this.beeShadow.setPosition(this.runner.x, GROUND_Y - 4);
-    this.beeShadow.setScale(shadowScale);
-    this.beeShadow.setAlpha(shadowAlpha);
+    const body = this.runner.body as Phaser.Physics.Arcade.Body;
+    if (!this.isSliding && body.y + body.height > GROUND_Y) {
+      body.y = GROUND_Y - body.height;
+      body.setVelocityY(0);
+    }
 
-    if (this.shieldSprite) this.shieldSprite.setPosition(this.runner.x, beeBaseY);
-
-    if (this.frameCount % 3 === 0 && effectiveSpeed > 6) {
+    if (effectiveSpeed > 7 && this.frameCount % 3 === 0) {
       const sl = this.add.image(
-        CX + (Math.random() - 0.5) * LANE_WIDTH * 3,
+        Phaser.Math.Between(20, GAME_WIDTH - 20),
         -10,
         "speed_line"
-      ).setAlpha(0.15 + (effectiveSpeed / MAX_SPEED) * 0.2).setDepth(2);
-      this.speedLines.push(sl);
-    }
-    for (let i = this.speedLines.length - 1; i >= 0; i--) {
-      this.speedLines[i].y += effectiveSpeed * (delta / 16) * 4;
-      if (this.speedLines[i].y > GAME_HEIGHT + 20) {
-        this.speedLines[i].destroy();
-        this.speedLines.splice(i, 1);
-      }
+      ).setAlpha(0.15 + (effectiveSpeed - 7) * 0.04).setScale(1, 1 + effectiveSpeed * 0.15).setDepth(2);
+      this.tweens.add({
+        targets: sl, y: GAME_HEIGHT + 20, alpha: 0,
+        duration: 300 + Phaser.Math.Between(0, 200),
+        onComplete: () => sl.destroy()
+      });
     }
 
     this.obstacles.getChildren().forEach((obj) => {
@@ -1036,25 +1188,35 @@ class GameOverScene extends Phaser.Scene {
 
   create(data: { score: number; coins: number; distance: number; bestScore: number; isNewBest: boolean; speed: number }) {
     this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, "bg_tunnel").setOrigin(0, 0);
-    this.add.rectangle(CX, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.55);
+    this.add.image(CX, GAME_HEIGHT / 2, "nebula").setOrigin(0.5).setAlpha(0.4);
+    this.add.rectangle(CX, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5);
 
-    this.add.text(CX, 55, "GAME OVER", {
-      fontSize: "36px", fontFamily: "monospace", color: "#ff1744",
+    const titleGlow = this.add.text(CX, 50, "GAME OVER", {
+      fontSize: "40px", fontFamily: "monospace", color: "#ff1744",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setAlpha(0.1);
+    this.tweens.add({ targets: titleGlow, alpha: 0.2, duration: 2000, yoyo: true, repeat: -1 });
+
+    this.add.text(CX, 50, "GAME OVER", {
+      fontSize: "38px", fontFamily: "monospace", color: "#ff1744",
       fontStyle: "bold", stroke: "#400", strokeThickness: 5,
     }).setOrigin(0.5);
 
     if (data.isNewBest) {
-      const nb = this.add.text(CX, 96, "NEW BEST!", {
-        fontSize: "20px", fontFamily: "monospace", color: "#ffd54f",
-        fontStyle: "bold", stroke: "#7a4a00", strokeThickness: 3,
+      const nb = this.add.text(CX, 90, "NEW BEST!", {
+        fontSize: "22px", fontFamily: "monospace", color: "#ffd54f",
+        fontStyle: "bold", stroke: "#7a4a00", strokeThickness: 4,
       }).setOrigin(0.5);
-      this.tweens.add({ targets: nb, scaleX: 1.1, scaleY: 1.1, duration: 500, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: nb, scaleX: 1.08, scaleY: 1.08, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    const bee = this.add.image(CX, 140, "runner").setScale(2.2);
-    this.tweens.add({ targets: bee, alpha: 0.4, duration: 1000, yoyo: true, repeat: -1 });
+    const beeGlow = this.add.circle(CX, 138, 30, C.hexRingAmber, 0.04);
+    this.tweens.add({ targets: beeGlow, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 2000, repeat: -1 });
 
-    const statsY = 185;
+    const bee = this.add.image(CX, 138, "runner").setScale(2.4);
+    this.tweens.add({ targets: bee, y: 133, duration: 1500, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+
+    const statsY = 180;
     const stats = [
       { label: "SCORE", value: data.score.toLocaleString(), color: "#ffb300" },
       { label: "HONEY", value: data.coins.toString(), color: "#ffd54f" },
@@ -1064,28 +1226,38 @@ class GameOverScene extends Phaser.Scene {
     ];
 
     stats.forEach((s, i) => {
-      const y = statsY + i * 50;
-      this.add.rectangle(CX, y + 8, 280, 42, C.tunnelDark, 0.85).setStrokeStyle(1, C.hexRingAmber, 0.1);
-      this.add.text(CX - 125, y - 2, s.label, { fontSize: "10px", fontFamily: "monospace", color: "#4a6a8a" });
-      this.add.text(CX + 125, y + 12, s.value, { fontSize: "20px", fontFamily: "monospace", color: s.color, fontStyle: "bold" }).setOrigin(1, 0.5);
+      const y = statsY + i * 48;
+      const rowBg = this.add.rectangle(CX, y + 8, 290, 40, C.hudBg, 0.8);
+      rowBg.setStrokeStyle(1, C.hudBorder, 0.2);
+      this.add.text(CX - 130, y - 1, s.label, {
+        fontSize: "10px", fontFamily: "monospace", color: "#3a5570",
+      });
+      const val = this.add.text(CX + 130, y + 13, s.value, {
+        fontSize: "20px", fontFamily: "monospace", color: s.color, fontStyle: "bold",
+        stroke: "#000", strokeThickness: 2,
+      }).setOrigin(1, 0.5).setAlpha(0);
+      this.tweens.add({ targets: val, alpha: 1, x: CX + 130, duration: 300, delay: i * 100, ease: "Power2" });
     });
 
-    const glow = this.add.rectangle(CX, 460, 210, 54, C.hexRingAmber, 0.05);
-    this.tweens.add({ targets: glow, scaleX: 1.2, scaleY: 1.2, alpha: 0, duration: 1600, repeat: -1 });
+    const btnGlow = this.add.rectangle(CX, 455, 210, 56, C.hexRingAmber, 0.04);
+    this.tweens.add({ targets: btnGlow, scaleX: 1.2, scaleY: 1.2, alpha: 0, duration: 1800, repeat: -1 });
 
-    const retryBtn = this.add.rectangle(CX, 460, 200, 50, C.beeGold, 1).setInteractive({ useHandCursor: true });
-    retryBtn.setStrokeStyle(2, C.hexRingAmberBright);
-    this.add.text(CX, 460, "PLAY AGAIN", { fontSize: "18px", fontFamily: "monospace", color: "#1a0a00", fontStyle: "bold" }).setOrigin(0.5);
+    const retryBtn = this.add.rectangle(CX, 455, 200, 50, C.beeGold, 1).setInteractive({ useHandCursor: true });
+    retryBtn.setStrokeStyle(2.5, C.hexRingAmberBright);
+    this.add.text(CX, 455, "PLAY AGAIN", { fontSize: "18px", fontFamily: "monospace", color: "#1a0a00", fontStyle: "bold" }).setOrigin(0.5);
     retryBtn.on("pointerdown", () => this.scene.start("Game"));
-    this.tweens.add({ targets: retryBtn, scaleX: 1.04, scaleY: 1.04, duration: 800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: retryBtn, scaleX: 1.03, scaleY: 1.03, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    const menuBtn = this.add.rectangle(CX, 525, 200, 40, C.tunnelMid, 1).setInteractive({ useHandCursor: true });
-    menuBtn.setStrokeStyle(1, C.hexRingAmber, 0.25);
-    this.add.text(CX, 525, "MENU", { fontSize: "14px", fontFamily: "monospace", color: "#f5a000" }).setOrigin(0.5);
+    const menuBtn = this.add.rectangle(CX, 518, 200, 40, C.tunnelMid, 1).setInteractive({ useHandCursor: true });
+    menuBtn.setStrokeStyle(1, C.hexRingAmber, 0.2);
+    this.add.text(CX, 518, "MENU", { fontSize: "14px", fontFamily: "monospace", color: "#f5a000" }).setOrigin(0.5);
     menuBtn.on("pointerdown", () => this.scene.start("Menu"));
 
     this.input.keyboard?.once("keydown-SPACE", () => this.scene.start("Game"));
     this.input.keyboard?.once("keydown-ENTER", () => this.scene.start("Game"));
+
+    this.add.image(CX, GAME_HEIGHT / 2, "scanlines").setOrigin(0.5).setAlpha(0.2);
+    this.add.image(CX, GAME_HEIGHT / 2, "vignette").setOrigin(0.5).setAlpha(0.7);
   }
 }
 
@@ -1095,7 +1267,7 @@ export function createHoneyRunnerGame(parent: HTMLElement): Phaser.Game {
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
     parent,
-    backgroundColor: "#08021a",
+    backgroundColor: "#030008",
     physics: {
       default: "arcade",
       arcade: { gravity: { x: 0, y: 0 }, debug: false },

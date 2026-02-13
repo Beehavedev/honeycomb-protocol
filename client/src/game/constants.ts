@@ -29,44 +29,60 @@ export const BOOST_SPEED_MULT = 1.8;
 export const COIN_SCORE = 10;
 
 export const C = {
-  tunnelDark: 0x0c0418,
-  tunnelMid: 0x1a0a30,
+  tunnelDark: 0x06010f,
+  tunnelMid: 0x120828,
   tunnelLight: 0x2a1248,
-  tunnelWall: 0x1e0e38,
+  tunnelWall: 0x180c32,
+  tunnelDeep: 0x0a0318,
 
   hexRingAmber: 0xf5a000,
-  hexRingAmberBright: 0xffbe30,
+  hexRingAmberBright: 0xffcc40,
   hexRingAmberDim: 0x7a5000,
+  hexRingAmberHot: 0xffe070,
 
   neonCyan: 0x00e5ff,
-  neonCyanBright: 0x60f0ff,
-  neonCyanDim: 0x005566,
+  neonCyanBright: 0x80f0ff,
+  neonCyanDim: 0x004455,
 
   neonPink: 0xff0080,
   neonPinkDim: 0x660033,
+  neonPinkBright: 0xff60b0,
 
   neonPurple: 0xb040ff,
   neonPurpleDim: 0x4a1a80,
+  neonPurpleBright: 0xd080ff,
 
   beeGold: 0xffb300,
   beeGoldLight: 0xffd54f,
   beeGoldDark: 0xb37a00,
+  beeGoldMetal: 0xdaa520,
   beeStripe: 0x1a1200,
+  beeStripeDark: 0x0e0a00,
   beeWing: 0xccefff,
   beeWingGlow: 0x80d8ff,
+  beeWingShine: 0xe0f8ff,
   beeEye: 0x00e5ff,
+  beeEyeGlow: 0x40f0ff,
 
   coinGold: 0xffd740,
   coinGoldLight: 0xffecb3,
   coinAmber: 0xffab00,
+  coinShine: 0xfff8e1,
 
   laserRed: 0xff1744,
   laserRedGlow: 0xff5252,
+  laserRedBright: 0xff8a80,
 
   shieldGreen: 0x00e676,
+  shieldGreenBright: 0x69f0ae,
   magnetBlue: 0x448aff,
+  magnetBlueBright: 0x82b1ff,
   boostOrange: 0xff6d00,
+  boostOrangeBright: 0xffab40,
 
   white: 0xffffff,
   black: 0x000000,
+
+  hudBg: 0x0a0420,
+  hudBorder: 0x2a1850,
 };
