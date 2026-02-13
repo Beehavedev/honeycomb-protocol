@@ -335,16 +335,19 @@ export function getPointsCaps() {
 export const TOKENOMICS = {
   totalSupply: 1_000_000_000,
   allocations: {
-    communityRewards: { amount: 250_000_000, pct: 25, description: "Play-to-Earn + Points Conversion" },
+    preLaunchConversion: { amount: 10_000_000, pct: 1, description: "Pre-Launch Points Conversion (at TGE)" },
+    postTgeConversion: { amount: 250_000_000, pct: 25, description: "Post-TGE Play-to-Earn Conversion" },
     liquidity: { amount: 200_000_000, pct: 20, description: "PancakeSwap LP + Exchange Listings" },
     teamAdvisors: { amount: 150_000_000, pct: 15, description: "Team & Advisors (4yr vest, 1yr cliff)" },
     stakingRewards: { amount: 100_000_000, pct: 10, description: "Staking APY Rewards (4yr emission)" },
     ecosystem: { amount: 100_000_000, pct: 10, description: "Ecosystem & Developer Grants" },
     treasury: { amount: 100_000_000, pct: 10, description: "Treasury & Operations" },
     marketing: { amount: 50_000_000, pct: 5, description: "Marketing & Growth Campaigns" },
-    strategicPartners: { amount: 50_000_000, pct: 5, description: "Strategic Partners & Backers" },
+    strategicPartners: { amount: 40_000_000, pct: 4, description: "Strategic Partners & Backers" },
   },
-  pointsConversionPool: 200_000_000,
+  preLaunchPool: 10_000_000,
+  postTgePool: 250_000_000,
+  totalPointsPool: 260_000_000,
   feeSplit: {
     totalFeePct: 10,
     treasuryPct: 5,

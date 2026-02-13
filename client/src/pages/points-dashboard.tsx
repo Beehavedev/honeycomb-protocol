@@ -57,7 +57,9 @@ interface GameRewardsData {
   tokenomics: {
     totalSupply: number;
     allocations: Record<string, number>;
-    pointsConversionPool: number;
+    preLaunchPool: number;
+    postTgePool: number;
+    totalPointsPool: number;
     feeSplit: Record<string, number>;
   };
 }
@@ -141,12 +143,15 @@ const GAME_INFO = [
 ];
 
 const TOKENOMICS_BREAKDOWN = [
-  { label: "Points Conversion Pool", value: "20%", amount: "200M" },
-  { label: "Liquidity & DEX", value: "25%", amount: "250M" },
+  { label: "Pre-Launch Conversion (TGE)", value: "1%", amount: "10M", highlight: true },
+  { label: "Post-TGE Play-to-Earn", value: "25%", amount: "250M", highlight: true },
+  { label: "Liquidity & DEX", value: "20%", amount: "200M" },
   { label: "Team & Advisors", value: "15%", amount: "150M" },
-  { label: "Ecosystem & Partnerships", value: "20%", amount: "200M" },
-  { label: "Community Rewards", value: "10%", amount: "100M" },
-  { label: "Treasury Reserve", value: "10%", amount: "100M" },
+  { label: "Staking Rewards", value: "10%", amount: "100M" },
+  { label: "Ecosystem & Grants", value: "10%", amount: "100M" },
+  { label: "Treasury & Ops", value: "10%", amount: "100M" },
+  { label: "Marketing & Growth", value: "5%", amount: "50M" },
+  { label: "Strategic Partners", value: "4%", amount: "40M" },
 ];
 
 export default function PointsDashboard() {
@@ -364,31 +369,45 @@ export default function PointsDashboard() {
               $HONEY Token Conversion
             </CardTitle>
             <CardDescription>
-              Your Nectar Points will convert to $HONEY tokens after the official launch
+              Two-phase conversion: 1% at TGE (7 days), 25% unlocked post-launch
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/20">
-                  <p className="text-sm font-medium mb-2">Conversion Pool</p>
-                  <p className="text-3xl font-bold text-amber-500" data-testid="text-conversion-pool">
-                    200,000,000
+                <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-500/50 text-amber-400">PHASE 1</Badge>
+                    <p className="text-sm font-medium">Pre-Launch Pool (at TGE)</p>
+                  </div>
+                  <p className="text-3xl font-bold text-amber-500" data-testid="text-conversion-pool-tge">
+                    10,000,000
                   </p>
-                  <p className="text-sm text-muted-foreground">$HONEY tokens reserved for point holders</p>
+                  <p className="text-sm text-muted-foreground">1% of total supply converts at launch</p>
+                </div>
+                <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5">PHASE 2</Badge>
+                    <p className="text-sm font-medium">Post-TGE Play-to-Earn</p>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="text-conversion-pool-post">
+                    250,000,000
+                  </p>
+                  <p className="text-sm text-muted-foreground">25% unlocked for ongoing game rewards after TGE</p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm font-medium mb-2">Conversion Formula</p>
+                  <p className="text-sm font-medium mb-2">Pre-Launch Conversion Formula</p>
                   <p className="text-sm text-muted-foreground">
-                    Your $HONEY = (Your Points / Total Community Points) x 200,000,000
+                    Your $HONEY = (Your Points / Total Pre-Launch Points) x 10,000,000
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    The more points you earn before launch, the larger your share of the conversion pool
+                    Earn as many points as you can in the next 7 days to maximize your share of the TGE pool
                   </p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <p className="text-sm font-medium mb-1">Total Supply</p>
                   <p className="text-lg font-bold" data-testid="text-total-supply">1,000,000,000 $HONEY</p>
+                  <p className="text-xs text-muted-foreground mt-1">Total points allocation: 26% (260M $HONEY)</p>
                 </div>
               </div>
 
@@ -398,11 +417,13 @@ export default function PointsDashboard() {
                   {TOKENOMICS_BREAKDOWN.map((item) => (
                     <div
                       key={item.label}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        (item as any).highlight ? "bg-amber-500/5 border border-amber-500/20" : "bg-muted/50"
+                      }`}
                       data-testid={`text-allocation-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                     >
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-amber-500" />
+                        <div className={`w-2 h-2 rounded-full ${(item as any).highlight ? "bg-amber-500" : "bg-muted-foreground/50"}`} />
                         <span className="text-sm">{item.label}</span>
                       </div>
                       <div className="flex items-center gap-2">
