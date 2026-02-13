@@ -67,6 +67,11 @@ import {
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
+import arenaTradingImg from "../assets/images/arena-trading.png";
+import arenaPredictImg from "../assets/images/arena-predict.png";
+import arenaTriviaImg from "../assets/images/arena-trivia.png";
+import arenaFighterImg from "../assets/images/arena-fighter.png";
+import arenaGamehubImg from "../assets/images/arena-gamehub.png";
 
 const LazyPredict = lazy(() => import("@/pages/predict"));
 const LazyTrivia = lazy(() => import("@/pages/trivia-battle"));
@@ -3649,6 +3654,7 @@ const ARENA_GAMES = [
     tags: ["PvP", "BNB Stakes", "Live Charts"],
     players: "1v1",
     featured: true,
+    image: arenaTradingImg,
   },
   {
     id: "predict",
@@ -3661,6 +3667,7 @@ const ARENA_GAMES = [
     tags: ["PvP", "BNB Stakes", "On-Chain"],
     players: "1v1",
     featured: true,
+    image: arenaPredictImg,
   },
   {
     id: "trivia",
@@ -3672,6 +3679,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(245,158,11,0.12)",
     tags: ["PvP", "Knowledge", "Timed"],
     players: "1v1",
+    image: arenaTriviaImg,
   },
   {
     id: "fighter",
@@ -3683,6 +3691,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(239,68,68,0.12)",
     tags: ["PvP", "Strategy", "Turn-Based"],
     players: "1v1",
+    image: arenaFighterImg,
   },
   {
     id: "gamehub",
@@ -3694,6 +3703,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(59,130,246,0.12)",
     tags: ["Arcade", "Quick Play", "Bots"],
     players: "1v1",
+    image: arenaGamehubImg,
   },
 ];
 
@@ -3794,13 +3804,44 @@ function GameCard({ game, index, onSelect }: {
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playUISound("select"); onSelect(game.id); } }}
     >
       <div className="relative rounded-md border border-border/50 bg-card overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none" aria-hidden="true"
-          style={{ background: `linear-gradient(135deg, ${game.colorDim} 0%, transparent 60%)` }} />
-
-        <div className="absolute top-0 left-0 right-0 h-[1px] pointer-events-none" aria-hidden="true"
-          style={{
-            background: `linear-gradient(90deg, transparent, ${game.color}40, transparent)`,
+        <div className="relative h-28 sm:h-32 overflow-hidden">
+          <img
+            src={game.image}
+            alt={game.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0" style={{
+            background: `linear-gradient(to top, hsl(var(--card)) 0%, hsl(var(--card) / 0.7) 30%, transparent 100%)`,
           }} />
+          <div className="absolute inset-0" style={{
+            background: `linear-gradient(135deg, ${game.color}20 0%, transparent 60%)`,
+          }} />
+          <div className="absolute top-2 right-2 flex items-center gap-1.5">
+            {game.featured && (
+              <Badge variant="secondary" className="text-[10px] font-mono">
+                <Sparkles className="w-3 h-3 mr-0.5" style={{ color: game.color }} /> HOT
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-[10px] font-mono bg-background/60 backdrop-blur-sm">
+              {game.players}
+            </Badge>
+          </div>
+          <div className="absolute bottom-3 left-4 flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 backdrop-blur-sm"
+              style={{ background: `${game.color}30`, border: `1px solid ${game.color}40` }}>
+              <Icon className="w-5 h-5 arena-icon-pulse" style={{ color: game.color }} />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold tracking-tight leading-tight" style={{ color: game.color }}>
+                {game.name}
+              </h3>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80">
+                {game.tagline}
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ overflow: "hidden" }}>
           <div className="absolute left-0 right-0 h-[1px]" style={{
@@ -3811,31 +3852,8 @@ function GameCard({ game, index, onSelect }: {
 
         <GameCardParticles color={game.color} />
 
-        <div className="relative p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-md flex items-center justify-center shrink-0"
-              style={{ background: game.colorDim, border: `1px solid ${game.color}25` }}>
-              <Icon className="w-6 h-6 sm:w-7 sm:h-7 arena-icon-pulse" style={{ color: game.color }} />
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap justify-end">
-              {game.featured && (
-                <Badge variant="secondary" className="text-[10px] font-mono">
-                  <Sparkles className="w-3 h-3 mr-0.5" style={{ color: game.color }} /> HOT
-                </Badge>
-              )}
-              <Badge variant="outline" className="text-[10px] font-mono">
-                {game.players}
-              </Badge>
-            </div>
-          </div>
-
-          <h3 className="text-lg sm:text-xl font-bold tracking-tight mb-1" style={{ color: game.color }}>
-            {game.name}
-          </h3>
-          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
-            {game.tagline}
-          </p>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+        <div className="relative px-4 pb-4 pt-1">
+          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
             {game.description}
           </p>
 
