@@ -79,15 +79,15 @@ function AgentCard({ agent }: { agent: NfaAgent }) {
                   Learn
                 </Badge>
               )}
-              {agent.registryStatus === "registered" ? (
+              {agent.mintTxHash && agent.onChainTokenId ? (
                 <Badge variant="outline" className="text-xs gap-1">
                   <Shield className="h-3 w-3" />
-                  Registered
+                  On-Chain
                 </Badge>
               ) : (
                 <Badge variant="destructive" className="text-xs gap-1">
                   <AlertTriangle className="h-3 w-3" />
-                  Not Registered
+                  Off-Chain
                 </Badge>
               )}
             </div>

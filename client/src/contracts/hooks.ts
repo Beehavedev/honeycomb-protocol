@@ -1592,3 +1592,25 @@ export function useBAP578GetAgentMetadata(tokenId?: bigint) {
     query: { enabled: tokenId !== undefined && !!address && address !== '0x0000000000000000000000000000000000000000' },
   });
 }
+
+export function useBAP578OwnerOf(tokenId?: bigint) {
+  const address = useBAP578TokenAddress();
+  return useReadContract({
+    address,
+    abi: BAP578TokenABI,
+    functionName: 'ownerOf',
+    args: tokenId !== undefined ? [tokenId] : undefined,
+    query: { enabled: tokenId !== undefined && !!address && address !== '0x0000000000000000000000000000000000000000' },
+  });
+}
+
+export function useBAP578GetAgentState(tokenId?: bigint) {
+  const address = useBAP578TokenAddress();
+  return useReadContract({
+    address,
+    abi: BAP578TokenABI,
+    functionName: 'getAgentState',
+    args: tokenId !== undefined ? [tokenId] : undefined,
+    query: { enabled: tokenId !== undefined && !!address && address !== '0x0000000000000000000000000000000000000000' },
+  });
+}

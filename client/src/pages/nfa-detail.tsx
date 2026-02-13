@@ -27,6 +27,7 @@ import { ERC8004TrustBadge } from "@/components/erc8004-trust-badge";
 import { ERC8004IdentityPassport, ERC8004IdentityBanner } from "@/components/erc8004-identity-passport";
 import { ERC8004ActivityHistory } from "@/components/erc8004-activity-history";
 import { ERC8004AgentVerification } from "@/components/erc8004-agent-verification";
+import { NfaVerificationSignals } from "@/components/nfa-verification-signals";
 
 interface NfaAgent {
   id: string;
@@ -1113,6 +1114,20 @@ export default function NfaDetail() {
                 </div>
               </CardContent>
             </Card>
+
+            <NfaVerificationSignals
+              onChainTokenId={agent.onChainTokenId}
+              ownerAddress={agent.ownerAddress}
+              contractAddress={agent.contractAddress}
+              agentType={agent.agentType}
+              learningEnabled={agent.learningEnabled}
+              learningTreeRoot={agent.learningTreeRoot}
+              learningModuleId={agent.learningModuleId}
+              proofOfPrompt={agent.proofOfPrompt}
+              memoryRoot={agent.memoryRoot}
+              registryStatus={agent.registryStatus}
+              mintTxHash={agent.mintTxHash}
+            />
           </div>
         </div>
       </div>
