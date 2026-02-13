@@ -59,6 +59,11 @@ import {
   Copy,
   Brain,
   Gamepad2,
+  ArrowLeft,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  CircleDot,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
@@ -3632,10 +3637,294 @@ function SpectatorView({ duelId }: { duelId: string }) {
   );
 }
 
+const ARENA_GAMES = [
+  {
+    id: "trading",
+    name: "Trading Arena",
+    tagline: "1v1 Leveraged Trading Battles",
+    description: "Trade with $1M fake USDT on real charts. Open long/short positions with up to 50x leverage. Winner takes the pot.",
+    icon: TrendingUp,
+    color: "#0ecb81",
+    colorDim: "rgba(14,203,129,0.12)",
+    tags: ["PvP", "BNB Stakes", "Live Charts"],
+    players: "1v1",
+    featured: true,
+  },
+  {
+    id: "predict",
+    name: "Predict Duel",
+    tagline: "Price Prediction Showdown",
+    description: "Predict if crypto prices go up or down. Stake BNB and battle opponents on real market movements.",
+    icon: Target,
+    color: "#a855f7",
+    colorDim: "rgba(168,85,247,0.12)",
+    tags: ["PvP", "BNB Stakes", "On-Chain"],
+    players: "1v1",
+    featured: true,
+  },
+  {
+    id: "trivia",
+    name: "Trivia Battle",
+    tagline: "Test Your Crypto Knowledge",
+    description: "Answer crypto trivia questions faster than your opponent. Multiple categories and difficulty levels.",
+    icon: Brain,
+    color: "#f59e0b",
+    colorDim: "rgba(245,158,11,0.12)",
+    tags: ["PvP", "Knowledge", "Timed"],
+    players: "1v1",
+  },
+  {
+    id: "fighter",
+    name: "Crypto Fighters",
+    tagline: "Turn-Based Combat",
+    description: "Pick your crypto fighter and battle with unique moves. Attack, defend, counter, or unleash special abilities.",
+    icon: Swords,
+    color: "#ef4444",
+    colorDim: "rgba(239,68,68,0.12)",
+    tags: ["PvP", "Strategy", "Turn-Based"],
+    players: "1v1",
+  },
+  {
+    id: "gamehub",
+    name: "Game Hub",
+    tagline: "Quick Arcade Games",
+    description: "Reaction duels, aim trainers, and more mini-games. Fast rounds, instant results, pure skill.",
+    icon: Gamepad2,
+    color: "#3b82f6",
+    colorDim: "rgba(59,130,246,0.12)",
+    tags: ["Arcade", "Quick Play", "Bots"],
+    players: "1v1",
+  },
+];
+
+const uiSoundEnabled = { current: true };
+
+function playUISound(type: "hover" | "select" | "back") {
+  if (!uiSoundEnabled.current) return;
+  try {
+    const ctx = getAudioCtx();
+    const t = ctx.currentTime;
+    if (type === "hover") {
+      tone(ctx, 2400, "sine", 0.03, t, 0.04);
+    } else if (type === "select") {
+      tone(ctx, 440, "sine", 0.1, t, 0.06);
+      tone(ctx, 880, "sine", 0.08, t + 0.04, 0.08);
+      tone(ctx, 1320, "sine", 0.06, t + 0.08, 0.1);
+      chips(ctx, t, 3, 0.06);
+    } else if (type === "back") {
+      tone(ctx, 880, "sine", 0.08, t, 0.06, 440);
+      tone(ctx, 440, "sine", 0.06, t + 0.03, 0.08, 220);
+    }
+  } catch {}
+}
+
+function GameCardParticles({ color }: { color: string }) {
+  const particles = Array.from({ length: 6 }, (_, i) => ({
+    left: 15 + Math.random() * 70,
+    delay: i * 0.4 + Math.random() * 0.5,
+    size: 2 + Math.random() * 3,
+    dur: 2 + Math.random() * 1.5,
+  }));
+  return (
+    <div className="absolute inset-0 pointer-events-none" style={{ overflow: "hidden" }} aria-hidden="true">
+      {particles.map((p, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            width: p.size,
+            height: p.size,
+            backgroundColor: color,
+            left: `${p.left}%`,
+            bottom: "10%",
+            opacity: 0,
+            animation: `arena-particle-float ${p.dur}s ${p.delay}s ease-out infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FuturisticHero() {
+  return (
+    <div className="relative text-center py-8 sm:py-12 arena-animate-up">
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] rounded-full border border-amber-500/10"
+          style={{ animation: "arena-hex-rotate 20s linear infinite" }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] rounded-full border border-amber-500/5"
+          style={{ animation: "arena-hex-rotate 30s linear infinite reverse" }} />
+      </div>
+
+      <div className="relative z-10 space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/5 arena-badge-blink">
+          <CircleDot className="w-3 h-3 text-amber-400" />
+          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400/80">Live Arena</span>
+        </div>
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight arena-title-glow"
+          style={{ color: "hsl(var(--foreground))" }}>
+          GAMES ARENA
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
+          Choose your battlefield. Compete in skill-based crypto games against AI bots or other players.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function GameCard({ game, index, onSelect }: {
+  game: typeof ARENA_GAMES[0];
+  index: number;
+  onSelect: (id: string) => void;
+}) {
+  const Icon = game.icon;
+  const revealClass = `arena-card-reveal${index > 0 ? `-d${Math.min(index, 4)}` : ""}`;
+
+  return (
+    <div
+      className={`arena-game-card rounded-md ${revealClass}`}
+      onClick={() => { playUISound("select"); onSelect(game.id); }}
+      onMouseEnter={() => playUISound("hover")}
+      data-testid={`card-game-${game.id}`}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playUISound("select"); onSelect(game.id); } }}
+    >
+      <div className="relative rounded-md border border-border/50 bg-card overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true"
+          style={{ background: `linear-gradient(135deg, ${game.colorDim} 0%, transparent 60%)` }} />
+
+        <div className="absolute top-0 left-0 right-0 h-[1px] pointer-events-none" aria-hidden="true"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${game.color}40, transparent)`,
+          }} />
+
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ overflow: "hidden" }}>
+          <div className="absolute left-0 right-0 h-[1px]" style={{
+            background: `linear-gradient(90deg, transparent, ${game.color}15, transparent)`,
+            animation: "arena-scan-line 3s linear infinite",
+          }} />
+        </div>
+
+        <GameCardParticles color={game.color} />
+
+        <div className="relative p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-md flex items-center justify-center shrink-0"
+              style={{ background: game.colorDim, border: `1px solid ${game.color}25` }}>
+              <Icon className="w-6 h-6 sm:w-7 sm:h-7 arena-icon-pulse" style={{ color: game.color }} />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {game.featured && (
+                <Badge variant="secondary" className="text-[10px] font-mono">
+                  <Sparkles className="w-3 h-3 mr-0.5" style={{ color: game.color }} /> HOT
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px] font-mono">
+                {game.players}
+              </Badge>
+            </div>
+          </div>
+
+          <h3 className="text-lg sm:text-xl font-bold tracking-tight mb-1" style={{ color: game.color }}>
+            {game.name}
+          </h3>
+          <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground/70 mb-3">
+            {game.tagline}
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            {game.description}
+          </p>
+
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {game.tags.map((tag) => (
+                <span key={tag} className="text-[10px] font-mono px-2 py-0.5 rounded-sm"
+                  style={{ background: `${game.color}10`, color: `${game.color}cc`, border: `1px solid ${game.color}20` }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 text-xs font-mono" style={{ color: game.color }}>
+              PLAY <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GamesArenaLanding({ onSelectGame }: { onSelectGame: (id: string) => void }) {
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  useEffect(() => { uiSoundEnabled.current = soundEnabled; }, [soundEnabled]);
+
+  return (
+    <div className="relative max-w-5xl mx-auto px-3 sm:px-4 py-4 space-y-6">
+      <ArenaBackground />
+
+      <div className="relative z-10">
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            data-testid="button-toggle-sound"
+          >
+            {soundEnabled ? <Volume2 className="w-4 h-4 text-muted-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+          </Button>
+        </div>
+
+        <FuturisticHero />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+          {ARENA_GAMES.map((game, i) => (
+            <GameCard key={game.id} game={game} index={i} onSelect={onSelectGame} />
+          ))}
+        </div>
+
+        <div className="mt-8 text-center arena-animate-up-d3">
+          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-md border border-border/30 bg-card/50">
+            <Bot className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">All games support AI bot opponents for instant practice matches</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActiveGameHeader({ gameId, onBack }: { gameId: string; onBack: () => void }) {
+  const game = ARENA_GAMES.find(g => g.id === gameId);
+  if (!game) return null;
+  const Icon = game.icon;
+
+  return (
+    <div className="flex items-center gap-3 mb-4 arena-animate-up">
+      <Button size="icon" variant="ghost" onClick={() => { playUISound("back"); onBack(); }} data-testid="button-back-to-arena">
+        <ArrowLeft className="w-4 h-4" />
+      </Button>
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-md flex items-center justify-center"
+          style={{ background: game.colorDim, border: `1px solid ${game.color}25` }}>
+          <Icon className="w-4 h-4" style={{ color: game.color }} />
+        </div>
+        <div>
+          <h2 className="text-sm font-bold" style={{ color: game.color }}>{game.name}</h2>
+          <p className="text-[10px] text-muted-foreground font-mono">{game.tagline}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TradingArena() {
   const [matchSpectate, paramsSpectate] = useRoute("/arena/:id/spectate");
   const [match, params] = useRoute("/arena/:id");
-  const [gameMode, setGameMode] = useState("trading");
+  const [gameMode, setGameMode] = useState<string | null>(null);
 
   if (matchSpectate && paramsSpectate?.id) {
     return <SpectatorView duelId={paramsSpectate.id} />;
@@ -3645,61 +3934,15 @@ export default function TradingArena() {
     return <ActiveDuelView duelId={params.id} />;
   }
 
+  if (!gameMode) {
+    return <GamesArenaLanding onSelectGame={setGameMode} />;
+  }
+
   return (
-    <div className="relative max-w-5xl mx-auto px-3 sm:p-4 py-4 space-y-4 sm:space-y-6">
+    <div className="relative max-w-5xl mx-auto px-3 sm:p-4 py-4 space-y-2">
       <ArenaBackground />
-
-      <div className="relative z-10 text-center space-y-3 sm:space-y-4 py-2 sm:py-4 arena-animate-up">
-        <div className="flex items-center justify-center gap-3 sm:gap-4">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-md bg-gradient-to-br from-amber-500/30 to-orange-500/10 flex items-center justify-center arena-float shrink-0" style={{ boxShadow: "0 0 20px rgba(245,158,11,0.15)" }}>
-            <Swords className="w-6 h-6 sm:w-9 sm:h-9 text-amber-400" />
-          </div>
-          <div className="text-left">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Games Arena</h1>
-            <p className="text-muted-foreground text-xs sm:text-sm">Compete, predict, and win on real crypto markets</p>
-          </div>
-        </div>
-      </div>
-
       <div className="relative z-10">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <Button
-            variant={gameMode === "trading" ? "default" : "outline"}
-            onClick={() => setGameMode("trading")}
-            data-testid="button-game-trading"
-          >
-            <Swords className="w-4 h-4 mr-1.5" /> Trading Arena
-          </Button>
-          <Button
-            variant={gameMode === "predict" ? "default" : "outline"}
-            onClick={() => setGameMode("predict")}
-            data-testid="button-game-predict"
-          >
-            <Target className="w-4 h-4 mr-1.5" /> Predict Duel
-          </Button>
-          <Button
-            variant={gameMode === "trivia" ? "default" : "outline"}
-            onClick={() => setGameMode("trivia")}
-            data-testid="button-game-trivia"
-          >
-            <Brain className="w-4 h-4 mr-1.5" /> Trivia Battle
-          </Button>
-          <Button
-            variant={gameMode === "fighter" ? "default" : "outline"}
-            onClick={() => setGameMode("fighter")}
-            data-testid="button-game-fighter"
-          >
-            <Swords className="w-4 h-4 mr-1.5" /> Crypto Fighters
-          </Button>
-          <Button
-            variant={gameMode === "gamehub" ? "default" : "outline"}
-            onClick={() => setGameMode("gamehub")}
-            data-testid="button-game-hub"
-          >
-            <Gamepad2 className="w-4 h-4 mr-1.5" /> Game Hub
-          </Button>
-        </div>
-
+        <ActiveGameHeader gameId={gameMode} onBack={() => setGameMode(null)} />
         {gameMode === "trading" ? (
           <TradingArenaLobby />
         ) : gameMode === "predict" ? (
