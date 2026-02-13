@@ -217,93 +217,103 @@ class BootScene extends Phaser.Scene {
 
   private genCyberBee(g: Phaser.GameObjects.Graphics) {
     const bw = 80, bh = 100;
+    const cx = bw / 2;
     g.clear();
 
-    g.fillStyle(C.cyan, 0.06);
-    g.fillCircle(bw / 2, 50, 48);
+    g.lineStyle(1.8, 0x1a1008, 0.9);
+    g.beginPath(); g.moveTo(cx - 4, 10); g.lineTo(cx - 10, -2); g.lineTo(cx - 13, -8); g.strokePath();
+    g.beginPath(); g.moveTo(cx + 4, 10); g.lineTo(cx + 10, -2); g.lineTo(cx + 13, -8); g.strokePath();
+    g.lineStyle(0.8, 0x302010, 0.5);
+    g.beginPath(); g.moveTo(cx - 13, -8); g.lineTo(cx - 15, -12); g.strokePath();
+    g.beginPath(); g.moveTo(cx + 13, -8); g.lineTo(cx + 15, -12); g.strokePath();
+    g.fillStyle(0x2a1a08, 0.9);
+    g.fillCircle(cx - 15, -12, 2);
+    g.fillCircle(cx + 15, -12, 2);
 
-    g.fillStyle(0x081828, 1);
-    g.fillEllipse(bw / 2, 22, 30, 26);
+    g.fillStyle(0x1a1008, 1);
+    g.fillEllipse(cx, 18, 28, 22);
+    g.fillStyle(0x2a1a0a, 0.5);
+    g.fillEllipse(cx - 2, 15, 14, 12);
+    for (let i = 0; i < 30; i++) {
+      const fx = cx + (Math.random() - 0.5) * 26;
+      const fy = 18 + (Math.random() - 0.5) * 20;
+      g.fillStyle(0x302010, 0.15 + Math.random() * 0.15);
+      g.fillCircle(fx, fy, 0.6 + Math.random() * 1.2);
+    }
 
-    g.fillStyle(0x102838, 0.4);
-    g.fillEllipse(bw / 2 - 3, 17, 14, 14);
+    g.fillStyle(0x0a0400, 1);
+    g.fillEllipse(cx - 8, 14, 10, 9);
+    g.fillEllipse(cx + 8, 14, 10, 9);
+    g.fillStyle(0x201808, 0.9);
+    g.fillEllipse(cx - 8, 13, 8, 7);
+    g.fillEllipse(cx + 8, 13, 8, 7);
+    g.fillStyle(0x3a2810, 0.5);
+    g.fillEllipse(cx - 9, 12, 4, 3.5);
+    g.fillEllipse(cx + 7, 12, 4, 3.5);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillCircle(cx - 9, 11, 1.5);
+    g.fillCircle(cx + 7, 11, 1.5);
 
-    g.fillStyle(0x00ffff, 1);
-    g.fillCircle(bw / 2 - 8, 17, 6);
-    g.fillCircle(bw / 2 + 8, 17, 6);
-    g.fillStyle(0xaaffff, 0.8);
-    g.fillCircle(bw / 2 - 8, 15, 3);
-    g.fillCircle(bw / 2 + 8, 15, 3);
-    g.fillStyle(C.white, 0.9);
-    g.fillCircle(bw / 2 - 7, 14, 1.5);
-    g.fillCircle(bw / 2 + 9, 14, 1.5);
-    g.fillStyle(0x00e5ff, 0.2);
-    g.fillCircle(bw / 2 - 8, 17, 12);
-    g.fillCircle(bw / 2 + 8, 17, 12);
+    g.fillStyle(0x1a1008, 1);
+    g.fillEllipse(cx, 16, 6, 4);
 
-    g.lineStyle(2, C.amber, 0.9);
-    g.beginPath(); g.moveTo(bw / 2 - 5, 9); g.lineTo(bw / 2 - 13, -5); g.strokePath();
-    g.beginPath(); g.moveTo(bw / 2 + 5, 9); g.lineTo(bw / 2 + 13, -5); g.strokePath();
-    g.fillStyle(0x00ffff, 1);
-    g.fillCircle(bw / 2 - 13, -5, 3.5);
-    g.fillCircle(bw / 2 + 13, -5, 3.5);
-    g.fillStyle(C.cyanBright, 0.6);
-    g.fillCircle(bw / 2 - 13, -5, 7);
-    g.fillCircle(bw / 2 + 13, -5, 7);
+    g.lineStyle(1.2, 0x1a1008, 0.8);
+    g.lineBetween(cx - 8, 28, cx - 10, 34);
+    g.lineBetween(cx - 10, 34, cx - 14, 38);
+    g.lineBetween(cx + 8, 28, cx + 10, 34);
+    g.lineBetween(cx + 10, 34, cx + 14, 38);
+    g.lineBetween(cx - 12, 26, cx - 16, 32);
+    g.lineBetween(cx - 16, 32, cx - 20, 37);
+    g.lineBetween(cx + 12, 26, cx + 16, 32);
+    g.lineBetween(cx + 16, 32, cx + 20, 37);
+    g.lineBetween(cx - 10, 36, cx - 12, 42);
+    g.lineBetween(cx + 10, 36, cx + 12, 42);
 
-    g.lineStyle(1.5, 0x081828, 0.7);
-    g.lineBetween(bw / 2 - 5, 33, bw / 2 - 6, 40);
-    g.lineBetween(bw / 2 + 5, 33, bw / 2 + 6, 40);
-    g.lineBetween(bw / 2 - 10, 31, bw / 2 - 14, 39);
-    g.lineBetween(bw / 2 + 10, 31, bw / 2 + 14, 39);
-    g.fillStyle(C.cyan, 0.5);
-    g.fillCircle(bw / 2 - 6, 40, 2);
-    g.fillCircle(bw / 2 + 6, 40, 2);
-    g.fillCircle(bw / 2 - 14, 39, 2);
-    g.fillCircle(bw / 2 + 14, 39, 2);
+    g.fillStyle(0x302010, 1);
+    g.fillEllipse(cx, 34, 26, 18);
+    g.fillStyle(0x3a2814, 0.6);
+    g.fillEllipse(cx - 2, 32, 14, 10);
+    for (let i = 0; i < 40; i++) {
+      const fx = cx + (Math.random() - 0.5) * 24;
+      const fy = 34 + (Math.random() - 0.5) * 16;
+      g.fillStyle(0x4a3820, 0.12 + Math.random() * 0.15);
+      g.fillCircle(fx, fy, 0.5 + Math.random() * 1.2);
+    }
 
-    g.fillStyle(0x081828, 1);
-    g.fillEllipse(bw / 2, 58, 36, 44);
+    g.fillStyle(0x1a1008, 1);
+    g.fillEllipse(cx, 64, 34, 40);
+    g.fillStyle(0x201408, 0.4);
+    g.fillEllipse(cx - 4, 56, 16, 20);
 
-    g.fillStyle(0x102838, 0.2);
-    g.fillEllipse(bw / 2 - 5, 50, 14, 18);
-
-    const stripes = [41, 47, 53, 59, 65, 71];
+    const stripes = [48, 54, 60, 66, 72, 78];
     for (let i = 0; i < stripes.length; i++) {
-      const sw = 15 - Math.abs(i - 2.5) * 2.2;
-      g.fillStyle(0xffb020, 1);
-      g.fillEllipse(bw / 2, stripes[i], sw * 2, 3.8);
-      g.fillStyle(0xffd860, 0.6);
-      g.fillEllipse(bw / 2 - 1, stripes[i] - 0.5, sw * 1.2, 2);
-      g.fillStyle(0xffc040, 0.15);
-      g.fillEllipse(bw / 2, stripes[i], sw * 3, 7);
+      const sw = 14 - Math.abs(i - 2.5) * 2;
+      g.fillStyle(0xd4940a, 1);
+      g.fillEllipse(cx, stripes[i], sw * 2, 4);
+      g.fillStyle(0xe8a820, 0.7);
+      g.fillEllipse(cx - 1, stripes[i] - 0.5, sw * 1.3, 2.5);
+      g.fillStyle(0xc88808, 0.4);
+      g.fillEllipse(cx + 2, stripes[i] + 1, sw * 0.8, 1.5);
     }
 
-    g.lineStyle(1, C.cyan, 0.3);
-    for (let i = 0; i < 4; i++) {
-      const ly = 40 + i * 10;
-      g.lineBetween(bw / 2 - 15, ly, bw / 2 - 7, ly + 4);
-      g.lineBetween(bw / 2 + 15, ly, bw / 2 + 7, ly + 4);
+    for (let i = 0; i < 60; i++) {
+      const fx = cx + (Math.random() - 0.5) * 32;
+      const fy = 48 + (Math.random() - 0.5) * 38;
+      const dist = Math.sqrt((fx - cx) ** 2 + ((fy - 64) * 0.85) ** 2);
+      if (dist > 16) continue;
+      g.fillStyle(i % 3 === 0 ? 0x5a4828 : 0x3a2818, 0.1 + Math.random() * 0.15);
+      g.fillCircle(fx, fy, 0.4 + Math.random() * 1);
     }
 
-    g.fillStyle(C.cyan, 0.2);
-    g.fillCircle(bw / 2, 52, 5);
-    g.fillStyle(0x00e5ff, 0.08);
-    g.fillCircle(bw / 2, 52, 12);
+    g.lineStyle(1, 0x100a04, 0.4);
+    g.strokeEllipse(cx, 64, 34, 40);
 
-    g.lineStyle(1.5, 0x1a4050, 0.6);
-    g.strokeEllipse(bw / 2, 58, 36, 44);
-    g.lineStyle(3, C.cyan, 0.08);
-    g.strokeEllipse(bw / 2, 58, 40, 48);
-
-    g.fillStyle(0x081828, 1);
-    g.fillTriangle(bw / 2, bh, bw / 2 - 5, bh - 16, bw / 2 + 5, bh - 16);
-    g.fillStyle(0xffb020, 0.5);
-    g.fillTriangle(bw / 2, bh - 2, bw / 2 - 2, bh - 12, bw / 2 + 2, bh - 12);
-    g.lineStyle(1.5, C.cyan, 0.4);
-    g.lineBetween(bw / 2, bh, bw / 2, bh - 16);
-    g.fillStyle(C.cyan, 0.8);
-    g.fillCircle(bw / 2, bh, 2.5);
+    g.fillStyle(0x1a1008, 1);
+    g.beginPath(); g.moveTo(cx, 86); g.lineTo(cx - 4, 82); g.lineTo(cx + 4, 82); g.closePath(); g.fillPath();
+    g.fillStyle(0x0a0400, 1);
+    g.beginPath(); g.moveTo(cx, 92); g.lineTo(cx - 2, 86); g.lineTo(cx + 2, 86); g.closePath(); g.fillPath();
+    g.fillStyle(0x201408, 0.6);
+    g.fillRect(cx - 0.5, 86, 1, 6);
 
     g.generateTexture("runner", bw, bh);
     g.clear();
@@ -312,20 +322,37 @@ class BootScene extends Phaser.Scene {
   private genCyberBeeSlide(g: Phaser.GameObjects.Graphics) {
     const sw = 74, sh = 32;
     g.clear();
-    g.fillStyle(0x081828, 1);
-    g.fillEllipse(16, sh / 2, 22, 18);
-    g.fillStyle(0x00ffff, 0.9);
-    g.fillCircle(12, sh / 2 - 2, 4);
-    g.fillCircle(20, sh / 2 - 2, 4);
-    g.fillStyle(0x081828, 1);
-    g.fillEllipse(sw / 2 + 4, sh / 2, 40, 24);
-    const sx = [28, 36, 44, 52];
-    for (const x of sx) {
-      g.fillStyle(0xffb020, 0.9);
-      g.fillRect(x, sh / 2 - 10, 4, 20);
+    g.fillStyle(0x1a1008, 1);
+    g.fillEllipse(14, sh / 2, 18, 16);
+    for (let i = 0; i < 12; i++) {
+      g.fillStyle(0x302010, 0.15 + Math.random() * 0.1);
+      g.fillCircle(14 + (Math.random() - 0.5) * 16, sh / 2 + (Math.random() - 0.5) * 14, 0.5 + Math.random() * 0.8);
     }
-    g.lineStyle(1, 0x1a4050, 0.4);
-    g.strokeEllipse(sw / 2 + 4, sh / 2, 40, 24);
+    g.fillStyle(0x0a0400, 1);
+    g.fillCircle(10, sh / 2 - 3, 3.5);
+    g.fillCircle(18, sh / 2 - 3, 3.5);
+    g.fillStyle(0x201808, 0.8);
+    g.fillCircle(10, sh / 2 - 3.5, 2.5);
+    g.fillCircle(18, sh / 2 - 3.5, 2.5);
+    g.fillStyle(0x302010, 1);
+    g.fillEllipse(30, sh / 2, 18, 14);
+    g.fillStyle(0x1a1008, 1);
+    g.fillEllipse(sw / 2 + 6, sh / 2, 36, 22);
+    const sx = [32, 39, 46, 53];
+    for (const x of sx) {
+      g.fillStyle(0xd4940a, 0.95);
+      g.fillRect(x, sh / 2 - 9, 4, 18);
+      g.fillStyle(0xe8a820, 0.5);
+      g.fillRect(x, sh / 2 - 7, 3, 12);
+    }
+    for (let i = 0; i < 20; i++) {
+      const fx = sw / 2 + 6 + (Math.random() - 0.5) * 34;
+      const fy = sh / 2 + (Math.random() - 0.5) * 20;
+      g.fillStyle(0x3a2818, 0.1 + Math.random() * 0.1);
+      g.fillCircle(fx, fy, 0.4 + Math.random() * 0.8);
+    }
+    g.lineStyle(0.8, 0x100a04, 0.35);
+    g.strokeEllipse(sw / 2 + 6, sh / 2, 36, 22);
     g.generateTexture("runner_slide", sw, sh);
     g.clear();
   }
@@ -347,32 +374,38 @@ class BootScene extends Phaser.Scene {
       g.clear();
       const ox = flipX ? -1 : 1;
 
-      g.fillStyle(0x00e5ff, 0.22);
+      g.fillStyle(0xd8e8f0, 0.18);
       g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
 
-      g.fillStyle(0xff0090, 0.14);
-      g.fillEllipse(ww / 2 + ox * 2, wh / 2 + 6, ww * 0.55, wh * 0.4);
+      g.fillStyle(0xffffff, 0.08);
+      g.fillEllipse(ww / 2 - ox * 4, wh / 2 - 8, ww * 0.5, wh * 0.35);
 
-      g.fillStyle(0x80f4ff, 0.08);
-      g.fillEllipse(ww / 2 - ox * 6, wh / 2 - 10, ww * 0.4, wh * 0.3);
+      g.fillStyle(0xc8d8e8, 0.06);
+      g.fillEllipse(ww / 2 + ox * 2, wh / 2 + 8, ww * 0.6, wh * 0.35);
 
-      g.lineStyle(1, C.cyan, 0.3);
-      g.lineBetween(4, 6, ww / 2, wh - 6);
-      g.lineBetween(3, wh / 2, ww - 3, wh / 2 - 4);
-      g.lineBetween(ww / 2 - ox * 4, 5, ww / 2 + ox * 3, wh - 8);
-      g.lineBetween(7, wh * 0.3, ww - 7, wh * 0.35);
-      g.lineBetween(ww / 2, 3, ww / 2 + ox * 14, wh * 0.6);
+      g.lineStyle(0.8, 0x302010, 0.35);
+      g.lineBetween(ww / 2 - ox * 2, 4, ww / 2, wh - 5);
+      g.lineBetween(ww / 2 - ox * 8, 8, ww / 2 + ox * 10, wh * 0.7);
+      g.lineBetween(4, wh * 0.25, ww - 4, wh * 0.3);
+      g.lineBetween(6, wh * 0.5, ww - 6, wh * 0.45);
+      g.lineBetween(8, wh * 0.7, ww - 8, wh * 0.65);
 
-      g.lineStyle(0.7, C.magenta, 0.2);
-      g.lineBetween(5, wh / 2 + 10, ww - 5, wh / 2 + 6);
-      g.lineBetween(ww * 0.2, wh * 0.7, ww * 0.8, wh * 0.6);
+      g.lineStyle(0.5, 0x403020, 0.2);
+      g.lineBetween(ww * 0.15, wh * 0.15, ww * 0.4, wh * 0.55);
+      g.lineBetween(ww * 0.6, wh * 0.1, ww * 0.7, wh * 0.5);
+      g.lineBetween(ww * 0.3, wh * 0.4, ww * 0.8, wh * 0.55);
 
-      g.lineStyle(3, C.cyan, 0.6);
+      g.fillStyle(0xe8d8c0, 0.06);
+      for (let i = 0; i < 8; i++) {
+        const px = ww * 0.2 + Math.random() * ww * 0.6;
+        const py = wh * 0.15 + Math.random() * wh * 0.7;
+        g.fillCircle(px, py, 2 + Math.random() * 4);
+      }
+
+      g.lineStyle(1.5, 0x806840, 0.25);
       g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-      g.lineStyle(7, 0xff0090, 0.12);
-      g.strokeEllipse(ww / 2, wh / 2, ww + 6, wh + 6);
-      g.lineStyle(14, C.cyan, 0.05);
-      g.strokeEllipse(ww / 2, wh / 2, ww + 14, wh + 14);
+      g.lineStyle(4, 0xffffff, 0.04);
+      g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
     };
 
     drawWing(false);
