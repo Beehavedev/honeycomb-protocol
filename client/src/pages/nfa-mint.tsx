@@ -87,6 +87,8 @@ export default function NfaMint() {
   const [persona, setPersona] = useState("");
   const [experience, setExperience] = useState("");
   const [learningModuleId, setLearningModuleId] = useState<string>("");
+  const [sourceCodeUri, setSourceCodeUri] = useState<string>("");
+  const [learningModelName, setLearningModelName] = useState<string>("");
   const [step, setStep] = useState(1);
   const [mintStep, setMintStep] = useState<"idle" | "signing" | "confirming" | "syncing" | "registering" | "registry_failed" | "done">("idle");
   const [registryErrorMsg, setRegistryErrorMsg] = useState("");
@@ -354,6 +356,8 @@ export default function NfaMint() {
       experience: experience || undefined,
       learningEnabled: agentType === "LEARNING",
       learningModuleId: agentType === "LEARNING" && learningModuleId ? learningModuleId : undefined,
+      learningModelName: agentType === "LEARNING" && learningModelName ? learningModelName : undefined,
+      sourceCodeUri: sourceCodeUri || undefined,
       templateId: selectedTemplateId || undefined,
       mintTxHash: txHash,
       onChainTokenId: onChainTokenId,
@@ -842,12 +846,12 @@ export default function NfaMint() {
                       <SelectValue placeholder="Select a learning module" />
                     </SelectTrigger>
                     <SelectContent>
+                      {learningModules.length === 0 && (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">No modules available</div>
+                      )}
                       {learningModules.map(module => (
                         <SelectItem key={module.id} value={module.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{module.name}</span>
-                            <Badge variant="outline" className="text-xs">{module.moduleType}</Badge>
-                          </div>
+                          {module.name} ({module.moduleType})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -857,6 +861,47 @@ export default function NfaMint() {
                   </p>
                 </div>
               )}
+
+              {agentType === "LEARNING" && (
+                <div className="space-y-2 p-4 rounded-lg border border-primary/20 bg-primary/5">
+                  <Label htmlFor="learningModel" className="flex items-center gap-2">
+                    <Cpu className="h-4 w-4" />
+                    Learning Model
+                  </Label>
+                  <Select value={learningModelName} onValueChange={setLearningModelName}>
+                    <SelectTrigger data-testid="select-learning-model">
+                      <SelectValue placeholder="Select a learning model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODEL_TYPES.map(model => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label} ({model.provider})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    The AI model used for learning and evolving agent behavior
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2 p-4 rounded-lg border border-border">
+                <Label htmlFor="sourceCodeUri" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Source Code Verification (Optional)
+                </Label>
+                <Input
+                  id="sourceCodeUri"
+                  placeholder="https://github.com/... or ipfs://..."
+                  value={sourceCodeUri}
+                  onChange={(e) => setSourceCodeUri(e.target.value)}
+                  data-testid="input-source-code-uri"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Link to your agent's source code for on-chain verification transparency
+                </p>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="systemPrompt" className="flex items-center gap-2">
@@ -929,6 +974,22 @@ export default function NfaMint() {
                       <span className="text-muted-foreground">Learning Module</span>
                       <Badge variant="outline">
                         {learningModules.find(m => m.id === learningModuleId)?.name || "-"}
+                      </Badge>
+                    </div>
+                  )}
+                  {agentType === "LEARNING" && learningModelName && (
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-muted-foreground">Learning Model</span>
+                      <Badge variant="outline">
+                        {MODEL_TYPES.find(m => m.value === learningModelName)?.label || learningModelName}
+                      </Badge>
+                    </div>
+                  )}
+                  {sourceCodeUri && (
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-muted-foreground">Source Code</span>
+                      <Badge variant="outline" className="text-xs max-w-[180px] truncate">
+                        {sourceCodeUri}
                       </Badge>
                     </div>
                   )}
@@ -1028,7 +1089,10 @@ export default function NfaMint() {
           {step < 4 ? (
             <Button
               onClick={() => setStep(step + 1)}
-              disabled={step === 1 && !name.trim()}
+              disabled={
+                (step === 1 && !name.trim()) ||
+                (step === 3 && agentType === "LEARNING" && !learningModuleId)
+              }
               data-testid="button-next-step"
             >
               Continue

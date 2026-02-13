@@ -347,6 +347,11 @@ nfaRouter.post("/agents/mint", walletFallbackAuthMiddleware, async (req: Request
 
     const memoryRoot = validated.memoryRoot || generateMemoryRoot({});
 
+    let learningTreeRoot = validated.learningTreeRoot;
+    if (validated.learningEnabled && !learningTreeRoot) {
+      learningTreeRoot = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+    }
+
     let tokenId = validated.tokenId;
     if (tokenId) {
       const existing = await db.select({ id: nfaAgents.id }).from(nfaAgents).where(eq(nfaAgents.tokenId, tokenId)).limit(1);
@@ -379,7 +384,7 @@ nfaRouter.post("/agents/mint", walletFallbackAuthMiddleware, async (req: Request
       logicAddress: validated.logicAddress,
       learningEnabled: validated.learningEnabled || false,
       learningModuleId: validated.learningModuleId,
-      learningTreeRoot: validated.learningTreeRoot,
+      learningTreeRoot: learningTreeRoot,
       templateId: validated.templateId,
       mintTxHash: validated.mintTxHash,
       onChainTokenId: validated.onChainTokenId,
