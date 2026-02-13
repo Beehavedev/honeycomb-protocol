@@ -1091,6 +1091,7 @@ class GameScene extends Phaser.Scene {
   private bgStars!: Phaser.GameObjects.Image;
   private gTiles: Phaser.GameObjects.TileSprite[] = [];
   private tunnelRingsGfx!: Phaser.GameObjects.Graphics;
+  private tunnelLinesGfx!: Phaser.GameObjects.Graphics;
 
   private obsTimer?: Phaser.Time.TimerEvent;
   private coinTimer?: Phaser.Time.TimerEvent;
@@ -1134,12 +1135,7 @@ class GameScene extends Phaser.Scene {
 
     this.tunnelRingsGfx = this.add.graphics().setDepth(1);
 
-    for (let i = 0; i <= LANE_COUNT; i++) {
-      const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
-      const edge = (i === 0 || i === LANE_COUNT);
-      const topX = CX + (lx - CX) * 0.05;
-      this.add.line(0, 0, topX, VY + 20, lx, GROUND_Y + 40, C.amber, edge ? 0.08 : 0.03).setOrigin(0, 0).setDepth(2);
-    }
+    this.tunnelLinesGfx = this.add.graphics().setDepth(2);
 
     this.gTiles.push(this.add.tileSprite(CX, GROUND_Y, LANE_WIDTH * 3 + 24, 40, "ground_tile").setDepth(3));
 
@@ -1364,9 +1360,9 @@ class GameScene extends Phaser.Scene {
     const t = Phaser.Math.Between(0, maxType);
     const tx = ["barrier", "low_gate", "lane_blocker", "glitch_wall", "spinning_laser", "wave_beam", "pulse_mine"];
     const targetX = CX + LANE_POSITIONS[l];
-    const spawnX = CX + (LANE_POSITIONS[l] * 0.15);
-    const o = this.obsGroup.create(spawnX, VY + 30, tx[t]) as Phaser.Physics.Arcade.Sprite;
-    o.setImmovable(true).setDepth(6).setScale(0.15).setAlpha(0.3);
+    const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
+    const o = this.obsGroup.create(spawnX, VY + 10, tx[t]) as Phaser.Physics.Arcade.Sprite;
+    o.setImmovable(true).setDepth(6).setScale(0.08).setAlpha(0);
     o.setData("targetX", targetX);
     o.setData("laneOffset", LANE_POSITIONS[l]);
     if (t === 1) { o.setSize(96, 16); }
@@ -1380,9 +1376,9 @@ class GameScene extends Phaser.Scene {
 
   private spawnCoin() {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
-    const spawnX = CX + (LANE_POSITIONS[l] * 0.15);
-    const c = this.coinGroup.create(spawnX, VY + 30, "coin") as Phaser.Physics.Arcade.Sprite;
-    c.setDepth(5).setSize(28, 28).setScale(0.15).setAlpha(0.3);
+    const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
+    const c = this.coinGroup.create(spawnX, VY + 10, "coin") as Phaser.Physics.Arcade.Sprite;
+    c.setDepth(5).setSize(28, 28).setScale(0.08).setAlpha(0);
     c.setData("targetX", CX + LANE_POSITIONS[l]);
     c.setData("laneOffset", LANE_POSITIONS[l]);
   }
@@ -1390,9 +1386,9 @@ class GameScene extends Phaser.Scene {
   private spawnPU() {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
     const ts = ["magnet", "shield_pu", "boost_pu"];
-    const spawnX = CX + (LANE_POSITIONS[l] * 0.15);
-    const p = this.puGroup.create(spawnX, VY + 30, ts[Phaser.Math.Between(0, 2)]) as Phaser.Physics.Arcade.Sprite;
-    p.setDepth(5).setSize(36, 36).setScale(0.15).setAlpha(0.3);
+    const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
+    const p = this.puGroup.create(spawnX, VY + 10, ts[Phaser.Math.Between(0, 2)]) as Phaser.Physics.Arcade.Sprite;
+    p.setDepth(5).setSize(36, 36).setScale(0.08).setAlpha(0);
     p.setData("targetX", CX + LANE_POSITIONS[l]);
     p.setData("laneOffset", LANE_POSITIONS[l]);
     this.tweens.add({ targets: p, angle: 360, duration: 2800, repeat: -1 });
@@ -1551,20 +1547,71 @@ class GameScene extends Phaser.Scene {
     this.puIcons = this.puIcons.filter((c) => { if ((c as any).__t === type) { c.destroy(); return false; } return true; });
   }
 
+  private perspT(linear: number): number {
+    return linear * linear * (3 - 2 * linear);
+  }
+
   private drawTunnelRings() {
     const g = this.tunnelRingsGfx;
     g.clear();
-    const numRings = 8;
-    const baseOffset = this.tunnelOffset % 80;
+    const numRings = 10;
+    const baseOffset = this.tunnelOffset % 60;
 
     for (let i = numRings; i >= 0; i--) {
-      const t = (i * 80 + baseOffset) / (numRings * 80);
-      const r = 20 + t * (W * 0.8);
-      const cy = VY + t * (H * 0.55);
-      const rr = r * (0.5 + t * 0.5);
+      const lin = (i * 60 + baseOffset) / (numRings * 60);
+      const t = this.perspT(lin);
+      const r = 10 + t * (W * 0.9);
+      const cy = VY + t * (H * 0.6);
+      const rr = r * (0.3 + t * 0.7);
       const ea = 0.04 + t * 0.08;
       const ew = 0.5 + t * 1.5;
       strokeHex(g, VX, cy, rr, this.phaseColor1, ea, ew);
+    }
+
+    const lg = this.tunnelLinesGfx;
+    lg.clear();
+    const tLen = GROUND_Y - VY;
+    const segments = 20;
+    for (let i = 0; i <= LANE_COUNT; i++) {
+      const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
+      const edge = (i === 0 || i === LANE_COUNT);
+      const baseAlpha = edge ? 0.1 : 0.04;
+      for (let s = 0; s < segments; s++) {
+        const t0 = s / segments;
+        const t1 = (s + 1) / segments;
+        const p0 = this.perspT(t0);
+        const p1 = this.perspT(t1);
+        const x0 = CX + (lx - CX) * p0;
+        const y0 = VY + p0 * (tLen + 40);
+        const x1 = CX + (lx - CX) * p1;
+        const y1 = VY + p1 * (tLen + 40);
+        const segAlpha = baseAlpha * (0.1 + t0 * 0.9);
+        const segWidth = 0.3 + t0 * (edge ? 1.5 : 0.8);
+        lg.lineStyle(segWidth, this.phaseColor1, segAlpha);
+        lg.beginPath();
+        lg.moveTo(x0, y0);
+        lg.lineTo(x1, y1);
+        lg.strokePath();
+      }
+    }
+
+    const crossCount = 6;
+    const crossBase = (this.tunnelOffset * 0.5) % (tLen / crossCount);
+    for (let c = 0; c < crossCount; c++) {
+      const rawY = crossBase + c * (tLen / crossCount);
+      const t = Math.min(1, rawY / tLen);
+      const pt = this.perspT(t);
+      const cy = VY + pt * tLen;
+      const leftEdge = LANE_POSITIONS[0] - LANE_WIDTH / 2;
+      const rightEdge = LANE_POSITIONS[LANE_COUNT - 1] + LANE_WIDTH / 2;
+      const leftX = CX + leftEdge * pt;
+      const rightX = CX + rightEdge * pt;
+      const crossAlpha = 0.03 + pt * 0.06;
+      lg.lineStyle(0.3 + pt * 1, this.phaseColor1, crossAlpha);
+      lg.beginPath();
+      lg.moveTo(leftX, cy);
+      lg.lineTo(rightX, cy);
+      lg.strokePath();
     }
   }
 
@@ -1685,33 +1732,49 @@ class GameScene extends Phaser.Scene {
     }
 
     const tunnelLen = GROUND_Y - VY;
-    const moveSpd = es * (delta / 16) * 2;
+    const baseMoveSpd = es * (delta / 16) * 2;
+
+    const perspMove = (sprite: Phaser.Physics.Arcade.Sprite) => {
+      const linProgress = Math.min(1, (sprite.y - VY) / tunnelLen);
+      const accel = 1 + linProgress * linProgress * 3;
+      sprite.y += baseMoveSpd * accel;
+
+      const p = Math.min(1, (sprite.y - VY) / tunnelLen);
+      const perspP = this.perspT(p);
+
+      const sc = 0.08 + perspP * 0.92;
+      sprite.setScale(sc);
+
+      const fogAlpha = perspP * perspP;
+      sprite.setAlpha(Math.min(1, fogAlpha * 1.2));
+
+      const laneOff = sprite.getData("laneOffset") || 0;
+      sprite.x = CX + laneOff * perspP;
+
+      const body = sprite.body as Phaser.Physics.Arcade.Body;
+      if (body) {
+        const baseW = sprite.getData("baseW") || body.width;
+        const baseH = sprite.getData("baseH") || body.height;
+        if (!sprite.getData("baseW")) { sprite.setData("baseW", baseW); sprite.setData("baseH", baseH); }
+        body.setSize(baseW * sc, baseH * sc);
+      }
+
+      sprite.setDepth(3 + Math.floor(p * 7));
+      return p;
+    };
 
     this.obsGroup.getChildren().forEach((o) => {
       const s = o as Phaser.Physics.Arcade.Sprite;
-      s.y += moveSpd;
-      const progress = Math.min(1, (s.y - VY) / tunnelLen);
-      const sc = 0.15 + progress * 0.85;
-      s.setScale(sc);
-      s.setAlpha(Math.min(1, 0.3 + progress * 0.9));
-      const laneOff = s.getData("laneOffset") || 0;
-      s.x = CX + laneOff * progress;
+      const p = perspMove(s);
       if (s.texture.key === "wave_beam") {
-        s.x = CX + Math.sin(s.y * 0.02 + this.fc * 0.05) * 50 * progress;
+        const perspP = this.perspT(p);
+        s.x = CX + Math.sin(s.y * 0.02 + this.fc * 0.05) * 50 * perspP;
       }
-      s.setDepth(3 + Math.floor(progress * 6));
       if (s.y > H + 120) s.destroy();
     });
     this.coinGroup.getChildren().forEach((o) => {
       const c = o as Phaser.Physics.Arcade.Sprite;
-      c.y += moveSpd;
-      const progress = Math.min(1, (c.y - VY) / tunnelLen);
-      const sc = 0.15 + progress * 0.85;
-      c.setScale(sc);
-      c.setAlpha(Math.min(1, 0.3 + progress * 0.9));
-      const laneOff = c.getData("laneOffset") || 0;
-      c.x = CX + laneOff * progress;
-      c.setDepth(3 + Math.floor(progress * 6));
+      perspMove(c);
       if (c.y > H + 60) c.destroy();
       if (this.pu.magnet) {
         const dx = this.runner.x - c.x, dy = this.runner.y - c.y;
@@ -1721,14 +1784,7 @@ class GameScene extends Phaser.Scene {
     });
     this.puGroup.getChildren().forEach((o) => {
       const p = o as Phaser.Physics.Arcade.Sprite;
-      p.y += moveSpd;
-      const progress = Math.min(1, (p.y - VY) / tunnelLen);
-      const sc = 0.15 + progress * 0.85;
-      p.setScale(sc);
-      p.setAlpha(Math.min(1, 0.3 + progress * 0.9));
-      const laneOff = p.getData("laneOffset") || 0;
-      p.x = CX + laneOff * progress;
-      p.setDepth(3 + Math.floor(progress * 6));
+      perspMove(p);
       if (p.y > H + 60) p.destroy();
     });
 
