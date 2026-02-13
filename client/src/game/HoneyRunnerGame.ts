@@ -83,30 +83,34 @@ class BootScene extends Phaser.Scene {
 
   private genBg(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillGradientStyle(0x0a0020, 0x0a0020, 0x060030, 0x060030, 1);
+    g.fillGradientStyle(0x080018, 0x080018, 0x040028, 0x040028, 1);
     g.fillRect(0, 0, W, H);
 
-    for (let i = 0; i < 5; i++) {
-      g.fillStyle(0xff1050, 0.008 - i * 0.001);
-      g.fillCircle(VX, VY, 20 + i * 15);
+    g.fillStyle(0xff2060, 0.15);
+    g.fillCircle(VX, VY, 60);
+    g.fillStyle(0xff4080, 0.12);
+    g.fillCircle(VX, VY, 40);
+    g.fillStyle(0xff80a0, 0.1);
+    g.fillCircle(VX, VY, 22);
+    g.fillStyle(0xffb0c0, 0.08);
+    g.fillCircle(VX, VY, 12);
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle(0xff1050, 0.04 - i * 0.004);
+      g.fillCircle(VX, VY, 70 + i * 20);
     }
-    g.fillStyle(0xff3060, 0.02);
-    g.fillCircle(VX, VY, 30);
-    g.fillStyle(0xff6080, 0.015);
-    g.fillCircle(VX, VY, 18);
 
-    const numStreaks = 40;
+    const numStreaks = 48;
     for (let i = 0; i < numStreaks; i++) {
-      const angle = (TAU / numStreaks) * i;
-      const spread = 0.02 + Math.random() * 0.02;
-      const len = 250 + Math.random() * 400;
+      const angle = (TAU / numStreaks) * i + (Math.random() - 0.5) * 0.05;
+      const spread = 0.03 + Math.random() * 0.04;
+      const len = 350 + Math.random() * 500;
       const x1 = VX + Math.cos(angle - spread) * len;
       const y1 = VY + Math.sin(angle - spread) * len;
       const x2 = VX + Math.cos(angle + spread) * len;
       const y2 = VY + Math.sin(angle + spread) * len;
-      const colors = [C.cyan, C.magenta, C.laserRed, C.cyan, C.magenta];
+      const colors = [C.cyan, C.magenta, C.laserRed, C.cyan, C.magenta, 0x8040ff];
       const rc = colors[i % colors.length];
-      const a = 0.012 + Math.random() * 0.018;
+      const a = 0.04 + Math.random() * 0.06;
       g.fillStyle(rc, a);
       g.beginPath();
       g.moveTo(VX, VY);
@@ -116,13 +120,13 @@ class BootScene extends Phaser.Scene {
       g.fillPath();
     }
 
-    for (let i = 0; i < 24; i++) {
-      const angle = (TAU / 24) * i + Math.random() * 0.1;
-      const len = 300 + Math.random() * 350;
+    for (let i = 0; i < 30; i++) {
+      const angle = (TAU / 30) * i;
+      const len = 400 + Math.random() * 350;
       const ex = VX + Math.cos(angle) * len;
       const ey = VY + Math.sin(angle) * len;
       const rc = i % 3 === 0 ? C.magenta : i % 3 === 1 ? C.cyan : C.laserRed;
-      g.lineStyle(1 + Math.random(), rc, 0.03 + Math.random() * 0.04);
+      g.lineStyle(1.5 + Math.random() * 1.5, rc, 0.08 + Math.random() * 0.12);
       g.lineBetween(VX, VY, ex, ey);
     }
 
@@ -134,39 +138,39 @@ class BootScene extends Phaser.Scene {
       const sq = 0.55 + t * 0.45;
       const rr = r * sq;
 
-      fillHex(g, VX, cy, rr, C.tunnelDark, 0.04 + t * 0.08);
+      fillHex(g, VX, cy, rr, C.tunnelDark, 0.06 + t * 0.12);
 
-      const ea = 0.12 + t * 0.55;
+      const ea = 0.2 + t * 0.7;
       const ew = 1.5 + t * 3;
-      strokeHex(g, VX, cy, rr, C.cyan, ea * 0.9, ew);
-      strokeHex(g, VX, cy, rr + 3, C.cyanBright, ea * 0.12, ew + 5);
-      strokeHex(g, VX, cy, rr + 8, C.cyan, ea * 0.03, ew + 12);
+      strokeHex(g, VX, cy, rr, C.cyan, ea, ew);
+      strokeHex(g, VX, cy, rr + 2, C.cyanBright, ea * 0.25, ew + 3);
+      strokeHex(g, VX, cy, rr + 6, C.cyan, ea * 0.08, ew + 8);
 
-      if (t > 0.25) {
-        strokeHex(g, VX, cy, rr, C.magenta, ea * 0.2, ew * 0.6);
+      if (t > 0.2) {
+        strokeHex(g, VX, cy, rr, C.magenta, ea * 0.3, ew * 0.5);
       }
 
-      if (t > 0.4) {
+      if (t > 0.3) {
         const pts = hexVerts(VX, cy, rr);
         for (let j = 0; j < 6; j++) {
-          g.fillStyle(C.cyanBright, 0.1 + t * 0.15);
-          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 3);
-          g.fillStyle(C.cyan, 0.04);
-          g.fillCircle(pts[j][0], pts[j][1], 3 + t * 5);
+          g.fillStyle(C.cyanBright, 0.2 + t * 0.3);
+          g.fillCircle(pts[j][0], pts[j][1], 2 + t * 4);
+          g.fillStyle(C.cyan, 0.08 + t * 0.08);
+          g.fillCircle(pts[j][0], pts[j][1], 4 + t * 6);
         }
       }
     }
 
     const midY = VY + H * 0.28;
-    g.lineStyle(3, C.laserRed, 0.35);
+    g.lineStyle(4, C.laserRed, 0.6);
     g.lineBetween(0, midY, W, midY);
-    g.lineStyle(8, C.laserRedGlow, 0.06);
+    g.lineStyle(10, C.laserRedGlow, 0.15);
     g.lineBetween(0, midY, W, midY);
-    g.lineStyle(18, C.laserRedGlow, 0.015);
+    g.lineStyle(22, C.laserRedGlow, 0.04);
     g.lineBetween(0, midY, W, midY);
-    for (let px = 0; px < W; px += 8) {
-      g.fillStyle(C.laserRed, 0.15 + Math.random() * 0.2);
-      g.fillRect(px, midY - 2, 4, 4);
+    for (let px = 0; px < W; px += 6) {
+      g.fillStyle(C.laserRed, 0.25 + Math.random() * 0.35);
+      g.fillRect(px, midY - 2, 3, 4);
     }
 
     g.generateTexture("bg_tunnel", W, H);
@@ -175,20 +179,25 @@ class BootScene extends Phaser.Scene {
 
   private genStars(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 300; i++) {
       const x = Math.random() * W, y = Math.random() * H;
-      const s = 0.2 + Math.random() * 1.2;
+      const s = 0.3 + Math.random() * 1.5;
       const b = Math.random();
-      if (b > 0.92) {
-        g.fillStyle(C.cyan, 0.4 + Math.random() * 0.4);
-        g.fillCircle(x, y, s + 0.5);
-        g.fillStyle(C.cyanWhite, 0.1);
+      if (b > 0.9) {
+        g.fillStyle(C.cyan, 0.6 + Math.random() * 0.4);
+        g.fillCircle(x, y, s + 0.8);
+        g.fillStyle(C.cyanWhite, 0.2);
+        g.fillCircle(x, y, s + 4);
+      } else if (b > 0.8) {
+        g.fillStyle(C.magentaBright, 0.5 + Math.random() * 0.4);
+        g.fillCircle(x, y, s + 0.3);
+        g.fillStyle(C.magenta, 0.08);
         g.fillCircle(x, y, s + 3);
-      } else if (b > 0.84) {
-        g.fillStyle(C.magentaBright, 0.3 + Math.random() * 0.3);
-        g.fillCircle(x, y, s);
+      } else if (b > 0.7) {
+        g.fillStyle(C.amberHot, 0.3 + Math.random() * 0.3);
+        g.fillCircle(x, y, s * 0.7);
       } else {
-        g.fillStyle(C.white, 0.06 + Math.random() * 0.12);
+        g.fillStyle(C.white, 0.1 + Math.random() * 0.2);
         g.fillCircle(x, y, s * 0.5);
       }
     }
@@ -227,79 +236,88 @@ class BootScene extends Phaser.Scene {
     const bw = 80, bh = 100;
     g.clear();
 
-    g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(bw / 2, 22, 30, 26);
-    g.fillStyle(C.beeBodyLight, 0.25);
-    g.fillEllipse(bw / 2 - 4, 16, 14, 14);
+    g.fillStyle(C.cyan, 0.03);
+    g.fillCircle(bw / 2, 50, 45);
 
-    g.fillStyle(C.beeEye, 0.9);
-    g.fillCircle(bw / 2 - 8, 16, 5);
-    g.fillCircle(bw / 2 + 8, 16, 5);
-    g.fillStyle(C.beeEyeBright, 0.6);
-    g.fillCircle(bw / 2 - 8, 14, 2.5);
-    g.fillCircle(bw / 2 + 8, 14, 2.5);
-    g.fillStyle(C.white, 0.4);
-    g.fillCircle(bw / 2 - 7, 13, 1);
-    g.fillCircle(bw / 2 + 9, 13, 1);
-    g.fillStyle(C.cyan, 0.06);
-    g.fillCircle(bw / 2 - 8, 16, 9);
-    g.fillCircle(bw / 2 + 8, 16, 9);
+    g.fillStyle(0x0c2838, 1);
+    g.fillEllipse(bw / 2, 22, 32, 28);
+    g.fillStyle(0x1a4860, 0.35);
+    g.fillEllipse(bw / 2 - 4, 16, 16, 16);
 
-    g.lineStyle(1.5, C.beeStripe, 0.7);
-    g.beginPath(); g.moveTo(bw / 2 - 5, 8); g.lineTo(bw / 2 - 10, -3); g.strokePath();
-    g.beginPath(); g.moveTo(bw / 2 + 5, 8); g.lineTo(bw / 2 + 10, -3); g.strokePath();
-    g.fillStyle(C.cyan, 0.9);
-    g.fillCircle(bw / 2 - 10, -3, 2.5);
-    g.fillCircle(bw / 2 + 10, -3, 2.5);
-    g.fillStyle(C.cyanBright, 0.4);
-    g.fillCircle(bw / 2 - 10, -3, 5);
-    g.fillCircle(bw / 2 + 10, -3, 5);
+    g.fillStyle(C.cyan, 1);
+    g.fillCircle(bw / 2 - 8, 16, 5.5);
+    g.fillCircle(bw / 2 + 8, 16, 5.5);
+    g.fillStyle(C.cyanBright, 0.7);
+    g.fillCircle(bw / 2 - 8, 14, 3);
+    g.fillCircle(bw / 2 + 8, 14, 3);
+    g.fillStyle(C.white, 0.6);
+    g.fillCircle(bw / 2 - 7, 13, 1.2);
+    g.fillCircle(bw / 2 + 9, 13, 1.2);
+    g.fillStyle(C.cyan, 0.15);
+    g.fillCircle(bw / 2 - 8, 16, 10);
+    g.fillCircle(bw / 2 + 8, 16, 10);
 
-    g.lineStyle(1, C.beeBody, 0.5);
-    g.lineBetween(bw / 2 - 4, 32, bw / 2 - 4, 37);
-    g.lineBetween(bw / 2 + 4, 32, bw / 2 + 4, 37);
-    g.lineBetween(bw / 2 - 8, 30, bw / 2 - 10, 36);
-    g.lineBetween(bw / 2 + 8, 30, bw / 2 + 10, 36);
+    g.lineStyle(2, C.beeStripe, 0.8);
+    g.beginPath(); g.moveTo(bw / 2 - 5, 8); g.lineTo(bw / 2 - 12, -4); g.strokePath();
+    g.beginPath(); g.moveTo(bw / 2 + 5, 8); g.lineTo(bw / 2 + 12, -4); g.strokePath();
+    g.fillStyle(C.cyan, 1);
+    g.fillCircle(bw / 2 - 12, -4, 3);
+    g.fillCircle(bw / 2 + 12, -4, 3);
+    g.fillStyle(C.cyanBright, 0.5);
+    g.fillCircle(bw / 2 - 12, -4, 6);
+    g.fillCircle(bw / 2 + 12, -4, 6);
 
-    g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(bw / 2, 58, 36, 44);
-    g.fillStyle(C.beeBodyLight, 0.12);
-    g.fillEllipse(bw / 2 - 6, 48, 14, 18);
+    g.lineStyle(1.5, 0x0c2838, 0.6);
+    g.lineBetween(bw / 2 - 5, 34, bw / 2 - 5, 40);
+    g.lineBetween(bw / 2 + 5, 34, bw / 2 + 5, 40);
+    g.lineBetween(bw / 2 - 10, 32, bw / 2 - 13, 39);
+    g.lineBetween(bw / 2 + 10, 32, bw / 2 + 13, 39);
+    g.fillStyle(C.cyan, 0.4);
+    g.fillCircle(bw / 2 - 5, 40, 1.5);
+    g.fillCircle(bw / 2 + 5, 40, 1.5);
+    g.fillCircle(bw / 2 - 13, 39, 1.5);
+    g.fillCircle(bw / 2 + 13, 39, 1.5);
+
+    g.fillStyle(0x0c2838, 1);
+    g.fillEllipse(bw / 2, 58, 38, 46);
+    g.fillStyle(0x1a4860, 0.15);
+    g.fillEllipse(bw / 2 - 6, 48, 16, 20);
 
     const stripes = [42, 48, 54, 60, 66, 72];
     for (let i = 0; i < stripes.length; i++) {
-      const sw = 14 - Math.abs(i - 2.5) * 2;
-      g.fillStyle(C.beeStripe, 0.9);
-      g.fillEllipse(bw / 2, stripes[i], sw * 2, 3.5);
-      g.fillStyle(C.beeStripeBright, 0.3);
-      g.fillEllipse(bw / 2 - 2, stripes[i] - 0.5, sw * 1.2, 1.8);
-      g.fillStyle(C.amber, 0.06);
-      g.fillEllipse(bw / 2, stripes[i], sw * 2.5, 6);
+      const sw = 16 - Math.abs(i - 2.5) * 2.5;
+      g.fillStyle(C.beeStripe, 1);
+      g.fillEllipse(bw / 2, stripes[i], sw * 2, 4);
+      g.fillStyle(C.beeStripeBright, 0.5);
+      g.fillEllipse(bw / 2 - 2, stripes[i] - 0.5, sw * 1.3, 2);
+      g.fillStyle(C.amber, 0.12);
+      g.fillEllipse(bw / 2, stripes[i], sw * 2.8, 7);
     }
 
-    g.lineStyle(0.5, C.cyan, 0.12);
+    g.lineStyle(0.8, C.cyan, 0.2);
     for (let i = 0; i < 5; i++) {
       const ly = 38 + i * 9;
-      g.lineBetween(bw / 2 - 14, ly, bw / 2 - 5, ly + 5);
-      g.lineBetween(bw / 2 + 14, ly, bw / 2 + 5, ly + 5);
+      g.lineBetween(bw / 2 - 16, ly, bw / 2 - 6, ly + 5);
+      g.lineBetween(bw / 2 + 16, ly, bw / 2 + 6, ly + 5);
     }
-    g.fillStyle(C.cyan, 0.08);
-    g.fillCircle(bw / 2, 52, 4);
-    g.fillStyle(C.cyan, 0.04);
-    g.fillCircle(bw / 2, 52, 8);
+    g.fillStyle(C.cyan, 0.15);
+    g.fillCircle(bw / 2, 52, 5);
+    g.fillStyle(C.cyan, 0.06);
+    g.fillCircle(bw / 2, 52, 10);
 
-    g.lineStyle(1, C.beeBody, 0.35);
-    g.strokeEllipse(bw / 2, 58, 36, 44);
+    g.lineStyle(1.5, 0x1a5060, 0.5);
+    g.strokeEllipse(bw / 2, 58, 38, 46);
+    g.lineStyle(3, C.cyan, 0.06);
+    g.strokeEllipse(bw / 2, 58, 42, 50);
 
-    g.fillStyle(C.beeBody, 0.9);
-    g.fillTriangle(bw / 2, bh - 1, bw / 2 - 5, bh - 16, bw / 2 + 5, bh - 16);
-    g.fillStyle(C.beeStripe, 0.25);
-    g.fillTriangle(bw / 2, bh - 3, bw / 2 - 2, bh - 13, bw / 2 + 2, bh - 13);
-    g.lineStyle(1, C.cyan, 0.15);
-    g.lineBetween(bw / 2, bh - 1, bw / 2, bh - 16);
-
-    g.fillStyle(C.cyan, 0.015);
-    g.fillCircle(bw / 2, 50, 40);
+    g.fillStyle(0x0c2838, 1);
+    g.fillTriangle(bw / 2, bh - 1, bw / 2 - 6, bh - 18, bw / 2 + 6, bh - 18);
+    g.fillStyle(C.beeStripe, 0.4);
+    g.fillTriangle(bw / 2, bh - 3, bw / 2 - 2.5, bh - 14, bw / 2 + 2.5, bh - 14);
+    g.lineStyle(1.5, C.cyan, 0.3);
+    g.lineBetween(bw / 2, bh - 1, bw / 2, bh - 18);
+    g.fillStyle(C.cyan, 0.6);
+    g.fillCircle(bw / 2, bh - 1, 2);
 
     g.generateTexture("runner", bw, bh);
     g.clear();
@@ -343,30 +361,34 @@ class BootScene extends Phaser.Scene {
       g.clear();
       const ox = flipX ? -1 : 1;
 
-      g.fillStyle(C.beeWing, 0.08);
+      g.fillStyle(C.beeWing, 0.18);
       g.fillEllipse(ww / 2, wh / 2, ww - 4, wh - 4);
-      g.fillStyle(C.magenta, 0.04);
-      g.fillEllipse(ww / 2, wh / 2 + 5, ww * 0.6, wh * 0.4);
-      g.fillStyle(C.beeWingTip, 0.05);
-      g.fillEllipse(ww / 2 - ox * 8, wh / 2 - 10, ww * 0.4, wh * 0.35);
+      g.fillStyle(C.magenta, 0.1);
+      g.fillEllipse(ww / 2, wh / 2 + 5, ww * 0.6, wh * 0.45);
+      g.fillStyle(C.beeWingTip, 0.12);
+      g.fillEllipse(ww / 2 - ox * 8, wh / 2 - 10, ww * 0.45, wh * 0.35);
+      g.fillStyle(C.cyanBright, 0.05);
+      g.fillEllipse(ww / 2, wh / 2 - 8, ww * 0.5, wh * 0.3);
 
-      g.lineStyle(0.5, C.cyan, 0.12);
+      g.lineStyle(0.8, C.cyan, 0.25);
       g.lineBetween(5, 8, ww / 2, wh - 8);
       g.lineBetween(4, wh / 2, ww - 4, wh / 2 - 5);
       g.lineBetween(ww / 2 - ox * 5, 6, ww / 2 + ox * 2, wh - 10);
       g.lineBetween(8, wh * 0.3, ww - 8, wh * 0.35);
       g.lineBetween(ww / 2, 4, ww / 2 + ox * 12, wh * 0.6);
+      g.lineBetween(ww * 0.2, wh * 0.2, ww * 0.8, wh * 0.5);
 
-      g.lineStyle(0.3, C.magenta, 0.06);
+      g.lineStyle(0.6, C.magenta, 0.15);
       g.lineBetween(6, wh / 2 + 8, ww - 6, wh / 2 + 5);
       g.lineBetween(ww * 0.3, wh * 0.7, ww * 0.7, wh * 0.65);
+      g.lineBetween(ww * 0.15, wh * 0.6, ww * 0.85, wh * 0.4);
 
-      g.lineStyle(2, C.cyan, 0.35);
+      g.lineStyle(2.5, C.cyan, 0.5);
       g.strokeEllipse(ww / 2, wh / 2, ww - 4, wh - 4);
-      g.lineStyle(5, C.beeWingTip, 0.06);
+      g.lineStyle(6, C.beeWingTip, 0.1);
       g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
-      g.lineStyle(10, C.cyan, 0.02);
-      g.strokeEllipse(ww / 2, wh / 2, ww + 10, wh + 10);
+      g.lineStyle(12, C.cyan, 0.04);
+      g.strokeEllipse(ww / 2, wh / 2, ww + 12, wh + 12);
     };
 
     drawWing(false);
@@ -546,26 +568,26 @@ class BootScene extends Phaser.Scene {
   private genGround(g: Phaser.GameObjects.Graphics) {
     const tW = LANE_WIDTH * 3 + 20;
     g.clear();
-    g.fillGradientStyle(C.tunnelMid, C.tunnelMid, C.tunnelDark, C.tunnelDark, 0.65);
+    g.fillGradientStyle(0x0c0420, 0x0c0420, 0x030010, 0x030010, 0.85);
     g.fillRect(0, 0, tW, 28);
 
     for (let i = 0; i < tW; i += 5) {
-      g.fillStyle(C.cyan, (i % 10 === 0) ? 0.02 : 0.008);
+      g.fillStyle(C.cyan, (i % 10 === 0) ? 0.04 : 0.015);
       g.fillRect(i, 0, 1, 28);
     }
 
-    g.lineStyle(2.5, C.cyan, 0.45);
+    g.lineStyle(3, C.cyan, 0.7);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(6, C.cyanBright, 0.04);
+    g.lineStyle(8, C.cyanBright, 0.08);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(14, C.cyan, 0.01);
+    g.lineStyle(18, C.cyan, 0.02);
     g.lineBetween(0, 0, tW, 0);
-    g.lineStyle(1, C.magenta, 0.08);
+    g.lineStyle(1.5, C.magenta, 0.15);
     g.lineBetween(0, 27, tW, 27);
 
     for (let i = 1; i < 3; i++) {
       const lx = i * LANE_WIDTH + 10;
-      g.lineStyle(1, C.cyan, 0.08);
+      g.lineStyle(1, C.cyan, 0.15);
       g.lineBetween(lx, 0, lx, 28);
     }
     g.generateTexture("ground_tile", tW, 28);
@@ -1232,22 +1254,31 @@ class GameScene extends Phaser.Scene {
   private drawTunnelRings() {
     const g = this.tunnelRingsGfx;
     g.clear();
-    const numRings = 10;
+    const numRings = 12;
     const baseOffset = this.tunnelOffset % 50;
 
     for (let i = numRings; i >= 0; i--) {
       const t = (i * 50 + baseOffset) / (numRings * 50);
-      const r = 15 + t * (W * 0.7);
-      const cy = VY + t * (H * 0.5);
+      const r = 15 + t * (W * 0.75);
+      const cy = VY + t * (H * 0.52);
       const sq = 0.55 + t * 0.45;
       const rr = r * sq;
 
-      const ea = (0.06 + t * 0.35) * 0.7;
-      const ew = 1 + t * 2;
+      const ea = 0.15 + t * 0.65;
+      const ew = 1.2 + t * 2.5;
       strokeHex(g, VX, cy, rr, this.phaseColor1, ea, ew);
-      strokeHex(g, VX, cy, rr + 2, this.phaseColor1, ea * 0.08, ew + 4);
-      if (t > 0.25) {
-        strokeHex(g, VX, cy, rr, this.phaseColor2, ea * 0.18, ew * 0.5);
+      strokeHex(g, VX, cy, rr + 2, this.phaseColor1, ea * 0.2, ew + 3);
+      strokeHex(g, VX, cy, rr + 5, this.phaseColor1, ea * 0.06, ew + 7);
+      if (t > 0.2) {
+        strokeHex(g, VX, cy, rr, this.phaseColor2, ea * 0.3, ew * 0.5);
+      }
+
+      if (t > 0.35) {
+        const pts = hexVerts(VX, cy, rr);
+        for (let j = 0; j < 6; j++) {
+          g.fillStyle(this.phaseColor1, 0.15 + t * 0.2);
+          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 3);
+        }
       }
     }
 
@@ -1256,7 +1287,7 @@ class GameScene extends Phaser.Scene {
       const len = W * 0.55;
       const ex = VX + Math.cos(angle) * len;
       const ey = VY + Math.sin(angle) * len;
-      g.lineStyle(0.5, this.phaseColor1, 0.025);
+      g.lineStyle(0.8, this.phaseColor1, 0.05);
       g.lineBetween(VX, VY, ex, ey);
     }
   }
