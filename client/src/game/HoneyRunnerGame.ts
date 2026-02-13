@@ -11,6 +11,7 @@ import {
   PHASE_THRESHOLDS, PHASE_NAMES,
   FONT_UI, FONT_DISPLAY, FONT_MONO,
 } from "./constants";
+import arenaRunnerBg from "../assets/images/arena-runner.png";
 import { getBestScore, setBestScore, addCoins, incrementRuns } from "./storage";
 import { sfxCoin, sfxDash, sfxJump, sfxPowerup, sfxPhase, sfxSlide, sfxDeath, sfxShieldBreak, sfxCombo, sfxMenuClick } from "./audio";
 
@@ -81,6 +82,9 @@ const VY = H * 0.12;
 
 class BootScene extends Phaser.Scene {
   constructor() { super({ key: "Boot" }); }
+  preload() {
+    this.load.image("arena_runner_bg", arenaRunnerBg);
+  }
   create() {
     const g = this.make.graphics({ x: 0, y: 0 });
     this.genBg(g);
@@ -108,22 +112,21 @@ class BootScene extends Phaser.Scene {
     this.scene.start("Menu");
   }
 
-  private genBg(g: Phaser.GameObjects.Graphics) {
-    g.clear();
-    for (let y = 0; y < H; y += 1) {
-      const t = y / H;
-      const col = lerpColor(0x060608, 0x020204, t);
-      g.fillStyle(col, 1);
-      g.fillRect(0, y, W, 1);
-    }
-
-    g.fillStyle(0xf0a500, 0.015);
-    g.fillCircle(VX, VY + 40, 350);
-    g.fillStyle(0xf0a500, 0.008);
-    g.fillCircle(VX, VY + 40, 500);
-
-    g.generateTexture("bg_tunnel", W, H);
-    g.clear();
+  private genBg(_g: Phaser.GameObjects.Graphics) {
+    const srcTex = this.textures.get("arena_runner_bg");
+    const srcImg = srcTex.getSourceImage() as HTMLImageElement;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d")!;
+    const srcW = srcImg.width, srcH = srcImg.height;
+    const scale = Math.max(W / srcW, H / srcH);
+    const dw = srcW * scale, dh = srcH * scale;
+    ctx.drawImage(srcImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(0, 0, W, H);
+    if (this.textures.exists("bg_tunnel")) this.textures.remove("bg_tunnel");
+    this.textures.addCanvas("bg_tunnel", canvas);
   }
 
   private genStars(g: Phaser.GameObjects.Graphics) {
