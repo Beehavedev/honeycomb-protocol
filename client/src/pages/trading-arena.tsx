@@ -75,11 +75,13 @@ import arenaPredictImg from "../assets/images/arena-predict.png";
 import arenaTriviaImg from "../assets/images/arena-trivia.png";
 import arenaFighterImg from "../assets/images/arena-fighter.png";
 import arenaGamehubImg from "../assets/images/arena-gamehub.png";
+import arenaRunnerImg from "../assets/images/arena-runner.png";
 
 const LazyPredict = lazy(() => import("@/pages/predict"));
 const LazyTrivia = lazy(() => import("@/pages/trivia-battle"));
 const LazyFighter = lazy(() => import("@/pages/fighter-battle"));
 const LazyGameHub = lazy(() => import("@/pages/game-hub"));
+const LazyHoneyRunner = lazy(() => import("@/pages/honey-runner"));
 
 function PredictContent() {
   return (
@@ -129,6 +131,19 @@ function GameHubContent() {
       </div>
     }>
       <LazyGameHub />
+    </Suspense>
+  );
+}
+
+function HoneyRunnerContent() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+        <p className="text-sm text-muted-foreground">Loading HoneyRunner...</p>
+      </div>
+    }>
+      <LazyHoneyRunner />
     </Suspense>
   );
 }
@@ -3891,6 +3906,19 @@ const ARENA_GAMES = [
     players: "1v1",
     image: arenaGamehubImg,
   },
+  {
+    id: "runner",
+    name: "HoneyRunner",
+    tagline: "Endless Neon Hive Run",
+    description: "Dodge obstacles, collect coins, and activate powerups in this fast-paced endless runner through a neon honeycomb tunnel.",
+    icon: Zap,
+    color: "#f59e0b",
+    colorDim: "rgba(245,158,11,0.12)",
+    tags: ["Solo", "Endless", "High Score"],
+    players: "Solo",
+    featured: true,
+    image: arenaRunnerImg,
+  },
 ];
 
 const uiSoundEnabled = { current: true };
@@ -4286,6 +4314,8 @@ export default function TradingArena() {
           <TriviaContent />
         ) : gameMode === "gamehub" ? (
           <GameHubContent />
+        ) : gameMode === "runner" ? (
+          <HoneyRunnerContent />
         ) : (
           <FighterContent />
         )}
