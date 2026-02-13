@@ -101,6 +101,22 @@ A developer platform allowing external game studios to build, submit, and moneti
 - **Frontend**: `client/src/pages/developer-portal.tsx` at `/developers`
 - **Backend**: `server/developer-routes.ts`
 
+### HoneyRunner (Endless Runner Game)
+A synthwave cyberpunk endless runner featuring a mech bee. Integrated as a tab in Games Arena. Features include:
+- **Procedural Graphics**: All sprites generated at boot via Phaser Graphics API (no external assets)
+- **Cyberpunk Mech Bee**: Detailed character with compound eyes, circuit patterns, energy wings, stinger
+- **4 Phase System**: CYAN SURGE, NEON BLAZE, PLASMA RUSH, HYPER NOVA with escalating difficulty/colors
+- **7 Obstacle Types**: Barrier, Low Gate, Lane Blocker, Glitch Wall, Spinning Laser, Wave Beam, Pulse Mine
+- **Powerups**: Magnet, Shield, Boost with visual indicators
+- **Stinger Dash**: Invulnerability dash on cooldown with phase-through mechanic
+- **Combo System**: Up to 20x multiplier with decay timer
+- **Procedural Audio**: Web Audio API sound effects (coin, jump, dash, slide, hit, death, powerup, phase change)
+- **Visual Effects**: Ghost trail afterimages, chromatic aberration on hits, screen shake, parallax city skyline
+- **Boss Encounters**: WARNING banner + triple-lane barrier burst at phase transitions
+- **AAA Color Palette**: 420 stars, 72 light rays, 18 hex rings, dual-glow UI text
+- **Files**: `client/src/game/HoneyRunnerGame.ts` (main), `client/src/game/constants.ts`, `client/src/game/audio.ts`, `client/src/game/storage.ts`, `client/src/pages/honey-runner.tsx`
+- **Route**: `/honey-runner` (standalone), also embedded in Arena
+
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.
 - **Launch Alerts**: Real-time Twitter alerts for new token/NFA launches.

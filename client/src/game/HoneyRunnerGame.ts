@@ -11,6 +11,7 @@ import {
   PHASE_THRESHOLDS, PHASE_NAMES,
 } from "./constants";
 import { getBestScore, setBestScore, addCoins, incrementRuns } from "./storage";
+import { sfxCoin, sfxDash, sfxJump, sfxPowerup, sfxPhase, sfxSlide, sfxDeath, sfxShieldBreak, sfxCombo, sfxMenuClick } from "./audio";
 
 const W = GAME_WIDTH, H = GAME_HEIGHT;
 const CX = W / 2;
@@ -77,6 +78,9 @@ class BootScene extends Phaser.Scene {
     this.genParticles(g);
     this.genDashIcon(g);
     this.genHudIcons(g);
+    this.genNewObstacles(g);
+    this.genCitySkyline(g);
+    this.genBossWarning(g);
     g.destroy();
     this.scene.start("Menu");
   }
@@ -819,6 +823,110 @@ class BootScene extends Phaser.Scene {
     g.generateTexture("diamond_icon", ds * 2, ds * 2);
     g.clear();
   }
+
+  private genNewObstacles(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const lw = 90, lh = 12;
+    g.fillStyle(C.laserRedGlow, 0.15);
+    g.fillRoundedRect(-4, -4, lw + 8, lh + 8, 4);
+    for (let i = 0; i < 3; i++) {
+      g.lineStyle(4 - i, C.laserRed, 1 - i * 0.25);
+      g.lineBetween(0, lh / 2, lw, lh / 2);
+    }
+    g.lineStyle(16, C.laserRedGlow, 0.08);
+    g.lineBetween(0, lh / 2, lw, lh / 2);
+    g.fillStyle(C.laserRedWhite, 1);
+    g.fillCircle(4, lh / 2, 4);
+    g.fillCircle(lw - 4, lh / 2, 4);
+    g.fillStyle(C.laserRedGlow, 0.3);
+    g.fillCircle(4, lh / 2, 8);
+    g.fillCircle(lw - 4, lh / 2, 8);
+    g.generateTexture("spinning_laser", lw, lh);
+    g.clear();
+
+    const ww = 200, wh = 20;
+    g.fillStyle(C.magenta, 0.06);
+    g.fillRect(0, 0, ww, wh);
+    for (let x = 0; x < ww; x += 2) {
+      const yOff = Math.sin(x * 0.08) * 6;
+      g.fillStyle(C.magentaHot, 0.9);
+      g.fillRect(x, wh / 2 + yOff - 2, 2, 4);
+      g.fillStyle(C.magenta, 0.3);
+      g.fillRect(x, wh / 2 + yOff - 4, 2, 8);
+    }
+    g.generateTexture("wave_beam", ww, wh);
+    g.clear();
+
+    const dw = 56, dh = 56;
+    g.fillStyle(C.laserRedGlow, 0.06);
+    g.fillCircle(dw / 2, dh / 2, dw / 2 + 4);
+    for (let r = dw / 2; r > 4; r -= 6) {
+      g.lineStyle(2, C.laserRed, 0.3 + (1 - r / (dw / 2)) * 0.5);
+      g.strokeCircle(dw / 2, dh / 2, r);
+    }
+    g.fillStyle(C.laserRedWhite, 0.9);
+    g.fillCircle(dw / 2, dh / 2, 6);
+    g.fillStyle(C.laserRedGlow, 0.2);
+    g.fillCircle(dw / 2, dh / 2, 14);
+    g.lineStyle(3, C.laserRed, 0.8);
+    g.strokeCircle(dw / 2, dh / 2, dw / 2 - 2);
+    g.lineStyle(8, C.laserRedGlow, 0.1);
+    g.strokeCircle(dw / 2, dh / 2, dw / 2);
+    g.generateTexture("pulse_mine", dw, dh);
+    g.clear();
+  }
+
+  private genCitySkyline(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const sw = W, sh = 120;
+    const buildings = [
+      { x: 10, w: 28, h: 80 }, { x: 42, w: 20, h: 50 }, { x: 68, w: 35, h: 95 },
+      { x: 110, w: 22, h: 60 }, { x: 138, w: 40, h: 105 }, { x: 184, w: 18, h: 45 },
+      { x: 206, w: 30, h: 75 }, { x: 240, w: 25, h: 88 }, { x: 270, w: 45, h: 110 },
+      { x: 320, w: 22, h: 55 }, { x: 348, w: 32, h: 70 }, { x: 384, w: 16, h: 40 },
+    ];
+    for (const b of buildings) {
+      const by = sh - b.h;
+      g.fillStyle(0x020818, 0.95);
+      g.fillRect(b.x, by, b.w, b.h);
+      g.lineStyle(1, C.cyan, 0.08);
+      g.strokeRect(b.x, by, b.w, b.h);
+      for (let wy = by + 6; wy < sh - 4; wy += 8) {
+        for (let wx = b.x + 3; wx < b.x + b.w - 4; wx += 6) {
+          const lit = Math.random() > 0.5;
+          g.fillStyle(lit ? C.cyan : C.magenta, lit ? 0.15 + Math.random() * 0.15 : 0.04);
+          g.fillRect(wx, wy, 3, 4);
+        }
+      }
+      if (b.h > 70) {
+        g.fillStyle(C.laserRed, 0.4);
+        g.fillCircle(b.x + b.w / 2, by + 2, 2);
+        g.fillStyle(C.laserRedGlow, 0.1);
+        g.fillCircle(b.x + b.w / 2, by + 2, 6);
+      }
+    }
+    g.lineStyle(1, C.cyan, 0.05);
+    g.lineBetween(0, sh - 1, sw, sh - 1);
+    g.generateTexture("city_skyline", sw, sh);
+    g.clear();
+  }
+
+  private genBossWarning(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    const bw = W, bh = 60;
+    g.fillStyle(C.laserRed, 0.15);
+    g.fillRect(0, 0, bw, bh);
+    for (let x = 0; x < bw; x += 40) {
+      g.fillStyle(C.laserRed, 0.25);
+      g.fillTriangle(x, 0, x + 20, bh / 2, x, bh);
+      g.fillTriangle(x + 40, 0, x + 20, bh / 2, x + 40, bh);
+    }
+    g.lineStyle(4, C.laserRed, 0.6);
+    g.lineBetween(0, 2, bw, 2);
+    g.lineBetween(0, bh - 2, bw, bh - 2);
+    g.generateTexture("boss_warning_bg", bw, bh);
+    g.clear();
+  }
 }
 
 class MenuScene extends Phaser.Scene {
@@ -915,7 +1023,7 @@ class MenuScene extends Phaser.Scene {
     this.add.text(CX, H * 0.6, "PLAY", {
       fontSize: "28px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
     }).setOrigin(0.5);
-    btn.on("pointerdown", () => this.scene.start("Game"));
+    btn.on("pointerdown", () => { sfxMenuClick(); this.scene.start("Game"); });
     this.tweens.add({ targets: btn, scaleX: 1.04, scaleY: 1.04, duration: 1100, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     const ctrl = [
@@ -1009,6 +1117,13 @@ class GameScene extends Phaser.Scene {
   private tunnelOffset = 0;
   private gameTimer = 0;
 
+  private trailImages: Phaser.GameObjects.Image[] = [];
+  private trailTimer = 0;
+  private citySkyline!: Phaser.GameObjects.TileSprite;
+  private chromAbGfx?: Phaser.GameObjects.Graphics;
+  private chromAbTimer = 0;
+  private bossWarningActive = false;
+
   constructor() { super({ key: "Game" }); }
 
   create() {
@@ -1019,10 +1134,14 @@ class GameScene extends Phaser.Scene {
     this.combo = 0; this.comboTimer = 0; this.maxCombo = 0;
     this.dashReady = true; this.dashing = false; this.dashCooldownTimer = 0;
     this.phase = 0; this.tunnelOffset = 0; this.gameTimer = 0;
+    this.trailImages = []; this.trailTimer = 0; this.chromAbTimer = 0;
+    this.bossWarningActive = false;
     this.updatePhaseColors();
 
     this.bgTunnel = this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0).setScrollFactor(0);
     this.bgStars = this.add.image(CX, H / 2, "stars").setAlpha(0.3);
+
+    this.citySkyline = this.add.tileSprite(0, H * 0.22, W, 120, "city_skyline").setOrigin(0, 0).setAlpha(0.35).setDepth(0).setScrollFactor(0);
 
     this.tunnelRingsGfx = this.add.graphics().setDepth(1);
 
@@ -1096,6 +1215,14 @@ class GameScene extends Phaser.Scene {
 
     this.add.image(CX, H / 2, "scanlines").setAlpha(0.12).setDepth(99).setScrollFactor(0);
     this.add.image(CX, H / 2, "vignette").setAlpha(0.5).setDepth(100).setScrollFactor(0);
+
+    this.chromAbGfx = this.add.graphics().setDepth(98).setScrollFactor(0).setAlpha(0);
+
+    this.events.on("shutdown", () => {
+      this.trailImages.forEach(t => { if (t && t.active) t.destroy(); });
+      this.trailImages = [];
+      if (this.chromAbGfx) { this.chromAbGfx.destroy(); this.chromAbGfx = undefined; }
+    });
   }
 
   private updatePhaseColors() {
@@ -1186,12 +1313,13 @@ class GameScene extends Phaser.Scene {
   private jump() {
     if (!this.alive) return;
     const b = this.runner.body as Phaser.Physics.Arcade.Body;
-    if (b.y + b.height >= GROUND_Y - 2) b.setVelocityY(JUMP_VELOCITY);
+    if (b.y + b.height >= GROUND_Y - 2) { b.setVelocityY(JUMP_VELOCITY); sfxJump(); }
   }
 
   private slide() {
     if (!this.alive || this.sliding) return;
     this.sliding = true;
+    sfxSlide();
     this.runner.setTexture("runner_slide");
     this.runner.setSize(60, 24);
     this.runner.y = GROUND_Y - 14;
@@ -1211,6 +1339,7 @@ class GameScene extends Phaser.Scene {
     this.runner.setAlpha(0.5);
     this.runner.setTint(C.cyanBright);
     this.dashVis?.setVisible(true);
+    sfxDash();
 
     this.cameras.main.flash(200, 0, 229, 255, false);
 
@@ -1237,13 +1366,17 @@ class GameScene extends Phaser.Scene {
 
   private spawnObs() {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
-    const t = Phaser.Math.Between(0, 3);
-    const tx = ["barrier", "low_gate", "lane_blocker", "glitch_wall"];
+    const maxType = this.phase >= 2 ? 6 : this.phase >= 1 ? 5 : 3;
+    const t = Phaser.Math.Between(0, maxType);
+    const tx = ["barrier", "low_gate", "lane_blocker", "glitch_wall", "spinning_laser", "wave_beam", "pulse_mine"];
     const o = this.obsGroup.create(CX + LANE_POSITIONS[l], -60, tx[t]) as Phaser.Physics.Arcade.Sprite;
     o.setImmovable(true).setDepth(6);
     if (t === 1) { o.y = -20; o.setSize(78, 14); }
     else if (t === 2) o.setSize(26, 78);
     else if (t === 3) { o.setSize(72, 48); if (Math.random() > 0.5) this.tweens.add({ targets: o, alpha: 0.3, duration: 80, yoyo: true, repeat: 3 }); }
+    else if (t === 4) { o.setSize(86, 10); this.tweens.add({ targets: o, angle: 360, duration: 1800, repeat: -1 }); }
+    else if (t === 5) { o.setSize(180, 16); o.x = CX; }
+    else if (t === 6) { o.setSize(44, 44); this.tweens.add({ targets: o, scaleX: 1.3, scaleY: 1.3, duration: 500, yoyo: true, repeat: -1 }); }
     else o.setSize(72, 48);
   }
 
@@ -1263,11 +1396,48 @@ class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: p, scaleX: 1.1, scaleY: 1.1, duration: 450, yoyo: true, repeat: -1 });
   }
 
+  private triggerChromAb() {
+    this.chromAbTimer = 350;
+    if (this.chromAbGfx) {
+      this.chromAbGfx.setAlpha(1);
+      this.chromAbGfx.clear();
+      this.chromAbGfx.fillStyle(0xff0000, 0.04);
+      this.chromAbGfx.fillRect(3, 0, W, H);
+      this.chromAbGfx.fillStyle(0x0000ff, 0.04);
+      this.chromAbGfx.fillRect(-3, 0, W, H);
+      this.chromAbGfx.fillStyle(0xff0040, 0.06);
+      this.chromAbGfx.fillRect(0, 0, W, 3);
+      this.chromAbGfx.fillRect(0, H - 3, W, 3);
+    }
+  }
+
+  private spawnBossWarning() {
+    if (this.bossWarningActive || !this.alive) return;
+    this.bossWarningActive = true;
+    const warn = this.add.image(CX, H / 2 - 40, "boss_warning_bg").setAlpha(0).setDepth(95);
+    const txt = this.add.text(CX, H / 2 - 40, "WARNING", {
+      fontSize: "28px", fontFamily: "monospace", color: "#ff2848", fontStyle: "bold", stroke: "#000", strokeThickness: 6,
+    }).setOrigin(0.5).setAlpha(0).setDepth(96);
+    this.tweens.add({ targets: [warn, txt], alpha: 1, duration: 200, yoyo: true, repeat: 3, hold: 150, onComplete: () => {
+      warn.destroy(); txt.destroy();
+      this.bossWarningActive = false;
+      if (!this.alive) return;
+      for (let i = 0; i < LANE_COUNT; i++) {
+        this.time.delayedCall(i * 200, () => {
+          if (!this.alive) return;
+          const bObs = this.obsGroup.create(CX + LANE_POSITIONS[i], -60, "barrier") as Phaser.Physics.Arcade.Sprite;
+          bObs.setImmovable(true).setDepth(6).setSize(72, 48).setTint(this.phaseColor1);
+        });
+      }
+    }});
+  }
+
   private hitObs(_r: any, o: any) {
     if (this.dashing) {
       o.destroy();
       this.score += 50;
       this.bumpCombo();
+      sfxCombo();
       const p = this.add.text(this.runner.x, this.runner.y - 30, "PHASED!", {
         fontSize: "14px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
       }).setDepth(30);
@@ -1281,6 +1451,9 @@ class GameScene extends Phaser.Scene {
       if (this.pu.shieldTimer) this.pu.shieldTimer.destroy();
       this.shieldVis?.setVisible(false);
       this.rmPUIcon("shield");
+      sfxShieldBreak();
+      this.cameras.main.shake(200, 0.01);
+      this.triggerChromAb();
       for (let i = 0; i < 10; i++) {
         const s = this.add.image(this.runner.x, this.runner.y, "spark").setScale(2.5).setAlpha(0.8).setDepth(20).setTint(C.shieldBright);
         this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(-70, 70), y: s.y + Phaser.Math.Between(-70, 70), alpha: 0, scale: 0, duration: 400, onComplete: () => s.destroy() });
@@ -1290,9 +1463,11 @@ class GameScene extends Phaser.Scene {
 
     if (!this.alive) return;
     this.alive = false;
+    sfxDeath();
 
-    this.cameras.main.shake(400, 0.02);
+    this.cameras.main.shake(500, 0.03);
     this.cameras.main.flash(300, 255, 16, 64);
+    this.triggerChromAb();
 
     for (let i = 0; i < 18; i++) {
       const tint = i % 2 === 0 ? C.laserRedWhite : C.magentaBright;
@@ -1322,6 +1497,7 @@ class GameScene extends Phaser.Scene {
     this.coins++;
     this.score += COIN_SCORE * Math.max(1, Math.floor(this.combo));
     this.bumpCombo();
+    sfxCoin();
 
     this.cameras.main.shake(60, 0.004);
 
@@ -1340,6 +1516,7 @@ class GameScene extends Phaser.Scene {
   private getPU(_r: any, p: any) {
     const t = p.texture.key;
     p.destroy();
+    sfxPowerup();
     if (t === "magnet") this.actPU("magnet", MAGNET_DURATION, C.magnetBright);
     else if (t === "shield_pu") this.actPU("shield", SHIELD_DURATION, C.shieldBright);
     else if (t === "boost_pu") this.actPU("boost", BOOST_DURATION, C.boostBright);
@@ -1416,11 +1593,14 @@ class GameScene extends Phaser.Scene {
     if (newPhase !== this.phase) {
       this.phase = newPhase;
       this.updatePhaseColors();
+      sfxPhase();
       this.cameras.main.flash(300, 0, 229, 255, false);
+      this.cameras.main.shake(300, 0.015);
       if (this.phaseTxt) {
         this.phaseTxt.setText(PHASE_NAMES[this.phase] || "");
         this.tweens.add({ targets: this.phaseTxt, scaleX: 1.3, scaleY: 1.3, duration: 200, yoyo: true });
       }
+      this.spawnBossWarning();
     }
 
     if (this.comboTimer > 0) {
@@ -1448,6 +1628,29 @@ class GameScene extends Phaser.Scene {
     this.drawTunnelRings();
 
     this.bgTunnel.tilePositionY -= es * 0.25;
+    this.citySkyline.tilePositionX += es * 0.15;
+
+    if (this.chromAbTimer > 0) {
+      this.chromAbTimer -= delta;
+      if (this.chromAbTimer <= 0 && this.chromAbGfx) { this.chromAbGfx.setAlpha(0); this.chromAbGfx.clear(); }
+      else if (this.chromAbGfx) this.chromAbGfx.setAlpha(this.chromAbTimer / 350);
+    }
+
+    this.trailTimer -= delta;
+    if (this.trailTimer <= 0 && !this.sliding) {
+      this.trailTimer = 50;
+      const trail = this.add.image(this.runner.x, this.runner.y, "runner")
+        .setAlpha(0.2).setTint(this.phaseColor1).setDepth(8).setBlendMode("ADD");
+      this.trailImages.push(trail);
+      this.tweens.add({ targets: trail, alpha: 0, scaleX: 0.8, scaleY: 0.8, duration: 300, onComplete: () => {
+        trail.destroy();
+        this.trailImages = this.trailImages.filter(t => t !== trail);
+      }});
+      if (this.trailImages.length > 6) {
+        const old = this.trailImages.shift();
+        if (old) old.destroy();
+      }
+    }
 
     this.gTiles.forEach((gt) => { gt.tilePositionY -= es * 0.5; });
 
@@ -1484,6 +1687,9 @@ class GameScene extends Phaser.Scene {
     this.obsGroup.getChildren().forEach((o) => {
       const s = o as Phaser.Physics.Arcade.Sprite;
       s.y += es * (delta / 16) * 2;
+      if (s.texture.key === "wave_beam") {
+        s.x = CX + Math.sin(s.y * 0.02 + this.fc * 0.05) * 40;
+      }
       if (s.y > H + 100) s.destroy();
     });
     this.coinGroup.getChildren().forEach((o) => {
@@ -1579,13 +1785,13 @@ class GameOverScene extends Phaser.Scene {
     const retry = this.add.rectangle(CX, 432, 200, 50, 0x000810, 0.95).setInteractive({ useHandCursor: true });
     retry.setStrokeStyle(3, C.cyan);
     this.add.text(CX, 432, "PLAY AGAIN", { fontSize: "17px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold" }).setOrigin(0.5);
-    retry.on("pointerdown", () => this.scene.start("Game"));
+    retry.on("pointerdown", () => { sfxMenuClick(); this.scene.start("Game"); });
     this.tweens.add({ targets: retry, scaleX: 1.04, scaleY: 1.04, duration: 800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     const menu = this.add.rectangle(CX, 490, 200, 40, 0x080014, 0.95).setInteractive({ useHandCursor: true });
     menu.setStrokeStyle(2, C.magenta, 0.5);
     this.add.text(CX, 490, "MENU", { fontSize: "14px", fontFamily: "monospace", color: "#ff0080" }).setOrigin(0.5);
-    menu.on("pointerdown", () => this.scene.start("Menu"));
+    menu.on("pointerdown", () => { sfxMenuClick(); this.scene.start("Menu"); });
 
     this.input.keyboard?.once("keydown-SPACE", () => this.scene.start("Game"));
     this.input.keyboard?.once("keydown-ENTER", () => this.scene.start("Game"));
