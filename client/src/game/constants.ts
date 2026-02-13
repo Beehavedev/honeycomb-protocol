@@ -1,19 +1,19 @@
-export const GAME_WIDTH = 400;
-export const GAME_HEIGHT = 700;
+export const GAME_WIDTH = 480;
+export const GAME_HEIGHT = 854;
 
 export const LANE_COUNT = 3;
-export const LANE_WIDTH = 100;
+export const LANE_WIDTH = 120;
 export const LANE_POSITIONS = [-LANE_WIDTH, 0, LANE_WIDTH];
 
-export const RUNNER_Y = 520;
-export const GROUND_Y = 580;
+export const RUNNER_Y = 640;
+export const GROUND_Y = 710;
 
 export const INITIAL_SPEED = 4;
 export const MAX_SPEED = 14;
 export const SPEED_RAMP = 0.002;
 
-export const JUMP_VELOCITY = -550;
-export const GRAVITY = 1200;
+export const JUMP_VELOCITY = -600;
+export const GRAVITY = 1300;
 export const SLIDE_DURATION = 600;
 
 export const OBSTACLE_SPAWN_INTERVAL_MIN = 800;
@@ -36,14 +36,18 @@ export const COMBO_TIERS = [1, 2, 5, 10, 20];
 export const PHASE_THRESHOLDS = [0, 2000, 6000, 15000];
 export const PHASE_NAMES = ["CYAN SURGE", "NEON BLAZE", "PLASMA RUSH", "HYPER NOVA"];
 
-export const C = {
-  bgDeep: 0x01000a,
-  bgMid: 0x040020,
-  bgTop: 0x080038,
+export const FONT_UI = "'Inter', 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif";
+export const FONT_DISPLAY = "'Inter', 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif";
+export const FONT_MONO = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
 
-  tunnelDark: 0x02000c,
-  tunnelMid: 0x0a0328,
-  tunnelDeep: 0x010004,
+export const C = {
+  bgDeep: 0x020010,
+  bgMid: 0x06002a,
+  bgTop: 0x0a0040,
+
+  tunnelDark: 0x03000e,
+  tunnelMid: 0x0c0430,
+  tunnelDeep: 0x020008,
 
   cyan: 0x00e5ff,
   cyanBright: 0x60f8ff,
@@ -101,4 +105,8 @@ export const C = {
   hudBg: 0x030010,
   hudBorder: 0x1a2848,
   hudAccent: 0x00e5ff,
+
+  glass: 0x0a0828,
+  glassBorder: 0x2a1858,
+  glassHighlight: 0x3a2068,
 };

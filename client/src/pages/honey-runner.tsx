@@ -93,7 +93,7 @@ export default function HoneyRunner() {
           <div
             ref={containerRef}
             className="w-full"
-            style={{ maxWidth: 400, aspectRatio: "400/700" }}
+            style={{ maxWidth: 480, aspectRatio: "480/854" }}
             data-testid="game-container"
           />
         </CardContent>

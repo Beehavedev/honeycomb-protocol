@@ -103,6 +103,7 @@ A developer platform allowing external game studios to build, submit, and moneti
 
 ### HoneyRunner (Endless Runner Game)
 A synthwave cyberpunk endless runner featuring a mech bee. Integrated as a tab in Games Arena. Features include:
+- **Resolution**: 480x854 (modern mobile aspect ratio)
 - **Procedural Graphics**: All sprites generated at boot via Phaser Graphics API (no external assets)
 - **Cyberpunk Mech Bee**: Detailed character with compound eyes, circuit patterns, energy wings, stinger
 - **4 Phase System**: CYAN SURGE, NEON BLAZE, PLASMA RUSH, HYPER NOVA with escalating difficulty/colors
@@ -113,7 +114,10 @@ A synthwave cyberpunk endless runner featuring a mech bee. Integrated as a tab i
 - **Procedural Audio**: Web Audio API sound effects (coin, jump, dash, slide, hit, death, powerup, phase change)
 - **Visual Effects**: Ghost trail afterimages, chromatic aberration on hits, screen shake, parallax city skyline
 - **Boss Encounters**: WARNING banner + triple-lane barrier burst at phase transitions
-- **AAA Color Palette**: 420 stars, 72 light rays, 18 hex rings, dual-glow UI text
+- **Modern UI Design**: Glass morphism panels, Inter/Segoe UI fonts (monospace for numbers only), bloom circle textures, noise overlay film grain, pre-rendered pill-shaped buttons
+- **Key Constants**: RUNNER_Y: 640, GROUND_Y: 710, LANE_WIDTH: 120, VX/VY vanishing point at CX/H*0.12
+- **Font System**: FONT_UI (Inter/sans-serif), FONT_DISPLAY (Inter/sans-serif), FONT_MONO (JetBrains Mono/monospace)
+- **Glass Helpers**: drawGlassPanel(), drawGlassBtn() for consistent modern UI across all scenes
 - **Files**: `client/src/game/HoneyRunnerGame.ts` (main), `client/src/game/constants.ts`, `client/src/game/audio.ts`, `client/src/game/storage.ts`, `client/src/pages/honey-runner.tsx`
 - **Route**: `/honey-runner` (standalone), also embedded in Arena
 
