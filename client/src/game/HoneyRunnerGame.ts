@@ -1107,12 +1107,14 @@ class GameScene extends Phaser.Scene {
   private chromAbGfx?: Phaser.GameObjects.Graphics;
   private chromAbTimer = 0;
   private bossWarningActive = false;
+  private sessionStartTime = 0;
 
   constructor() { super({ key: "Game" }); }
 
   create() {
     this.lane = 1; this.sliding = false; this.speed = INITIAL_SPEED;
     this.dist = 0; this.score = 0; this.coins = 0; this.alive = true;
+    this.sessionStartTime = Date.now();
     this.pu = { magnet: false, shield: false, boost: false };
     this.puIcons = []; this.gTiles = []; this.fc = 0;
     this.combo = 0; this.comboTimer = 0; this.maxCombo = 0;
@@ -1476,7 +1478,8 @@ class GameScene extends Phaser.Scene {
 
     this.time.delayedCall(900, () => {
       this.gTiles = [];
-      this.scene.start("GameOver", { score: fs, coins: this.coins, distance: Math.floor(this.dist), bestScore: nb ? fs : bs, isNewBest: nb, speed: this.speed, maxCombo: this.maxCombo });
+      const sessionDuration = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+      this.scene.start("GameOver", { score: fs, coins: this.coins, distance: Math.floor(this.dist), bestScore: nb ? fs : bs, isNewBest: nb, speed: this.speed, maxCombo: this.maxCombo, sessionDuration });
     });
   }
 
@@ -1699,7 +1702,11 @@ class GameScene extends Phaser.Scene {
 
 class GameOverScene extends Phaser.Scene {
   constructor() { super({ key: "GameOver" }); }
-  create(data: { score: number; coins: number; distance: number; bestScore: number; isNewBest: boolean; speed: number; maxCombo: number }) {
+  create(data: { score: number; coins: number; distance: number; bestScore: number; isNewBest: boolean; speed: number; maxCombo: number; sessionDuration?: number }) {
+    window.dispatchEvent(new CustomEvent("honeyrunner:gameover", {
+      detail: { score: data.score, coins: data.coins, distance: data.distance, maxCombo: data.maxCombo, duration: data.sessionDuration || 0 },
+    }));
+
     this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0);
     this.add.image(CX, H / 2, "stars").setAlpha(0.4);
     this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.4);

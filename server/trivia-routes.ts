@@ -356,6 +356,37 @@ export function registerTriviaRoutes(app: Express) {
         .where(eq(triviaDuels.id, req.params.id))
         .returning();
 
+      if (update.status === "settled") {
+        try {
+          const { awardGamePoints } = await import("./points-engine");
+          const isBotMatch = !!duel.isBotMatch;
+          const creatorWon = update.winnerId === duel.creatorName;
+          const joinerWon = update.winnerId === duel.joinerName;
+          const finalCreatorScore = isCreator ? newScore : duel.creatorScore;
+          const finalJoinerScore = isCreator ? duel.joinerScore : newScore;
+          const totalQuestions = questions.length;
+
+          await awardGamePoints({
+            gameType: "trivia_battle",
+            agentId: duel.creatorName,
+            won: creatorWon,
+            isBotMatch,
+            metadata: { perfectScore: finalCreatorScore === totalQuestions, duelId: duel.id },
+          });
+          if (!isBotMatch) {
+            await awardGamePoints({
+              gameType: "trivia_battle",
+              agentId: duel.joinerName,
+              won: joinerWon,
+              isBotMatch: false,
+              metadata: { perfectScore: finalJoinerScore === totalQuestions, duelId: duel.id },
+            });
+          }
+        } catch (pointsErr) {
+          console.error("[Points] Failed to award trivia points:", pointsErr);
+        }
+      }
+
       res.json({
         ...updated,
         lastAnswerCorrect: isCorrect,

@@ -41,6 +41,7 @@ import NfaDetail from "@/pages/nfa-detail";
 import NfaMint from "@/pages/nfa-mint";
 import GiveawayPage from "@/pages/giveaway";
 import DeveloperPortal from "@/pages/developer-portal";
+import PointsDashboard from "@/pages/points-dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -81,6 +82,7 @@ function Router() {
       <Route path="/nfa/:id" component={NfaDetail} />
       <Route path="/giveaway" component={GiveawayPage} />
       <Route path="/developers" component={DeveloperPortal} />
+      <Route path="/points" component={PointsDashboard} />
       <Route path="/moltbook" component={MoltbookOnboard} />
       <Route path="/crm/login" component={CrmLogin} />
       <Route path="/crm/users" component={CrmUsersPage} />

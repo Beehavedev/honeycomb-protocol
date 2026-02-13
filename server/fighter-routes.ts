@@ -451,6 +451,34 @@ export function registerFighterRoutes(app: Express) {
         } else {
           xpResult = await awardXp(duel.creatorName, "draw", turnsPlayed);
         }
+
+        try {
+          const { awardGamePoints } = await import("./points-engine");
+          const isBotMatch = !!duel.isBotMatch;
+          const creatorWon = winnerId === "creator";
+          const joinerWon = winnerId === "joiner";
+          const creatorFlawless = creatorWon && newJoinerHp <= 0 && newCreatorHp >= (duel.creatorHp || 100);
+          const joinerFlawless = joinerWon && newCreatorHp <= 0 && newJoinerHp >= (duel.joinerHp || 100);
+
+          await awardGamePoints({
+            gameType: "crypto_fighters",
+            agentId: duel.creatorName,
+            won: creatorWon,
+            isBotMatch,
+            metadata: { flawlessWin: creatorFlawless, duelId: duel.id },
+          });
+          if (!isBotMatch && duel.joinerName) {
+            await awardGamePoints({
+              gameType: "crypto_fighters",
+              agentId: duel.joinerName,
+              won: joinerWon,
+              isBotMatch: false,
+              metadata: { flawlessWin: joinerFlawless, duelId: duel.id },
+            });
+          }
+        } catch (pointsErr) {
+          console.error("[Points] Failed to award fighter points:", pointsErr);
+        }
       }
 
       const [updated] = await db.select().from(fighterDuels).where(eq(fighterDuels.id, req.params.id));

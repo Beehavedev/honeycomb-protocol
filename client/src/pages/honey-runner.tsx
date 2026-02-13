@@ -2,18 +2,46 @@ import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Maximize2, Minimize2, Trophy, Gamepad2 } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2, Trophy, Gamepad2, Coins } from "lucide-react";
 import { getBestScore, getTotalCoins, getTotalRuns } from "@/game/storage";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function HoneyRunner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stats, setStats] = useState({ best: 0, coins: 0, runs: 0 });
+  const [lastPoints, setLastPoints] = useState<{ awarded: boolean; finalPoints: number; reason?: string } | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setStats({ best: getBestScore(), coins: getTotalCoins(), runs: getTotalRuns() });
   }, []);
+
+  useEffect(() => {
+    const handleGameOver = async (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      try {
+        const result = await apiRequest("POST", "/api/points/game/honey-runner", {
+          score: detail.score,
+          duration: detail.duration,
+        });
+        const data = await result.json();
+        setLastPoints(data);
+        if (data.awarded && data.finalPoints > 0) {
+          toast({
+            title: `+${data.finalPoints} Nectar Points`,
+            description: data.diminishingActive ? "Diminishing returns active" : `Daily: ${data.dailyEarned}/${data.dailyCap}`,
+          });
+        }
+      } catch {
+      }
+    };
+
+    window.addEventListener("honeyrunner:gameover", handleGameOver);
+    return () => window.removeEventListener("honeyrunner:gameover", handleGameOver);
+  }, [toast]);
 
   useEffect(() => {
     let game: any = null;
@@ -119,6 +147,26 @@ export default function HoneyRunner() {
           </CardContent>
         </Card>
       </div>
+
+      {lastPoints && (
+        <Card>
+          <CardContent className="p-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Coins className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-semibold">Last Game Points</span>
+            </div>
+            {lastPoints.awarded ? (
+              <Badge variant="outline" className="border-amber-500/30 text-amber-400" data-testid="badge-last-points">
+                +{lastPoints.finalPoints} pts
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground" data-testid="badge-last-points">
+                {lastPoints.reason || "No points earned"}
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-4 space-y-2">

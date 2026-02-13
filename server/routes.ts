@@ -105,6 +105,10 @@ export async function registerRoutes(
         { action: "achievement", basePoints: 25, dailyCap: null, description: "Unlock an achievement", isActive: true },
         { action: "create_agent", basePoints: 100, dailyCap: null, description: "Create an AI agent", isActive: true },
         { action: "launch_token", basePoints: 200, dailyCap: null, description: "Launch a token in The Hatchery", isActive: true },
+        { action: "game_honey_runner", basePoints: 20, dailyCap: 500, description: "Play HoneyRunner (base 20 + score/1000 skill bonus up to 40)", isActive: true },
+        { action: "game_trading_arena", basePoints: 60, dailyCap: 500, description: "Complete a Trading Arena duel (base 60 + 40 win bonus + 10 clutch)", isActive: true },
+        { action: "game_trivia_battle", basePoints: 30, dailyCap: 500, description: "Complete a Trivia Battle (base 30 + 20 win bonus + 15 perfect)", isActive: true },
+        { action: "game_crypto_fighters", basePoints: 30, dailyCap: 500, description: "Complete a Crypto Fighters duel (base 30 + 20 win bonus + 15 flawless)", isActive: true },
       ];
       for (const config of defaultConfigs) {
         await storage.upsertPointsConfig(config);
@@ -2174,6 +2178,51 @@ export async function registerRoutes(
     }
   });
 
+  // Get game rewards info and tokenomics (public)
+  app.get("/api/points/game-rewards", async (_req, res) => {
+    try {
+      const { getGameRewards, getPointsCaps, TOKENOMICS } = await import("./points-engine");
+      res.json({
+        rewards: getGameRewards(),
+        caps: getPointsCaps(),
+        tokenomics: TOKENOMICS,
+      });
+    } catch (error: any) {
+      console.error("Failed to get game rewards:", error);
+      res.status(500).json({ message: error.message || "Failed to get game rewards" });
+    }
+  });
+
+  // Submit HoneyRunner game session for points
+  app.post("/api/points/game/honey-runner", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+      const { score, duration } = req.body;
+      if (typeof score !== "number" || score < 0) {
+        return res.status(400).json({ message: "Invalid score" });
+      }
+      if (typeof duration !== "number" || duration < 15) {
+        return res.status(400).json({ message: "Session too short (minimum 15 seconds)" });
+      }
+
+      const { awardGamePoints } = await import("./points-engine");
+      const result = await awardGamePoints({
+        gameType: "honey_runner",
+        agentId: agent.id,
+        score,
+        isBotMatch: false,
+        metadata: { duration },
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Failed to award HoneyRunner points:", error);
+      res.status(500).json({ message: error.message || "Failed to award points" });
+    }
+  });
+
   // Seed default points config (admin only)
   app.post("/api/admin/seed-points-config", authMiddleware, async (req, res) => {
     try {
@@ -3145,6 +3194,30 @@ export async function registerRoutes(
         }
       }
 
+      try {
+        const { awardGamePoints } = await import("./points-engine");
+        const isBotMatch = duel.matchType === "bot";
+        const clutchFlag = duel.clutchFlag || false;
+        await awardGamePoints({
+          gameType: "trading_arena",
+          agentId: duel.creatorId,
+          won: winnerId === duel.creatorId,
+          isBotMatch,
+          metadata: { clutchFinish: clutchFlag && winnerId === duel.creatorId, duelId: duel.id },
+        });
+        if (duel.joinerId && !isBotMatch) {
+          await awardGamePoints({
+            gameType: "trading_arena",
+            agentId: duel.joinerId,
+            won: winnerId === duel.joinerId,
+            isBotMatch: false,
+            metadata: { clutchFinish: clutchFlag && winnerId === duel.joinerId, duelId: duel.id },
+          });
+        }
+      } catch (pointsErr) {
+        console.error("[Points] Failed to award trading arena points:", pointsErr);
+      }
+
       const creatorPositions = await storage.getTradingPositions(req.params.id, duel.creatorId);
       const joinerPositions = duel.joinerId ? await storage.getTradingPositions(req.params.id, duel.joinerId) : [];
       const initialBal = parseFloat(duel.initialBalance);
@@ -3154,6 +3227,10 @@ export async function registerRoutes(
       const feePct = duel.feePct || 10;
       const platformFee = potBnb * 2 * (feePct / 100);
       const winnerPayout = potBnb * 2 - platformFee;
+
+      const treasuryFee = platformFee * 0.5;
+      const burnFee = platformFee * 0.25;
+      const rewardPoolFee = platformFee * 0.25;
 
       const resultData = JSON.stringify({
         settlementPrice,
@@ -3165,6 +3242,11 @@ export async function registerRoutes(
         joinerTrades: joinerPositions.length,
         potBnb: (potBnb * 2).toFixed(4),
         platformFee: platformFee.toFixed(4),
+        feeSplit: {
+          treasury: treasuryFee.toFixed(4),
+          burn: burnFee.toFixed(4),
+          rewardPool: rewardPoolFee.toFixed(4),
+        },
         winnerPayout: winnerPayout.toFixed(4),
         isTie: !winnerId,
       });
