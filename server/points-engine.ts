@@ -27,9 +27,11 @@ interface GameSessionData {
   metadata?: Record<string, any>;
 }
 
-const DAILY_CAP = 500;
-const WEEKLY_CAP = 3000;
-const GLOBAL_DAILY_CAP = 1_500_000;
+const PRE_TGE = true;
+
+const DAILY_CAP = PRE_TGE ? Infinity : 500;
+const WEEKLY_CAP = PRE_TGE ? Infinity : 3000;
+const GLOBAL_DAILY_CAP = PRE_TGE ? Infinity : 1_500_000;
 const DIMINISH_THRESHOLD_1 = 10;
 const DIMINISH_THRESHOLD_2 = 20;
 const DIMINISH_FACTOR_1 = 0.5;
@@ -188,7 +190,7 @@ export async function awardGamePoints(data: GameSessionData): Promise<GamePoints
       basePoints: 0,
       multiplier: 1,
       finalPoints: 0,
-      reason: "Daily points cap reached (500/day). Come back tomorrow!",
+      reason: "Daily points cap reached. Come back tomorrow!",
       newTotal: userPts.totalPoints,
       dailyEarned: currentDailyEarned,
       dailyCap: DAILY_CAP,
@@ -206,7 +208,7 @@ export async function awardGamePoints(data: GameSessionData): Promise<GamePoints
       basePoints: 0,
       multiplier: 1,
       finalPoints: 0,
-      reason: "Weekly points cap reached (3,000/week). Resets Monday!",
+      reason: "Weekly points cap reached. Resets Monday!",
       newTotal: userPts.totalPoints,
       dailyEarned: currentDailyEarned,
       dailyCap: DAILY_CAP,
@@ -322,13 +324,14 @@ export function getGameRewards() {
 
 export function getPointsCaps() {
   return {
-    dailyCap: DAILY_CAP,
-    weeklyCap: WEEKLY_CAP,
-    globalDailyCap: GLOBAL_DAILY_CAP,
+    dailyCap: PRE_TGE ? null : DAILY_CAP,
+    weeklyCap: PRE_TGE ? null : WEEKLY_CAP,
+    globalDailyCap: PRE_TGE ? null : GLOBAL_DAILY_CAP,
     diminishThreshold1: DIMINISH_THRESHOLD_1,
     diminishThreshold2: DIMINISH_THRESHOLD_2,
     diminishFactor1: DIMINISH_FACTOR_1,
     diminishFactor2: DIMINISH_FACTOR_2,
+    preTge: PRE_TGE,
   };
 }
 

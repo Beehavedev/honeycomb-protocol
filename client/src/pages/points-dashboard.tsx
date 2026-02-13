@@ -174,10 +174,13 @@ export default function PointsDashboard() {
   });
 
   const points = pointsData?.points;
-  const dailyCap = rewardsData?.caps?.dailyCap || 500;
-  const weeklyCap = rewardsData?.caps?.weeklyCap || 3000;
-  const dailyProgress = points ? Math.min(100, (points.dailyEarned / dailyCap) * 100) : 0;
-  const weeklyEstimate = points ? Math.min(100, (points.dailyEarned / weeklyCap) * 100) : 0;
+  const rawDailyCap = rewardsData?.caps?.dailyCap;
+  const rawWeeklyCap = rewardsData?.caps?.weeklyCap;
+  const isUnlimited = !rawDailyCap || rawDailyCap === null || rawDailyCap >= 999999999;
+  const dailyCap = rawDailyCap || 500;
+  const weeklyCap = rawWeeklyCap || 3000;
+  const dailyProgress = isUnlimited ? 0 : (points ? Math.min(100, (points.dailyEarned / dailyCap) * 100) : 0);
+  const weeklyEstimate = isUnlimited ? 0 : (points ? Math.min(100, (points.dailyEarned / weeklyCap) * 100) : 0);
 
   const isLoading = pointsLoading;
 
@@ -222,21 +225,31 @@ export default function PointsDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm text-muted-foreground">Daily Progress</p>
+                    <p className="text-sm text-muted-foreground">Daily Earned</p>
                     <p className="text-sm font-medium" data-testid="text-daily-progress">
-                      {formatNumber(points?.dailyEarned || 0)} / {formatNumber(dailyCap)}
+                      {formatNumber(points?.dailyEarned || 0)}{isUnlimited ? " (No Cap)" : ` / ${formatNumber(dailyCap)}`}
                     </p>
                   </div>
-                  <Progress value={dailyProgress} className="h-3" data-testid="progress-daily" />
+                  {!isUnlimited && <Progress value={dailyProgress} className="h-3" data-testid="progress-daily" />}
+                  {isUnlimited && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Pre-TGE: Unlimited</Badge>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm text-muted-foreground">Weekly Cap</p>
+                    <p className="text-sm text-muted-foreground">Weekly Earned</p>
                     <p className="text-sm font-medium" data-testid="text-weekly-progress">
-                      {formatNumber(weeklyCap)} weekly limit
+                      {isUnlimited ? "No Cap" : `${formatNumber(weeklyCap)} weekly limit`}
                     </p>
                   </div>
-                  <Progress value={weeklyEstimate} className="h-3" data-testid="progress-weekly" />
+                  {!isUnlimited && <Progress value={weeklyEstimate} className="h-3" data-testid="progress-weekly" />}
+                  {isUnlimited && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Pre-TGE: Unlimited</Badge>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -294,7 +307,7 @@ export default function PointsDashboard() {
                     <p className="text-sm text-muted-foreground">Daily Earned</p>
                     <p className="text-2xl font-bold" data-testid="text-stat-daily">
                       {formatNumber(points?.dailyEarned || 0)}
-                      <span className="text-sm font-normal text-muted-foreground"> / {dailyCap}</span>
+                      {!isUnlimited && <span className="text-sm font-normal text-muted-foreground"> / {dailyCap}</span>}
                     </p>
                   </div>
                   <div className="p-3 rounded-full bg-green-500/10">

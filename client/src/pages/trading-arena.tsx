@@ -4120,7 +4120,7 @@ function GameCard({ game, index, onSelect }: {
                 <Star className="w-3 h-3" /> Up to 60 pts/session
               </Badge>
               <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
-                <Trophy className="w-3 h-3" /> Daily cap: 500 pts
+                <Trophy className="w-3 h-3" /> No daily cap before TGE
               </Badge>
               <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
                 <Flame className="w-3 h-3" /> 7 days until TGE
