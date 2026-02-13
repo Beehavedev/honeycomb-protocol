@@ -2763,3 +2763,79 @@ export const hubLeaderboard = pgTable("hub_leaderboard", {
   matchesPlayed: integer("matches_played").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const developerAccounts = pgTable("developer_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerAgentId: varchar("owner_agent_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  studioName: text("studio_name").notNull(),
+  email: text("email"),
+  website: text("website"),
+  payoutAddress: text("payout_address").notNull(),
+  apiKeyHash: text("api_key_hash").notNull(),
+  status: text("status").notNull().default("active"),
+  totalEarnings: text("total_earnings").notNull().default("0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDeveloperAccountSchema = createInsertSchema(developerAccounts).pick({
+  studioName: true,
+  email: true,
+  website: true,
+  payoutAddress: true,
+});
+export type DeveloperAccount = typeof developerAccounts.$inferSelect;
+export type InsertDeveloperAccount = z.infer<typeof insertDeveloperAccountSchema>;
+
+export const developerGames = pgTable("developer_games", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  developerId: varchar("developer_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  tagline: text("tagline"),
+  genre: text("genre").notNull().default("arcade"),
+  tags: text("tags").array().default(sql`'{}'::text[]`),
+  iframeUrl: text("iframe_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  color: text("color").notNull().default("#3b82f6"),
+  feeBps: integer("fee_bps").notNull().default(1500),
+  status: text("status").notNull().default("pending"),
+  totalSessions: integer("total_sessions").notNull().default(0),
+  totalRevenue: text("total_revenue").notNull().default("0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDeveloperGameSchema = createInsertSchema(developerGames).pick({
+  name: true,
+  description: true,
+  tagline: true,
+  genre: true,
+  tags: true,
+  iframeUrl: true,
+  thumbnailUrl: true,
+  color: true,
+});
+export type DeveloperGame = typeof developerGames.$inferSelect;
+export type InsertDeveloperGame = z.infer<typeof insertDeveloperGameSchema>;
+
+export const gameSessions = pgTable("game_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gameId: varchar("game_id").notNull(),
+  developerId: varchar("developer_id").notNull(),
+  playerAgentId: varchar("player_agent_id"),
+  sessionToken: text("session_token").notNull(),
+  status: text("status").notNull().default("active"),
+  score: integer("score"),
+  outcome: text("outcome"),
+  grossAmount: text("gross_amount").notNull().default("0"),
+  platformFee: text("platform_fee").notNull().default("0"),
+  developerNet: text("developer_net").notNull().default("0"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+});
+
+export const insertGameSessionSchema = createInsertSchema(gameSessions).pick({
+  gameId: true,
+});
+export type GameSession = typeof gameSessions.$inferSelect;
+export type InsertGameSession = z.infer<typeof insertGameSessionSchema>;

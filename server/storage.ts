@@ -31,6 +31,9 @@ import {
   type TradingDuel, type InsertTradingDuel, type TradingPosition, type InsertTradingPosition,
   type CrmContact, type InsertCrmContact, type CrmDeal, type InsertCrmDeal, type CrmActivity, type InsertCrmActivity,
   type CrmUser, type InsertCrmUser, crmUsers,
+  type DeveloperAccount, type InsertDeveloperAccount,
+  type DeveloperGame, type InsertDeveloperGame,
+  type GameSession,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
@@ -38,7 +41,8 @@ import {
   referrals, referralConversions, achievementDefs, userAchievements, earlyAdopters, leaderboardSnapshots,
   userPoints, pointsHistory, pointsConfig,
   tradingDuels, tradingPositions,
-  crmContacts, crmDeals, crmActivities
+  crmContacts, crmDeals, crmActivities,
+  developerAccounts, developerGames, gameSessions
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -278,6 +282,27 @@ export interface IStorage {
   getCrmUsers(): Promise<CrmUser[]>;
   updateCrmUser(id: string, updates: Partial<Omit<InsertCrmUser, 'passwordHash'> & { passwordHash?: string; lastLoginAt?: Date }>): Promise<CrmUser>;
   deleteCrmUser(id: string): Promise<void>;
+
+  // Developer Platform
+  createDeveloperAccount(data: Omit<DeveloperAccount, 'id' | 'createdAt' | 'totalEarnings' | 'status'>): Promise<DeveloperAccount>;
+  getDeveloperAccount(id: string): Promise<DeveloperAccount | undefined>;
+  getDeveloperAccountByAgent(agentId: string): Promise<DeveloperAccount | undefined>;
+  getDeveloperAccountByApiKey(apiKeyHash: string): Promise<DeveloperAccount | undefined>;
+  updateDeveloperAccount(id: string, updates: Partial<DeveloperAccount>): Promise<DeveloperAccount>;
+
+  createDeveloperGame(data: InsertDeveloperGame & { developerId: string }): Promise<DeveloperGame>;
+  getDeveloperGame(id: string): Promise<DeveloperGame | undefined>;
+  getDeveloperGames(developerId: string): Promise<DeveloperGame[]>;
+  getApprovedDeveloperGames(): Promise<(DeveloperGame & { studioName: string })[]>;
+  updateDeveloperGame(id: string, updates: Partial<DeveloperGame>): Promise<DeveloperGame>;
+  deleteDeveloperGame(id: string): Promise<void>;
+
+  createGameSession(data: Omit<GameSession, 'id' | 'startedAt' | 'endedAt' | 'score' | 'outcome' | 'grossAmount' | 'platformFee' | 'developerNet' | 'status'>): Promise<GameSession>;
+  getGameSession(id: string): Promise<GameSession | undefined>;
+  getGameSessionByToken(token: string): Promise<GameSession | undefined>;
+  endGameSession(id: string, outcome: string, score: number, grossAmount: string, platformFee: string, developerNet: string): Promise<GameSession>;
+  getGameSessionsByDeveloper(developerId: string, limit: number): Promise<GameSession[]>;
+  getDeveloperEarnings(developerId: string): Promise<{ totalSessions: number; totalRevenue: string; totalFees: string; totalNet: string }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1855,6 +1880,127 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCrmUser(id: string): Promise<void> {
     await db.delete(crmUsers).where(eq(crmUsers.id, id));
+  }
+
+  // Developer Platform
+  async createDeveloperAccount(data: Omit<DeveloperAccount, 'id' | 'createdAt' | 'totalEarnings' | 'status'>): Promise<DeveloperAccount> {
+    const [account] = await db.insert(developerAccounts).values(data).returning();
+    return account;
+  }
+
+  async getDeveloperAccount(id: string): Promise<DeveloperAccount | undefined> {
+    const [account] = await db.select().from(developerAccounts).where(eq(developerAccounts.id, id));
+    return account;
+  }
+
+  async getDeveloperAccountByAgent(agentId: string): Promise<DeveloperAccount | undefined> {
+    const [account] = await db.select().from(developerAccounts).where(eq(developerAccounts.ownerAgentId, agentId));
+    return account;
+  }
+
+  async getDeveloperAccountByApiKey(apiKeyHash: string): Promise<DeveloperAccount | undefined> {
+    const [account] = await db.select().from(developerAccounts).where(eq(developerAccounts.apiKeyHash, apiKeyHash));
+    return account;
+  }
+
+  async updateDeveloperAccount(id: string, updates: Partial<DeveloperAccount>): Promise<DeveloperAccount> {
+    const [account] = await db.update(developerAccounts).set(updates).where(eq(developerAccounts.id, id)).returning();
+    return account;
+  }
+
+  async createDeveloperGame(data: InsertDeveloperGame & { developerId: string }): Promise<DeveloperGame> {
+    const [game] = await db.insert(developerGames).values(data).returning();
+    return game;
+  }
+
+  async getDeveloperGame(id: string): Promise<DeveloperGame | undefined> {
+    const [game] = await db.select().from(developerGames).where(eq(developerGames.id, id));
+    return game;
+  }
+
+  async getDeveloperGames(developerId: string): Promise<DeveloperGame[]> {
+    return db.select().from(developerGames).where(eq(developerGames.developerId, developerId)).orderBy(desc(developerGames.createdAt));
+  }
+
+  async getApprovedDeveloperGames(): Promise<(DeveloperGame & { studioName: string })[]> {
+    const rows = await db
+      .select({
+        id: developerGames.id,
+        developerId: developerGames.developerId,
+        name: developerGames.name,
+        description: developerGames.description,
+        tagline: developerGames.tagline,
+        genre: developerGames.genre,
+        tags: developerGames.tags,
+        iframeUrl: developerGames.iframeUrl,
+        thumbnailUrl: developerGames.thumbnailUrl,
+        color: developerGames.color,
+        feeBps: developerGames.feeBps,
+        status: developerGames.status,
+        totalSessions: developerGames.totalSessions,
+        totalRevenue: developerGames.totalRevenue,
+        createdAt: developerGames.createdAt,
+        studioName: developerAccounts.studioName,
+      })
+      .from(developerGames)
+      .innerJoin(developerAccounts, eq(developerGames.developerId, developerAccounts.id))
+      .where(eq(developerGames.status, "approved"))
+      .orderBy(desc(developerGames.totalSessions));
+    return rows;
+  }
+
+  async updateDeveloperGame(id: string, updates: Partial<DeveloperGame>): Promise<DeveloperGame> {
+    const [game] = await db.update(developerGames).set(updates).where(eq(developerGames.id, id)).returning();
+    return game;
+  }
+
+  async deleteDeveloperGame(id: string): Promise<void> {
+    await db.delete(developerGames).where(eq(developerGames.id, id));
+  }
+
+  async createGameSession(data: Omit<GameSession, 'id' | 'startedAt' | 'endedAt' | 'score' | 'outcome' | 'grossAmount' | 'platformFee' | 'developerNet' | 'status'>): Promise<GameSession> {
+    const [session] = await db.insert(gameSessions).values(data).returning();
+    return session;
+  }
+
+  async getGameSession(id: string): Promise<GameSession | undefined> {
+    const [session] = await db.select().from(gameSessions).where(eq(gameSessions.id, id));
+    return session;
+  }
+
+  async getGameSessionByToken(token: string): Promise<GameSession | undefined> {
+    const [session] = await db.select().from(gameSessions).where(eq(gameSessions.sessionToken, token));
+    return session;
+  }
+
+  async endGameSession(id: string, outcome: string, score: number, grossAmount: string, platformFee: string, developerNet: string): Promise<GameSession> {
+    const [session] = await db.update(gameSessions).set({
+      status: "completed",
+      outcome,
+      score,
+      grossAmount,
+      platformFee,
+      developerNet,
+      endedAt: new Date(),
+    }).where(eq(gameSessions.id, id)).returning();
+    return session;
+  }
+
+  async getGameSessionsByDeveloper(developerId: string, limit: number): Promise<GameSession[]> {
+    return db.select().from(gameSessions).where(eq(gameSessions.developerId, developerId)).orderBy(desc(gameSessions.startedAt)).limit(limit);
+  }
+
+  async getDeveloperEarnings(developerId: string): Promise<{ totalSessions: number; totalRevenue: string; totalFees: string; totalNet: string }> {
+    const result = await db
+      .select({
+        totalSessions: sql<number>`count(*)::int`,
+        totalRevenue: sql<string>`coalesce(sum(${gameSessions.grossAmount}::numeric), 0)::text`,
+        totalFees: sql<string>`coalesce(sum(${gameSessions.platformFee}::numeric), 0)::text`,
+        totalNet: sql<string>`coalesce(sum(${gameSessions.developerNet}::numeric), 0)::text`,
+      })
+      .from(gameSessions)
+      .where(and(eq(gameSessions.developerId, developerId), eq(gameSessions.status, "completed")));
+    return result[0] ?? { totalSessions: 0, totalRevenue: "0", totalFees: "0", totalNet: "0" };
   }
 }
 

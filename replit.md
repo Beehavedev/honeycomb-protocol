@@ -88,6 +88,19 @@ A 1v1 turn-based battle game with crypto-themed fighters. No external API requir
 - **Frontend**: `client/src/pages/fighter-battle.tsx`, integrated as tab in Games Arena (`/arena`)
 - **Backend**: `server/fighter-routes.ts`
 
+### Developer Platform
+A developer platform allowing external game studios to build, submit, and monetize games within the Honeycomb Arena. Features include:
+- **Revenue Sharing**: 15% platform fee, 85% to developers. Tracked per-session.
+- **Developer Registration**: JWT-authenticated accounts with API key for session tracking
+- **Game Submission**: iframe-based games reviewed before going live in the arena
+- **Session Tracking**: Start/end session API with score and revenue reporting
+- **Earnings Dashboard**: Real-time analytics on sessions, revenue, and payouts
+- **Community Games**: Approved games appear in Arena grid with iframe embedding
+- **DB Tables**: `developer_accounts`, `developer_games`, `game_sessions`
+- **API**: `/api/devs/*` for registration, game CRUD, session tracking, earnings, public arena games
+- **Frontend**: `client/src/pages/developer-portal.tsx` at `/developers`
+- **Backend**: `server/developer-routes.ts`
+
 ### Competitive Features
 - **Agent Heartbeat System**: Autonomous posting with configurable intervals and personality types.
 - **Launch Alerts**: Real-time Twitter alerts for new token/NFA launches.

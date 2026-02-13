@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { useAccount, useSignMessage, useChainId } from "wagmi";
 import { parseEther } from "viem";
 import {
@@ -64,6 +64,7 @@ import {
   VolumeX,
   Sparkles,
   CircleDot,
+  Code2,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
@@ -3780,6 +3781,14 @@ function FuturisticHero() {
         <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
           Choose your battlefield. Compete in skill-based crypto games against AI bots or other players.
         </p>
+        <div className="pt-2">
+          <Link href="/developers">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-developer-portal">
+              <Code2 className="w-3 h-3" />
+              Build Games &amp; Earn 85%
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -3904,12 +3913,123 @@ function GamesArenaLanding({ onSelectGame }: { onSelectGame: (id: string) => voi
           ))}
         </div>
 
+        <CommunityGames onSelectGame={onSelectGame} />
+
         <div className="mt-8 text-center arena-animate-up-d3">
           <div className="inline-flex items-center gap-3 px-4 py-2 rounded-md border border-border/30 bg-card/50">
             <Bot className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">All games support AI bot opponents for instant practice matches</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CommunityGames({ onSelectGame }: { onSelectGame: (id: string) => void }) {
+  const { data } = useQuery<{ games: any[] }>({
+    queryKey: ["/api/devs/arena/games"],
+  });
+
+  if (!data?.games?.length) return null;
+
+  return (
+    <div className="mt-8 space-y-4 arena-animate-up-d3">
+      <div className="flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-amber-500" />
+        <h2 className="text-sm font-bold tracking-wider uppercase">Community Games</h2>
+        <Badge variant="secondary" className="text-[10px]">{data.games.length}</Badge>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        {data.games.map((game: any, i: number) => (
+          <div
+            key={game.id}
+            className="arena-game-card rounded-md cursor-pointer"
+            onClick={() => { playUISound("select"); onSelectGame(`community-${game.id}`); }}
+            onMouseEnter={() => playUISound("hover")}
+            data-testid={`card-community-game-${game.id}`}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playUISound("select"); onSelectGame(`community-${game.id}`); } }}
+          >
+            <div className="relative rounded-md border border-border/50 bg-card overflow-hidden">
+              <div className="relative h-28 sm:h-32 overflow-hidden">
+                {game.thumbnailUrl ? (
+                  <img src={game.thumbnailUrl} alt={game.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"
+                    style={{ background: `linear-gradient(135deg, ${game.color}15, ${game.color}30)` }}>
+                    <Gamepad2 className="w-10 h-10" style={{ color: `${game.color}80` }} />
+                  </div>
+                )}
+                <div className="absolute inset-0"
+                  style={{ background: `linear-gradient(to top, hsl(var(--card)) 0%, transparent 50%, ${game.color}08 100%)` }} />
+              </div>
+              <div className="absolute top-2 right-2 z-10">
+                <Badge variant="outline" className="text-[9px] font-mono border-amber-500/30 text-amber-500 bg-background/80">
+                  Community
+                </Badge>
+              </div>
+              <div className="relative px-4 pb-4 pt-1">
+                <h3 className="font-bold text-sm mb-0.5" style={{ color: game.color }}>{game.name}</h3>
+                <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{game.tagline || game.description}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="secondary" className="text-[10px]">{game.genre}</Badge>
+                  <div className="flex items-center gap-1 text-xs font-mono" style={{ color: game.color }}>
+                    PLAY <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CommunityGameEmbed({ gameId, onBack }: { gameId: number; onBack: () => void }) {
+  const { data } = useQuery<{ games: any[] }>({
+    queryKey: ["/api/devs/arena/games"],
+  });
+  const game = data?.games?.find((g: any) => g.id === gameId);
+
+  if (!game) {
+    return (
+      <div className="text-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">Loading game...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 arena-animate-up">
+        <Button size="icon" variant="ghost" onClick={() => { playUISound("back"); onBack(); }} data-testid="button-back-from-community-game">
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-md flex items-center justify-center"
+            style={{ background: `${game.color}15`, border: `1px solid ${game.color}25` }}>
+            <Gamepad2 className="w-4 h-4" style={{ color: game.color }} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold" style={{ color: game.color }}>{game.name}</h2>
+            <p className="text-[10px] text-muted-foreground font-mono">{game.studioName} — Community Game</p>
+          </div>
+        </div>
+      </div>
+      <div className="rounded-md border border-border/50 overflow-hidden bg-card arena-animate-up">
+        <iframe
+          src={game.iframeUrl}
+          className="w-full border-0"
+          style={{ height: "70vh", minHeight: "500px" }}
+          allow="autoplay; fullscreen"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          title={game.name}
+          data-testid={`iframe-community-game-${game.id}`}
+        />
       </div>
     </div>
   );
@@ -3954,6 +4074,18 @@ export default function TradingArena() {
 
   if (!gameMode) {
     return <GamesArenaLanding onSelectGame={setGameMode} />;
+  }
+
+  if (gameMode.startsWith("community-")) {
+    const communityId = parseInt(gameMode.replace("community-", ""), 10);
+    return (
+      <div className="relative max-w-5xl mx-auto px-3 sm:p-4 py-4 space-y-2">
+        <ArenaBackground />
+        <div className="relative z-10">
+          <CommunityGameEmbed gameId={communityId} onBack={() => setGameMode(null)} />
+        </div>
+      </div>
+    );
   }
 
   return (
