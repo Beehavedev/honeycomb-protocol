@@ -1,0 +1,16 @@
+System Instruction: Redesign the current "Honey Runner" game into a high-octane, rhythmic, synth-wave cyberpunk infinite runner. Move away from the 2D flat aesthetic into a "Pseudo-3D" or "2.5D" perspective that looks like a neon digital tunnel.
+1. Visual Style & Assets
+* The Tunnel: Replace the static background with a 3D wireframe hexagonal tunnel that uses a deep navy/black base with glowing cyan and magenta lines. The tunnel should pulse and scroll toward the camera to create a sense of high speed.
+* The Cyber-Bee: Redesign the bee sprite to be a high-tech drone. Give it translucent, glowing wings with "circuitry" patterns and a trail of digital honey particles (golden hex-dust).
+* UI/HUD: Add a futuristic "Heads-Up Display" (HUD). Include a "Neural Overload" combo meter at the top and a circular "Stinger Dash" cooldown icon in the corner. Use sleek, tech-style fonts.
+2. Gameplay Mechanics
+* Perspective: Shift the camera to a "Third-Person Behind" view, looking over the bee's shoulder as it flies into the screen.
+* Lane System: Implement three distinct lanes within the hexagonal tunnel.
+* New Ability (Stinger Dash): Add a mechanic where swiping UP (or pressing Up Arrow) when a meter is full triggers a "Stinger Dash," allowing the player to phase through red laser obstacles for 1 second.
+* Obstacles: Replace the simple red boxes with glowing red laser grids and "glitch walls" that flickers.
+3. Polish & Feel
+* Juice: Add screen-shake when hitting a honey cluster and a "speed lines" effect when the player reaches a 10x multiplier.
+* Color Transitions: As the score increases, transition the neon colors from Cyan to Hot Pink to Lime Green to indicate difficulty levels.
+* Sound Triggers: Code the game so that collecting honey triggers a synth-note that harmonizes with a background electronic track.
+Pro-Tip for Replit:
+If you have the Replit Agent active, you can actually upload the image I generated for you along with this text. Say: "Use the attached image as the visual reference for the new UI and character design while following these technical specs."
