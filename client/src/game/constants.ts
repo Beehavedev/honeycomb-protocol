@@ -34,79 +34,83 @@ export const COMBO_DECAY_TIME = 3000;
 export const COMBO_TIERS = [1, 2, 5, 10, 20];
 
 export const PHASE_THRESHOLDS = [0, 2000, 6000, 15000];
-export const PHASE_NAMES = ["CYAN SURGE", "NEON BLAZE", "PLASMA RUSH", "HYPER NOVA"];
+export const PHASE_NAMES = ["AMBER SURGE", "GOLDEN BLAZE", "HONEY RUSH", "HYPER HIVE"];
 
 export const FONT_UI = "'Inter', 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif";
 export const FONT_DISPLAY = "'Inter', 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif";
 export const FONT_MONO = "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace";
 
 export const C = {
-  bgDeep: 0x020010,
-  bgMid: 0x06002a,
-  bgTop: 0x0a0040,
+  bgDeep: 0x0a0800,
+  bgMid: 0x1a1000,
+  bgTop: 0x2a1a00,
 
-  tunnelDark: 0x03000e,
-  tunnelMid: 0x0c0430,
-  tunnelDeep: 0x020008,
+  tunnelDark: 0x0c0800,
+  tunnelMid: 0x1e1208,
+  tunnelDeep: 0x080500,
 
-  cyan: 0x00e5ff,
-  cyanBright: 0x60f8ff,
-  cyanDim: 0x003848,
-  cyanWhite: 0xc0f8ff,
-  cyanHot: 0x00d4ff,
+  amber: 0xf0a500,
+  amberBright: 0xffc040,
+  amberDim: 0x806000,
+  amberWhite: 0xfff4d0,
+  amberHot: 0xffd050,
 
-  magenta: 0xff0080,
-  magentaBright: 0xff50b8,
-  magentaDim: 0x480028,
-  magentaHot: 0xff2098,
+  gold: 0xf5b800,
+  goldBright: 0xffe070,
+  goldDim: 0x705000,
+  goldWhite: 0xfff8e0,
 
-  lime: 0x30ff10,
-  limeBright: 0x70ff50,
-  limeDim: 0x185000,
+  honey: 0xffaa00,
+  honeyBright: 0xffc840,
+  honeyDim: 0x604000,
+  honeyGlow: 0xff9500,
 
-  amber: 0xf0a000,
-  amberHot: 0xffc840,
-  amberWhite: 0xfff0c0,
-  amberDim: 0x604000,
+  orange: 0xff7800,
+  orangeBright: 0xffb060,
+  orangeDim: 0x603000,
+  orangeHot: 0xff9030,
 
-  laserRed: 0xff2848,
-  laserRedBright: 0xff6888,
-  laserRedGlow: 0xff0838,
-  laserRedWhite: 0xffe0e8,
+  laserRed: 0xff3858,
+  laserRedBright: 0xff80a0,
+  laserRedGlow: 0xff1848,
+  laserRedWhite: 0xfff0f4,
 
-  glitchPurple: 0xb050ff,
-  glitchBlue: 0x5090ff,
-  glitchPink: 0xff40d0,
+  glitchPurple: 0xc060ff,
+  glitchBlue: 0x60a0ff,
+  glitchPink: 0xff50e0,
 
-  beeBody: 0x0c2838,
-  beeBodyLight: 0x184858,
-  beeStripe: 0xff9800,
-  beeStripeBright: 0xffb840,
-  beeEye: 0x00ffff,
-  beeEyeBright: 0x80ffff,
-  beeWing: 0x00e5ff,
-  beeWingTip: 0xff0080,
+  beeBody: 0x1a1208,
+  beeBodyLight: 0x2a1e10,
+  beeStripe: 0xffaa00,
+  beeStripeBright: 0xffc850,
+  beeEye: 0xffd040,
+  beeEyeBright: 0xffe880,
+  beeWing: 0xf0a500,
+  beeWingTip: 0xff7800,
 
-  coinBody: 0xffd040,
-  coinLight: 0xffec90,
-  coinShine: 0xfffff0,
-  coinGlow: 0xffb000,
+  coinBody: 0xffe050,
+  coinLight: 0xfff0a0,
+  coinShine: 0xfffff8,
+  coinGlow: 0xffc020,
 
-  shieldGreen: 0x00e870,
-  shieldBright: 0x70ffb0,
-  magnetBlue: 0x4890ff,
-  magnetBright: 0x90c0ff,
-  boostOrange: 0xff6800,
-  boostBright: 0xffa848,
+  shieldGreen: 0x00ff80,
+  shieldBright: 0x80ffc0,
+  magnetBlue: 0x58a0ff,
+  magnetBright: 0xa0d0ff,
+  boostOrange: 0xff7800,
+  boostBright: 0xffb858,
+
+  cyan: 0x00f0ff,
+  cyanBright: 0x80ffff,
 
   white: 0xffffff,
   black: 0x000000,
 
-  hudBg: 0x030010,
-  hudBorder: 0x1a2848,
-  hudAccent: 0x00e5ff,
+  hudBg: 0x0a0800,
+  hudBorder: 0x3a2810,
+  hudAccent: 0xf0a500,
 
-  glass: 0x0a0828,
-  glassBorder: 0x2a1858,
-  glassHighlight: 0x3a2068,
+  glass: 0x1a1008,
+  glassBorder: 0x3a2818,
+  glassHighlight: 0x4a3420,
 };
