@@ -141,7 +141,7 @@ class BootScene extends Phaser.Scene {
       const y1 = VY + Math.sin(angle - spread) * len;
       const x2 = VX + Math.cos(angle + spread) * len;
       const y2 = VY + Math.sin(angle + spread) * len;
-      const cols = [0xf0a500, 0xff7800, 0xff3858, 0xc060ff, 0xf0a500, 0xff7800, 0xffc040, 0xffd050];
+      const cols = [0xf0a500, 0xff7800, 0xffd050, 0xf5b800, 0xffaa00, 0xff9500, 0xffc040, 0xffd050];
       g.fillStyle(cols[i % cols.length], 0.06 + Math.random() * 0.12);
       g.beginPath(); g.moveTo(VX, VY); g.lineTo(x1, y1); g.lineTo(x2, y2); g.closePath(); g.fillPath();
     }
@@ -160,13 +160,13 @@ class BootScene extends Phaser.Scene {
       const baseR = 12 + t * (W * 1.1);
       const cy = VY + t * (H * 0.65);
       const rr = baseR * (0.4 + t * 0.6);
-      fillHex(g, VX, cy, rr, 0x030018, 0.08 + t * 0.2);
+      fillHex(g, VX, cy, rr, 0x0a0800, 0.08 + t * 0.2);
       const ea = 0.3 + t * 0.8;
       const ew = 0.8 + t * 4;
       strokeHex(g, VX, cy, rr, C.amber, ea, ew);
       if (t > 0.08) strokeHex(g, VX, cy, rr + 3, C.amberBright, ea * 0.25, ew + 6);
       if (t > 0.2) strokeHex(g, VX, cy, rr, C.orange, ea * 0.35, ew * 0.5);
-      if (t > 0.4) strokeHex(g, VX, cy, rr + 1, C.glitchPurple, ea * 0.15, ew * 0.4);
+      if (t > 0.4) strokeHex(g, VX, cy, rr + 1, C.goldDim, ea * 0.15, ew * 0.4);
       if (t > 0.3) {
         const pts = hexVerts(VX, cy, rr);
         for (let j = 0; j < 6; j++) {
@@ -276,7 +276,7 @@ class BootScene extends Phaser.Scene {
     const cx = bw / 2;
     g.clear();
 
-    g.lineStyle(2.5, 0x0c2838, 1);
+    g.lineStyle(2.5, 0x1a1208, 1);
     g.beginPath(); g.moveTo(cx - 6, 12); g.lineTo(cx - 14, -2); g.lineTo(cx - 19, -12); g.strokePath();
     g.beginPath(); g.moveTo(cx + 6, 12); g.lineTo(cx + 14, -2); g.lineTo(cx + 19, -12); g.strokePath();
     g.lineStyle(1.5, 0xf0a500, 0.8);
@@ -289,9 +289,9 @@ class BootScene extends Phaser.Scene {
     g.fillCircle(cx - 19, -12, 8);
     g.fillCircle(cx + 19, -12, 8);
 
-    g.fillStyle(0x081c28, 1);
+    g.fillStyle(C.beeBody, 1);
     g.fillEllipse(cx, 22, 36, 30);
-    g.fillStyle(0x0c3040, 0.6);
+    g.fillStyle(C.beeBodyLight, 0.6);
     g.fillEllipse(cx, 18, 22, 18);
 
     g.lineStyle(1.2, 0xf0a500, 0.5);
@@ -324,7 +324,7 @@ class BootScene extends Phaser.Scene {
     g.fillCircle(cx - 11, 17, 2.5);
     g.fillCircle(cx + 11, 17, 2.5);
 
-    g.lineStyle(2.5, 0x081c28, 1);
+    g.lineStyle(2.5, C.beeBody, 1);
     g.lineBetween(cx - 11, 34, cx - 15, 42);
     g.lineBetween(cx - 15, 42, cx - 21, 48);
     g.lineBetween(cx + 11, 34, cx + 15, 42);
@@ -346,9 +346,9 @@ class BootScene extends Phaser.Scene {
       g.fillCircle(cx + dx, dy, 2);
     });
 
-    g.fillStyle(0x0a2030, 1);
+    g.fillStyle(C.beeBody, 1);
     g.fillEllipse(cx, 42, 34, 22);
-    g.fillStyle(0x0c3040, 0.6);
+    g.fillStyle(C.beeBodyLight, 0.6);
     g.fillEllipse(cx, 39, 20, 14);
     g.lineStyle(0.9, 0xf0a500, 0.45);
     g.lineBetween(cx - 13, 36, cx + 13, 36);
@@ -359,9 +359,9 @@ class BootScene extends Phaser.Scene {
     g.fillStyle(0xf0a500, 0.2);
     g.fillRect(cx - 4, 34, 8, 5);
 
-    g.fillStyle(0x081c28, 1);
+    g.fillStyle(C.beeBody, 1);
     g.fillEllipse(cx, 77, 44, 52);
-    g.fillStyle(0x0c2838, 0.6);
+    g.fillStyle(C.beeBodyLight, 0.6);
     g.fillEllipse(cx - 5, 68, 20, 26);
 
     const stripes = [57, 64, 71, 78, 85, 92];
@@ -395,7 +395,7 @@ class BootScene extends Phaser.Scene {
     g.lineStyle(4, 0xf0a500, 0.12);
     g.strokeEllipse(cx, 77, 48, 56);
 
-    g.fillStyle(0x081c28, 1);
+    g.fillStyle(C.beeBody, 1);
     g.beginPath(); g.moveTo(cx, 106); g.lineTo(cx - 6, 99); g.lineTo(cx + 6, 99); g.closePath(); g.fillPath();
     g.fillStyle(0x90a0b0, 1);
     g.beginPath(); g.moveTo(cx, 116); g.lineTo(cx - 3, 106); g.lineTo(cx + 3, 106); g.closePath(); g.fillPath();
@@ -413,7 +413,7 @@ class BootScene extends Phaser.Scene {
   private genCyberBeeSlide(g: Phaser.GameObjects.Graphics) {
     const sw = 88, sh = 38;
     g.clear();
-    g.fillStyle(0x081c28, 1);
+    g.fillStyle(C.beeBody, 1);
     g.fillEllipse(16, sh / 2, 24, 20);
     g.lineStyle(0.8, 0xf0a500, 0.4);
     g.lineBetween(7, sh / 2, 25, sh / 2);
@@ -426,9 +426,9 @@ class BootScene extends Phaser.Scene {
     g.lineStyle(0.8, 0xc08800, 0.6);
     g.strokeCircle(12, sh / 2 - 4, 5);
     g.strokeCircle(22, sh / 2 - 4, 5);
-    g.fillStyle(0x0a2030, 1);
+    g.fillStyle(C.beeBody, 1);
     g.fillEllipse(36, sh / 2, 20, 18);
-    g.fillStyle(0x081c28, 1);
+    g.fillStyle(C.beeBody, 1);
     g.fillEllipse(sw / 2 + 8, sh / 2, 44, 28);
     const sx = [38, 46, 54, 62];
     for (const x of sx) {
@@ -921,7 +921,7 @@ class BootScene extends Phaser.Scene {
     ];
     for (const b of buildings) {
       const by = sh - b.h;
-      g.fillStyle(0x040820, 0.95);
+      g.fillStyle(0x0a0600, 0.95);
       g.fillRect(b.x, by, b.w, b.h);
       g.lineStyle(1, C.amber, 0.1);
       g.strokeRect(b.x, by, b.w, b.h);
