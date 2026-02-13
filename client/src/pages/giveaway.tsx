@@ -10,7 +10,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Gift, Clock, Users, Trophy, ExternalLink, Zap, Bot,
-  CheckCircle, AlertCircle, ArrowRight, Sparkles, Timer, Crown
+  CheckCircle, AlertCircle, ArrowRight, Sparkles, Timer, Crown,
+  Shield, XCircle, Loader2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { GiveawayCampaign, GiveawayEntry } from "@shared/schema";
@@ -19,6 +20,19 @@ interface GiveawayData {
   campaign: GiveawayCampaign | null;
   entryCount: number;
   entries: GiveawayEntry[];
+}
+
+interface VerificationEntry {
+  walletAddress: string;
+  nfaId: string | null;
+  nfaName: string | null;
+  onChainTokenId: number | null;
+  bap578Verified: boolean;
+  bap578Owner: string | null;
+  registryVerified: boolean;
+  registryAgentId: number | null;
+  mintTxHash: string | null;
+  registryTxHash: string | null;
 }
 
 function useCountdown(endDate: Date | null) {
@@ -69,6 +83,23 @@ function truncateWallet(addr: string) {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
+function VerificationBadge({ verified, label }: { verified: boolean; label: string }) {
+  return (
+    <Badge
+      variant={verified ? "outline" : "destructive"}
+      className="text-xs gap-1"
+      data-testid={`badge-${label.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
+    >
+      {verified ? (
+        <CheckCircle className="h-3 w-3" />
+      ) : (
+        <XCircle className="h-3 w-3" />
+      )}
+      {label}
+    </Badge>
+  );
+}
+
 export default function GiveawayPage() {
   const { toast } = useToast();
   const { isAuthenticated, walletAddress } = useAuth();
@@ -84,6 +115,25 @@ export default function GiveawayPage() {
   const campaign = data?.campaign;
   const entries = data?.entries || [];
   const entryCount = data?.entryCount || 0;
+
+  const { data: verifyData, isLoading: verifyLoading } = useQuery<{ verifications: VerificationEntry[] }>({
+    queryKey: ["/api/giveaways", campaign?.id, "verify"],
+    queryFn: async () => {
+      if (!campaign?.id) return { verifications: [] };
+      const res = await fetch(`/api/giveaways/${campaign.id}/verify`);
+      if (!res.ok) throw new Error("Failed to verify");
+      return res.json();
+    },
+    enabled: !!campaign?.id,
+    staleTime: 60000,
+  });
+
+  const verifications = verifyData?.verifications || [];
+  const verifyMap = new Map(verifications.map(v => [v.walletAddress, v]));
+
+  const bap578Count = verifications.filter(v => v.bap578Verified).length;
+  const registryCount = verifications.filter(v => v.registryVerified).length;
+  const bothCount = verifications.filter(v => v.bap578Verified && v.registryVerified).length;
 
   const countdown = useCountdown(campaign?.endAt ? new Date(campaign.endAt) : null);
   const isActive = campaign?.status === "active" && !countdown.expired;
@@ -301,6 +351,50 @@ export default function GiveawayPage() {
         </Card>
       </div>
 
+      {verifications.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-500" />
+              On-Chain Verification Status
+            </CardTitle>
+            <CardDescription>
+              Live verification against BAP-578 and HoneycombAgentRegistry contracts
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <div className="text-2xl font-bold" data-testid="text-bap578-count">{bap578Count}/{verifications.length}</div>
+                <div className="text-xs text-muted-foreground mt-1">BAP-578</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <div className="text-2xl font-bold" data-testid="text-registry-count">{registryCount}/{verifications.length}</div>
+                <div className="text-xs text-muted-foreground mt-1">AgentRegistry</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <div className="text-2xl font-bold text-amber-500" data-testid="text-both-count">{bothCount}/{verifications.length}</div>
+                <div className="text-xs text-muted-foreground mt-1">Both Verified</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Shield className="h-3 w-3" /> BAP-578: 
+                <a href="https://bscscan.com/address/0xd7Deb29ddBB13607375Ce50405A574AC2f7d978d" target="_blank" rel="noopener noreferrer" className="underline">
+                  0xd7De...978d
+                </a>
+              </span>
+              <span className="flex items-center gap-1">
+                <Shield className="h-3 w-3" /> Registry: 
+                <a href="https://bscscan.com/address/0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651" target="_blank" rel="noopener noreferrer" className="underline">
+                  0xbff2...F651
+                </a>
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -308,6 +402,12 @@ export default function GiveawayPage() {
             Participants
             <Badge variant="secondary">{entryCount}</Badge>
           </CardTitle>
+          {verifyLoading && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Verifying on-chain...
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {entries.length === 0 ? (
@@ -318,44 +418,94 @@ export default function GiveawayPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {entries.map((entry, index) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/30"
-                  data-testid={`entry-${index}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm font-medium text-muted-foreground w-6 text-right">
-                      #{index + 1}
+            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              {entries.map((entry, index) => {
+                const v = verifyMap.get(entry.walletAddress);
+                return (
+                  <div
+                    key={entry.id}
+                    className="p-3 rounded-lg bg-muted/30 space-y-2"
+                    data-testid={`entry-${index}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm font-medium text-muted-foreground w-6 text-right">
+                          #{index + 1}
+                        </div>
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-amber-500/10 text-amber-600 text-xs">
+                            {entry.walletAddress.slice(2, 4).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <a
+                              href={`https://bscscan.com/address/${entry.walletAddress}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-sm hover:underline"
+                            >
+                              {truncateWallet(entry.walletAddress)}
+                            </a>
+                            {entry.walletAddress === campaign.winnerWallet && (
+                              <Badge variant="secondary" className="bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                                <Trophy className="h-3 w-3 mr-1" />
+                                Winner
+                              </Badge>
+                            )}
+                          </div>
+                          {v?.nfaName && (
+                            <span className="text-xs text-muted-foreground">
+                              NFA: {v.nfaName}
+                              {v.onChainTokenId && v.onChainTokenId > 0 && ` (#${v.onChainTokenId})`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground shrink-0">
+                        {new Date(entry.createdAt).toLocaleDateString()}
+                      </div>
                     </div>
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-amber-500/10 text-amber-600 text-xs">
-                        {entry.walletAddress.slice(2, 4).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <a
-                        href={`https://bscscan.com/address/${entry.walletAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-sm hover:underline"
-                      >
-                        {truncateWallet(entry.walletAddress)}
-                      </a>
-                      {entry.walletAddress === campaign.winnerWallet && (
-                        <Badge variant="secondary" className="ml-2 bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                          <Trophy className="h-3 w-3 mr-1" />
-                          Winner
-                        </Badge>
-                      )}
-                    </div>
+
+                    {v && (
+                      <div className="flex items-center gap-2 pl-9 flex-wrap">
+                        <VerificationBadge verified={v.bap578Verified} label="BAP-578" />
+                        <VerificationBadge verified={v.registryVerified} label="AgentRegistry" />
+                        {v.mintTxHash && (
+                          <a
+                            href={`https://bscscan.com/tx/${v.mintTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground hover:underline flex items-center gap-1"
+                            data-testid={`link-mint-tx-${index}`}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Mint Tx
+                          </a>
+                        )}
+                        {v.registryTxHash && v.registryTxHash !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+                          <a
+                            href={`https://bscscan.com/tx/${v.registryTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground hover:underline flex items-center gap-1"
+                            data-testid={`link-registry-tx-${index}`}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Registry Tx
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {verifyLoading && !v && (
+                      <div className="flex items-center gap-1.5 pl-9 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Checking on-chain status...
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(entry.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

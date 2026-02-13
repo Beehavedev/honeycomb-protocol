@@ -1,12 +1,42 @@
 import { Router, Request, Response } from "express";
 import { db } from "./db";
-import { giveawayCampaigns, giveawayEntries } from "@shared/schema";
-import { eq, desc, and, sql, lte, gte, count } from "drizzle-orm";
+import { giveawayCampaigns, giveawayEntries, nfaAgents } from "@shared/schema";
+import { eq, desc, and, sql, lte, gte, count, inArray } from "drizzle-orm";
 import { authMiddleware } from "./auth";
+import { createPublicClient, http, parseAbiItem } from "viem";
+import { bsc } from "viem/chains";
 
 export const giveawayRouter = Router();
 
 const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7";
+
+const BAP578_ADDRESS = "0xd7Deb29ddBB13607375Ce50405A574AC2f7d978d" as `0x${string}`;
+const REGISTRY_ADDRESS = "0xbff21cBa7299E8A9C08dcc0B7CAD97D06767F651" as `0x${string}`;
+
+const BAP578_ABI = [
+  {
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    name: "ownerOf",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const REGISTRY_ABI = [
+  {
+    inputs: [{ name: "owner", type: "address" }],
+    name: "getAgentByOwner",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+const bscClient = createPublicClient({
+  chain: bsc,
+  transport: http("https://bsc-dataseed1.binance.org"),
+});
 
 export async function seedGiveawayCampaign() {
   try {
@@ -86,6 +116,134 @@ giveawayRouter.get("/active", async (_req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error fetching active giveaway:", error);
     res.status(500).json({ error: "Failed to fetch giveaway" });
+  }
+});
+
+giveawayRouter.get("/:id/verify", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const entries = await db
+      .select()
+      .from(giveawayEntries)
+      .where(eq(giveawayEntries.campaignId, id))
+      .orderBy(desc(giveawayEntries.createdAt));
+
+    if (entries.length === 0) {
+      return res.json({ verifications: [] });
+    }
+
+    const nfaIds = entries.map(e => e.nfaId).filter(Boolean) as string[];
+    let agents: any[] = [];
+    if (nfaIds.length > 0) {
+      agents = await db
+        .select()
+        .from(nfaAgents)
+        .where(inArray(nfaAgents.id, nfaIds));
+    }
+
+    const agentMap = new Map(agents.map(a => [a.id, a]));
+
+    const verifications = await Promise.all(
+      entries.map(async (entry) => {
+        const agent = agentMap.get(entry.nfaId || "");
+        const result: {
+          walletAddress: string;
+          nfaId: string | null;
+          nfaName: string | null;
+          onChainTokenId: number | null;
+          bap578Verified: boolean;
+          bap578Owner: string | null;
+          registryVerified: boolean;
+          registryAgentId: number | null;
+          mintTxHash: string | null;
+          registryTxHash: string | null;
+        } = {
+          walletAddress: entry.walletAddress,
+          nfaId: entry.nfaId,
+          nfaName: agent?.name || null,
+          onChainTokenId: agent?.onChainTokenId || null,
+          bap578Verified: false,
+          bap578Owner: null,
+          registryVerified: false,
+          registryAgentId: null,
+          mintTxHash: agent?.mintTxHash || entry.mintTxHash || null,
+          registryTxHash: agent?.registryTxHash || null,
+        };
+
+        let tokenIdToCheck = agent?.onChainTokenId && agent.onChainTokenId > 0 ? agent.onChainTokenId : null;
+
+        if (!tokenIdToCheck && result.mintTxHash) {
+          try {
+            const receipt = await bscClient.getTransactionReceipt({
+              hash: result.mintTxHash as `0x${string}`,
+            });
+            if (receipt?.status === "success") {
+              const transferEvent = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)");
+              for (const log of receipt.logs) {
+                try {
+                  if (log.address.toLowerCase() === BAP578_ADDRESS.toLowerCase() && log.topics.length === 4) {
+                    const extractedId = Number(BigInt(log.topics[3]!));
+                    if (extractedId > 0) {
+                      tokenIdToCheck = extractedId;
+                      result.onChainTokenId = extractedId;
+                      if (agent) {
+                        db.update(nfaAgents)
+                          .set({ onChainTokenId: extractedId })
+                          .where(eq(nfaAgents.id, agent.id))
+                          .execute()
+                          .catch(e => console.warn("[Giveaway] Failed to update tokenId:", e?.message?.slice(0, 80)));
+                      }
+                      break;
+                    }
+                  }
+                } catch {}
+              }
+            }
+          } catch (err: any) {
+            console.warn(`[Giveaway] Tx receipt parse failed for ${result.mintTxHash?.slice(0, 16)}:`, err?.message?.slice(0, 80));
+          }
+        }
+
+        if (tokenIdToCheck && tokenIdToCheck > 0) {
+          try {
+            const owner = await bscClient.readContract({
+              address: BAP578_ADDRESS,
+              abi: BAP578_ABI,
+              functionName: "ownerOf",
+              args: [BigInt(tokenIdToCheck)],
+            });
+            result.bap578Owner = owner as string;
+            result.bap578Verified = (owner as string).toLowerCase() === entry.walletAddress.toLowerCase();
+          } catch (err: any) {
+            console.warn(`[Giveaway] BAP-578 ownerOf check failed for token ${tokenIdToCheck}:`, err?.message?.slice(0, 80));
+          }
+        }
+
+        try {
+          const agentId = await bscClient.readContract({
+            address: REGISTRY_ADDRESS,
+            abi: REGISTRY_ABI,
+            functionName: "getAgentByOwner",
+            args: [entry.walletAddress as `0x${string}`],
+          });
+          const numId = Number(agentId);
+          if (numId > 0) {
+            result.registryVerified = true;
+            result.registryAgentId = numId;
+          }
+        } catch (err: any) {
+          console.warn(`[Giveaway] Registry check failed for ${entry.walletAddress}:`, err?.message?.slice(0, 80));
+        }
+
+        return result;
+      })
+    );
+
+    res.json({ verifications });
+  } catch (error: any) {
+    console.error("Error verifying giveaway entries:", error);
+    res.status(500).json({ error: "Failed to verify entries" });
   }
 });
 
