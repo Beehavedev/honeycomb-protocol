@@ -462,89 +462,97 @@ class BootScene extends Phaser.Scene {
     const bw = 80, bh = 54;
     g.clear();
 
-    g.fillStyle(C.laserRedGlow, 0.05);
-    g.fillRoundedRect(-4, -4, bw + 8, bh + 8, 6);
-    g.fillStyle(0x08000a, 0.95);
+    g.fillStyle(C.laserRedGlow, 0.12);
+    g.fillRoundedRect(-6, -6, bw + 12, bh + 12, 8);
+    g.fillStyle(0x180008, 0.95);
     g.fillRoundedRect(0, 0, bw, bh, 4);
 
     for (let ly = 4; ly < bh; ly += 5) {
-      g.lineStyle(2.5, C.laserRed, 0.6);
+      g.lineStyle(3, C.laserRed, 0.8);
       g.lineBetween(5, ly, bw - 5, ly);
-      g.lineStyle(6, C.laserRedGlow, 0.06);
+      g.lineStyle(8, C.laserRedGlow, 0.12);
       g.lineBetween(5, ly, bw - 5, ly);
     }
     for (let lx = 10; lx < bw; lx += 10) {
-      g.lineStyle(1, C.laserRed, 0.3);
+      g.lineStyle(1.5, C.laserRed, 0.45);
       g.lineBetween(lx, 3, lx, bh - 3);
     }
 
-    g.lineStyle(3, C.laserRed, 0.95);
+    g.lineStyle(3.5, C.laserRed, 1);
     g.strokeRoundedRect(1, 1, bw - 2, bh - 2, 4);
-    g.lineStyle(7, C.laserRedGlow, 0.12);
+    g.lineStyle(10, C.laserRedGlow, 0.2);
     g.strokeRoundedRect(0, 0, bw, bh, 5);
+    g.lineStyle(20, C.laserRedGlow, 0.06);
+    g.strokeRoundedRect(-2, -2, bw + 4, bh + 4, 6);
 
     const corners = [[6, 6], [bw - 6, 6], [6, bh - 6], [bw - 6, bh - 6]];
     for (const [cx, cy] of corners) {
-      g.fillStyle(C.laserRedWhite, 0.9);
-      g.fillCircle(cx, cy, 3.5);
-      g.fillStyle(C.laserRedBright, 0.2);
-      g.fillCircle(cx, cy, 8);
+      g.fillStyle(C.laserRedWhite, 1);
+      g.fillCircle(cx, cy, 4);
+      g.fillStyle(C.laserRedBright, 0.35);
+      g.fillCircle(cx, cy, 10);
     }
     g.generateTexture("barrier", bw, bh);
     g.clear();
 
-    g.fillStyle(0x08000a, 0.9);
+    g.fillStyle(C.laserRedGlow, 0.1);
+    g.fillRoundedRect(-4, -4, bw + 8, 26, 5);
+    g.fillStyle(0x180008, 0.95);
     g.fillRoundedRect(0, 0, bw, 18, 3);
-    g.lineStyle(3.5, C.laserRed, 0.85);
+    g.lineStyle(4, C.laserRed, 1);
     g.lineBetween(0, 9, bw, 9);
-    g.lineStyle(10, C.laserRedGlow, 0.1);
+    g.lineStyle(12, C.laserRedGlow, 0.15);
     g.lineBetween(0, 9, bw, 9);
-    g.lineStyle(1.5, C.laserRed, 0.35);
+    g.lineStyle(2, C.laserRed, 0.5);
     g.lineBetween(0, 3, bw, 3);
     g.lineBetween(0, 15, bw, 15);
     for (const cx of [4, bw - 4]) {
       g.fillStyle(C.laserRedWhite, 1);
-      g.fillCircle(cx, 9, 4.5);
-      g.fillStyle(C.laserRedGlow, 0.15);
-      g.fillCircle(cx, 9, 9);
+      g.fillCircle(cx, 9, 5);
+      g.fillStyle(C.laserRedGlow, 0.25);
+      g.fillCircle(cx, 9, 11);
     }
     g.generateTexture("low_gate", bw, 18);
     g.clear();
 
     const gw = 80, gh = 54;
-    g.fillStyle(0x060008, 0.85);
+    g.fillStyle(C.glitchPurple, 0.08);
+    g.fillRoundedRect(-4, -4, gw + 8, gh + 8, 6);
+    g.fillStyle(0x0a0018, 0.95);
     g.fillRoundedRect(0, 0, gw, gh, 4);
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       const ox = Phaser.Math.Between(4, gw - 12);
       const oy = Phaser.Math.Between(4, gh - 8);
       const ow = Phaser.Math.Between(6, 22);
       const oh = Phaser.Math.Between(3, 10);
-      g.fillStyle(C.glitchPurple, 0.3 + Math.random() * 0.4);
+      g.fillStyle(C.glitchPurple, 0.4 + Math.random() * 0.5);
       g.fillRect(ox, oy, ow, oh);
     }
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       const gy = Phaser.Math.Between(2, gh - 2);
-      g.lineStyle(1 + Math.random() * 2.5, C.glitchBlue, 0.4 + Math.random() * 0.4);
+      g.lineStyle(1.5 + Math.random() * 3, C.glitchBlue, 0.5 + Math.random() * 0.4);
       g.lineBetween(0, gy, gw, gy);
     }
-    g.lineStyle(2.5, C.glitchPurple, 0.75);
+    g.lineStyle(3, C.glitchPurple, 0.9);
     g.strokeRoundedRect(1, 1, gw - 2, gh - 2, 4);
-    g.lineStyle(6, C.glitchPurple, 0.08);
+    g.lineStyle(8, C.glitchPurple, 0.12);
     g.strokeRoundedRect(0, 0, gw, gh, 5);
     g.generateTexture("glitch_wall", gw, gh);
     g.clear();
 
-    g.fillStyle(0x08000a, 0.95);
+    g.fillStyle(C.laserRedGlow, 0.08);
+    g.fillRoundedRect(-3, -3, 36, 90, 6);
+    g.fillStyle(0x180008, 0.95);
     g.fillRoundedRect(0, 0, 30, 84, 4);
-    g.lineStyle(2.5, C.laserRed, 0.8);
+    g.lineStyle(3, C.laserRed, 1);
     g.strokeRoundedRect(1, 1, 28, 82, 4);
-    g.lineStyle(1, C.laserRed, 0.4);
+    g.lineStyle(1.5, C.laserRed, 0.5);
     g.lineBetween(15, 3, 15, 81);
     for (const cy of [8, 76]) {
-      g.fillStyle(C.laserRedWhite, 0.85);
-      g.fillCircle(15, cy, 4);
-      g.fillStyle(C.laserRedGlow, 0.12);
-      g.fillCircle(15, cy, 8);
+      g.fillStyle(C.laserRedWhite, 1);
+      g.fillCircle(15, cy, 5);
+      g.fillStyle(C.laserRedGlow, 0.2);
+      g.fillCircle(15, cy, 10);
     }
     g.generateTexture("lane_blocker", 30, 84);
     g.clear();

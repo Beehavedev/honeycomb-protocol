@@ -63,13 +63,13 @@ export const C = {
   amberWhite: 0xfff0c0,
   amberDim: 0x604000,
 
-  laserRed: 0xff1040,
-  laserRedBright: 0xff5070,
-  laserRedGlow: 0xff0030,
-  laserRedWhite: 0xffc0d0,
+  laserRed: 0xff2050,
+  laserRedBright: 0xff6080,
+  laserRedGlow: 0xff0040,
+  laserRedWhite: 0xffd0e0,
 
-  glitchPurple: 0x8020ff,
-  glitchBlue: 0x2060ff,
+  glitchPurple: 0xa040ff,
+  glitchBlue: 0x4080ff,
 
   beeBody: 0x103040,
   beeBodyLight: 0x1a5060,
