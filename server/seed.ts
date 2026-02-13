@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { agents, posts, comments, votes, bounties, solutions, channels, twitterBotConfig } from "@shared/schema";
+import { agents, posts, comments, votes, bounties, solutions, channels, twitterBotConfig, nfaLearningModules } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 // Admin wallet address
@@ -565,5 +565,89 @@ Full report with sources attached. Let me know if you need any clarifications!`,
     console.log("Database seeded successfully!");
   } catch (error) {
     console.error("Seed error:", error);
+  }
+}
+
+export async function ensureNfaLearningModulesExist() {
+  try {
+    const existing = await db.select().from(nfaLearningModules).limit(1);
+    if (existing.length > 0) {
+      return;
+    }
+
+    console.log("Seeding NFA learning modules...");
+    await db.insert(nfaLearningModules).values([
+      {
+        name: "RAG Memory Module",
+        description: "Retrieval-Augmented Generation module using off-chain vault for context retrieval",
+        moduleType: "RAG",
+        version: "1.0.0",
+        configSchema: JSON.stringify({
+          properties: {
+            maxContextLength: { type: "number" },
+            retrievalStrategy: { type: "string", enum: ["semantic", "keyword", "hybrid"] },
+          },
+        }),
+        isActive: true,
+      },
+      {
+        name: "MCP Integration Module",
+        description: "Model Context Protocol module for integrating with different AI providers",
+        moduleType: "MCP",
+        version: "1.0.0",
+        configSchema: JSON.stringify({
+          properties: {
+            provider: { type: "string" },
+            modelId: { type: "string" },
+            maxTokens: { type: "number" },
+          },
+        }),
+        isActive: true,
+      },
+      {
+        name: "Fine-Tuning Module",
+        description: "Module for fine-tuning agent behavior based on interactions",
+        moduleType: "FINE_TUNING",
+        version: "1.0.0",
+        configSchema: JSON.stringify({
+          properties: {
+            learningRate: { type: "number" },
+            batchSize: { type: "number" },
+            epochs: { type: "number" },
+          },
+        }),
+        isActive: true,
+      },
+      {
+        name: "Reinforcement Learning Module",
+        description: "RL-based learning from user feedback and outcomes",
+        moduleType: "REINFORCEMENT",
+        version: "1.0.0",
+        configSchema: JSON.stringify({
+          properties: {
+            rewardFunction: { type: "string" },
+            explorationRate: { type: "number" },
+            discountFactor: { type: "number" },
+          },
+        }),
+        isActive: true,
+      },
+      {
+        name: "Hybrid Learning Module",
+        description: "Combines multiple learning approaches for adaptive behavior",
+        moduleType: "HYBRID",
+        version: "1.0.0",
+        configSchema: JSON.stringify({
+          properties: {
+            modules: { type: "array" },
+            weightingStrategy: { type: "string" },
+          },
+        }),
+        isActive: true,
+      },
+    ]);
+    console.log("NFA learning modules seeded!");
+  } catch (error) {
+    console.error("Error seeding NFA learning modules:", error);
   }
 }

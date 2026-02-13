@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists } from "./seed";
+import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists, ensureNfaLearningModulesExist } from "./seed";
 import { startTwitterScheduler } from "./twitter-scheduler";
 import { twitterService } from "./twitter-service";
 import { storage } from "./storage";
@@ -74,6 +74,7 @@ app.use((req, res, next) => {
   await seedDatabase();
   await ensureChannelsExist();
   await ensureTwitterBotExists();
+  await ensureNfaLearningModulesExist();
   await storage.seedTradingDuels();
   await ensureArenaBots();
   await registerRoutes(httpServer, app);
