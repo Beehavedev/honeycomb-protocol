@@ -1,0 +1,72 @@
+Build a web game UI that recreates the attached reference image EXACTLY (same layout, same neon tunnel, same bee, same HUD text, same colors, same glow, same positions, same typography feel, same micro-details). Treat the image as the single source of truth. The result should look 1:1 at 1024x1024 and scale responsively.
+
+TECH STACK
+- Use HTML + CSS + JavaScript.
+- Use a Canvas/WebGL renderer (PixiJS preferred). If PixiJS is not available, use Three.js. If neither, use pure Canvas 2D with heavy glow effects.
+- No external paid assets required. If you can’t find matching assets, generate procedural shapes + textures to match the reference.
+- Create a clean project structure: /src, /assets, /styles.
+
+CORE VISUAL GOAL (MATCH THIS IMAGE 1:1)
+Scene:
+- A neon “hex tunnel” perspective grid stretching into the distance (centered).
+- Multiple hexagonal frames receding inward, cyan/teal glow outlines.
+- Background is deep navy/purple with bright neon streaks/lines (cyan + magenta + red) radiating toward center.
+- Center horizon: a bright red/pink “core” area that feels like a glowing portal at the end of tunnel.
+- Floating collectible hex tokens (gold/yellow honeycomb-like hexes) around the tunnel depth. Some near center, some closer to camera.
+- Tiny music-note icons floating near some tokens (like small white/yellow notes).
+
+Main character:
+- A cyber/robot bee in the foreground centered-bottom, facing away (flying into tunnel).
+- Wings: wide, translucent, neon cyan outlines with inner circuit-like patterns; symmetrical left/right, with bright glow and slight purple tint edges.
+- Bee body: metallic dark blue/black with neon cyan circuit accents and orange/yellow stripes on abdomen. The abdomen has alternating glowing orange bands.
+- Bee has small particle sparkles/trails around it (gold/white particles), especially near left side and behind.
+
+HUD / UI (MATCH POSITIONS + TEXT)
+Top-left:
+- A gold droplet/coin icon with glow.
+- Next to it “200.5K” in white text (exact value and spacing).
+- A small hex/gear icon to the right of the number (cyan outline).
+
+Top-center:
+- Title text: “10X NEURAL OVERLOAD”
+- “10X” should be bold and stand out; “NEURAL OVERLOAD” in the same line.
+- Use a futuristic neon gradient (yellow/orange/pink) glow.
+
+Top-right:
+- “5.0s” in white text.
+
+Bottom-left:
+- A circular UI ring with glow.
+- Inside / near it: “STINGER DASH” on two lines, cyan/teal text.
+
+Bottom-right:
+- A small diamond/star UI icon with subtle glow.
+
+STYLE / EFFECTS (IMPORTANT)
+- Heavy neon bloom/glow on tunnel lines, UI, wings, and title.
+- Add chromatic aberration / slight RGB split on bright edges (subtle).
+- Add scanline / slight film grain (subtle).
+- Add motion streak feeling in background lines (even if static, use gradient streaks).
+- Keep everything crisp and “arcade sci-fi”.
+
+INTERACTION (LIGHT GAMEPLAY)
+- Mouse/touch drag or arrow keys to slightly steer the bee left/right within the tunnel (small movement, like 10–15% of width).
+- Spawn collectible hex tokens in depth; when bee overlaps, increment the “200.5K” counter smoothly (animate up).
+- “STINGER DASH”: pressing Space triggers a short dash forward with extra streaks + stronger bloom for 0.3s; put it on a cooldown; show cooldown subtly by dimming the bottom-left ring.
+- Timer top-right counts down from 5.0s and loops (or resets) for now.
+
+IMPLEMENTATION NOTES
+- Build the tunnel from repeated hex outlines in perspective (scale smaller with depth, positioned toward center).
+- Add parallax layers: far streaks (slow), mid streaks, near particles (fast).
+- Use additive blending for neon strokes.
+- Create a “post-processing” pass for bloom if using Pixi/Three; if not possible, fake bloom with multiple blurred draws.
+- Match typography: use a futuristic sans (fallback: Orbitron or similar from Google Fonts if allowed; otherwise approximate with system fonts and letter spacing).
+
+DELIVERABLES
+- The running game page should open with the recreated scene already matching the reference frame.
+- Include a “REFERENCE MATCH CHECKLIST” section in README with bullets for each UI element and scene element.
+- Include a single config file (constants) to tweak: neon colors, bloom strength, tunnel depth, bee scale.
+- Ensure it runs smoothly on desktop and mobile.
+
+ABSOLUTE REQUIREMENT
+- The final output must visually match the reference image as closely as possible (composition + colors + glow + UI text + placement). If something cannot be matched exactly due to missing assets, approximate procedurally and document the approximation in README.
