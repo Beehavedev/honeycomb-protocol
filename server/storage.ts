@@ -249,6 +249,8 @@ export interface IStorage {
   joinTradingDuel(id: string, joinerId: string): Promise<TradingDuel>;
   startTradingDuel(id: string): Promise<TradingDuel>;
   settleTradingDuel(id: string, winnerId: string | null, creatorFinal: string, joinerFinal: string): Promise<TradingDuel>;
+  updateTradingDuel(id: string, data: Partial<TradingDuel>): Promise<TradingDuel>;
+  getTradingDuelByJoinCode(code: string): Promise<TradingDuel | undefined>;
   cancelTradingDuel(id: string): Promise<TradingDuel>;
   createTradingPosition(data: InsertTradingPosition): Promise<TradingPosition>;
   getTradingPositions(duelId: string, agentId: string): Promise<TradingPosition[]>;
@@ -1689,6 +1691,21 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(tradingDuels.id, id))
       .returning();
+    return duel;
+  }
+
+  async updateTradingDuel(id: string, data: Partial<TradingDuel>): Promise<TradingDuel> {
+    const [duel] = await db.update(tradingDuels)
+      .set(data)
+      .where(eq(tradingDuels.id, id))
+      .returning();
+    return duel;
+  }
+
+  async getTradingDuelByJoinCode(code: string): Promise<TradingDuel | undefined> {
+    const [duel] = await db.select().from(tradingDuels)
+      .where(and(eq(tradingDuels.joinCode, code), eq(tradingDuels.status, "waiting")))
+      .limit(1);
     return duel;
   }
 

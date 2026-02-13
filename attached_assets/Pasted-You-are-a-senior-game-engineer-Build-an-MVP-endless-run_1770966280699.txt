@@ -1,0 +1,91 @@
+You are a senior game engineer. Build an MVP endless-runner game similar in FEEL to Subway Surfers (endless runner with lanes, obstacles, coins, powerups), but using ORIGINAL art and naming (no copyrighted characters, trains, logos, or assets). Call it “HoneyRunner”.
+
+TECH STACK (use exactly):
+- HTML5 + TypeScript
+- Phaser 3 (CDN or npm)
+- Vite for dev/build
+- Simple Node/Express server (optional) only for saving high scores (or use localStorage for MVP)
+- No paid APIs
+
+CORE GAMEPLAY:
+- 3 lanes (left/middle/right)
+- Player auto-runs forward; speed increases gradually over time
+- Controls:
+  - Swipe/arrow keys: left/right to change lanes
+  - Up: jump
+  - Down: slide/roll
+- Obstacles:
+  - “barrier” (must jump)
+  - “low gate” (must slide)
+  - “lane blocker” (requires lane switch)
+- Collision ends the run -> show score screen
+- Coins:
+  - spawn in lines and arcs across lanes
+  - collecting increases coinCount and score
+- Powerups:
+  - Magnet (pulls coins for 8s)
+  - Shield (one free hit for 10s)
+  - Boost (temporary speed burst for 5s)
+- Scoring:
+  - score increases by distance + coins
+  - track best score (localStorage)
+- Difficulty:
+  - obstacle spawn rate ramps up
+  - patterns become more complex as speed increases
+
+ART / ASSETS:
+- Generate simple placeholder assets procedurally:
+  - rectangles/rounded rects for obstacles
+  - simple character sprite made from shapes (or a colored capsule)
+  - background with repeating parallax layers (simple gradients + shapes)
+- All visuals must be original and created in code (no downloading Subway Surfers assets).
+
+GAME STRUCTURE:
+- Scenes:
+  1) Boot/Preload (generate textures)
+  2) Menu (Play, Controls, Best Score)
+  3) Game (main loop)
+  4) GameOver (final score, coins, best score, restart)
+- Systems:
+  - LaneSystem: manages lane index and tween transitions
+  - ObstacleSpawner: spawns obstacles from a pattern library
+  - CoinSpawner: spawns coins in patterns
+  - PowerupSystem: spawns and applies timed effects
+  - CollisionSystem: handles overlap/hit logic
+  - SpeedSystem: ramps speed, influences spawn distances
+  - UIOverlay: score, coins, active powerups, pause button
+  - MobileInput: swipe detection + on-screen buttons fallback
+
+PHYSICS:
+- Use Phaser Arcade physics
+- Player has gravity, jump impulse, and slide hitbox change (shorter collider)
+
+SPAWNING:
+- World is “infinite”: recycle objects with object pooling
+- Obstacles and coins spawn ahead of player based on distance traveled
+- Use seeded RNG for reproducibility in dev mode (seed in URL query like ?seed=123)
+
+FILES / FOLDER STRUCTURE:
+- /src/main.ts
+- /src/scenes/{Boot,Menu,Game,GameOver}.ts
+- /src/systems/{LaneSystem,ObstacleSpawner,CoinSpawner,PowerupSystem,SpeedSystem,UIOverlay,MobileInput}.ts
+- /src/utils/{rng,constants,storage}.ts
+
+BONUS (if time):
+- Simple daily challenge seed (seed based on date)
+- Simple “missions” (collect 100 coins, survive 60s)
+- Sound effects generated via WebAudio beeps (no external audio files)
+
+DELIVERABLES:
+- Working game playable in browser (desktop + mobile)
+- README with:
+  - how to run (npm i, npm run dev)
+  - controls
+  - how to add new obstacle patterns
+  - how to tweak difficulty curve
+
+IMPORTANT:
+- Do NOT copy Subway Surfers characters, names, trains, or any copyrighted assets.
+- Make it “similar mechanics”, but fully original theme: a neon “hive tunnel” with honeycomb tiles and “drone runner” vibe.
+
+Start by scaffolding Vite + TS + Phaser, then implement the scenes and systems with clean, commented code.

@@ -1,0 +1,107 @@
+You are a senior full-stack engineer. Build an MVP web app called “Honeycomb Duels” (trading skill game) where 2 players (human vs human or human vs AI agent) stake the same amount of BNB into a pot, start a timed duel, and the winner is the one with the biggest PnL at the end. Winner receives the pot minus a platform fee. For MVP, simulate escrow in a database; design the code so we can later replace escrow with on-chain contracts on BNB Chain (BeePay settlement layer).
+
+TECH STACK (use exactly):
+- Next.js 14 (App Router) + TypeScript
+- TailwindCSS
+- Prisma + SQLite for local dev
+- NextAuth (credentials auth for MVP)
+- Zod validation
+- Socket.IO (or built-in WebSocket) for real-time match state updates
+- Chart.js for price chart rendering
+- No external paid APIs required
+
+CORE CONCEPTS:
+- The duel uses a “paper trading” engine (simulated trades) on a single chosen market (default: BNB/USDT).
+- Each duel has: stakeAmount (BNB), timerDuration (30s, 60s, 5m), both players deposit same amount.
+- Players can place simulated market orders (buy/sell) during the timer based on a live/simulated price feed.
+- When timer ends: compute each player’s PnL from their trades. Higher PnL wins.
+- If tie: split pot or extend by sudden-death 15s (choose split for MVP).
+- Platform fee: 10% of pot. Winner gets 90% of total pot (or split if tie).
+
+PRICE FEED:
+- MVP: generate a deterministic pseudo-random walk price series per match using a seeded RNG (seed = matchId). This ensures fairness & reproducibility.
+- Broadcast price ticks every 500ms to both players in the match via websockets.
+- Keep the generated tick history so charts can render and disputes can be audited.
+
+ANTI-CHEAT (MVP constraints):
+- All order requests go to server.
+- Server validates user is in the match, match is active, and order size is within allowed limits.
+- Server is the source of truth for price ticks and portfolio state.
+- Log all actions with timestamps.
+
+GAME LOOP:
+1) Lobby:
+   - Create match: choose mode (PvP or vs AI), stake amount, duration
+   - Join match by code/link
+2) Escrow:
+   - Both players “deposit” stake into the match pot (DB ledger entry)
+   - When both deposited, match can start
+3) Match:
+   - Real-time price feed
+   - Paper trading panel: buy/sell buttons + size input
+   - Positions & unrealized PnL update live
+4) Settlement:
+   - On end, compute final PnL and determine winner
+   - Apply fee and update ledger balances
+5) Post-match:
+   - Show results screen: PnL, trades, chart replay, winner, payouts
+   - Update leaderboards
+
+AI AGENT (MVP):
+- Implement a simple AI trading agent with 2 strategies:
+  - Momentum: buy when last N ticks trend up, sell when trend down
+  - Mean reversion: fade big spikes
+- AI should have configurable “skill levels” (Easy/Normal/Degen) affecting reaction speed and thresholds.
+- In AI mode, the second player is an Agent record and trades automatically server-side.
+
+DATA MODEL (Prisma):
+- User: id, name, email(optional), passwordHash, createdAt
+- Wallet: userId, balanceBNB (start each user with 10 BNB test balance)
+- Match: id, status (LOBBY/WAITING_DEPOSIT/ACTIVE/SETTLED), mode, durationMs, stakeBNB, feeBps, createdAt, startedAt, endedAt
+- MatchPlayer: id, matchId, userId(nullable for AI), agentType(nullable), deposited(bool), startingBalance, finalBalance, pnl, isWinner
+- Trade: id, matchId, playerId, side(BUY/SELL), qty, price, ts
+- PriceTick: id, matchId, price, ts, idx
+- LedgerEntry: id, userId, matchId(nullable), type(DEPOSIT/WITHDRAW/PAYOUT/FEE), amountBNB, ts
+- LeaderboardSnapshot: id, period(DAILY/WEEKLY/ALLTIME), userId, wins, losses, totalPnl, updatedAt
+
+PAGES / UI:
+- / -> landing with “Create Match” and “Join Match”
+- /match/[id] -> match room: chart, timer, pot, order panel, positions, live PnL, activity log
+- /result/[id] -> results + replay + trades table + payout breakdown
+- /leaderboard -> daily/weekly/all-time
+- /login -> simple credentials login/register
+
+API / SERVER:
+- Use Next.js route handlers for REST actions:
+  - POST /api/match/create
+  - POST /api/match/join
+  - POST /api/match/deposit
+  - POST /api/match/start
+  - POST /api/match/order
+- Websocket channel per match:
+  - events: tick, state, trade, timer, settled
+- Keep server authoritative state in memory per match, but persist key events (trades, ticks, settlement) to DB.
+
+MODULE SYSTEM (so we can add more games later):
+- Create a /games directory with an interface:
+  - GameModule: id, name, initMatch(), handleAction(), computeOutcome()
+- Implement “trading-duel” as the first module.
+- Add a registry so future games can be plugged in without rewriting the platform.
+
+DELIVERABLES:
+- Fully working MVP in one Replit project
+- Seed script to create demo users
+- Clear README with:
+  - how to run
+  - how to create/join matches
+  - where to change fee, durations, AI settings
+  - how to add a new game module
+
+QUALITY:
+- Type-safe code, good folder structure, comments where needed
+- Zod validation on all inputs
+- Graceful error handling
+- Clean UI, mobile-friendly
+
+START NOW:
+- Scaffold project, implement Prisma schema, auth, websocket server, match engine, UI pages, and seed data.

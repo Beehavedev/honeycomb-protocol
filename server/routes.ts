@@ -2841,6 +2841,29 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/trading-duels/:id/results", async (req, res) => {
+    try {
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status !== "settled") return res.status(400).json({ message: "Duel not settled yet" });
+
+      const creatorPositions = await storage.getTradingPositions(req.params.id, duel.creatorId);
+      const joinerPositions = duel.joinerId ? await storage.getTradingPositions(req.params.id, duel.joinerId) : [];
+
+      const result = duel.resultData ? JSON.parse(duel.resultData) : null;
+
+      res.json({
+        duel,
+        result,
+        creatorTrades: creatorPositions,
+        joinerTrades: joinerPositions,
+        priceSeries: duel.priceSeries ? JSON.parse(duel.priceSeries) : null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/trading-duels", async (req, res) => {
     try {
       const { creatorId, assetSymbol, potAmount, durationSeconds, matchType } = req.body;
@@ -2859,7 +2882,23 @@ export async function registerRoutes(
         durationSeconds: durationSeconds || 300,
         matchType: mt,
       });
-      res.json(duel);
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const updated = await storage.updateTradingDuel(duel.id, { joinCode });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-duels/join-by-code", async (req, res) => {
+    try {
+      const { joinCode, joinerId } = req.body;
+      if (!joinCode || !joinerId) return res.status(400).json({ message: "joinCode and joinerId required" });
+      const duel = await storage.getTradingDuelByJoinCode(joinCode.toUpperCase());
+      if (!duel) return res.status(404).json({ message: "No open duel found with that code" });
+      if (duel.creatorId === joinerId) return res.status(400).json({ message: "Cannot join your own duel" });
+      const updated = await storage.joinTradingDuel(duel.id, joinerId);
+      res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -3106,7 +3145,33 @@ export async function registerRoutes(
         }
       }
 
-      res.json(settled);
+      const creatorPositions = await storage.getTradingPositions(req.params.id, duel.creatorId);
+      const joinerPositions = duel.joinerId ? await storage.getTradingPositions(req.params.id, duel.joinerId) : [];
+      const initialBal = parseFloat(duel.initialBalance);
+      const creatorPnl = creatorFinal - initialBal;
+      const joinerPnl = joinerFinal - initialBal;
+      const potBnb = parseFloat(duel.potAmount);
+      const feePct = duel.feePct || 10;
+      const platformFee = potBnb * 2 * (feePct / 100);
+      const winnerPayout = potBnb * 2 - platformFee;
+
+      const resultData = JSON.stringify({
+        settlementPrice,
+        creatorPnl: creatorPnl.toFixed(2),
+        joinerPnl: joinerPnl.toFixed(2),
+        creatorPnlPct: ((creatorPnl / initialBal) * 100).toFixed(2),
+        joinerPnlPct: ((joinerPnl / initialBal) * 100).toFixed(2),
+        creatorTrades: creatorPositions.length,
+        joinerTrades: joinerPositions.length,
+        potBnb: (potBnb * 2).toFixed(4),
+        platformFee: platformFee.toFixed(4),
+        winnerPayout: winnerPayout.toFixed(4),
+        isTie: !winnerId,
+      });
+
+      await storage.updateTradingDuel(req.params.id, { resultData });
+
+      res.json({ ...settled, resultData });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -3114,12 +3179,17 @@ export async function registerRoutes(
 
   app.post("/api/trading-duels/play-vs-bot", async (req, res) => {
     try {
-      const { creatorId, assetSymbol, durationSeconds } = req.body;
+      const { creatorId, assetSymbol, durationSeconds, botDifficulty, botStrategy } = req.body;
       if (!creatorId) {
         return res.status(400).json({ message: "creatorId required" });
       }
 
+      const difficulty = (["easy", "normal", "degen"].includes(botDifficulty) ? botDifficulty : "normal") as any;
+      const strategy = (["momentum", "mean_reversion", "random"].includes(botStrategy) ? botStrategy : "momentum") as any;
+
       const bot = await getRandomArenaBot();
+
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
 
       const duel = await storage.createTradingDuel({
         creatorId,
@@ -3127,15 +3197,19 @@ export async function registerRoutes(
         potAmount: "0",
         durationSeconds: durationSeconds || 300,
         matchType: "practice",
+        botDifficulty: difficulty,
+        botStrategy: strategy,
       });
+
+      await storage.updateTradingDuel(duel.id, { joinCode });
 
       const joined = await storage.joinTradingDuel(duel.id, bot.id);
 
       const started = await storage.startTradingDuel(joined.id);
 
-      startBot(started.id, bot.id, bot.style, started.durationSeconds);
+      startBot(started.id, bot.id, bot.style, started.durationSeconds, difficulty, strategy);
 
-      res.json({ ...started, botName: bot.name, botStyle: bot.style });
+      res.json({ ...started, botName: bot.name, botStyle: bot.style, botDifficulty: difficulty, botStrategy: strategy, joinCode });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

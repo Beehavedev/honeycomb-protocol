@@ -2424,6 +2424,13 @@ export const tradingDuels = pgTable("trading_duels", {
   joinerWallet: text("joiner_wallet"),
   isOnChain: boolean("is_on_chain").default(false).notNull(),
   matchType: text("match_type").notNull().default("pvp"),
+  joinCode: varchar("join_code", { length: 8 }),
+  seed: text("seed"),
+  priceSeries: text("price_series"),
+  resultData: text("result_data"),
+  botDifficulty: text("bot_difficulty").default("normal"),
+  botStrategy: text("bot_strategy").default("momentum"),
+  activityLog: text("activity_log"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   settledAt: timestamp("settled_at"),
 });
@@ -2451,6 +2458,8 @@ export const insertTradingDuelSchema = createInsertSchema(tradingDuels).pick({
   seriesId: true,
   seriesRound: true,
   matchType: true,
+  botDifficulty: true,
+  botStrategy: true,
 });
 
 export const insertTradingPositionSchema = createInsertSchema(tradingPositions).pick({
@@ -2839,3 +2848,20 @@ export const insertGameSessionSchema = createInsertSchema(gameSessions).pick({
 });
 export type GameSession = typeof gameSessions.$inferSelect;
 export type InsertGameSession = z.infer<typeof insertGameSessionSchema>;
+
+// ============ Duel Leaderboard Snapshots ============
+
+export const duelLeaderboardSnapshots = pgTable("duel_leaderboard_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  period: text("period").notNull(),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  totalPnl: text("total_pnl").notNull().default("0"),
+  avgPnl: text("avg_pnl").notNull().default("0"),
+  winRate: text("win_rate").notNull().default("0"),
+  totalDuels: integer("total_duels").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type DuelLeaderboardSnapshot = typeof duelLeaderboardSnapshots.$inferSelect;

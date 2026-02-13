@@ -65,6 +65,8 @@ import {
   Sparkles,
   CircleDot,
   Code2,
+  Hash,
+  Gauge,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
@@ -991,6 +993,8 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
   const [duration, setDuration] = useState("300");
   const [potAmount, setPotAmount] = useState("0.01");
   const [mode, setMode] = useState<"practice" | "pvp" | "ava">("practice");
+  const [botDifficulty, setBotDifficulty] = useState<"easy" | "normal" | "degen">("normal");
+  const [botStrategy, setBotStrategy] = useState<"momentum" | "mean_reversion">("momentum");
   const [tokenSearch, setTokenSearch] = useState("");
   const [tokenDropOpen, setTokenDropOpen] = useState(false);
   const tokenDropRef = useRef<HTMLDivElement>(null);
@@ -1176,6 +1180,8 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
       creatorId: agent?.id,
       assetSymbol: asset,
       durationSeconds: parseInt(duration),
+      botDifficulty,
+      botStrategy,
     }),
     onSuccess: (data: any) => {
       toast({ title: "Practice Started!", description: `Training against ${data.botName}` });
@@ -1361,7 +1367,58 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           )}
 
           {mode === "practice" ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Gauge className="w-3 h-3" /> Bot Difficulty
+                </Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    { value: "easy", label: "Easy", desc: "Slow, low leverage" },
+                    { value: "normal", label: "Normal", desc: "Balanced play" },
+                    { value: "degen", label: "Degen", desc: "Fast, high leverage" },
+                  ] as const).map(d => (
+                    <button
+                      key={d.value}
+                      onClick={() => setBotDifficulty(d.value)}
+                      className={`p-2 rounded-md border text-center transition-all ${
+                        botDifficulty === d.value
+                          ? "border-amber-500/50 bg-amber-500/10"
+                          : "border-border hover-elevate"
+                      }`}
+                      data-testid={`button-difficulty-${d.value}`}
+                    >
+                      <span className="text-xs font-medium block">{d.label}</span>
+                      <span className="text-[9px] text-muted-foreground block mt-0.5">{d.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Brain className="w-3 h-3" /> Bot Strategy
+                </Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([
+                    { value: "momentum", label: "Momentum", desc: "Follows trends" },
+                    { value: "mean_reversion", label: "Mean Revert", desc: "Fades extremes" },
+                  ] as const).map(s => (
+                    <button
+                      key={s.value}
+                      onClick={() => setBotStrategy(s.value)}
+                      className={`p-2 rounded-md border text-center transition-all ${
+                        botStrategy === s.value
+                          ? "border-purple-500/50 bg-purple-500/10"
+                          : "border-border hover-elevate"
+                      }`}
+                      data-testid={`button-strategy-${s.value}`}
+                    >
+                      <span className="text-xs font-medium block">{s.label}</span>
+                      <span className="text-[9px] text-muted-foreground block mt-0.5">{s.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Button
                 className="w-full"
                 onClick={() => playBotMutation.mutate()}
@@ -1512,9 +1569,24 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
               </Button>
             )}
             {duel.status === "waiting" && isCreator && (
-              <Badge variant="outline" className="gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> Waiting
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                {(duel as any).joinCode && (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 text-[9px] py-0 px-1.5 cursor-pointer border-amber-500/30 text-amber-300"
+                    onClick={() => {
+                      navigator.clipboard.writeText((duel as any).joinCode);
+                      toast({ title: "Code copied!", description: (duel as any).joinCode });
+                    }}
+                    data-testid={`badge-join-code-${duel.id}`}
+                  >
+                    <Copy className="w-2.5 h-2.5" /> {(duel as any).joinCode}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Waiting
+                </Badge>
+              </div>
             )}
             {duel.status === "settled" && (
               <Badge variant="secondary">Settled</Badge>
@@ -1894,6 +1966,21 @@ function SettledResultsView({
 
   const { data: resultsData } = useQuery<{
     duel: TradingDuel;
+    result: {
+      settlementPrice: string;
+      creatorPnl: string;
+      joinerPnl: string;
+      creatorPnlPct: string;
+      joinerPnlPct: string;
+      creatorTrades: number;
+      joinerTrades: number;
+      potBnb: string;
+      platformFee: string;
+      winnerPayout: string;
+      isTie: boolean;
+    } | null;
+    creatorTrades: TradingPosition[];
+    joinerTrades: TradingPosition[];
     creatorPositions: TradingPosition[];
     joinerPositions: TradingPosition[];
     creatorStats: { arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number } | null;
@@ -1937,7 +2024,10 @@ function SettledResultsView({
   });
 
   const myStats = agentId === duel.creatorId ? resultsData?.creatorStats : resultsData?.joinerStats;
-  const myPositions = agentId === duel.creatorId ? resultsData?.creatorPositions : resultsData?.joinerPositions;
+  const myPositions = agentId === duel.creatorId
+    ? (resultsData?.creatorTrades || resultsData?.creatorPositions)
+    : (resultsData?.joinerTrades || resultsData?.joinerPositions);
+  const resultBreakdown = resultsData?.result;
 
   const myRank = myStats ? getRankTier(myStats.arenaRating) : null;
 
@@ -2026,6 +2116,40 @@ function SettledResultsView({
               )}
             </div>
           </div>
+
+          {resultBreakdown && (
+            <div className="arena-animate-up-d2 text-left">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                <BarChart3 className="w-3 h-3" /> Match Breakdown
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2 rounded-md border border-border">
+                  <p className="text-[9px] text-muted-foreground">Settlement Price</p>
+                  <p className="text-xs font-mono font-medium">${parseFloat(resultBreakdown.settlementPrice).toLocaleString()}</p>
+                </div>
+                <div className="p-2 rounded-md border border-border">
+                  <p className="text-[9px] text-muted-foreground">Total Trades</p>
+                  <p className="text-xs font-mono font-medium">{resultBreakdown.creatorTrades + resultBreakdown.joinerTrades}</p>
+                </div>
+                <div className="p-2 rounded-md border border-border">
+                  <p className="text-[9px] text-muted-foreground">Your PnL %</p>
+                  <p className={`text-xs font-mono font-medium ${
+                    parseFloat(agentId === duel.creatorId ? resultBreakdown.creatorPnlPct : resultBreakdown.joinerPnlPct) >= 0
+                      ? "text-green-400" : "text-red-400"
+                  }`}>
+                    {parseFloat(agentId === duel.creatorId ? resultBreakdown.creatorPnlPct : resultBreakdown.joinerPnlPct) >= 0 ? "+" : ""}
+                    {agentId === duel.creatorId ? resultBreakdown.creatorPnlPct : resultBreakdown.joinerPnlPct}%
+                  </p>
+                </div>
+                <div className="p-2 rounded-md border border-border">
+                  <p className="text-[9px] text-muted-foreground">Prize Pool</p>
+                  <p className="text-xs font-mono font-medium text-amber-400">
+                    {parseFloat(resultBreakdown.potBnb) > 0 ? `${resultBreakdown.potBnb} BNB` : "Practice"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {myPositions && myPositions.length > 0 && (
             <div className="arena-animate-up-d2 text-left">
@@ -2837,6 +2961,8 @@ function TradingArenaLobby() {
   const [tab, setTab] = useState("open");
   const [lobbyMatchType, setLobbyMatchType] = useState<"all" | "pvp" | "ava">("all");
   const [joiningDuelId, setJoiningDuelId] = useState<string | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [showJoinCode, setShowJoinCode] = useState(false);
 
   const { data: onChainAgentId, refetch: refetchAgentId } = useGetAgentByOwner(address as `0x${string}`);
   const hasAgent = onChainAgentId && onChainAgentId > BigInt(0);
@@ -2989,6 +3115,20 @@ function TradingArenaLobby() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const joinByCodeMutation = useMutation({
+    mutationFn: (code: string) => apiRequest("POST", "/api/trading-duels/join-by-code", {
+      joinCode: code,
+      joinerId: agent?.id,
+    }),
+    onSuccess: (data: any) => {
+      toast({ title: "Joined via code!" });
+      setJoinCode("");
+      setShowJoinCode(false);
+      navigate(`/arena/${data.id}`);
+    },
+    onError: (e: Error) => toast({ title: "Invalid code", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <>
       {myStats && (myStats.arenaWins > 0 || myStats.arenaLosses > 0) && (
@@ -3021,6 +3161,51 @@ function TradingArenaLobby() {
         <StatBadge icon={Trophy} label="Winner" value="Takes 90%" color="blue" />
         <StatBadge icon={Activity} label="Charts" value="Real-Time" color="red" />
       </div>
+
+      {showJoinCode ? (
+        <Card className="arena-glow-card mb-4 arena-animate-up">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-amber-400 shrink-0" />
+              <Input
+                placeholder="Enter 6-digit join code"
+                value={joinCode}
+                onChange={e => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+                className="font-mono text-center tracking-widest uppercase"
+                maxLength={6}
+                data-testid="input-join-code"
+              />
+              <Button
+                size="sm"
+                onClick={() => joinByCodeMutation.mutate(joinCode)}
+                disabled={joinCode.length !== 6 || joinByCodeMutation.isPending || !agent}
+                data-testid="button-submit-join-code"
+              >
+                {joinByCodeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => { setShowJoinCode(false); setJoinCode(""); }}
+                data-testid="button-close-join-code"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex justify-end mb-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowJoinCode(true)}
+            data-testid="button-open-join-code"
+          >
+            <Hash className="w-3.5 h-3.5 mr-1.5" /> Join by Code
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2 space-y-4 arena-animate-left">

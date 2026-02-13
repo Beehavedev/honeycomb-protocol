@@ -12,15 +12,26 @@ const ARENA_BOT_PROFILES = [
 ];
 
 type BotStyle = "aggressive" | "conservative" | "contrarian" | "grid" | "scalper";
+export type BotDifficulty = "easy" | "normal" | "degen";
+export type BotStrategy = "momentum" | "mean_reversion" | "random";
+
+const DIFFICULTY_SETTINGS: Record<BotDifficulty, { reactionMultiplier: number; accuracyBonus: number; leverageCap: number; tradeFrequency: number }> = {
+  easy: { reactionMultiplier: 2.0, accuracyBonus: -0.15, leverageCap: 5, tradeFrequency: 0.5 },
+  normal: { reactionMultiplier: 1.0, accuracyBonus: 0, leverageCap: 20, tradeFrequency: 1.0 },
+  degen: { reactionMultiplier: 0.5, accuracyBonus: 0.15, leverageCap: 50, tradeFrequency: 1.5 },
+};
 
 interface BotState {
   duelId: string;
   botKey: string;
   botAgentId: string;
   style: BotStyle;
+  difficulty: BotDifficulty;
+  strategy: BotStrategy;
   intervalId: NodeJS.Timeout | null;
   tradeCount: number;
   maxTrades: number;
+  priceHistory: number[];
 }
 
 const activeBots = new Map<string, BotState>();
@@ -122,6 +133,48 @@ async function fetchCurrentPrice(symbol: string): Promise<number | null> {
   return null;
 }
 
+function getStrategyDecision(
+  strategy: BotStrategy,
+  priceHistory: number[],
+  difficulty: BotDifficulty
+): { bias: "long" | "short" | "neutral"; confidence: number } {
+  const settings = DIFFICULTY_SETTINGS[difficulty];
+
+  if (priceHistory.length < 3) return { bias: "neutral", confidence: 0.5 };
+
+  if (strategy === "momentum") {
+    const lookback = Math.min(priceHistory.length, 8);
+    const recent = priceHistory.slice(-lookback);
+    const first = recent[0];
+    const last = recent[recent.length - 1];
+    const change = (last - first) / first;
+
+    let trendStrength = Math.min(Math.abs(change) * 100, 1);
+    trendStrength = Math.min(1, trendStrength + settings.accuracyBonus);
+
+    if (change > 0.0005) return { bias: "long", confidence: 0.5 + trendStrength * 0.4 };
+    if (change < -0.0005) return { bias: "short", confidence: 0.5 + trendStrength * 0.4 };
+    return { bias: "neutral", confidence: 0.5 };
+  }
+
+  if (strategy === "mean_reversion") {
+    const lookback = Math.min(priceHistory.length, 15);
+    const recent = priceHistory.slice(-lookback);
+    const avg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const last = recent[recent.length - 1];
+    const deviation = (last - avg) / avg;
+
+    let confidence = Math.min(Math.abs(deviation) * 50, 1);
+    confidence = Math.min(1, confidence + settings.accuracyBonus);
+
+    if (deviation > 0.002) return { bias: "short", confidence: 0.5 + confidence * 0.4 };
+    if (deviation < -0.002) return { bias: "long", confidence: 0.5 + confidence * 0.4 };
+    return { bias: "neutral", confidence: 0.5 };
+  }
+
+  return { bias: Math.random() > 0.5 ? "long" : "short", confidence: 0.5 };
+}
+
 function getBotDecision(style: BotStyle, tradeCount: number, maxTrades: number): { action: "open" | "close" | "wait"; side?: "long" | "short"; leverage?: number; sizePercent?: number } {
   const progress = tradeCount / maxTrades;
   const rand = Math.random();
@@ -175,6 +228,18 @@ async function executeBotTrade(state: BotState): Promise<void> {
     const price = await fetchCurrentPrice(duel.assetSymbol);
     if (!price) return;
 
+    state.priceHistory.push(price);
+    if (state.priceHistory.length > 30) state.priceHistory.shift();
+
+    const settings = DIFFICULTY_SETTINGS[state.difficulty];
+    const strategyHint = getStrategyDecision(state.strategy, state.priceHistory, state.difficulty);
+
+    const tradeChance = Math.random();
+    if (tradeChance > settings.tradeFrequency * 0.7) {
+      const decision = getBotDecision(state.style, state.tradeCount, state.maxTrades);
+      if (decision.action === "wait") return;
+    }
+
     const decision = getBotDecision(state.style, state.tradeCount, state.maxTrades);
 
     if (decision.action === "wait") return;
@@ -197,7 +262,9 @@ async function executeBotTrade(state: BotState): Promise<void> {
       return;
     }
 
-    if (decision.action === "open" && decision.side && decision.sizePercent) {
+    if (decision.action === "open" && decision.sizePercent) {
+      const side = strategyHint.bias !== "neutral" ? strategyHint.bias : (decision.side || "long");
+
       const openPositions = await storage.getOpenTradingPositions(state.duelId, state.botAgentId);
       const allPositions = await storage.getTradingPositions(state.duelId, state.botAgentId);
       const initialBal = parseFloat(duel.initialBalance);
@@ -211,11 +278,12 @@ async function executeBotTrade(state: BotState): Promise<void> {
       const sizeUsdt = Math.min(available * (decision.sizePercent / 100), available * 0.9);
       if (sizeUsdt < 1000) return;
 
-      const lev = Math.min(Math.max(decision.leverage || 1, 1), 50);
+      const rawLev = decision.leverage || 1;
+      const lev = Math.min(Math.max(rawLev, 1), settings.leverageCap);
       await storage.createTradingPosition({
         duelId: state.duelId,
         agentId: state.botAgentId,
-        side: decision.side,
+        side,
         leverage: lev,
         sizeUsdt: sizeUsdt.toFixed(2),
         entryPrice: price.toString(),
@@ -227,10 +295,18 @@ async function executeBotTrade(state: BotState): Promise<void> {
   }
 }
 
-export function startBot(botKey: string, botAgentId: string, style: BotStyle, durationSeconds: number): void {
+export function startBot(
+  botKey: string,
+  botAgentId: string,
+  style: BotStyle,
+  durationSeconds: number,
+  difficulty: BotDifficulty = "normal",
+  strategy: BotStrategy = "momentum"
+): void {
   if (activeBots.has(botKey)) return;
 
   const realDuelId = botKey.includes("__") ? botKey.split("__")[0] : botKey;
+  const settings = DIFFICULTY_SETTINGS[difficulty];
 
   const baseInterval = {
     aggressive: 8000,
@@ -240,19 +316,23 @@ export function startBot(botKey: string, botAgentId: string, style: BotStyle, du
     scalper: 5000,
   }[style];
 
-  const maxTrades = Math.floor(durationSeconds / (baseInterval / 1000)) + 5;
+  const adjustedInterval = Math.round(baseInterval * settings.reactionMultiplier);
+  const maxTrades = Math.floor(durationSeconds / (adjustedInterval / 1000)) + 5;
 
   const state: BotState = {
     duelId: realDuelId,
     botKey,
     botAgentId,
     style,
+    difficulty,
+    strategy,
     intervalId: null,
     tradeCount: 0,
     maxTrades,
+    priceHistory: [],
   };
 
-  const jitter = () => baseInterval + (Math.random() - 0.5) * baseInterval * 0.4;
+  const jitter = () => adjustedInterval + (Math.random() - 0.5) * adjustedInterval * 0.4;
 
   const scheduleNext = () => {
     state.intervalId = setTimeout(async () => {
