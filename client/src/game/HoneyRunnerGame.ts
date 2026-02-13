@@ -55,6 +55,9 @@ function lerpColor(c1: number, c2: number, t: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+const VX = CX;
+const VY = H * 0.15;
+
 class BootScene extends Phaser.Scene {
   constructor() { super({ key: "Boot" }); }
   create() {
@@ -73,71 +76,97 @@ class BootScene extends Phaser.Scene {
     this.genGround(g);
     this.genParticles(g);
     this.genDashIcon(g);
+    this.genHudIcons(g);
     g.destroy();
     this.scene.start("Menu");
   }
 
   private genBg(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    const vx = CX, vy = H * 0.12;
-    g.fillGradientStyle(C.bgDeep, C.bgDeep, C.bgMid, C.bgMid, 1);
+    g.fillGradientStyle(0x0a0020, 0x0a0020, 0x060030, 0x060030, 1);
     g.fillRect(0, 0, W, H);
 
-    for (let i = 0; i < 4; i++) {
-      g.fillStyle(C.cyan, 0.005 - i * 0.001);
-      g.fillCircle(vx, vy, 50 + i * 40);
+    for (let i = 0; i < 5; i++) {
+      g.fillStyle(0xff1050, 0.008 - i * 0.001);
+      g.fillCircle(VX, VY, 20 + i * 15);
+    }
+    g.fillStyle(0xff3060, 0.02);
+    g.fillCircle(VX, VY, 30);
+    g.fillStyle(0xff6080, 0.015);
+    g.fillCircle(VX, VY, 18);
+
+    const numStreaks = 40;
+    for (let i = 0; i < numStreaks; i++) {
+      const angle = (TAU / numStreaks) * i;
+      const spread = 0.02 + Math.random() * 0.02;
+      const len = 250 + Math.random() * 400;
+      const x1 = VX + Math.cos(angle - spread) * len;
+      const y1 = VY + Math.sin(angle - spread) * len;
+      const x2 = VX + Math.cos(angle + spread) * len;
+      const y2 = VY + Math.sin(angle + spread) * len;
+      const colors = [C.cyan, C.magenta, C.laserRed, C.cyan, C.magenta];
+      const rc = colors[i % colors.length];
+      const a = 0.012 + Math.random() * 0.018;
+      g.fillStyle(rc, a);
+      g.beginPath();
+      g.moveTo(VX, VY);
+      g.lineTo(x1, y1);
+      g.lineTo(x2, y2);
+      g.closePath();
+      g.fillPath();
     }
 
-    const rings = 16;
+    for (let i = 0; i < 24; i++) {
+      const angle = (TAU / 24) * i + Math.random() * 0.1;
+      const len = 300 + Math.random() * 350;
+      const ex = VX + Math.cos(angle) * len;
+      const ey = VY + Math.sin(angle) * len;
+      const rc = i % 3 === 0 ? C.magenta : i % 3 === 1 ? C.cyan : C.laserRed;
+      g.lineStyle(1 + Math.random(), rc, 0.03 + Math.random() * 0.04);
+      g.lineBetween(VX, VY, ex, ey);
+    }
+
+    const rings = 14;
     for (let i = rings; i >= 0; i--) {
       const t = i / rings;
-      const r = 12 + t * (W * 0.95);
-      const cy = vy + t * (H * 0.65);
-      const sq = 0.65 + t * 0.35;
+      const r = 15 + t * (W * 0.85);
+      const cy = VY + t * (H * 0.55);
+      const sq = 0.55 + t * 0.45;
       const rr = r * sq;
 
-      fillHex(g, vx, cy, rr, C.tunnelDark, 0.06 + t * 0.12);
+      fillHex(g, VX, cy, rr, C.tunnelDark, 0.04 + t * 0.08);
 
-      const ea = 0.15 + t * 0.6;
-      const ew = 1 + t * 2.5;
-      strokeHex(g, vx, cy, rr, C.cyan, ea * 0.7, ew);
-      strokeHex(g, vx, cy, rr + 2, C.cyanBright, ea * 0.15, ew + 3);
-      strokeHex(g, vx, cy, rr + 5, C.cyan, ea * 0.04, ew + 8);
+      const ea = 0.12 + t * 0.55;
+      const ew = 1.5 + t * 3;
+      strokeHex(g, VX, cy, rr, C.cyan, ea * 0.9, ew);
+      strokeHex(g, VX, cy, rr + 3, C.cyanBright, ea * 0.12, ew + 5);
+      strokeHex(g, VX, cy, rr + 8, C.cyan, ea * 0.03, ew + 12);
 
-      if (t > 0.3) {
-        strokeHex(g, vx, cy, rr, C.magenta, ea * 0.15, ew * 0.5);
+      if (t > 0.25) {
+        strokeHex(g, VX, cy, rr, C.magenta, ea * 0.2, ew * 0.6);
       }
 
-      if (t > 0.5) {
-        const pts = hexVerts(vx, cy, rr);
+      if (t > 0.4) {
+        const pts = hexVerts(VX, cy, rr);
         for (let j = 0; j < 6; j++) {
-          g.fillStyle(C.cyanBright, 0.12 + t * 0.12);
-          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 2);
+          g.fillStyle(C.cyanBright, 0.1 + t * 0.15);
+          g.fillCircle(pts[j][0], pts[j][1], 1.5 + t * 3);
+          g.fillStyle(C.cyan, 0.04);
+          g.fillCircle(pts[j][0], pts[j][1], 3 + t * 5);
         }
       }
     }
 
-    for (let i = 0; i < 6; i++) {
-      const angle = (PI / 3) * i - PI / 6;
-      const ex = vx + Math.cos(angle) * W * 1.5;
-      const ey = vy + Math.sin(angle) * H * 1.5;
-      g.lineStyle(1, C.cyan, 0.03);
-      g.lineBetween(vx, vy, ex, ey);
-      g.lineStyle(1, C.magenta, 0.015);
-      g.lineBetween(vx + 2, vy, ex + 2, ey);
-    }
-
-    for (let i = 0; i < 14; i++) {
-      const angle = (TAU / 14) * i + PI / 14;
-      const spread = 0.03 + Math.random() * 0.025;
-      const len = 180 + Math.random() * 300;
-      const x1 = vx + Math.cos(angle - spread) * len;
-      const y1 = vy + Math.sin(angle - spread) * len;
-      const x2 = vx + Math.cos(angle + spread) * len;
-      const y2 = vy + Math.sin(angle + spread) * len;
-      const rc = i % 2 === 0 ? C.cyan : C.magenta;
-      g.fillStyle(rc, 0.006 + Math.random() * 0.006);
-      g.beginPath(); g.moveTo(vx, vy); g.lineTo(x1, y1); g.lineTo(x2, y2); g.closePath(); g.fillPath();
+    const midY = VY + H * 0.28;
+    g.lineStyle(3, C.laserRed, 0.35);
+    g.lineBetween(0, midY, W, midY);
+    g.lineStyle(8, C.laserRedGlow, 0.06);
+    g.lineBetween(0, midY, W, midY);
+    g.lineStyle(18, C.laserRedGlow, 0.015);
+    g.lineBetween(0, midY, W, midY);
+    for (let px = 0; px < W; px += 8) {
+      g.fillStyle(C.laserRed, 0.15 + Math.random() * 0.2);
+      g.fillRect(px, midY - 2, 4, 4);
     }
 
     g.generateTexture("bg_tunnel", W, H);
@@ -146,17 +175,17 @@ class BootScene extends Phaser.Scene {
 
   private genStars(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 200; i++) {
       const x = Math.random() * W, y = Math.random() * H;
-      const s = 0.2 + Math.random() * 1;
+      const s = 0.2 + Math.random() * 1.2;
       const b = Math.random();
       if (b > 0.92) {
         g.fillStyle(C.cyan, 0.4 + Math.random() * 0.4);
-        g.fillCircle(x, y, s + 0.3);
-        g.fillStyle(C.cyanWhite, 0.08);
-        g.fillCircle(x, y, s + 2);
+        g.fillCircle(x, y, s + 0.5);
+        g.fillStyle(C.cyanWhite, 0.1);
+        g.fillCircle(x, y, s + 3);
       } else if (b > 0.84) {
-        g.fillStyle(C.magentaBright, 0.25 + Math.random() * 0.3);
+        g.fillStyle(C.magentaBright, 0.3 + Math.random() * 0.3);
         g.fillCircle(x, y, s);
       } else {
         g.fillStyle(C.white, 0.06 + Math.random() * 0.12);
@@ -170,7 +199,7 @@ class BootScene extends Phaser.Scene {
   private genScanlines(g: Phaser.GameObjects.Graphics) {
     g.clear();
     for (let y = 0; y < H; y += 2) {
-      g.fillStyle(0x000000, y % 4 === 0 ? 0.05 : 0.025);
+      g.fillStyle(0x000000, y % 4 === 0 ? 0.06 : 0.03);
       g.fillRect(0, y, W, 1);
     }
     g.generateTexture("scanlines", W, H);
@@ -181,163 +210,169 @@ class BootScene extends Phaser.Scene {
     g.clear();
     for (let i = 0; i < 25; i++) {
       const t = i / 25;
-      g.fillStyle(0x000000, (1 - t) * (1 - t) * 0.07);
+      g.fillStyle(0x000000, (1 - t) * (1 - t) * 0.08);
       g.fillEllipse(CX, H / 2, W * (0.4 + t * 0.6), H * (0.4 + t * 0.6));
     }
-    g.fillStyle(0x000000, 0.5);
-    g.fillRect(0, 0, W, 10);
-    g.fillRect(0, H - 10, W, 10);
-    g.fillStyle(0x000000, 0.35);
-    g.fillRect(0, 0, 5, H);
-    g.fillRect(W - 5, 0, 5, H);
+    g.fillStyle(0x000000, 0.55);
+    g.fillRect(0, 0, W, 12);
+    g.fillRect(0, H - 12, W, 12);
+    g.fillStyle(0x000000, 0.4);
+    g.fillRect(0, 0, 6, H);
+    g.fillRect(W - 6, 0, 6, H);
     g.generateTexture("vignette", W, H);
     g.clear();
   }
 
   private genCyberBee(g: Phaser.GameObjects.Graphics) {
-    const bw = 56, bh = 72;
+    const bw = 80, bh = 100;
     g.clear();
 
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(bw / 2, 16, 22, 20);
-    g.fillStyle(C.beeBodyLight, 0.3);
-    g.fillEllipse(bw / 2 - 3, 12, 10, 10);
+    g.fillEllipse(bw / 2, 22, 30, 26);
+    g.fillStyle(C.beeBodyLight, 0.25);
+    g.fillEllipse(bw / 2 - 4, 16, 14, 14);
 
     g.fillStyle(C.beeEye, 0.9);
-    g.fillCircle(bw / 2 - 6, 12, 4);
-    g.fillCircle(bw / 2 + 6, 12, 4);
+    g.fillCircle(bw / 2 - 8, 16, 5);
+    g.fillCircle(bw / 2 + 8, 16, 5);
     g.fillStyle(C.beeEyeBright, 0.6);
-    g.fillCircle(bw / 2 - 6, 11, 2);
-    g.fillCircle(bw / 2 + 6, 11, 2);
+    g.fillCircle(bw / 2 - 8, 14, 2.5);
+    g.fillCircle(bw / 2 + 8, 14, 2.5);
     g.fillStyle(C.white, 0.4);
-    g.fillCircle(bw / 2 - 5, 10, 0.8);
-    g.fillCircle(bw / 2 + 7, 10, 0.8);
+    g.fillCircle(bw / 2 - 7, 13, 1);
+    g.fillCircle(bw / 2 + 9, 13, 1);
+    g.fillStyle(C.cyan, 0.06);
+    g.fillCircle(bw / 2 - 8, 16, 9);
+    g.fillCircle(bw / 2 + 8, 16, 9);
 
     g.lineStyle(1.5, C.beeStripe, 0.7);
-    g.beginPath(); g.moveTo(bw / 2 - 4, 6); g.lineTo(bw / 2 - 8, -2); g.strokePath();
-    g.beginPath(); g.moveTo(bw / 2 + 4, 6); g.lineTo(bw / 2 + 8, -2); g.strokePath();
+    g.beginPath(); g.moveTo(bw / 2 - 5, 8); g.lineTo(bw / 2 - 10, -3); g.strokePath();
+    g.beginPath(); g.moveTo(bw / 2 + 5, 8); g.lineTo(bw / 2 + 10, -3); g.strokePath();
     g.fillStyle(C.cyan, 0.9);
-    g.fillCircle(bw / 2 - 8, -2, 2);
-    g.fillCircle(bw / 2 + 8, -2, 2);
-    g.fillStyle(C.cyanBright, 0.5);
-    g.fillCircle(bw / 2 - 8, -2, 4);
-    g.fillCircle(bw / 2 + 8, -2, 4);
-    g.fillStyle(C.cyan, 0.1);
-    g.fillCircle(bw / 2 - 8, -2, 7);
-    g.fillCircle(bw / 2 + 8, -2, 7);
+    g.fillCircle(bw / 2 - 10, -3, 2.5);
+    g.fillCircle(bw / 2 + 10, -3, 2.5);
+    g.fillStyle(C.cyanBright, 0.4);
+    g.fillCircle(bw / 2 - 10, -3, 5);
+    g.fillCircle(bw / 2 + 10, -3, 5);
 
     g.lineStyle(1, C.beeBody, 0.5);
-    g.lineBetween(bw / 2 - 3, 24, bw / 2 - 3, 28);
-    g.lineBetween(bw / 2 + 3, 24, bw / 2 + 3, 28);
+    g.lineBetween(bw / 2 - 4, 32, bw / 2 - 4, 37);
+    g.lineBetween(bw / 2 + 4, 32, bw / 2 + 4, 37);
+    g.lineBetween(bw / 2 - 8, 30, bw / 2 - 10, 36);
+    g.lineBetween(bw / 2 + 8, 30, bw / 2 + 10, 36);
 
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(bw / 2, 44, 28, 36);
-    g.fillStyle(C.beeBodyLight, 0.15);
-    g.fillEllipse(bw / 2 - 5, 36, 12, 16);
+    g.fillEllipse(bw / 2, 58, 36, 44);
+    g.fillStyle(C.beeBodyLight, 0.12);
+    g.fillEllipse(bw / 2 - 6, 48, 14, 18);
 
-    const stripes = [32, 38, 44, 50, 56];
+    const stripes = [42, 48, 54, 60, 66, 72];
     for (let i = 0; i < stripes.length; i++) {
-      const sw = 11 - Math.abs(i - 2) * 2;
-      g.fillStyle(C.beeStripe, 0.85);
-      g.fillEllipse(bw / 2, stripes[i], sw * 2, 3);
-      g.fillStyle(C.beeStripeBright, 0.2);
-      g.fillEllipse(bw / 2 - 2, stripes[i] - 0.5, sw, 1.5);
+      const sw = 14 - Math.abs(i - 2.5) * 2;
+      g.fillStyle(C.beeStripe, 0.9);
+      g.fillEllipse(bw / 2, stripes[i], sw * 2, 3.5);
+      g.fillStyle(C.beeStripeBright, 0.3);
+      g.fillEllipse(bw / 2 - 2, stripes[i] - 0.5, sw * 1.2, 1.8);
+      g.fillStyle(C.amber, 0.06);
+      g.fillEllipse(bw / 2, stripes[i], sw * 2.5, 6);
     }
 
-    g.lineStyle(0.5, C.cyan, 0.15);
-    for (let i = 0; i < 4; i++) {
-      const ly = 30 + i * 8;
-      g.lineBetween(bw / 2 - 10, ly, bw / 2 - 4, ly + 4);
-      g.lineBetween(bw / 2 + 10, ly, bw / 2 + 4, ly + 4);
+    g.lineStyle(0.5, C.cyan, 0.12);
+    for (let i = 0; i < 5; i++) {
+      const ly = 38 + i * 9;
+      g.lineBetween(bw / 2 - 14, ly, bw / 2 - 5, ly + 5);
+      g.lineBetween(bw / 2 + 14, ly, bw / 2 + 5, ly + 5);
     }
-    g.fillStyle(C.cyan, 0.06);
-    g.fillCircle(bw / 2, 42, 3);
+    g.fillStyle(C.cyan, 0.08);
+    g.fillCircle(bw / 2, 52, 4);
+    g.fillStyle(C.cyan, 0.04);
+    g.fillCircle(bw / 2, 52, 8);
 
-    g.lineStyle(1, C.beeBody, 0.4);
-    g.strokeEllipse(bw / 2, 44, 28, 36);
+    g.lineStyle(1, C.beeBody, 0.35);
+    g.strokeEllipse(bw / 2, 58, 36, 44);
 
     g.fillStyle(C.beeBody, 0.9);
-    g.fillTriangle(bw / 2, bh - 1, bw / 2 - 4, bh - 12, bw / 2 + 4, bh - 12);
-    g.fillStyle(C.beeStripe, 0.3);
-    g.fillTriangle(bw / 2, bh - 3, bw / 2 - 1.5, bh - 10, bw / 2 + 1.5, bh - 10);
+    g.fillTriangle(bw / 2, bh - 1, bw / 2 - 5, bh - 16, bw / 2 + 5, bh - 16);
+    g.fillStyle(C.beeStripe, 0.25);
+    g.fillTriangle(bw / 2, bh - 3, bw / 2 - 2, bh - 13, bw / 2 + 2, bh - 13);
+    g.lineStyle(1, C.cyan, 0.15);
+    g.lineBetween(bw / 2, bh - 1, bw / 2, bh - 16);
 
-    g.fillStyle(C.cyan, 0.02);
-    g.fillCircle(bw / 2, 36, 30);
+    g.fillStyle(C.cyan, 0.015);
+    g.fillCircle(bw / 2, 50, 40);
 
     g.generateTexture("runner", bw, bh);
     g.clear();
   }
 
   private genCyberBeeSlide(g: Phaser.GameObjects.Graphics) {
-    const sw = 58, sh = 28;
+    const sw = 74, sh = 32;
     g.clear();
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(14, sh / 2, 18, 16);
+    g.fillEllipse(16, sh / 2, 22, 18);
     g.fillStyle(C.beeEye, 0.8);
-    g.fillCircle(10, sh / 2 - 2, 3);
-    g.fillCircle(18, sh / 2 - 2, 3);
+    g.fillCircle(12, sh / 2 - 2, 4);
+    g.fillCircle(20, sh / 2 - 2, 4);
     g.fillStyle(C.beeBody, 1);
-    g.fillEllipse(sw / 2 + 3, sh / 2, 32, 20);
-    const sx = [24, 31, 38, 44];
+    g.fillEllipse(sw / 2 + 4, sh / 2, 40, 24);
+    const sx = [28, 36, 44, 52];
     for (const x of sx) {
-      g.fillStyle(C.beeStripe, 0.75);
-      g.fillRect(x, sh / 2 - 8, 3, 16);
+      g.fillStyle(C.beeStripe, 0.8);
+      g.fillRect(x, sh / 2 - 10, 4, 20);
     }
     g.lineStyle(0.8, C.beeBody, 0.3);
-    g.strokeEllipse(sw / 2 + 3, sh / 2, 32, 20);
+    g.strokeEllipse(sw / 2 + 4, sh / 2, 40, 24);
     g.generateTexture("runner_slide", sw, sh);
     g.clear();
   }
 
   private genBeeShadow(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.black, 0.1);
-    g.fillEllipse(24, 8, 44, 14);
-    g.fillStyle(C.cyan, 0.015);
-    g.fillEllipse(24, 8, 50, 18);
-    g.generateTexture("bee_shadow", 48, 16);
+    g.fillStyle(C.black, 0.12);
+    g.fillEllipse(30, 8, 56, 16);
+    g.fillStyle(C.cyan, 0.02);
+    g.fillEllipse(30, 8, 64, 20);
+    g.generateTexture("bee_shadow", 60, 16);
     g.clear();
   }
 
   private genWings(g: Phaser.GameObjects.Graphics) {
-    const ww = 32, wh = 40;
+    const ww = 50, wh = 60;
 
-    g.clear();
-    g.fillStyle(C.beeWing, 0.12);
-    g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.fillStyle(C.beeWingTip, 0.06);
-    g.fillEllipse(ww / 2 - 6, wh / 2 - 8, ww * 0.4, wh * 0.35);
+    const drawWing = (flipX: boolean) => {
+      g.clear();
+      const ox = flipX ? -1 : 1;
 
-    g.lineStyle(0.4, C.cyan, 0.15);
-    g.lineBetween(4, 6, ww / 2, wh - 6);
-    g.lineBetween(3, wh / 2, ww - 3, wh / 2 - 4);
-    g.lineBetween(ww / 2 - 4, 5, ww / 2 + 1, wh - 8);
-    g.lineStyle(0.4, C.magenta, 0.08);
-    g.lineBetween(5, wh / 2 + 6, ww - 6, wh / 2 + 3);
+      g.fillStyle(C.beeWing, 0.08);
+      g.fillEllipse(ww / 2, wh / 2, ww - 4, wh - 4);
+      g.fillStyle(C.magenta, 0.04);
+      g.fillEllipse(ww / 2, wh / 2 + 5, ww * 0.6, wh * 0.4);
+      g.fillStyle(C.beeWingTip, 0.05);
+      g.fillEllipse(ww / 2 - ox * 8, wh / 2 - 10, ww * 0.4, wh * 0.35);
 
-    g.lineStyle(1.5, C.cyan, 0.3);
-    g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.lineStyle(4, C.beeWingTip, 0.04);
-    g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
+      g.lineStyle(0.5, C.cyan, 0.12);
+      g.lineBetween(5, 8, ww / 2, wh - 8);
+      g.lineBetween(4, wh / 2, ww - 4, wh / 2 - 5);
+      g.lineBetween(ww / 2 - ox * 5, 6, ww / 2 + ox * 2, wh - 10);
+      g.lineBetween(8, wh * 0.3, ww - 8, wh * 0.35);
+      g.lineBetween(ww / 2, 4, ww / 2 + ox * 12, wh * 0.6);
+
+      g.lineStyle(0.3, C.magenta, 0.06);
+      g.lineBetween(6, wh / 2 + 8, ww - 6, wh / 2 + 5);
+      g.lineBetween(ww * 0.3, wh * 0.7, ww * 0.7, wh * 0.65);
+
+      g.lineStyle(2, C.cyan, 0.35);
+      g.strokeEllipse(ww / 2, wh / 2, ww - 4, wh - 4);
+      g.lineStyle(5, C.beeWingTip, 0.06);
+      g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
+      g.lineStyle(10, C.cyan, 0.02);
+      g.strokeEllipse(ww / 2, wh / 2, ww + 10, wh + 10);
+    };
+
+    drawWing(false);
     g.generateTexture("wing_l", ww, wh);
     g.clear();
-
-    g.fillStyle(C.beeWing, 0.12);
-    g.fillEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.fillStyle(C.beeWingTip, 0.06);
-    g.fillEllipse(ww / 2 + 6, wh / 2 - 8, ww * 0.4, wh * 0.35);
-
-    g.lineStyle(0.4, C.cyan, 0.15);
-    g.lineBetween(ww - 4, 6, ww / 2, wh - 6);
-    g.lineBetween(ww - 3, wh / 2, 3, wh / 2 - 4);
-    g.lineBetween(ww / 2 + 4, 5, ww / 2 - 1, wh - 8);
-    g.lineStyle(0.4, C.magenta, 0.08);
-    g.lineBetween(ww - 5, wh / 2 + 6, 6, wh / 2 + 3);
-
-    g.lineStyle(1.5, C.cyan, 0.3);
-    g.strokeEllipse(ww / 2, wh / 2, ww - 2, wh - 2);
-    g.lineStyle(4, C.beeWingTip, 0.04);
-    g.strokeEllipse(ww / 2, wh / 2, ww + 4, wh + 4);
+    drawWing(true);
     g.generateTexture("wing_r", ww, wh);
     g.clear();
   }
@@ -441,15 +476,16 @@ class BootScene extends Phaser.Scene {
   private genCoin(g: Phaser.GameObjects.Graphics) {
     g.clear();
     const s = 14, pad = 5, cs = s + pad;
-    g.fillStyle(C.coinGlow, 0.03);
-    g.fillCircle(cs, cs, s + 5);
+    g.fillStyle(C.coinGlow, 0.04);
+    g.fillCircle(cs, cs, s + 6);
     fillHex(g, cs, cs, s, C.coinBody, 1);
-    fillHex(g, cs, cs, s - 1.5, C.coinLight, 0.2);
+    fillHex(g, cs, cs, s - 1.5, C.coinLight, 0.25);
     fillHex(g, cs, cs, s - 3, C.coinBody, 0.2);
-    g.fillStyle(C.coinShine, 0.1);
+    g.fillStyle(C.coinShine, 0.12);
     g.fillEllipse(cs - 3, cs - 3, 6, 10);
-    strokeHex(g, cs, cs, s, C.coinShine, 0.5, 1.5);
-    strokeHex(g, cs, cs, s + 2, C.coinGlow, 0.08, 3);
+    strokeHex(g, cs, cs, s, C.coinShine, 0.6, 1.5);
+    strokeHex(g, cs, cs, s + 2, C.coinGlow, 0.1, 3);
+    strokeHex(g, cs, cs, s + 5, C.coinGlow, 0.03, 6);
     fillHex(g, cs, cs, 5, C.coinGlow, 0.4);
     strokeHex(g, cs, cs, 5, C.coinShine, 0.3, 1);
     g.generateTexture("coin", cs * 2, cs * 2);
@@ -538,9 +574,9 @@ class BootScene extends Phaser.Scene {
 
   private genParticles(g: Phaser.GameObjects.Graphics) {
     g.clear();
-    g.fillStyle(C.amberHot, 0.8);
+    g.fillStyle(C.amberHot, 0.85);
     g.fillCircle(6, 6, 5);
-    g.fillStyle(C.amberWhite, 0.3);
+    g.fillStyle(C.amberWhite, 0.35);
     g.fillCircle(5, 5, 2.5);
     g.generateTexture("particle_amber", 12, 12);
     g.clear();
@@ -559,7 +595,7 @@ class BootScene extends Phaser.Scene {
     g.generateTexture("speed_line", 2, 18);
     g.clear();
 
-    g.fillStyle(C.amberHot, 0.5);
+    g.fillStyle(C.amberHot, 0.6);
     g.fillRect(0, 0, 3, 3);
     g.generateTexture("spark", 3, 3);
     g.clear();
@@ -575,31 +611,78 @@ class BootScene extends Phaser.Scene {
     g.fillCircle(3, 3, 1.5);
     g.generateTexture("particle_magenta", 8, 8);
     g.clear();
+
+    g.fillStyle(C.white, 0.5);
+    g.fillRect(0, 0, 2, 2);
+    g.generateTexture("particle_white", 2, 2);
+    g.clear();
   }
 
   private genDashIcon(g: Phaser.GameObjects.Graphics) {
     g.clear();
     const s = 30;
-    g.lineStyle(3, C.cyan, 0.15);
+
+    g.lineStyle(2, C.cyan, 0.1);
     g.strokeCircle(s, s, s - 2);
-    g.lineStyle(3, C.cyan, 0.6);
+    g.lineStyle(3, C.cyan, 0.4);
     g.beginPath(); g.arc(s, s, s - 2, -PI / 2, PI, false); g.strokePath();
-    g.fillStyle(C.cyanBright, 0.1);
+    g.fillStyle(C.cyanBright, 0.06);
     g.fillCircle(s, s, s - 6);
-    g.fillStyle(C.cyan, 0.08);
-    g.fillTriangle(s - 5, s - 8, s + 8, s, s - 5, s + 8);
     g.generateTexture("dash_icon_bg", s * 2, s * 2);
     g.clear();
 
-    g.lineStyle(3, C.cyan, 0.7);
+    g.lineStyle(3, C.cyan, 0.8);
     g.strokeCircle(s, s, s - 2);
-    g.fillStyle(C.cyanBright, 0.2);
+    g.lineStyle(6, C.cyanBright, 0.08);
+    g.strokeCircle(s, s, s);
+    g.fillStyle(C.cyanBright, 0.15);
     g.fillCircle(s, s, s - 6);
     g.fillStyle(C.cyan, 0.4);
     g.fillTriangle(s - 5, s - 8, s + 8, s, s - 5, s + 8);
     g.fillStyle(C.white, 0.15);
     g.fillTriangle(s - 3, s - 5, s + 5, s, s - 3, s + 5);
     g.generateTexture("dash_icon_ready", s * 2, s * 2);
+    g.clear();
+  }
+
+  private genHudIcons(g: Phaser.GameObjects.Graphics) {
+    g.clear();
+    g.fillStyle(C.coinBody, 1);
+    g.fillCircle(12, 14, 10);
+    g.fillStyle(C.amberHot, 0.8);
+    g.fillTriangle(12, 4, 8, 14, 16, 14);
+    g.fillCircle(12, 14, 6);
+    g.fillStyle(C.coinShine, 0.3);
+    g.fillCircle(10, 10, 3);
+    g.fillStyle(C.coinGlow, 0.08);
+    g.fillCircle(12, 14, 16);
+    g.generateTexture("honey_drop", 24, 28);
+    g.clear();
+
+    g.lineStyle(2, C.cyan, 0.5);
+    g.strokeCircle(10, 10, 8);
+    g.lineStyle(1.5, C.cyan, 0.6);
+    for (let i = 0; i < 6; i++) {
+      const a = (PI / 3) * i;
+      g.lineBetween(10 + Math.cos(a) * 4, 10 + Math.sin(a) * 4, 10 + Math.cos(a) * 8, 10 + Math.sin(a) * 8);
+    }
+    g.fillStyle(C.cyan, 0.3);
+    g.fillCircle(10, 10, 3);
+    g.generateTexture("gear_icon", 20, 20);
+    g.clear();
+
+    g.fillStyle(C.white, 0.3);
+    const ds = 10;
+    g.beginPath();
+    g.moveTo(ds, 0); g.lineTo(ds * 2, ds);
+    g.lineTo(ds, ds * 2); g.lineTo(0, ds);
+    g.closePath(); g.fillPath();
+    g.lineStyle(1.5, C.white, 0.5);
+    g.beginPath();
+    g.moveTo(ds, 0); g.lineTo(ds * 2, ds);
+    g.lineTo(ds, ds * 2); g.lineTo(0, ds);
+    g.closePath(); g.strokePath();
+    g.generateTexture("diamond_icon", ds * 2, ds * 2);
     g.clear();
   }
 }
@@ -611,80 +694,87 @@ class MenuScene extends Phaser.Scene {
     const stars = this.add.image(CX, H / 2, "stars").setAlpha(0.6);
     this.tweens.add({ targets: stars, alpha: 0.3, duration: 3000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.2);
+    this.add.rectangle(CX, H / 2, W, H, 0x000000, 0.15);
 
     const frameGfx = this.add.graphics();
-    const frameLines = [100, 130, 165, 210, 260];
+    const frameLines = [80, 110, 145, 185, 230];
     for (let i = 0; i < frameLines.length; i++) {
-      const a = [0.25, 0.15, 0.08, 0.04, 0.02][i];
-      const lw = [2.5, 2, 1.5, 1, 0.5][i];
-      strokeHex(frameGfx, CX, H * 0.38, frameLines[i], C.cyan, a, lw);
+      const a = [0.3, 0.2, 0.12, 0.06, 0.03][i];
+      const lw = [3, 2.5, 2, 1.5, 0.8][i];
+      strokeHex(frameGfx, CX, H * 0.32, frameLines[i], C.cyan, a, lw);
       if (i < 3) {
-        strokeHex(frameGfx, CX, H * 0.38, frameLines[i] + 2, C.cyanBright, a * 0.2, lw + 2);
+        strokeHex(frameGfx, CX, H * 0.32, frameLines[i] + 3, C.cyanBright, a * 0.15, lw + 4);
       }
       if (i < 2) {
-        strokeHex(frameGfx, CX, H * 0.38, frameLines[i], C.magenta, a * 0.12, lw * 0.5);
+        strokeHex(frameGfx, CX, H * 0.32, frameLines[i], C.magenta, a * 0.15, lw * 0.5);
       }
     }
 
-    const tGlow = this.add.text(CX, 60, "HONEY", {
+    const tGlow = this.add.text(CX, 55, "HONEY", {
       fontSize: "56px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
     }).setOrigin(0.5).setAlpha(0.06);
     this.tweens.add({ targets: tGlow, alpha: 0.12, scaleX: 1.02, duration: 2500, yoyo: true, repeat: -1 });
 
-    this.add.text(CX, 60, "HONEY", {
+    this.add.text(CX, 55, "HONEY", {
       fontSize: "52px", fontFamily: "monospace", color: "#00e5ff",
       fontStyle: "bold", stroke: "#001828", strokeThickness: 8,
     }).setOrigin(0.5);
 
-    this.add.text(CX, 114, "RUNNER", {
+    this.add.text(CX, 108, "RUNNER", {
       fontSize: "36px", fontFamily: "monospace", color: "#ff0090",
       fontStyle: "bold", stroke: "#280014", strokeThickness: 6,
     }).setOrigin(0.5);
 
-    const sub = this.add.text(CX, 148, "C Y B E R   H I V E", {
+    const sub = this.add.text(CX, 140, "C Y B E R   H I V E", {
       fontSize: "10px", fontFamily: "monospace", color: "#00e5ff",
     }).setOrigin(0.5);
     this.tweens.add({ targets: sub, alpha: 0.3, duration: 2000, yoyo: true, repeat: -1 });
 
     for (let i = 0; i < 3; i++) {
-      const pulse = this.add.circle(CX, 240, 30 + i * 15, C.cyan, 0.012 - i * 0.003);
+      const pulse = this.add.circle(CX, H * 0.32, 30 + i * 15, C.cyan, 0.012 - i * 0.003);
       this.tweens.add({ targets: pulse, scaleX: 1.5 + i * 0.2, scaleY: 1.5 + i * 0.2, alpha: 0, duration: 2000 + i * 250, repeat: -1, delay: i * 250 });
     }
 
-    const shadow = this.add.image(CX, 290, "bee_shadow").setScale(3.8).setAlpha(0.2);
-    const body = this.add.image(CX, 240, "runner").setScale(3.5);
-    const wL = this.add.image(CX - 22, 216, "wing_l").setScale(3.2).setAlpha(0.55).setDepth(9);
-    const wR = this.add.image(CX + 22, 216, "wing_r").setScale(3.2).setAlpha(0.55).setDepth(11);
+    const shadow = this.add.image(CX, H * 0.32 + 55, "bee_shadow").setScale(4.2).setAlpha(0.2);
+    const body = this.add.image(CX, H * 0.32, "runner").setScale(3.2);
+    const wL = this.add.image(CX - 30, H * 0.32 - 22, "wing_l").setScale(3).setAlpha(0.55).setDepth(9);
+    const wR = this.add.image(CX + 30, H * 0.32 - 22, "wing_r").setScale(3).setAlpha(0.55).setDepth(11);
     body.setDepth(10);
 
-    this.tweens.add({ targets: body, y: 234, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.tweens.add({ targets: shadow, scaleX: 3.4, alpha: 0.12, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
-    this.tweens.add({ targets: wL, scaleY: 1, alpha: 0.2, duration: 40, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: wR, scaleY: 1, alpha: 0.2, duration: 40, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: [wL, wR], y: 210, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: body, y: body.y - 8, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: shadow, scaleX: 3.8, alpha: 0.12, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: wL, scaleY: 0.8, alpha: 0.18, duration: 38, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: wR, scaleY: 0.8, alpha: 0.18, duration: 38, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: [wL, wR], y: wL.y - 8, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
-    const trailEmitter = this.add.particles(0, 0, "hex_dust", {
+    this.add.particles(0, 0, "hex_dust", {
       speed: { min: 10, max: 40 }, scale: { start: 0.8, end: 0 },
       alpha: { start: 0.5, end: 0 }, lifespan: 800, frequency: 80,
-      follow: body, followOffset: { x: 0, y: 30 },
+      follow: body, followOffset: { x: 0, y: 35 },
       blendMode: "ADD", tint: [C.amberHot, C.coinBody, C.amberWhite],
+    }).setDepth(8);
+
+    this.add.particles(0, 0, "particle_white", {
+      speed: { min: 5, max: 25 }, scale: { start: 1, end: 0 },
+      alpha: { start: 0.6, end: 0 }, lifespan: 500, frequency: 100,
+      follow: body, followOffset: { x: -20, y: 20 },
+      blendMode: "ADD", tint: [C.coinShine, C.amberWhite],
     }).setDepth(8);
 
     const best = getBestScore();
     if (best > 0) {
-      this.add.text(CX, 322, `BEST: ${best.toLocaleString()}`, {
+      this.add.text(CX, H * 0.32 + 80, `BEST: ${best.toLocaleString()}`, {
         fontSize: "16px", fontFamily: "monospace", color: "#ffc030",
         fontStyle: "bold", stroke: "#000", strokeThickness: 4,
       }).setOrigin(0.5);
     }
 
-    const btnGlow = this.add.rectangle(CX, 378, 200, 56, C.cyan, 0.025);
+    const btnGlow = this.add.rectangle(CX, H * 0.58, 200, 56, C.cyan, 0.025);
     this.tweens.add({ targets: btnGlow, scaleX: 1.3, scaleY: 1.4, alpha: 0, duration: 2000, repeat: -1 });
 
-    const btn = this.add.rectangle(CX, 378, 188, 52, C.bgDeep, 0.95).setInteractive({ useHandCursor: true });
+    const btn = this.add.rectangle(CX, H * 0.58, 188, 52, C.bgDeep, 0.95).setInteractive({ useHandCursor: true });
     btn.setStrokeStyle(2.5, C.cyan);
-    this.add.text(CX, 378, "PLAY", {
+    this.add.text(CX, H * 0.58, "PLAY", {
       fontSize: "24px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
     }).setOrigin(0.5);
     btn.on("pointerdown", () => this.scene.start("Game"));
@@ -699,7 +789,7 @@ class MenuScene extends Phaser.Scene {
       "",
       "Collect hex-honey & dodge lasers!",
     ];
-    this.add.text(CX, 480, ctrl.join("\n"), {
+    this.add.text(CX, H * 0.72, ctrl.join("\n"), {
       fontSize: "9px", fontFamily: "monospace", color: "#1a3050",
       align: "center", lineSpacing: 5,
     }).setOrigin(0.5);
@@ -755,11 +845,12 @@ class GameScene extends Phaser.Scene {
 
   private scoreTxt!: Phaser.GameObjects.Text;
   private coinTxt!: Phaser.GameObjects.Text;
-  private spdTxt!: Phaser.GameObjects.Text;
+  private timerTxt!: Phaser.GameObjects.Text;
   private comboTxt!: Phaser.GameObjects.Text;
   private phaseTxt!: Phaser.GameObjects.Text;
   private dashIcon!: Phaser.GameObjects.Image;
-  private dashLabel!: Phaser.GameObjects.Text;
+  private dashLabelTop!: Phaser.GameObjects.Text;
+  private dashLabelBot!: Phaser.GameObjects.Text;
   private puIcons: Phaser.GameObjects.Container[] = [];
 
   private bgTunnel!: Phaser.GameObjects.TileSprite;
@@ -778,6 +869,7 @@ class GameScene extends Phaser.Scene {
   private dashVis?: Phaser.GameObjects.Arc;
   private fc = 0;
   private tunnelOffset = 0;
+  private gameTimer = 0;
 
   constructor() { super({ key: "Game" }); }
 
@@ -788,7 +880,7 @@ class GameScene extends Phaser.Scene {
     this.puIcons = []; this.gTiles = []; this.fc = 0;
     this.combo = 0; this.comboTimer = 0; this.maxCombo = 0;
     this.dashReady = true; this.dashing = false; this.dashCooldownTimer = 0;
-    this.phase = 0; this.tunnelOffset = 0;
+    this.phase = 0; this.tunnelOffset = 0; this.gameTimer = 0;
     this.updatePhaseColors();
 
     this.bgTunnel = this.add.tileSprite(0, 0, W, H, "bg_tunnel").setOrigin(0, 0).setScrollFactor(0);
@@ -811,38 +903,45 @@ class GameScene extends Phaser.Scene {
     this.coinGroup = this.physics.add.group({ allowGravity: false });
     this.puGroup = this.physics.add.group({ allowGravity: false });
 
-    this.beeShadow = this.add.image(CX, GROUND_Y - 6, "bee_shadow").setScale(1.8).setAlpha(0.2).setDepth(4);
+    this.beeShadow = this.add.image(CX, GROUND_Y - 6, "bee_shadow").setScale(2).setAlpha(0.2).setDepth(4);
 
     this.runner = this.physics.add.sprite(CX, RUNNER_Y, "runner");
     this.runner.setCollideWorldBounds(false);
     this.runner.setGravityY(GRAVITY);
-    this.runner.setSize(40, 56);
+    this.runner.setSize(50, 70);
     this.runner.setDepth(10);
 
-    this.wingL = this.add.image(CX - 20, RUNNER_Y - 16, "wing_l").setScale(1.4).setAlpha(0.5).setDepth(9);
-    this.wingR = this.add.image(CX + 20, RUNNER_Y - 16, "wing_r").setScale(1.4).setAlpha(0.5).setDepth(11);
+    this.wingL = this.add.image(CX - 28, RUNNER_Y - 20, "wing_l").setScale(1.6).setAlpha(0.5).setDepth(9);
+    this.wingR = this.add.image(CX + 28, RUNNER_Y - 20, "wing_r").setScale(1.6).setAlpha(0.5).setDepth(11);
     this.tweens.add({ targets: this.wingL, scaleY: 0.3, alpha: 0.15, duration: 38, yoyo: true, repeat: -1 });
     this.tweens.add({ targets: this.wingR, scaleY: 0.3, alpha: 0.15, duration: 38, yoyo: true, repeat: -1 });
 
     this.particles = this.add.particles(0, 0, "particle_amber", {
       speed: { min: 15, max: 50 }, scale: { start: 0.5, end: 0 },
       alpha: { start: 0.5, end: 0 }, lifespan: 500, frequency: 50,
-      follow: this.runner, followOffset: { x: 0, y: 30 },
+      follow: this.runner, followOffset: { x: 0, y: 35 },
       blendMode: "ADD", tint: [C.amberHot, C.amberWhite, C.cyan],
     }).setDepth(8);
 
     this.hexDust = this.add.particles(0, 0, "hex_dust", {
       speed: { min: 8, max: 30 }, scale: { start: 0.6, end: 0 },
       alpha: { start: 0.4, end: 0 }, lifespan: 700, frequency: 120,
-      follow: this.runner, followOffset: { x: 0, y: 35 },
+      follow: this.runner, followOffset: { x: 0, y: 40 },
       blendMode: "ADD", tint: [C.coinBody, C.amberHot],
     }).setDepth(8);
 
-    this.shieldVis = this.add.circle(CX, RUNNER_Y, 38, C.shieldGreen, 0.06);
+    this.add.particles(0, 0, "particle_white", {
+      speed: { min: 5, max: 20 }, scale: { start: 0.8, end: 0 },
+      alpha: { start: 0.4, end: 0 }, lifespan: 400, frequency: 100,
+      follow: this.runner, followOffset: { x: -15, y: 25 },
+      blendMode: "ADD", tint: [C.coinShine, C.amberWhite, C.white],
+    }).setDepth(8);
+
+    this.shieldVis = this.add.circle(CX, RUNNER_Y, 42, C.shieldGreen, 0.06);
     this.shieldVis.setStrokeStyle(2, C.shieldBright, 0.35);
     this.shieldVis.setVisible(false).setDepth(12);
 
-    this.dashVis = this.add.circle(CX, RUNNER_Y, 42, C.cyan, 0.04);
+    this.dashVis = this.add.circle(CX, RUNNER_Y, 46, C.cyan, 0.04);
     this.dashVis.setStrokeStyle(2, C.cyanBright, 0.5);
     this.dashVis.setVisible(false).setDepth(12);
 
@@ -857,7 +956,7 @@ class GameScene extends Phaser.Scene {
     this.setupInput();
     this.makeHUD();
 
-    this.add.image(CX, H / 2, "scanlines").setAlpha(0.1).setDepth(99).setScrollFactor(0);
+    this.add.image(CX, H / 2, "scanlines").setAlpha(0.12).setDepth(99).setScrollFactor(0);
     this.add.image(CX, H / 2, "vignette").setAlpha(0.5).setDepth(100).setScrollFactor(0);
   }
 
@@ -874,36 +973,41 @@ class GameScene extends Phaser.Scene {
   }
 
   private makeHUD() {
-    const hudBar = this.add.rectangle(CX, 16, W - 10, 28, C.hudBg, 0.85).setDepth(90).setScrollFactor(0);
-    hudBar.setStrokeStyle(1, C.hudBorder, 0.3);
+    const d = 91;
+    const hY = 18;
 
-    this.scoreTxt = this.add.text(CX, 16, "0", {
-      fontSize: "16px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
+    this.add.image(20, hY, "honey_drop").setScale(0.8).setDepth(d).setScrollFactor(0);
+    this.coinTxt = this.add.text(36, hY, "0", {
+      fontSize: "14px", fontFamily: "monospace", color: "#ffffff", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0, 0.5).setDepth(d).setScrollFactor(0);
 
-    this.add.image(50, 16, "coin").setScale(0.45).setDepth(91).setScrollFactor(0);
-    this.coinTxt = this.add.text(64, 16, " 0", {
-      fontSize: "12px", fontFamily: "monospace", color: "#ffd040", stroke: "#000", strokeThickness: 2,
-    }).setOrigin(0, 0.5).setDepth(91).setScrollFactor(0);
+    this.add.image(100, hY, "gear_icon").setScale(0.7).setDepth(d).setScrollFactor(0).setAlpha(0.5);
 
-    this.spdTxt = this.add.text(W - 12, 16, `${INITIAL_SPEED.toFixed(1)}x`, {
-      fontSize: "10px", fontFamily: "monospace", color: "#ff0090", stroke: "#000", strokeThickness: 2,
-    }).setOrigin(1, 0.5).setDepth(91).setScrollFactor(0);
+    this.comboTxt = this.add.text(CX, hY, "1X NEURAL OVERLOAD", {
+      fontSize: "11px", fontFamily: "monospace", color: "#ffc030", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(d).setScrollFactor(0);
 
-    const comboBar = this.add.rectangle(CX, 40, W - 10, 18, C.hudBg, 0.65).setDepth(90).setScrollFactor(0);
-    comboBar.setStrokeStyle(1, C.hudBorder, 0.15);
-    this.comboTxt = this.add.text(CX, 40, "1x NEURAL OVERLOAD", {
-      fontSize: "10px", fontFamily: "monospace", color: "#ffc030", fontStyle: "bold", stroke: "#000", strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
+    this.timerTxt = this.add.text(W - 14, hY, "0.0s", {
+      fontSize: "14px", fontFamily: "monospace", color: "#ffffff", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+    }).setOrigin(1, 0.5).setDepth(d).setScrollFactor(0);
 
-    this.phaseTxt = this.add.text(CX, 58, PHASE_NAMES[0], {
+    this.scoreTxt = this.add.text(CX, hY + 20, "0", {
+      fontSize: "12px", fontFamily: "monospace", color: "#00e5ff", stroke: "#000", strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(d).setScrollFactor(0);
+
+    this.phaseTxt = this.add.text(CX, hY + 36, PHASE_NAMES[0], {
       fontSize: "8px", fontFamily: "monospace", color: "#00e5ff", stroke: "#000", strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(91).setScrollFactor(0).setAlpha(0.6);
+    }).setOrigin(0.5).setDepth(d).setScrollFactor(0).setAlpha(0.6);
 
-    this.dashIcon = this.add.image(38, H - 38, "dash_icon_ready").setScale(0.9).setDepth(91).setScrollFactor(0);
-    this.dashLabel = this.add.text(38, H - 12, "DASH", {
+    this.dashIcon = this.add.image(38, H - 42, "dash_icon_ready").setScale(0.85).setDepth(d).setScrollFactor(0);
+    this.dashLabelTop = this.add.text(38, H - 18, "STINGER", {
+      fontSize: "6px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(d).setScrollFactor(0);
+    this.dashLabelBot = this.add.text(38, H - 10, "DASH", {
       fontSize: "7px", fontFamily: "monospace", color: "#00e5ff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(91).setScrollFactor(0);
+    }).setOrigin(0.5).setDepth(d).setScrollFactor(0);
+
+    this.add.image(W - 20, H - 20, "diamond_icon").setScale(0.8).setDepth(d).setScrollFactor(0).setAlpha(0.4);
   }
 
   private setupInput() {
@@ -951,13 +1055,13 @@ class GameScene extends Phaser.Scene {
     if (!this.alive || this.sliding) return;
     this.sliding = true;
     this.runner.setTexture("runner_slide");
-    this.runner.setSize(50, 22);
+    this.runner.setSize(60, 24);
     this.runner.y = GROUND_Y - 14;
     this.slideTimer = this.time.delayedCall(SLIDE_DURATION, () => {
       if (!this.alive) return;
       this.sliding = false;
       this.runner.setTexture("runner");
-      this.runner.setSize(40, 56);
+      this.runner.setSize(50, 70);
     });
   }
 
@@ -972,13 +1076,13 @@ class GameScene extends Phaser.Scene {
 
     this.cameras.main.flash(200, 0, 229, 255, false);
 
-    for (let i = 0; i < 8; i++) {
-      const s = this.add.image(this.runner.x + Phaser.Math.Between(-30, 30), this.runner.y + Phaser.Math.Between(-30, 30), "particle_cyan")
-        .setScale(2.5).setAlpha(0.7).setDepth(15).setBlendMode("ADD");
-      this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(-60, 60), y: s.y + Phaser.Math.Between(-60, 60), alpha: 0, scale: 0, duration: 400, onComplete: () => s.destroy() });
+    for (let i = 0; i < 10; i++) {
+      const s = this.add.image(this.runner.x + Phaser.Math.Between(-35, 35), this.runner.y + Phaser.Math.Between(-35, 35), "particle_cyan")
+        .setScale(3).setAlpha(0.7).setDepth(15).setBlendMode("ADD");
+      this.tweens.add({ targets: s, x: s.x + Phaser.Math.Between(-70, 70), y: s.y + Phaser.Math.Between(-70, 70), alpha: 0, scale: 0, duration: 400, onComplete: () => s.destroy() });
     }
 
-    this.dashIcon.setTexture("dash_icon_bg").setAlpha(0.4);
+    this.dashIcon.setTexture("dash_icon_bg").setAlpha(0.3);
 
     this.time.delayedCall(STINGER_DASH_DURATION, () => {
       this.dashing = false;
@@ -1128,38 +1232,39 @@ class GameScene extends Phaser.Scene {
   private drawTunnelRings() {
     const g = this.tunnelRingsGfx;
     g.clear();
-    const vx = CX, vy = H * 0.12;
-    const numRings = 8;
+    const numRings = 10;
     const baseOffset = this.tunnelOffset % 50;
 
     for (let i = numRings; i >= 0; i--) {
       const t = (i * 50 + baseOffset) / (numRings * 50);
-      const r = 12 + t * (W * 0.65);
-      const cy = vy + t * (H * 0.5);
-      const sq = 0.6 + t * 0.4;
+      const r = 15 + t * (W * 0.7);
+      const cy = VY + t * (H * 0.5);
+      const sq = 0.55 + t * 0.45;
       const rr = r * sq;
 
-      const ea = (0.05 + t * 0.3) * 0.6;
-      const ew = 0.5 + t * 1.5;
-      strokeHex(g, vx, cy, rr, this.phaseColor1, ea, ew);
-      if (t > 0.3) {
-        strokeHex(g, vx, cy, rr, this.phaseColor2, ea * 0.15, ew * 0.5);
+      const ea = (0.06 + t * 0.35) * 0.7;
+      const ew = 1 + t * 2;
+      strokeHex(g, VX, cy, rr, this.phaseColor1, ea, ew);
+      strokeHex(g, VX, cy, rr + 2, this.phaseColor1, ea * 0.08, ew + 4);
+      if (t > 0.25) {
+        strokeHex(g, VX, cy, rr, this.phaseColor2, ea * 0.18, ew * 0.5);
       }
     }
 
     for (let i = 0; i < 6; i++) {
       const angle = (PI / 3) * i - PI / 6;
-      const len = W * 0.5;
-      const ex = vx + Math.cos(angle) * len;
-      const ey = vy + Math.sin(angle) * len;
-      g.lineStyle(0.5, this.phaseColor1, 0.02);
-      g.lineBetween(vx, vy, ex, ey);
+      const len = W * 0.55;
+      const ex = VX + Math.cos(angle) * len;
+      const ey = VY + Math.sin(angle) * len;
+      g.lineStyle(0.5, this.phaseColor1, 0.025);
+      g.lineBetween(VX, VY, ex, ey);
     }
   }
 
   update(_t: number, delta: number) {
     if (!this.alive) return;
     this.fc++;
+    this.gameTimer += delta / 1000;
 
     this.speed = Math.min(MAX_SPEED, this.speed + SPEED_RAMP * (delta / 16));
     const es = this.pu.boost ? this.speed * BOOST_SPEED_MULT : this.speed;
@@ -1190,11 +1295,11 @@ class GameScene extends Phaser.Scene {
       if (this.dashCooldownTimer <= 0) {
         this.dashReady = true;
         this.dashIcon.setTexture("dash_icon_ready").setAlpha(1);
-        const flash = this.add.circle(38, H - 38, 28, C.cyan, 0.2).setDepth(92);
+        const flash = this.add.circle(38, H - 42, 28, C.cyan, 0.2).setDepth(92);
         this.tweens.add({ targets: flash, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 400, onComplete: () => flash.destroy() });
       } else {
         const pct = 1 - (this.dashCooldownTimer / this.dashCooldownTotal);
-        this.dashIcon.setAlpha(0.3 + pct * 0.7);
+        this.dashIcon.setAlpha(0.25 + pct * 0.75);
       }
     }
 
@@ -1205,14 +1310,14 @@ class GameScene extends Phaser.Scene {
 
     this.gTiles.forEach((gt) => { gt.tilePositionY -= es * 0.5; });
 
-    this.wingL.x = this.runner.x - 22;
-    this.wingR.x = this.runner.x + 22;
-    this.wingL.y = this.runner.y - 18;
-    this.wingR.y = this.runner.y - 18;
+    this.wingL.x = this.runner.x - 28;
+    this.wingR.x = this.runner.x + 28;
+    this.wingL.y = this.runner.y - 20;
+    this.wingR.y = this.runner.y - 20;
 
     this.beeShadow.x = this.runner.x;
     const sd = Math.max(0, GROUND_Y - this.runner.y);
-    this.beeShadow.setScale(Math.max(0.4, 1.8 - sd * 0.01)).setAlpha(Math.max(0.04, 0.2 - sd * 0.002));
+    this.beeShadow.setScale(Math.max(0.4, 2 - sd * 0.01)).setAlpha(Math.max(0.04, 0.2 - sd * 0.002));
 
     if (this.shieldVis) { this.shieldVis.x = this.runner.x; this.shieldVis.y = this.runner.y; }
     if (this.dashVis) { this.dashVis.x = this.runner.x; this.dashVis.y = this.runner.y; }
@@ -1256,12 +1361,13 @@ class GameScene extends Phaser.Scene {
       if (p.y > H + 50) p.destroy();
     });
 
-    this.scoreTxt.setText(this.score.toLocaleString());
-    this.coinTxt.setText(` ${this.coins}`);
-    this.spdTxt.setText(`${es.toFixed(1)}x`);
+    const coinDisplay = this.score > 1000 ? `${(this.score / 1000).toFixed(1)}K` : this.score.toString();
+    this.coinTxt.setText(coinDisplay);
+    this.scoreTxt.setText(`SCORE: ${this.score.toLocaleString()}`);
+    this.timerTxt.setText(`${this.gameTimer.toFixed(1)}s`);
 
     const comboDisplay = Math.max(1, Math.floor(this.combo));
-    this.comboTxt.setText(`${comboDisplay}x NEURAL OVERLOAD`);
+    this.comboTxt.setText(`${comboDisplay}X NEURAL OVERLOAD`);
     if (comboDisplay >= 10) {
       this.comboTxt.setColor("#ff0090");
     } else if (comboDisplay >= 5) {
@@ -1296,9 +1402,9 @@ class GameOverScene extends Phaser.Scene {
       this.tweens.add({ targets: nb, scaleX: 1.05, scaleY: 1.05, duration: 600, yoyo: true, repeat: -1 });
     }
 
-    const beeGlow = this.add.circle(CX, 126, 24, C.cyan, 0.015);
+    const beeGlow = this.add.circle(CX, 126, 28, C.cyan, 0.015);
     this.tweens.add({ targets: beeGlow, scaleX: 1.5, scaleY: 1.5, alpha: 0, duration: 2000, repeat: -1 });
-    const bee = this.add.image(CX, 126, "runner").setScale(2.4);
+    const bee = this.add.image(CX, 126, "runner").setScale(2.2);
     this.tweens.add({ targets: bee, y: 120, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
 
     const sy = 164;
