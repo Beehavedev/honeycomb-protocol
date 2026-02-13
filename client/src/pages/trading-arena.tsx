@@ -3910,19 +3910,6 @@ const ARENA_GAMES = [
     comingSoon: true,
     image: arenaFighterImg,
   },
-  {
-    id: "gamehub",
-    name: "Game Hub",
-    tagline: "Quick Arcade Games",
-    description: "Reaction duels, aim trainers, and more mini-games. Fast rounds, instant results, pure skill.",
-    icon: Gamepad2,
-    color: "#3b82f6",
-    colorDim: "rgba(59,130,246,0.12)",
-    tags: ["Arcade", "Quick Play", "Bots"],
-    players: "1v1",
-    comingSoon: true,
-    image: arenaGamehubImg,
-  },
 ];
 
 const uiSoundEnabled = { current: true };
@@ -4361,7 +4348,7 @@ export default function TradingArena() {
         ) : gameMode === "trivia" ? (
           <TriviaContent />
         ) : gameMode === "gamehub" ? (
-          <GameHubContent />
+          null
         ) : gameMode === "runner" ? (
           <HoneyRunnerContent />
         ) : (
