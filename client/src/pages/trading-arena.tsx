@@ -63,8 +63,6 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
-  CircleDot,
-  Code2,
   Hash,
   Gauge,
 } from "lucide-react";
@@ -3845,6 +3843,20 @@ function SpectatorView({ duelId }: { duelId: string }) {
 
 const ARENA_GAMES = [
   {
+    id: "runner",
+    name: "HoneyRunner",
+    tagline: "Earn Nectar Points Now",
+    description: "Dodge obstacles, collect coins, and rack up Nectar Points before TGE. Every run earns you $HONEY allocation. Play now to maximize your share!",
+    icon: Zap,
+    color: "#f59e0b",
+    colorDim: "rgba(245,158,11,0.12)",
+    tags: ["Play Now", "Earn Points", "Solo"],
+    players: "Solo",
+    featured: true,
+    comingSoon: false,
+    image: arenaRunnerImg,
+  },
+  {
     id: "trading",
     name: "Trading Arena",
     tagline: "1v1 Leveraged Trading Battles",
@@ -3854,7 +3866,8 @@ const ARENA_GAMES = [
     colorDim: "rgba(14,203,129,0.12)",
     tags: ["PvP", "BNB Stakes", "Live Charts"],
     players: "1v1",
-    featured: true,
+    featured: false,
+    comingSoon: true,
     image: arenaTradingImg,
   },
   {
@@ -3867,7 +3880,8 @@ const ARENA_GAMES = [
     colorDim: "rgba(168,85,247,0.12)",
     tags: ["PvP", "BNB Stakes", "On-Chain"],
     players: "1v1",
-    featured: true,
+    featured: false,
+    comingSoon: true,
     image: arenaPredictImg,
   },
   {
@@ -3880,6 +3894,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(245,158,11,0.12)",
     tags: ["PvP", "Knowledge", "Timed"],
     players: "1v1",
+    comingSoon: true,
     image: arenaTriviaImg,
   },
   {
@@ -3892,6 +3907,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(239,68,68,0.12)",
     tags: ["PvP", "Strategy", "Turn-Based"],
     players: "1v1",
+    comingSoon: true,
     image: arenaFighterImg,
   },
   {
@@ -3904,20 +3920,8 @@ const ARENA_GAMES = [
     colorDim: "rgba(59,130,246,0.12)",
     tags: ["Arcade", "Quick Play", "Bots"],
     players: "1v1",
+    comingSoon: true,
     image: arenaGamehubImg,
-  },
-  {
-    id: "runner",
-    name: "HoneyRunner",
-    tagline: "Endless Neon Hive Run",
-    description: "Dodge obstacles, collect coins, and activate powerups in this fast-paced endless runner through a neon honeycomb tunnel.",
-    icon: Zap,
-    color: "#f59e0b",
-    colorDim: "rgba(245,158,11,0.12)",
-    tags: ["Solo", "Endless", "High Score"],
-    players: "Solo",
-    featured: true,
-    image: arenaRunnerImg,
   },
 ];
 
@@ -3984,21 +3988,28 @@ function FuturisticHero() {
 
       <div className="relative z-10 space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/5 arena-badge-blink">
-          <CircleDot className="w-3 h-3 text-amber-400" />
-          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400/80">Live Arena</span>
+          <Flame className="w-3 h-3 text-amber-400" />
+          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400/80">TGE in 7 Days — Earn Points Now</span>
         </div>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight arena-title-glow"
           style={{ color: "hsl(var(--foreground))" }}>
           GAMES ARENA
         </h1>
-        <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto">
-          Choose your battlefield. Compete in skill-based crypto games against AI bots or other players.
+        <p className="text-muted-foreground text-sm sm:text-base max-w-lg mx-auto">
+          Play HoneyRunner to earn Nectar Points before launch. Mint your Bee agent to start earning and claim your $HONEY allocation at TGE.
         </p>
-        <div className="pt-2">
-          <Link href="/developers">
-            <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-developer-portal">
-              <Code2 className="w-3 h-3" />
-              Build Games &amp; Earn 85%
+        <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
+          <Link href="/register">
+            <Button size="sm" className="text-xs gap-1.5 bg-amber-500 text-black border-amber-600" data-testid="button-mint-agent-cta">
+              <Sparkles className="w-3 h-3" />
+              Mint Your Bee Agent
+            </Button>
+
+          </Link>
+          <Link href="/points">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" data-testid="button-view-points">
+              <Star className="w-3 h-3" />
+              View Points Dashboard
             </Button>
           </Link>
         </div>
@@ -4014,23 +4025,26 @@ function GameCard({ game, index, onSelect }: {
 }) {
   const Icon = game.icon;
   const revealClass = `arena-card-reveal${index > 0 ? `-d${Math.min(index, 4)}` : ""}`;
+  const isComingSoon = (game as any).comingSoon;
+  const isFeaturedRunner = game.id === "runner";
 
   return (
     <div
-      className={`arena-game-card rounded-md ${revealClass}`}
-      onClick={() => { playUISound("select"); onSelect(game.id); }}
-      onMouseEnter={() => playUISound("hover")}
+      className={`arena-game-card rounded-md ${revealClass} ${isFeaturedRunner ? "sm:col-span-2 lg:col-span-3" : ""}`}
+      onClick={() => { if (!isComingSoon) { playUISound("select"); onSelect(game.id); } }}
+      onMouseEnter={() => { if (!isComingSoon) playUISound("hover"); }}
       data-testid={`card-game-${game.id}`}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playUISound("select"); onSelect(game.id); } }}
+      role={isComingSoon ? undefined : "button"}
+      tabIndex={isComingSoon ? -1 : 0}
+      onKeyDown={(e) => { if (!isComingSoon && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); playUISound("select"); onSelect(game.id); } }}
+      style={isComingSoon ? { cursor: "default" } : undefined}
     >
-      <div className="relative rounded-md border border-border/50 bg-card overflow-hidden">
-        <div className="relative h-28 sm:h-32 overflow-hidden">
+      <div className={`relative rounded-md border bg-card overflow-hidden ${isComingSoon ? "border-border/30 opacity-60" : "border-border/50"} ${isFeaturedRunner ? "border-amber-500/40" : ""}`}>
+        <div className={`relative overflow-hidden ${isFeaturedRunner ? "h-40 sm:h-48" : "h-28 sm:h-32"}`}>
           <img
             src={game.image}
             alt={game.name}
-            className="w-full h-full object-cover"
+            className={`w-full h-full object-cover ${isComingSoon ? "grayscale" : ""}`}
             loading="lazy"
           />
           <div className="absolute inset-0" style={{
@@ -4040,22 +4054,37 @@ function GameCard({ game, index, onSelect }: {
             background: `linear-gradient(135deg, ${game.color}20 0%, transparent 60%)`,
           }} />
           <div className="absolute top-2 right-2 flex items-center gap-1.5">
-            {game.featured && (
+            {isComingSoon ? (
               <Badge variant="secondary" className="text-[10px] font-mono">
-                <Sparkles className="w-3 h-3 mr-0.5" style={{ color: game.color }} /> HOT
+                <Clock className="w-3 h-3 mr-0.5" /> COMING SOON
+              </Badge>
+            ) : game.featured ? (
+              <Badge variant="secondary" className="text-[10px] font-mono bg-amber-500/20 text-amber-400 border-amber-500/30">
+                <Sparkles className="w-3 h-3 mr-0.5" /> PLAY TO EARN
+              </Badge>
+            ) : null}
+            {!isComingSoon && (
+              <Badge variant="outline" className="text-[10px] font-mono bg-background/60 backdrop-blur-sm">
+                {game.players}
               </Badge>
             )}
-            <Badge variant="outline" className="text-[10px] font-mono bg-background/60 backdrop-blur-sm">
-              {game.players}
-            </Badge>
           </div>
-          <div className="absolute bottom-3 left-4 flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 backdrop-blur-sm"
+
+          {isComingSoon && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="px-4 py-2 rounded-md bg-background/80 backdrop-blur-sm border border-border/50">
+                <p className="text-sm font-bold text-muted-foreground">Coming Soon</p>
+              </div>
+            </div>
+          )}
+
+          <div className={`absolute bottom-3 left-4 flex items-center gap-2.5 ${isFeaturedRunner ? "bottom-4 left-5" : ""}`}>
+            <div className={`rounded-md flex items-center justify-center shrink-0 backdrop-blur-sm ${isFeaturedRunner ? "w-12 h-12" : "w-10 h-10"}`}
               style={{ background: `${game.color}30`, border: `1px solid ${game.color}40` }}>
-              <Icon className="w-5 h-5 arena-icon-pulse" style={{ color: game.color }} />
+              <Icon className={`arena-icon-pulse ${isFeaturedRunner ? "w-6 h-6" : "w-5 h-5"}`} style={{ color: isComingSoon ? undefined : game.color }} />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-bold tracking-tight leading-tight" style={{ color: game.color }}>
+              <h3 className={`font-bold tracking-tight leading-tight ${isFeaturedRunner ? "text-lg sm:text-2xl" : "text-base sm:text-lg"}`} style={{ color: isComingSoon ? "hsl(var(--muted-foreground))" : game.color }}>
                 {game.name}
               </h3>
               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/80">
@@ -4065,33 +4094,52 @@ function GameCard({ game, index, onSelect }: {
           </div>
         </div>
 
-        <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ overflow: "hidden" }}>
-          <div className="absolute left-0 right-0 h-[1px]" style={{
-            background: `linear-gradient(90deg, transparent, ${game.color}15, transparent)`,
-            animation: "arena-scan-line 3s linear infinite",
-          }} />
-        </div>
-
-        <GameCardParticles color={game.color} />
+        {!isComingSoon && (
+          <>
+            <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ overflow: "hidden" }}>
+              <div className="absolute left-0 right-0 h-[1px]" style={{
+                background: `linear-gradient(90deg, transparent, ${game.color}15, transparent)`,
+                animation: "arena-scan-line 3s linear infinite",
+              }} />
+            </div>
+            <GameCardParticles color={game.color} />
+          </>
+        )}
 
         <div className="relative px-4 pb-4 pt-1">
-          <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+          <p className={`text-sm text-muted-foreground leading-relaxed mb-3 ${isComingSoon ? "opacity-60" : ""}`}>
             {game.description}
           </p>
 
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 flex-wrap">
               {game.tags.map((tag) => (
-                <span key={tag} className="text-[10px] font-mono px-2 py-0.5 rounded-sm"
+                <span key={tag} className={`text-[10px] font-mono px-2 py-0.5 rounded-sm ${isComingSoon ? "opacity-50" : ""}`}
                   style={{ background: `${game.color}10`, color: `${game.color}cc`, border: `1px solid ${game.color}20` }}>
                   {tag}
                 </span>
               ))}
             </div>
-            <div className="flex items-center gap-1 text-xs font-mono" style={{ color: game.color }}>
-              PLAY <ChevronRight className="w-3.5 h-3.5" />
-            </div>
+            {!isComingSoon && (
+              <div className="flex items-center gap-1 text-xs font-mono" style={{ color: game.color }}>
+                PLAY <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            )}
           </div>
+
+          {isFeaturedRunner && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
+                <Star className="w-3 h-3" /> Up to 60 pts/session
+              </Badge>
+              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
+                <Trophy className="w-3 h-3" /> Daily cap: 500 pts
+              </Badge>
+              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
+                <Flame className="w-3 h-3" /> 7 days until TGE
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -4129,9 +4177,9 @@ function GamesArenaLanding({ onSelectGame }: { onSelectGame: (id: string) => voi
         <CommunityGames onSelectGame={onSelectGame} />
 
         <div className="mt-8 text-center arena-animate-up-d3">
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-md border border-border/30 bg-card/50">
-            <Bot className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">All games support AI bot opponents for instant practice matches</span>
+          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-md border border-amber-500/20 bg-amber-500/5">
+            <Star className="w-4 h-4 text-amber-400" />
+            <span className="text-xs text-muted-foreground">Earn Nectar Points with every HoneyRunner session — more games unlocking at TGE</span>
           </div>
         </div>
       </div>
