@@ -1607,7 +1607,12 @@ class GameScene extends Phaser.Scene {
     this.tunnelOffset += es * 2;
     this.drawTunnelRings();
 
-    this.bgTunnel.tilePositionY -= es * 0.2;
+    this.bgTunnel.tilePositionY += es * 0.15;
+    const zoomPulse = 1 + Math.sin(this.tunnelOffset * 0.008) * 0.008;
+    const forwardZoom = 1 + this.dist * 0.00003;
+    const bgScale = Math.min(1.35, forwardZoom * zoomPulse);
+    this.bgTunnel.setScale(bgScale);
+    this.bgTunnel.setPosition(CX - (W * bgScale) / 2, H / 2 - (H * bgScale) / 2);
     if (this.chromAbTimer > 0) {
       this.chromAbTimer -= delta;
       if (this.chromAbTimer <= 0 && this.chromAbGfx) { this.chromAbGfx.setAlpha(0); this.chromAbGfx.clear(); }
@@ -1651,15 +1656,23 @@ class GameScene extends Phaser.Scene {
     }
 
     if (es > 6.5 && this.fc % 2 === 0) {
-      const sl = this.add.image(Phaser.Math.Between(10, W - 10), -12, "speed_line")
-        .setAlpha(0.1 + (es - 6.5) * 0.04).setScale(1.2, 1.4 + es * 0.22).setDepth(2).setTint(this.phaseColor1);
-      this.tweens.add({ targets: sl, y: H + 28, alpha: 0, duration: 240 + Phaser.Math.Between(0, 140), onComplete: () => sl.destroy() });
+      const angle = Math.random() * TAU;
+      const startX = CX + Math.cos(angle) * 20;
+      const startY = VY + Math.sin(angle) * 20;
+      const endX = CX + Math.cos(angle) * (W * 0.7);
+      const endY = VY + Math.sin(angle) * (H * 0.9);
+      const sl = this.add.image(startX, startY, "speed_line")
+        .setAlpha(0.1 + (es - 6.5) * 0.04).setScale(0.3, 0.6 + es * 0.1).setDepth(2).setTint(this.phaseColor1)
+        .setRotation(angle + PI / 2);
+      this.tweens.add({ targets: sl, x: endX, y: endY, scaleX: 1.4, scaleY: 1.8 + es * 0.22, alpha: 0, duration: 300 + Phaser.Math.Between(0, 140), onComplete: () => sl.destroy() });
     }
 
     if (this.combo >= 10 && this.fc % 3 === 0) {
-      const sl2 = this.add.image(Phaser.Math.Between(5, W - 5), -6, "speed_line")
-        .setAlpha(0.18).setScale(1.6, 2.4 + es * 0.18).setDepth(2).setTint(this.phaseColor2);
-      this.tweens.add({ targets: sl2, y: H + 28, alpha: 0, duration: 200, onComplete: () => sl2.destroy() });
+      const angle2 = Math.random() * TAU;
+      const sl2 = this.add.image(CX + Math.cos(angle2) * 15, VY + Math.sin(angle2) * 15, "speed_line")
+        .setAlpha(0.18).setScale(0.4, 0.8 + es * 0.08).setDepth(2).setTint(this.phaseColor2)
+        .setRotation(angle2 + PI / 2);
+      this.tweens.add({ targets: sl2, x: CX + Math.cos(angle2) * W * 0.6, y: VY + Math.sin(angle2) * H * 0.8, scaleX: 1.8, scaleY: 2.6, alpha: 0, duration: 250, onComplete: () => sl2.destroy() });
     }
 
     this.obsGroup.getChildren().forEach((o) => {
