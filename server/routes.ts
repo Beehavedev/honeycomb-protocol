@@ -30,6 +30,7 @@ import { giveawayRouter, seedGiveawayCampaign } from "./giveaway-routes";
 import crmRoutes from "./crm-routes";
 import gameHubRoutes from "./game-hub/routes";
 import developerRoutes from "./developer-routes";
+import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
 import {
   registerAgentRequestSchema,
   createPostRequestSchema,
@@ -1765,6 +1766,9 @@ export async function registerRoutes(
   // Register Game Hub routes
   app.use("/api/hub", gameHubRoutes);
   app.use("/api/devs", developerRoutes);
+
+  // Register NFA Tunnel Dash routes
+  registerNfaTunnelRoutes(app);
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
   app.post("/api/admin/set-cooldown", async (req, res) => {

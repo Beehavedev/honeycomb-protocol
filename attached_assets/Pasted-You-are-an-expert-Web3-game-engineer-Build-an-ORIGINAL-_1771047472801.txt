@@ -1,0 +1,197 @@
+You are an expert Web3 game engineer. Build an ORIGINAL endless tunnel runner game called “NFA Tunnel Dash” for the Honeycomb ecosystem. This is NOT a clone of any existing IP. It must be a production-ready web game where ONLY users who own a verified NFA can play, and the selected NFA becomes the player identity, skin, and progression.
+
+GOAL
+- Create a polished endless runner in a scrolling tunnel.
+- Gating: user must connect wallet and prove NFA ownership (and optionally NFA verification) to enter.
+- The run is attributed to the selected NFA tokenId. Leaderboards show NFA name + tokenId + score.
+
+TECH STACK
+- Frontend: TypeScript + Vite + Phaser 3.
+- Web3: viem (preferred) or ethers v6 for EVM wallet connection.
+- Chain: BNB Chain (mainnet + testnet support via env).
+- Data: localStorage for cached NFAs + run history.
+- Leaderboard: Express + SQLite server in /server (required).
+- Repo structure:
+  /src
+    /game (scenes, systems)
+    /ui (menus, modals)
+    /web3 (wallet, contracts, queries)
+    /config (tuning params)
+  /server (express + sqlite)
+  /shared (types, validation)
+  /.env.example
+
+WEB3 + NFA REQUIREMENTS (CRITICAL)
+- The user must connect an EVM wallet (MetaMask).
+- Query owned NFAs:
+  - Use an ERC-721 compatible interface (balanceOf, tokenOfOwnerByIndex OR use an indexer endpoint).
+  - Provide BOTH modes:
+    1) On-chain enumeration mode (if contract supports ERC721Enumerable)
+    2) Indexer mode (preferred): call an HTTP endpoint to fetch NFAs owned by an address
+- Verification:
+  - Each NFA must be verified by one of:
+    A) On-chain: call a registry contract method like isVerifiedNFA(contract, tokenId) -> bool
+    B) Off-chain: indexer returns “verified: true”
+- In /src/web3, implement a “NFAProvider” with adapters:
+  - OnChainEnumerableAdapter
+  - IndexerAdapter
+  - RegistryVerificationAdapter
+  - MockAdapter (for local dev)
+
+CONFIGURATION (NO HARDCODE)
+- Put all addresses, RPC URLs, and endpoints in .env:
+  VITE_CHAIN_ID=
+  VITE_RPC_URL=
+  VITE_NFA_CONTRACT=
+  VITE_NFA_REGISTRY_CONTRACT=
+  VITE_INDEXER_URL=
+  VITE_LEADERBOARD_API_URL=
+- Provide .env.example with placeholders.
+
+PLAYER IDENTITY = NFA
+- After connect, show a “Select Your NFA” screen:
+  - Grid of owned NFAs (image, name, tokenId, verified badge)
+  - Select one -> “Enter Tunnel”
+- Load NFA metadata:
+  - tokenURI -> fetch JSON
+  - show image + name
+  - cache metadata in localStorage with TTL (e.g., 6 hours)
+
+GAMEPLAY (AAA FEEL, ORIGINAL)
+- Forward-moving tunnel runner (top-down/pseudo-3D).
+- Controls:
+  - Desktop: Arrow keys/WASD; Space = Boost (if available); Esc pause.
+  - Mobile: drag/swipe + on-screen boost button.
+- Juice:
+  - camera tilt + bob, speed lines particles, sparks on near miss, screen shake on hit, UI sound toggles.
+- Obstacles (6 types):
+  1) static block
+  2) moving side-to-side hazard
+  3) rotating bar hazard
+  4) gate with tight gap
+  5) sticky slow zone
+  6) decoy pickup (penalty)
+- Collectibles (4 types):
+  1) shards/coins
+  2) boost charge
+  3) shield (1 save)
+  4) magnet (5s)
+- Difficulty ramp:
+  - smooth speed increase + spawn density phases
+  - NEVER spawn impossible patterns
+  - telegraph hazards 0.4–0.8s before lethal
+
+NFA-BASED PROGRESSION (KEY DIFFERENCE)
+- Each NFA has “Run Traits” derived from metadata attributes (if present) OR default:
+  - agility: affects lateral speed
+  - focus: affects near-miss bonus window
+  - luck: affects power-up spawn odds slightly
+  - shielded: starts with 1 shield (rare trait)
+- Implement trait mapping:
+  - Read metadata.attributes array
+  - Map trait names case-insensitively
+  - If missing, use base stats
+- Show trait summary on NFA select screen and in pause menu.
+
+SCORING + RUN RECORD
+- Score components:
+  - distance points
+  - speed multiplier
+  - combo meter (breaks on hit)
+  - near-miss bonus
+  - streak bonus for consecutive clean segments
+- At end of run, create a RunSummary:
+  {
+    chainId,
+    playerAddress,
+    nfaContract,
+    tokenId,
+    verified,
+    score,
+    distance,
+    durationMs,
+    maxSpeed,
+    pickups: {coin, boost, shield, magnet},
+    hits,
+    checksum
+  }
+
+LEADERBOARD (SERVER REQUIRED)
+- Express + SQLite backend in /server.
+- Tables:
+  - scores(id, createdAt, chainId, address, nfaContract, tokenId, nfaName, verified, score, distance, durationMs, signature, checksum)
+- Endpoints:
+  - GET /leaderboard?mode=daily|weekly|alltime&limit=50
+  - POST /submit
+- Submission security:
+  - Client must sign a message with wallet (EIP-191 personal_sign):
+    “Honeycomb NFA Tunnel Dash submission:
+     chainId: X
+     contract: 0x...
+     tokenId: 123
+     score: 9999
+     nonce: <server nonce>”
+  - Server issues nonce: GET /nonce?address=0x...
+  - Server verifies:
+    - signature belongs to address
+    - address owns tokenId (via indexer or on-chain call)
+    - token is verified if required
+    - score sanity checks (distance/time bounds, max pickup rate)
+    - checksum format and internal validation
+- If verification fails, reject with clear error.
+
+GAME MODES
+- Mode 1: Ranked (requires verified NFA) -> submits to leaderboard
+- Mode 2: Practice (any NFA owned, verified not required) -> no submission
+- Toggle in menu, default = Ranked
+
+UI/UX
+- Menu:
+  - Connect Wallet
+  - Select NFA (grid)
+  - Mode switch (Ranked/Practice)
+  - Settings (sound, sensitivity)
+- HUD:
+  - score, speed, combo, active power-ups with timers, shield icon
+- End screen:
+  - big score + breakdown
+  - “Submit” (Ranked only)
+  - leaderboard list (daily/weekly/all-time tabs)
+- All UI must be clean, modern, readable.
+
+MOCK MODE (DEV MUST)
+- If no wallet is available, allow “Mock Wallet” button for dev:
+  - loads 3 mock NFAs with metadata and traits
+  - lets dev test without chain calls
+- Must be controlled by env: VITE_DEV_MOCK=true
+
+PERFORMANCE
+- 60fps on mobile.
+- Object pooling for obstacles/pickups.
+- No heavy shaders; use particles and simple effects.
+
+DELIVERABLES
+- Fully runnable Replit project (frontend + server).
+- README:
+  - how to run
+  - how to set env vars
+  - how NFA gating works
+  - how to swap in real contract addresses/indexer URLs
+- Include a “Contract Interfaces” file with minimal ABIs used (ERC721, Enumerable optional, Registry verifier).
+
+IMPORTANT CONSTRAINTS
+- Original art and naming only.
+- Do not mention or recreate any third-party game, pass, brand, or UI.
+- Focus on the same “endless tunnel dash” genre mechanics, but make it Honeycomb/NFA-native.
+
+IMPLEMENTATION PLAN (DO IT)
+1) Scaffold Vite+TS+Phaser and Express+SQLite.
+2) Build wallet connect + nonce + signature flow.
+3) Implement NFA discovery (indexer + fallback on-chain).
+4) Build NFA select UI with metadata caching.
+5) Build GameScene with spawner, scoring, power-ups, difficulty curve.
+6) Build server-side validation + leaderboard.
+7) Polish: particles, camera, mobile controls, settings, sound toggles.
+8) Provide 20 mock codes NOT needed; gating is by NFA ownership instead.
+
+Now start coding.

@@ -74,12 +74,14 @@ import arenaTriviaImg from "../assets/images/arena-trivia.png";
 import arenaFighterImg from "../assets/images/arena-fighter.png";
 import arenaGamehubImg from "../assets/images/arena-gamehub.png";
 import arenaRunnerImg from "../assets/images/arena-runner.png";
+import arenaNfaTunnelImg from "../assets/images/arena-nfa-tunnel.png";
 
 const LazyPredict = lazy(() => import("@/pages/predict"));
 const LazyTrivia = lazy(() => import("@/pages/trivia-battle"));
 const LazyFighter = lazy(() => import("@/pages/fighter-battle"));
 const LazyGameHub = lazy(() => import("@/pages/game-hub"));
 const LazyHoneyRunner = lazy(() => import("@/pages/honey-runner"));
+const LazyNfaTunnelDash = lazy(() => import("@/pages/nfa-tunnel-dash"));
 
 function PredictContent() {
   return (
@@ -142,6 +144,19 @@ function HoneyRunnerContent() {
       </div>
     }>
       <LazyHoneyRunner />
+    </Suspense>
+  );
+}
+
+function NfaTunnelDashContent() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center p-12 gap-3">
+        <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+        <p className="text-sm text-muted-foreground">Loading NFA Tunnel Dash...</p>
+      </div>
+    }>
+      <LazyNfaTunnelDash />
     </Suspense>
   );
 }
@@ -3910,6 +3925,20 @@ const ARENA_GAMES = [
     comingSoon: true,
     image: arenaFighterImg,
   },
+  {
+    id: "nfa-tunnel",
+    name: "NFA Tunnel Dash",
+    tagline: "NFA-Gated Tunnel Runner",
+    description: "Race through a neon tunnel with your NFA agent. Traits modify gameplay — agility, focus, and luck shape your run. Ranked leaderboard.",
+    icon: Zap,
+    color: "#00f0ff",
+    colorDim: "rgba(0,240,255,0.12)",
+    tags: ["NFA-Gated", "Earn Points", "Solo"],
+    players: "Solo",
+    featured: true,
+    comingSoon: false,
+    image: arenaNfaTunnelImg,
+  },
 ];
 
 const uiSoundEnabled = { current: true };
@@ -4351,6 +4380,8 @@ export default function TradingArena() {
           null
         ) : gameMode === "runner" ? (
           <HoneyRunnerContent />
+        ) : gameMode === "nfa-tunnel" ? (
+          <NfaTunnelDashContent />
         ) : (
           <FighterContent />
         )}

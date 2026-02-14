@@ -2865,3 +2865,36 @@ export const duelLeaderboardSnapshots = pgTable("duel_leaderboard_snapshots", {
 });
 
 export type DuelLeaderboardSnapshot = typeof duelLeaderboardSnapshots.$inferSelect;
+
+// ============ NFA Tunnel Dash ============
+
+export const nfaTunnelRuns = pgTable("nfa_tunnel_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerAddress: text("player_address").notNull(),
+  nfaId: varchar("nfa_id").notNull(),
+  nfaTokenId: integer("nfa_token_id").notNull(),
+  nfaName: text("nfa_name").notNull(),
+  mode: text("mode").notNull().default("ranked"),
+  score: integer("score").notNull(),
+  distance: integer("distance").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  maxSpeed: real("max_speed").notNull().default(0),
+  coinsCollected: integer("coins_collected").notNull().default(0),
+  boostsUsed: integer("boosts_used").notNull().default(0),
+  shieldsUsed: integer("shields_used").notNull().default(0),
+  magnetsUsed: integer("magnets_used").notNull().default(0),
+  hits: integer("hits").notNull().default(0),
+  maxCombo: integer("max_combo").notNull().default(0),
+  nearMisses: integer("near_misses").notNull().default(0),
+  checksum: text("checksum").notNull(),
+  signature: text("signature"),
+  verified: boolean("verified").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNfaTunnelRunSchema = createInsertSchema(nfaTunnelRuns).omit({
+  id: true,
+  createdAt: true,
+});
+export type NfaTunnelRun = typeof nfaTunnelRuns.$inferSelect;
+export type InsertNfaTunnelRun = z.infer<typeof insertNfaTunnelRunSchema>;
