@@ -78,7 +78,7 @@ function drawGlassBtn(g: Phaser.GameObjects.Graphics, x: number, y: number, w: n
 }
 
 const VX = CX;
-const VY = H * 0.12;
+const VY = H * 0.30;
 
 class BootScene extends Phaser.Scene {
   constructor() { super({ key: "Boot" }); }
@@ -1669,7 +1669,7 @@ class GameScene extends Phaser.Scene {
     const forwardZoom = 1 + this.dist * 0.00003;
     const bgScale = Math.min(1.35, forwardZoom * zoomPulse);
     this.bgTunnel.setScale(bgScale);
-    this.bgTunnel.setPosition(CX - (W * bgScale) / 2, H / 2 - (H * bgScale) / 2);
+    this.bgTunnel.setPosition(CX - (W * bgScale) / 2, VY - (H * bgScale * 0.30));
     if (this.chromAbTimer > 0) {
       this.chromAbTimer -= delta;
       if (this.chromAbTimer <= 0 && this.chromAbGfx) { this.chromAbGfx.setAlpha(0); this.chromAbGfx.clear(); }
@@ -1682,7 +1682,8 @@ class GameScene extends Phaser.Scene {
       const trail = this.add.image(this.runner.x, this.runner.y, "runner")
         .setAlpha(0.22).setTint(this.phaseColor1).setDepth(8).setBlendMode("ADD");
       this.trailImages.push(trail);
-      this.tweens.add({ targets: trail, alpha: 0, scaleX: 0.75, scaleY: 0.75, duration: 340, onComplete: () => {
+      const shrinkToVY = this.runner.y - (this.runner.y - VY) * 0.15;
+      this.tweens.add({ targets: trail, alpha: 0, scaleX: 0.6, scaleY: 0.6, y: shrinkToVY, duration: 340, onComplete: () => {
         trail.destroy();
         this.trailImages = this.trailImages.filter(t => t !== trail);
       }});
@@ -1713,11 +1714,11 @@ class GameScene extends Phaser.Scene {
     }
 
     if (es > 6.5 && this.fc % 2 === 0) {
-      const angle = Math.random() * TAU;
+      const angle = (Math.random() * PI * 0.6) + PI * 0.2;
       const startX = CX + Math.cos(angle) * 20;
-      const startY = VY + Math.sin(angle) * 20;
+      const startY = VY + Math.sin(angle) * 15;
       const endX = CX + Math.cos(angle) * (W * 0.7);
-      const endY = VY + Math.sin(angle) * (H * 0.9);
+      const endY = VY + Math.sin(angle) * (H * 0.7);
       const sl = this.add.image(startX, startY, "speed_line")
         .setAlpha(0.1 + (es - 6.5) * 0.04).setScale(0.3, 0.6 + es * 0.1).setDepth(2).setTint(this.phaseColor1)
         .setRotation(angle + PI / 2);
@@ -1725,11 +1726,11 @@ class GameScene extends Phaser.Scene {
     }
 
     if (this.combo >= 10 && this.fc % 3 === 0) {
-      const angle2 = Math.random() * TAU;
-      const sl2 = this.add.image(CX + Math.cos(angle2) * 15, VY + Math.sin(angle2) * 15, "speed_line")
+      const angle2 = (Math.random() * PI * 0.6) + PI * 0.2;
+      const sl2 = this.add.image(CX + Math.cos(angle2) * 15, VY + Math.sin(angle2) * 10, "speed_line")
         .setAlpha(0.18).setScale(0.4, 0.8 + es * 0.08).setDepth(2).setTint(this.phaseColor2)
         .setRotation(angle2 + PI / 2);
-      this.tweens.add({ targets: sl2, x: CX + Math.cos(angle2) * W * 0.6, y: VY + Math.sin(angle2) * H * 0.8, scaleX: 1.8, scaleY: 2.6, alpha: 0, duration: 250, onComplete: () => sl2.destroy() });
+      this.tweens.add({ targets: sl2, x: CX + Math.cos(angle2) * W * 0.6, y: VY + Math.sin(angle2) * H * 0.6, scaleX: 1.8, scaleY: 2.6, alpha: 0, duration: 250, onComplete: () => sl2.destroy() });
     }
 
     const tunnelLen = GROUND_Y - VY;
