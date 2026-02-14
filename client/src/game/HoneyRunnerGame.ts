@@ -1556,9 +1556,11 @@ class GameScene extends Phaser.Scene {
     const g = this.tunnelRingsGfx;
     g.clear();
     const tLen = GROUND_Y - VY;
-    const numRings = 18;
+    const numRings = 22;
     const ringSpacing = tLen / numRings;
     const baseOffset = this.tunnelOffset % ringSpacing;
+    const tunnelW = LANE_WIDTH * 2.2;
+    const tunnelH = tunnelW * 1.4;
 
     for (let i = numRings; i >= 0; i--) {
       const rawDist = i * ringSpacing + baseOffset;
@@ -1566,85 +1568,100 @@ class GameScene extends Phaser.Scene {
       const pt = this.perspT(t);
       const cy = VY + pt * tLen;
 
-      const halfW = (LANE_WIDTH * 1.8) * pt + 8;
-      const halfH = halfW * 0.55;
+      const hw = tunnelW * pt + 6;
+      const hh = tunnelH * pt + 4;
 
-      const ringAlpha = 0.15 + pt * 0.55;
-      const ringWidth = 1 + pt * 2.5;
+      const ringAlpha = 0.2 + pt * 0.6;
+      const ringWidth = 1.5 + pt * 3;
 
-      g.lineStyle(ringWidth + 4, this.phaseColor1, ringAlpha * 0.25);
-      g.strokeEllipse(CX, cy, halfW * 2, halfH * 2);
+      g.lineStyle(ringWidth + 6, this.phaseColor1, ringAlpha * 0.15);
+      g.strokeEllipse(CX, cy, hw * 2, hh * 2);
 
       g.lineStyle(ringWidth, this.phaseColor1, ringAlpha);
-      g.strokeEllipse(CX, cy, halfW * 2, halfH * 2);
-
-      if (pt > 0.5) {
-        g.lineStyle(ringWidth + 8, this.phaseColor1, ringAlpha * 0.08);
-        g.strokeEllipse(CX, cy, halfW * 2, halfH * 2);
-      }
+      g.strokeEllipse(CX, cy, hw * 2, hh * 2);
     }
 
     const lg = this.tunnelLinesGfx;
     lg.clear();
-    const segments = 24;
+    const segments = 28;
 
-    const edgeLines = [
-      CX + LANE_POSITIONS[0] - LANE_WIDTH / 2,
-      CX + LANE_POSITIONS[LANE_COUNT - 1] + LANE_WIDTH / 2,
-    ];
-    const laneLines = [];
+    const wallLineCount = 8;
+    for (let wi = 0; wi < wallLineCount; wi++) {
+      const angle = (wi / wallLineCount) * PI * 2;
+      const isEdge = (wi === 0 || wi === wallLineCount / 2 || wi === 2 || wi === wallLineCount - 2);
+      const baseAlpha = isEdge ? 0.35 : 0.12;
+
+      for (let s = 0; s < segments; s++) {
+        const t0 = s / segments;
+        const t1 = (s + 1) / segments;
+        const p0 = this.perspT(t0);
+        const p1 = this.perspT(t1);
+
+        const w0 = (tunnelW * p0 + 6);
+        const h0 = (tunnelH * p0 + 4);
+        const w1 = (tunnelW * p1 + 6);
+        const h1 = (tunnelH * p1 + 4);
+
+        const x0 = CX + Math.cos(angle) * w0;
+        const y0 = VY + p0 * tLen + Math.sin(angle) * h0;
+        const x1 = CX + Math.cos(angle) * w1;
+        const y1 = VY + p1 * tLen + Math.sin(angle) * h1;
+
+        const segAlpha = baseAlpha * (0.3 + t0 * 0.7);
+        const segWidth = 0.5 + t0 * 2;
+
+        lg.lineStyle(segWidth + 2, this.phaseColor1, segAlpha * 0.2);
+        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
+        lg.lineStyle(segWidth, this.phaseColor1, segAlpha);
+        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
+      }
+    }
+
+    const floorLeft = LANE_POSITIONS[0] - LANE_WIDTH / 2;
+    const floorRight = LANE_POSITIONS[LANE_COUNT - 1] + LANE_WIDTH / 2;
+    for (const lx of [CX + floorLeft, CX + floorRight]) {
+      for (let s = 0; s < segments; s++) {
+        const t0 = s / segments;
+        const t1 = (s + 1) / segments;
+        const p0 = this.perspT(t0);
+        const p1 = this.perspT(t1);
+        const x0 = CX + (lx - CX) * p0;
+        const y0 = VY + p0 * (tLen + 10);
+        const x1 = CX + (lx - CX) * p1;
+        const y1 = VY + p1 * (tLen + 10);
+        const segAlpha = 0.2 + t0 * 0.5;
+        const segWidth = 0.8 + t0 * 2;
+        lg.lineStyle(segWidth, this.phaseColor2 || this.phaseColor1, segAlpha);
+        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
+      }
+    }
+
     for (let i = 1; i < LANE_COUNT; i++) {
-      laneLines.push(CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH);
-    }
-
-    for (const lx of edgeLines) {
+      const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
       for (let s = 0; s < segments; s++) {
         const t0 = s / segments;
         const t1 = (s + 1) / segments;
         const p0 = this.perspT(t0);
         const p1 = this.perspT(t1);
         const x0 = CX + (lx - CX) * p0;
-        const y0 = VY + p0 * (tLen + 20);
+        const y0 = VY + p0 * (tLen + 10);
         const x1 = CX + (lx - CX) * p1;
-        const y1 = VY + p1 * (tLen + 20);
-        const segAlpha = 0.12 + t0 * 0.45;
-        const segWidth = 0.5 + t0 * 2.5;
-        lg.lineStyle(segWidth + 3, this.phaseColor1, segAlpha * 0.2);
-        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
-        lg.lineStyle(segWidth, this.phaseColor1, segAlpha);
+        const y1 = VY + p1 * (tLen + 10);
+        lg.lineStyle(0.3 + t0 * 0.6, this.phaseColor1, 0.06 + t0 * 0.1);
         lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
       }
     }
 
-    for (const lx of laneLines) {
-      for (let s = 0; s < segments; s++) {
-        const t0 = s / segments;
-        const t1 = (s + 1) / segments;
-        const p0 = this.perspT(t0);
-        const p1 = this.perspT(t1);
-        const x0 = CX + (lx - CX) * p0;
-        const y0 = VY + p0 * (tLen + 20);
-        const x1 = CX + (lx - CX) * p1;
-        const y1 = VY + p1 * (tLen + 20);
-        const segAlpha = 0.04 + t0 * 0.12;
-        const segWidth = 0.3 + t0 * 0.8;
-        lg.lineStyle(segWidth, this.phaseColor1, segAlpha);
-        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
-      }
-    }
-
-    const crossCount = 10;
+    const crossCount = 12;
     const crossBase = (this.tunnelOffset * 0.7) % (tLen / crossCount);
     for (let c = 0; c < crossCount; c++) {
       const rawY = crossBase + c * (tLen / crossCount);
       const t = Math.min(1, rawY / tLen);
       const pt = this.perspT(t);
       const cy = VY + pt * tLen;
-      const leftEdge = LANE_POSITIONS[0] - LANE_WIDTH / 2;
-      const rightEdge = LANE_POSITIONS[LANE_COUNT - 1] + LANE_WIDTH / 2;
-      const leftX = CX + leftEdge * pt;
-      const rightX = CX + rightEdge * pt;
-      const crossAlpha = 0.06 + pt * 0.15;
+      const leftX = CX + floorLeft * pt;
+      const rightX = CX + floorRight * pt;
+      const crossAlpha = 0.08 + pt * 0.18;
       lg.lineStyle(0.5 + pt * 1.5, this.phaseColor1, crossAlpha);
       lg.beginPath(); lg.moveTo(leftX, cy); lg.lineTo(rightX, cy); lg.strokePath();
     }
