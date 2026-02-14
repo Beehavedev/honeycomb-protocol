@@ -1362,7 +1362,7 @@ class GameScene extends Phaser.Scene {
     const targetX = CX + LANE_POSITIONS[l];
     const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
     const o = this.obsGroup.create(spawnX, VY + 10, tx[t]) as Phaser.Physics.Arcade.Sprite;
-    o.setImmovable(true).setDepth(6).setScale(0.08).setAlpha(0);
+    o.setImmovable(true).setDepth(6).setScale(0.18).setAlpha(0.3);
     o.setData("targetX", targetX);
     o.setData("laneOffset", LANE_POSITIONS[l]);
     if (t === 1) { o.setSize(96, 16); }
@@ -1378,7 +1378,7 @@ class GameScene extends Phaser.Scene {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
     const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
     const c = this.coinGroup.create(spawnX, VY + 10, "coin") as Phaser.Physics.Arcade.Sprite;
-    c.setDepth(5).setSize(28, 28).setScale(0.08).setAlpha(0);
+    c.setDepth(5).setSize(28, 28).setScale(0.18).setAlpha(0.35);
     c.setData("targetX", CX + LANE_POSITIONS[l]);
     c.setData("laneOffset", LANE_POSITIONS[l]);
   }
@@ -1388,7 +1388,7 @@ class GameScene extends Phaser.Scene {
     const ts = ["magnet", "shield_pu", "boost_pu"];
     const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
     const p = this.puGroup.create(spawnX, VY + 10, ts[Phaser.Math.Between(0, 2)]) as Phaser.Physics.Arcade.Sprite;
-    p.setDepth(5).setSize(36, 36).setScale(0.08).setAlpha(0);
+    p.setDepth(5).setSize(36, 36).setScale(0.18).setAlpha(0.35);
     p.setData("targetX", CX + LANE_POSITIONS[l]);
     p.setData("laneOffset", LANE_POSITIONS[l]);
     this.tweens.add({ targets: p, angle: 360, duration: 2800, repeat: -1 });
@@ -1548,7 +1548,8 @@ class GameScene extends Phaser.Scene {
   }
 
   private perspT(linear: number): number {
-    return linear * linear * (3 - 2 * linear);
+    const s = linear * linear * (3 - 2 * linear);
+    return 0.3 * linear + 0.7 * s;
   }
 
   private drawTunnelRings() {
@@ -1736,16 +1737,16 @@ class GameScene extends Phaser.Scene {
 
     const perspMove = (sprite: Phaser.Physics.Arcade.Sprite) => {
       const linProgress = Math.min(1, (sprite.y - VY) / tunnelLen);
-      const accel = 1 + linProgress * 0.8;
+      const accel = 1 + linProgress * 0.6;
       sprite.y += baseMoveSpd * accel;
 
       const p = Math.min(1, (sprite.y - VY) / tunnelLen);
       const perspP = this.perspT(p);
 
-      const sc = 0.12 + perspP * 0.88;
+      const sc = 0.18 + perspP * 0.82;
       sprite.setScale(sc);
 
-      sprite.setAlpha(Math.min(1, 0.15 + p * 1.1));
+      sprite.setAlpha(Math.min(1, 0.3 + p * 0.9));
 
       const laneOff = sprite.getData("laneOffset") || 0;
       sprite.x = CX + laneOff * perspP;
