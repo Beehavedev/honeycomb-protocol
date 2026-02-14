@@ -3935,8 +3935,8 @@ const ARENA_GAMES = [
     colorDim: "rgba(0,240,255,0.12)",
     tags: ["NFA-Gated", "Earn Points", "Solo"],
     players: "Solo",
-    featured: true,
-    comingSoon: false,
+    featured: false,
+    comingSoon: true,
     image: arenaNfaTunnelImg,
   },
 ];
