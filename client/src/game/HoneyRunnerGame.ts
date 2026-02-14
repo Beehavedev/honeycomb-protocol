@@ -1362,7 +1362,7 @@ class GameScene extends Phaser.Scene {
     const targetX = CX + LANE_POSITIONS[l];
     const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
     const o = this.obsGroup.create(spawnX, VY + 10, tx[t]) as Phaser.Physics.Arcade.Sprite;
-    o.setImmovable(true).setDepth(6).setScale(0.18).setAlpha(0.3);
+    o.setImmovable(true).setDepth(6).setScale(0.2).setAlpha(0.5);
     o.setData("targetX", targetX);
     o.setData("laneOffset", LANE_POSITIONS[l]);
     if (t === 1) { o.setSize(96, 16); }
@@ -1378,7 +1378,7 @@ class GameScene extends Phaser.Scene {
     const l = Phaser.Math.Between(0, LANE_COUNT - 1);
     const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
     const c = this.coinGroup.create(spawnX, VY + 10, "coin") as Phaser.Physics.Arcade.Sprite;
-    c.setDepth(5).setSize(28, 28).setScale(0.18).setAlpha(0.35);
+    c.setDepth(5).setSize(28, 28).setScale(0.2).setAlpha(0.5);
     c.setData("targetX", CX + LANE_POSITIONS[l]);
     c.setData("laneOffset", LANE_POSITIONS[l]);
   }
@@ -1388,7 +1388,7 @@ class GameScene extends Phaser.Scene {
     const ts = ["magnet", "shield_pu", "boost_pu"];
     const spawnX = CX + (LANE_POSITIONS[l] * 0.05);
     const p = this.puGroup.create(spawnX, VY + 10, ts[Phaser.Math.Between(0, 2)]) as Phaser.Physics.Arcade.Sprite;
-    p.setDepth(5).setSize(36, 36).setScale(0.18).setAlpha(0.35);
+    p.setDepth(5).setSize(36, 36).setScale(0.2).setAlpha(0.5);
     p.setData("targetX", CX + LANE_POSITIONS[l]);
     p.setData("laneOffset", LANE_POSITIONS[l]);
     this.tweens.add({ targets: p, angle: 360, duration: 2800, repeat: -1 });
@@ -1555,49 +1555,86 @@ class GameScene extends Phaser.Scene {
   private drawTunnelRings() {
     const g = this.tunnelRingsGfx;
     g.clear();
-    const numRings = 10;
-    const baseOffset = this.tunnelOffset % 60;
+    const tLen = GROUND_Y - VY;
+    const numRings = 18;
+    const ringSpacing = tLen / numRings;
+    const baseOffset = this.tunnelOffset % ringSpacing;
 
     for (let i = numRings; i >= 0; i--) {
-      const lin = (i * 60 + baseOffset) / (numRings * 60);
-      const t = this.perspT(lin);
-      const r = 10 + t * (W * 0.9);
-      const cy = VY + t * (H * 0.6);
-      const rr = r * (0.3 + t * 0.7);
-      const ea = 0.04 + t * 0.08;
-      const ew = 0.5 + t * 1.5;
-      strokeHex(g, VX, cy, rr, this.phaseColor1, ea, ew);
+      const rawDist = i * ringSpacing + baseOffset;
+      const t = Math.min(1, rawDist / tLen);
+      const pt = this.perspT(t);
+      const cy = VY + pt * tLen;
+
+      const halfW = (LANE_WIDTH * 1.8) * pt + 8;
+      const halfH = halfW * 0.55;
+
+      const ringAlpha = 0.15 + pt * 0.55;
+      const ringWidth = 1 + pt * 2.5;
+
+      g.lineStyle(ringWidth + 4, this.phaseColor1, ringAlpha * 0.25);
+      g.strokeEllipse(CX, cy, halfW * 2, halfH * 2);
+
+      g.lineStyle(ringWidth, this.phaseColor1, ringAlpha);
+      g.strokeEllipse(CX, cy, halfW * 2, halfH * 2);
+
+      if (pt > 0.5) {
+        g.lineStyle(ringWidth + 8, this.phaseColor1, ringAlpha * 0.08);
+        g.strokeEllipse(CX, cy, halfW * 2, halfH * 2);
+      }
     }
 
     const lg = this.tunnelLinesGfx;
     lg.clear();
-    const tLen = GROUND_Y - VY;
-    const segments = 20;
-    for (let i = 0; i <= LANE_COUNT; i++) {
-      const lx = CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH;
-      const edge = (i === 0 || i === LANE_COUNT);
-      const baseAlpha = edge ? 0.1 : 0.04;
+    const segments = 24;
+
+    const edgeLines = [
+      CX + LANE_POSITIONS[0] - LANE_WIDTH / 2,
+      CX + LANE_POSITIONS[LANE_COUNT - 1] + LANE_WIDTH / 2,
+    ];
+    const laneLines = [];
+    for (let i = 1; i < LANE_COUNT; i++) {
+      laneLines.push(CX + LANE_POSITIONS[0] - LANE_WIDTH / 2 + i * LANE_WIDTH);
+    }
+
+    for (const lx of edgeLines) {
       for (let s = 0; s < segments; s++) {
         const t0 = s / segments;
         const t1 = (s + 1) / segments;
         const p0 = this.perspT(t0);
         const p1 = this.perspT(t1);
         const x0 = CX + (lx - CX) * p0;
-        const y0 = VY + p0 * (tLen + 40);
+        const y0 = VY + p0 * (tLen + 20);
         const x1 = CX + (lx - CX) * p1;
-        const y1 = VY + p1 * (tLen + 40);
-        const segAlpha = baseAlpha * (0.1 + t0 * 0.9);
-        const segWidth = 0.3 + t0 * (edge ? 1.5 : 0.8);
+        const y1 = VY + p1 * (tLen + 20);
+        const segAlpha = 0.12 + t0 * 0.45;
+        const segWidth = 0.5 + t0 * 2.5;
+        lg.lineStyle(segWidth + 3, this.phaseColor1, segAlpha * 0.2);
+        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
         lg.lineStyle(segWidth, this.phaseColor1, segAlpha);
-        lg.beginPath();
-        lg.moveTo(x0, y0);
-        lg.lineTo(x1, y1);
-        lg.strokePath();
+        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
       }
     }
 
-    const crossCount = 6;
-    const crossBase = (this.tunnelOffset * 0.5) % (tLen / crossCount);
+    for (const lx of laneLines) {
+      for (let s = 0; s < segments; s++) {
+        const t0 = s / segments;
+        const t1 = (s + 1) / segments;
+        const p0 = this.perspT(t0);
+        const p1 = this.perspT(t1);
+        const x0 = CX + (lx - CX) * p0;
+        const y0 = VY + p0 * (tLen + 20);
+        const x1 = CX + (lx - CX) * p1;
+        const y1 = VY + p1 * (tLen + 20);
+        const segAlpha = 0.04 + t0 * 0.12;
+        const segWidth = 0.3 + t0 * 0.8;
+        lg.lineStyle(segWidth, this.phaseColor1, segAlpha);
+        lg.beginPath(); lg.moveTo(x0, y0); lg.lineTo(x1, y1); lg.strokePath();
+      }
+    }
+
+    const crossCount = 10;
+    const crossBase = (this.tunnelOffset * 0.7) % (tLen / crossCount);
     for (let c = 0; c < crossCount; c++) {
       const rawY = crossBase + c * (tLen / crossCount);
       const t = Math.min(1, rawY / tLen);
@@ -1607,12 +1644,9 @@ class GameScene extends Phaser.Scene {
       const rightEdge = LANE_POSITIONS[LANE_COUNT - 1] + LANE_WIDTH / 2;
       const leftX = CX + leftEdge * pt;
       const rightX = CX + rightEdge * pt;
-      const crossAlpha = 0.03 + pt * 0.06;
-      lg.lineStyle(0.3 + pt * 1, this.phaseColor1, crossAlpha);
-      lg.beginPath();
-      lg.moveTo(leftX, cy);
-      lg.lineTo(rightX, cy);
-      lg.strokePath();
+      const crossAlpha = 0.06 + pt * 0.15;
+      lg.lineStyle(0.5 + pt * 1.5, this.phaseColor1, crossAlpha);
+      lg.beginPath(); lg.moveTo(leftX, cy); lg.lineTo(rightX, cy); lg.strokePath();
     }
   }
 
@@ -1738,16 +1772,16 @@ class GameScene extends Phaser.Scene {
 
     const perspMove = (sprite: Phaser.Physics.Arcade.Sprite) => {
       const linProgress = Math.min(1, (sprite.y - VY) / tunnelLen);
-      const accel = 1 + linProgress * 0.6;
+      const accel = 1 + linProgress * 0.5;
       sprite.y += baseMoveSpd * accel;
 
       const p = Math.min(1, (sprite.y - VY) / tunnelLen);
       const perspP = this.perspT(p);
 
-      const sc = 0.18 + perspP * 0.82;
+      const sc = 0.2 + perspP * 0.8;
       sprite.setScale(sc);
 
-      sprite.setAlpha(Math.min(1, 0.3 + p * 0.9));
+      sprite.setAlpha(Math.min(1, 0.5 + p * 0.7));
 
       const laneOff = sprite.getData("laneOffset") || 0;
       sprite.x = CX + laneOff * perspP;
