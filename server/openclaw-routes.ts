@@ -191,7 +191,7 @@ openclawRouter.post("/quick-setup", authMiddleware, async (req: Request, res: Re
 
     const existing = await storage.getOpenclawLinkByAgent(agent.id);
     if (existing) {
-      return res.status(409).json({ error: "OpenClaw already enabled", linkId: existing.id });
+      return res.json({ link: existing, alreadyEnabled: true, message: "OpenClaw is already enabled" });
     }
 
     if (!agent.isBot) {

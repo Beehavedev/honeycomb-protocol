@@ -42,6 +42,20 @@ export default function OpenClawIntegration() {
   const { data: linkData, isLoading: linkLoading } = useQuery({
     queryKey: ["/api/openclaw/link"],
     enabled: !!isAuthenticated,
+    retry: false,
+    queryFn: async () => {
+      try {
+        const token = (await import("@/lib/auth")).getToken();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch("/api/openclaw/link", { headers, credentials: "include" });
+        if (res.status === 401) return { link: null };
+        if (!res.ok) return { link: null };
+        return await res.json();
+      } catch {
+        return { link: null };
+      }
+    },
   });
 
   const { data: statsData } = useQuery({
@@ -54,7 +68,13 @@ export default function OpenClawIntegration() {
     mutationFn: async () => {
       return apiRequest("POST", "/api/openclaw/quick-setup", {});
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      if (data.alreadyEnabled) {
+        queryClient.invalidateQueries({ queryKey: ["/api/openclaw/link"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+        toast({ title: "Already Connected", description: "OpenClaw is already enabled on your account" });
+        return;
+      }
       setQuickSetupResult(data);
       if (data.honeycombApiKey) setGeneratedApiKey(data.honeycombApiKey);
       if (data.webhook?.secret) setWebhookSecret(data.webhook.secret);
