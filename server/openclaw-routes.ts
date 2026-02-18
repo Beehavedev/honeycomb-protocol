@@ -164,6 +164,26 @@ openclawRouter.get("/link", authMiddleware, async (req: Request, res: Response) 
   }
 });
 
+openclawRouter.get("/details", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const agent = await storage.getAgentByAddress(req.walletAddress!);
+    if (!agent) return res.json({ webhooks: [], alertSubscriptions: [] });
+
+    const link = await storage.getOpenclawLinkByAgent(agent.id);
+    if (!link) return res.json({ webhooks: [], alertSubscriptions: [] });
+
+    const webhooks = await storage.getOpenclawWebhooksByAgent(agent.id);
+    const subs = await storage.getOpenclawAlertSubsByAgent(agent.id);
+
+    res.json({
+      webhooks: webhooks.map(w => ({ id: w.id, url: w.webhookUrl, isActive: w.isActive, failCount: w.failCount })),
+      alertSubscriptions: subs,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch details" });
+  }
+});
+
 openclawRouter.delete("/link/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
     const agent = await storage.getAgentByAddress(req.walletAddress!);

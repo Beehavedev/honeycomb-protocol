@@ -71,7 +71,7 @@ export default function OpenClawIntegration() {
     onSuccess: (data: any) => {
       if (data.alreadyEnabled) {
         queryClient.invalidateQueries({ queryKey: ["/api/openclaw/link"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/openclaw/details"] });
         toast({ title: "Already Connected", description: "OpenClaw is already enabled on your account" });
         return;
       }
@@ -79,7 +79,7 @@ export default function OpenClawIntegration() {
       if (data.honeycombApiKey) setGeneratedApiKey(data.honeycombApiKey);
       if (data.webhook?.secret) setWebhookSecret(data.webhook.secret);
       queryClient.invalidateQueries({ queryKey: ["/api/openclaw/link"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/details"] });
       toast({ title: "OpenClaw Enabled!", description: "Everything is set up and ready to go" });
     },
     onError: (error: any) => {
@@ -121,7 +121,7 @@ export default function OpenClawIntegration() {
     onSuccess: (data) => {
       if (data.secret) setWebhookSecret(data.secret);
       setWebhookUrl("");
-      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/details"] });
       toast({ title: "Webhook created", description: "Save the secret shown below" });
     },
     onError: (error: any) => {
@@ -134,7 +134,7 @@ export default function OpenClawIntegration() {
       return apiRequest("DELETE", `/api/openclaw/webhooks/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/details"] });
       toast({ title: "Webhook deleted" });
     },
   });
@@ -157,7 +157,7 @@ export default function OpenClawIntegration() {
       return apiRequest("POST", "/api/openclaw/alerts/subscribe", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/details"] });
       toast({ title: "Subscribed", description: `Subscribed to ${selectedAlertType} alerts` });
     },
     onError: (error: any) => {
@@ -170,18 +170,31 @@ export default function OpenClawIntegration() {
       return apiRequest("DELETE", `/api/openclaw/alerts/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/details"] });
       toast({ title: "Unsubscribed" });
     },
   });
 
-  const { data: profileData } = useQuery({
-    queryKey: ["/api/openclaw/profile"],
-    enabled: !!link,
+  const { data: detailsData } = useQuery({
+    queryKey: ["/api/openclaw/details"],
+    enabled: !!link && !!isAuthenticated,
+    retry: false,
+    queryFn: async () => {
+      try {
+        const token = (await import("@/lib/auth")).getToken();
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch("/api/openclaw/details", { headers, credentials: "include" });
+        if (!res.ok) return { webhooks: [], alertSubscriptions: [] };
+        return await res.json();
+      } catch {
+        return { webhooks: [], alertSubscriptions: [] };
+      }
+    },
   });
 
-  const webhooks = profileData?.webhooks || [];
-  const alertSubscriptions = profileData?.alertSubscriptions || [];
+  const webhooks = detailsData?.webhooks || [];
+  const alertSubscriptions = detailsData?.alertSubscriptions || [];
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-4xl">
