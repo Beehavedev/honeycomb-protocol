@@ -3275,6 +3275,132 @@ export async function registerRoutes(
     }
   });
 
+  async function autoSettleExpiredDuels() {
+    try {
+      const activeDuels = await db.select()
+        .from(tradingDuels)
+        .where(sql`${tradingDuels.status} = 'active' AND ${tradingDuels.endsAt} IS NOT NULL AND ${tradingDuels.endsAt} < NOW()`);
+
+      for (const duel of activeDuels) {
+        try {
+          stopBot(duel.id);
+
+          let settlementPrice: string;
+          try {
+            const price = await fetchArenaPrice(duel.assetSymbol);
+            settlementPrice = price.toString();
+          } catch {
+            console.error(`[AutoSettle] Failed to fetch price for ${duel.id}, skipping`);
+            continue;
+          }
+
+          const calcBalance = async (agentId: string) => {
+            const positions = await storage.getTradingPositions(duel.id, agentId);
+            const initialBal = parseFloat(duel.initialBalance);
+            let total = initialBal;
+            for (const p of positions) {
+              if (p.isOpen) {
+                const entry = parseFloat(p.entryPrice);
+                const curr = parseFloat(settlementPrice);
+                const size = parseFloat(p.sizeUsdt);
+                let pnl: number;
+                if (p.side === "long") {
+                  pnl = ((curr - entry) / entry) * size * p.leverage;
+                } else {
+                  pnl = ((entry - curr) / entry) * size * p.leverage;
+                }
+                total += pnl;
+                await storage.closeTradingPosition(p.id, settlementPrice, pnl.toFixed(2));
+              } else if (p.pnl) {
+                total += parseFloat(p.pnl);
+              }
+            }
+            return total;
+          };
+
+          const creatorFinal = await calcBalance(duel.creatorId);
+          const joinerFinal = duel.joinerId ? await calcBalance(duel.joinerId) : 0;
+
+          let winnerId: string | null = null;
+          if (creatorFinal > joinerFinal) winnerId = duel.creatorId;
+          else if (joinerFinal > creatorFinal && duel.joinerId) winnerId = duel.joinerId;
+
+          if (duel.isOnChain && duel.onChainDuelId) {
+            await db.update(tradingDuels)
+              .set({
+                winnerId,
+                creatorFinalBalance: creatorFinal.toFixed(2),
+                joinerFinalBalance: joinerFinal.toFixed(2),
+              })
+              .where(eq(tradingDuels.id, duel.id));
+            console.log(`[AutoSettle] On-chain duel ${duel.id} winner calculated, awaiting on-chain settlement`);
+            continue;
+          }
+
+          await storage.settleTradingDuel(
+            duel.id,
+            winnerId,
+            creatorFinal.toFixed(2),
+            joinerFinal.toFixed(2)
+          );
+
+          if (winnerId) {
+            await storage.updateAgentArenaStats(duel.creatorId, winnerId === duel.creatorId);
+            if (duel.joinerId) {
+              await storage.updateAgentArenaStats(duel.joinerId, winnerId === duel.joinerId);
+            }
+          }
+
+          try {
+            const { awardGamePoints } = await import("./points-engine");
+            const isBotMatch = duel.matchType === "bot" || duel.matchType === "practice";
+            await awardGamePoints({
+              gameType: "trading_arena",
+              agentId: duel.creatorId,
+              won: winnerId === duel.creatorId,
+              isBotMatch,
+              metadata: { duelId: duel.id },
+            });
+            if (duel.joinerId && !isBotMatch) {
+              await awardGamePoints({
+                gameType: "trading_arena",
+                agentId: duel.joinerId,
+                won: winnerId === duel.joinerId,
+                isBotMatch: false,
+                metadata: { duelId: duel.id },
+              });
+            }
+          } catch {}
+
+          const initialBal = parseFloat(duel.initialBalance);
+          const potBnb = parseFloat(duel.potAmount);
+          const feePct = duel.feePct || 10;
+          const platformFee = potBnb * 2 * (feePct / 100);
+          const winnerPayout = potBnb * 2 - platformFee;
+          const resultData = JSON.stringify({
+            settlementPrice,
+            creatorPnl: (creatorFinal - initialBal).toFixed(2),
+            joinerPnl: (joinerFinal - initialBal).toFixed(2),
+            potBnb: (potBnb * 2).toFixed(4),
+            platformFee: platformFee.toFixed(4),
+            winnerPayout: winnerPayout.toFixed(4),
+            isTie: !winnerId,
+          });
+          await storage.updateTradingDuel(duel.id, { resultData });
+
+          console.log(`[AutoSettle] Settled duel ${duel.id} | Winner: ${winnerId || "TIE"}`);
+        } catch (err) {
+          console.error(`[AutoSettle] Error settling duel ${duel.id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[AutoSettle] Error checking expired duels:", err);
+    }
+  }
+
+  setInterval(autoSettleExpiredDuels, 5000);
+  console.log("[AutoSettle] Started auto-settlement check every 5s");
+
   app.post("/api/trading-duels/play-vs-bot", async (req, res) => {
     try {
       const { creatorId, assetSymbol, durationSeconds, botDifficulty, botStrategy } = req.body;
