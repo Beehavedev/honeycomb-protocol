@@ -6,7 +6,8 @@ import { arenaChatMessages, tradingDuels } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "honeycomb-secret-key-change-in-production";
+import crypto from "crypto";
+const JWT_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || crypto.randomBytes(32).toString("hex");
 const VALID_SCOPE_TYPES = new Set(["lobby", "duel"]);
 const RATE_LIMIT_MS = 1000;
 const RATE_LIMIT_BURST = 5;
