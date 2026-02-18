@@ -3386,6 +3386,7 @@ function TradingArenaLobby() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="lg:col-span-2 space-y-4 arena-animate-left">
+          <ArenaLeaderboard agentId={agent?.id} />
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
               <TabsTrigger value="open" className="flex-1 gap-1" data-testid="tab-open">
@@ -3458,7 +3459,6 @@ function TradingArenaLobby() {
           <Card className="arena-glow-card overflow-visible">
             <ArenaChat scopeType="lobby" maxHeight="240px" />
           </Card>
-          <ArenaLeaderboard agentId={agent?.id} />
         </div>
       </div>
     </>
