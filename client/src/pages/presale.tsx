@@ -11,11 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, useChainId } from "wagmi";
+import { parseEther, formatEther } from "viem";
+import { HoneyPresaleABI } from "@/contracts/abis";
+import { getPresaleAddress } from "@/contracts/addresses";
 import {
   ArrowLeft, Lock, Globe, Clock, Coins, Users, TrendingUp,
   Shield, Crown, Hexagon, Copy, CheckCircle2, AlertTriangle,
   Rocket, Gift, Target, Timer, Zap, ArrowUpRight, Loader2,
-  Settings, Plus, UserPlus, BarChart3, Sparkles,
+  Settings, Plus, UserPlus, BarChart3, Sparkles, Wallet, ExternalLink,
 } from "lucide-react";
 
 const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
@@ -207,7 +211,12 @@ function ContributeModal({
 }) {
   const [bnbAmount, setBnbAmount] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [txStep, setTxStep] = useState<"input" | "sending" | "confirming" | "recording" | "done">("input");
   const { toast } = useToast();
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const presaleAddress = getPresaleAddress(chainId);
+  const balance = useBalance({ address });
 
   const whitelistQuery = useQuery({
     queryKey: ["/api/presale/whitelist-check", phase.id],
@@ -215,29 +224,94 @@ function ContributeModal({
     enabled: phase.type === "private",
   });
 
-  const contributeMutation = useMutation({
+  const { writeContract, data: txHash, isPending: isSending, error: sendError } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  const recordMutation = useMutation({
     mutationFn: () =>
       authPost("/api/presale/contribute", {
         phaseId: phase.id,
         bnbAmount,
         referralCode: referralCode || undefined,
+        txHash: txHash,
       }),
     onSuccess: (data) => {
+      setTxStep("done");
       toast({
         title: "Contribution Successful",
         description: `You'll receive ${formatNumber(parseFloat(data.tokensReceived))} $HONEY${parseFloat(data.bonusTokens) > 0 ? ` + ${formatNumber(parseFloat(data.bonusTokens))} bonus` : ""}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/presale"] });
-      onClose();
     },
     onError: (err: any) => {
-      toast({ title: "Failed", description: err.message, variant: "destructive" });
+      toast({ title: "Recording Failed", description: err.message, variant: "destructive" });
+      setTxStep("input");
     },
   });
+
+  useEffect(() => {
+    if (isConfirmed && txHash && txStep === "confirming") {
+      setTxStep("recording");
+      recordMutation.mutate();
+    }
+  }, [isConfirmed, txHash, txStep]);
+
+  useEffect(() => {
+    if (txHash && txStep === "sending") {
+      setTxStep("confirming");
+    }
+  }, [txHash, txStep]);
+
+  useEffect(() => {
+    if (sendError) {
+      toast({ title: "Transaction Failed", description: sendError.message?.split('\n')[0] || "Transaction rejected", variant: "destructive" });
+      setTxStep("input");
+    }
+  }, [sendError]);
 
   const tokenPrice = parseFloat(phase.tokenPrice);
   const bnb = parseFloat(bnbAmount) || 0;
   const tokensToReceive = bnb > 0 ? bnb / tokenPrice : 0;
+  const userBalance = balance.data ? parseFloat(formatEther(balance.data.value)) : 0;
+  const hasContractDeployed = presaleAddress && presaleAddress !== "0x0000000000000000000000000000000000000000";
+
+  const handleContribute = () => {
+    if (!isConnected || !address) {
+      toast({ title: "Connect Wallet", description: "Please connect your wallet first", variant: "destructive" });
+      return;
+    }
+
+    if (hasContractDeployed) {
+      setTxStep("sending");
+      writeContract({
+        address: presaleAddress!,
+        abi: HoneyPresaleABI,
+        functionName: "contribute",
+        args: [BigInt(phase.onChainPhaseId || 0), referralCode || ""],
+        value: parseEther(bnbAmount),
+      });
+    } else {
+      setTxStep("sending");
+      authPost("/api/presale/contribute", {
+        phaseId: phase.id,
+        bnbAmount,
+        referralCode: referralCode || undefined,
+      }).then((data) => {
+        setTxStep("done");
+        toast({
+          title: "Contribution Recorded",
+          description: `You'll receive ${formatNumber(parseFloat(data.tokensReceived))} $HONEY. On-chain contract deployment pending — your allocation is secured.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/presale"] });
+      }).catch((err: any) => {
+        toast({ title: "Failed", description: err.message, variant: "destructive" });
+        setTxStep("input");
+      });
+    }
+  };
 
   if (phase.type === "private" && whitelistQuery.data && !whitelistQuery.data.whitelisted) {
     return (
@@ -260,6 +334,39 @@ function ContributeModal({
     );
   }
 
+  if (txStep === "done") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+        <Card className="w-full max-w-md" onClick={(e: any) => e.stopPropagation()}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              Contribution Confirmed
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 p-4 text-center space-y-2">
+              <p className="text-2xl font-bold text-amber-400">{formatNumber(tokensToReceive)} $HONEY</p>
+              <p className="text-sm text-muted-foreground">allocated to your wallet</p>
+            </div>
+            {txHash && (
+              <a
+                href={`https://bscscan.com/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 text-sm text-amber-400 hover:underline"
+                data-testid="link-tx-hash"
+              >
+                View on BscScan <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            <Button onClick={onClose} className="w-full" data-testid="button-close-success">Done</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <Card className="w-full max-w-md" onClick={(e: any) => e.stopPropagation()}>
@@ -270,6 +377,22 @@ function ContributeModal({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!isConnected && (
+            <Card className="bg-amber-500/10 border-amber-500/30">
+              <CardContent className="p-3 flex items-center gap-2 text-sm text-amber-300">
+                <Wallet className="h-4 w-4 flex-shrink-0" />
+                Connect your wallet to contribute
+              </CardContent>
+            </Card>
+          )}
+
+          {isConnected && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Your Balance</span>
+              <span className="font-medium">{userBalance.toFixed(4)} BNB</span>
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium mb-1 block">BNB Amount</label>
             <Input
@@ -304,6 +427,12 @@ function ContributeModal({
                   <span className="text-muted-foreground">Price</span>
                   <span>{phase.tokenPrice} BNB per HONEY</span>
                 </div>
+                {hasContractDeployed && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Funds sent to</span>
+                    <span className="text-emerald-400">Gnosis Safe Treasury</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -323,24 +452,55 @@ function ContributeModal({
             )}
           </div>
 
+          {txStep !== "input" && (
+            <Card className="bg-muted/50">
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+                  <span>
+                    {txStep === "sending" && "Waiting for wallet confirmation..."}
+                    {txStep === "confirming" && "Confirming on-chain..."}
+                    {txStep === "recording" && "Recording contribution..."}
+                  </span>
+                </div>
+                {txHash && (
+                  <a
+                    href={`https://bscscan.com/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-amber-400 hover:underline"
+                  >
+                    Tx: {txHash.slice(0, 10)}...{txHash.slice(-8)} <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+            <Button variant="outline" onClick={onClose} className="flex-1" disabled={txStep !== "input"}>
               Cancel
             </Button>
             <Button
-              onClick={() => contributeMutation.mutate()}
-              disabled={!bnbAmount || bnb <= 0 || contributeMutation.isPending}
+              onClick={handleContribute}
+              disabled={!bnbAmount || bnb <= 0 || txStep !== "input" || (isConnected && bnb > userBalance)}
               className="flex-1"
               data-testid="button-confirm-contribute"
             >
-              {contributeMutation.isPending ? (
+              {txStep !== "input" ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <Coins className="h-4 w-4 mr-2" />
+                <Wallet className="h-4 w-4 mr-2" />
               )}
-              Confirm
+              {hasContractDeployed ? "Send BNB" : "Contribute"}
             </Button>
           </div>
+
+          {hasContractDeployed && (
+            <p className="text-xs text-muted-foreground text-center">
+              BNB is sent directly to the on-chain presale contract. Funds are forwarded to a Gnosis Safe multisig treasury.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -574,8 +734,40 @@ function AdminPanel() {
     },
   });
 
+  const treasuryQuery = useQuery({
+    queryKey: ["/api/presale/treasury"],
+  });
+
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Shield className="h-4 w-4 text-emerald-400" />
+            Treasury & Smart Contract
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 text-sm">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-muted-foreground">Gnosis Safe Treasury</span>
+              <span className="font-mono text-xs">
+                {treasuryQuery.data?.treasury || "Not configured"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-muted-foreground">Presale Contract</span>
+              <Badge variant={treasuryQuery.data?.contractDeployed ? "default" : "secondary"}>
+                {treasuryQuery.data?.contractDeployed ? "Deployed" : "Pending Deployment"}
+              </Badge>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            All BNB contributions are sent to the on-chain presale contract, which forwards funds to the Gnosis Safe multisig treasury. Set PRESALE_TREASURY_ADDRESS in environment variables.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">

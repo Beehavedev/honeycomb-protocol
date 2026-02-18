@@ -203,3 +203,14 @@ export const NFA_MARKETPLACE_ADDRESSES: Record<number, NFAMarketplaceAddresses> 
 export function getNFAMarketplaceAddresses(chainId: number): NFAMarketplaceAddresses | null {
   return NFA_MARKETPLACE_ADDRESSES[chainId] || null;
 }
+
+// HoneyPresale contract addresses
+export const PRESALE_ADDRESSES: Record<number, `0x${string}`> = {
+  56: ZERO_ADDRESS,    // BSC Mainnet - TODO: Deploy and update
+  97: ZERO_ADDRESS,    // BSC Testnet - TODO: Deploy and update
+  31337: ZERO_ADDRESS, // Local Hardhat
+};
+
+export function getPresaleAddress(chainId: number): `0x${string}` | null {
+  return PRESALE_ADDRESSES[chainId] || null;
+}

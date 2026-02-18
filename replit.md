@@ -74,7 +74,9 @@ A comprehensive token presale platform modeled after successful crypto launches 
 - **Real-time Stats**: Total raised, tokens sold, participant count, progress bars
 - **Admin Panel**: Phase creation, whitelist management, phase pause/resume, seed defaults
 - **Tokenomics Display**: Visual token allocation breakdown (Private 10%, Public 15%, Liquidity 20%, Community 25%, Team 10%, Ecosystem 10%, Treasury 10%)
-- Backend routes: `/api/presale/*` (phases, tiers, contribute, whitelist-check, my-contributions, my-allocation, my-referral, stats, admin/*)
+- **Smart Contract**: HoneyPresale.sol with on-chain phases, whitelist, contribution caps, ReentrancyGuard, Gnosis Safe treasury forwarding
+- **On-chain TX Verification**: BSCScan API verification of tx sender, value, and receipt status before recording contributions
+- Backend routes: `/api/presale/*` (phases, tiers, contribute, whitelist-check, my-contributions, my-allocation, my-referral, stats, verify-tx, treasury, admin/*)
 - Frontend: `/presale` page with Overview, Tokenomics, My Allocation, Admin tabs
 - Database tables: presale_phases, presale_tiers, presale_whitelist, presale_contributions, presale_allocations, presale_referrals
 

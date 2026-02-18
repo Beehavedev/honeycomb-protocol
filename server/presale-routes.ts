@@ -247,6 +247,43 @@ router.get("/stats", async (_req: Request, res: Response) => {
   }
 });
 
+async function verifyOnChainTx(txHash: string, expectedFrom: string, expectedValueBnb: number): Promise<{ valid: boolean; error?: string }> {
+  const apiKey = process.env.BSCSCAN_API_KEY;
+  if (!apiKey) return { valid: false, error: "BSCScan API key not configured" };
+
+  try {
+    const receiptRes = await fetch(
+      `https://api.bscscan.com/api?module=transaction&action=gettxreceiptstatus&txhash=${txHash}&apikey=${apiKey}`
+    );
+    const receiptData = await receiptRes.json();
+    if (receiptData.status !== "1" || receiptData.result?.status !== "1") {
+      return { valid: false, error: "Transaction failed or not confirmed" };
+    }
+
+    const txRes = await fetch(
+      `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
+    );
+    const txData = await txRes.json();
+    const tx = txData.result;
+    if (!tx) return { valid: false, error: "Transaction not found" };
+
+    if (tx.from?.toLowerCase() !== expectedFrom.toLowerCase()) {
+      return { valid: false, error: "Transaction sender does not match authenticated wallet" };
+    }
+
+    const txValueWei = BigInt(tx.value || "0");
+    const expectedWei = BigInt(Math.floor(expectedValueBnb * 1e18));
+    const tolerance = expectedWei / BigInt(100); // 1% tolerance for gas
+    if (txValueWei < expectedWei - tolerance) {
+      return { valid: false, error: "Transaction value too low" };
+    }
+
+    return { valid: true };
+  } catch (err: any) {
+    return { valid: false, error: `Verification failed: ${err.message}` };
+  }
+}
+
 router.post("/contribute", async (req: Request, res: Response) => {
   try {
     const address = getAuthAddress(req);
@@ -259,6 +296,21 @@ router.post("/contribute", async (req: Request, res: Response) => {
     const { phaseId, bnbAmount, referralCode, txHash } = parsed.data;
     const bnb = parseFloat(bnbAmount);
     if (bnb <= 0) return res.status(400).json({ error: "Invalid amount" });
+
+    if (txHash) {
+      const existingTx = await db
+        .select()
+        .from(presaleContributions)
+        .where(eq(presaleContributions.txHash, txHash));
+      if (existingTx.length > 0) {
+        return res.status(400).json({ error: "Transaction already recorded" });
+      }
+
+      const verification = await verifyOnChainTx(txHash, address, bnb);
+      if (!verification.valid) {
+        return res.status(400).json({ error: verification.error || "Transaction verification failed" });
+      }
+    }
 
     const [phase] = await db
       .select()
@@ -718,6 +770,49 @@ router.post("/admin/seed-defaults", async (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+router.get("/verify-tx/:txHash", async (req: Request, res: Response) => {
+  try {
+    const { txHash } = req.params;
+    const apiKey = process.env.BSCSCAN_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "BSCScan API key not configured" });
+    }
+
+    const response = await fetch(
+      `https://api.bscscan.com/api?module=transaction&action=gettxreceiptstatus&txhash=${txHash}&apikey=${apiKey}`
+    );
+    const data = await response.json();
+
+    if (data.status === "1" && data.result?.status === "1") {
+      const txResponse = await fetch(
+        `https://api.bscscan.com/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
+      );
+      const txData = await txResponse.json();
+      const tx = txData.result;
+
+      res.json({
+        verified: true,
+        from: tx?.from,
+        to: tx?.to,
+        value: tx?.value,
+        blockNumber: tx?.blockNumber,
+      });
+    } else {
+      res.json({ verified: false, reason: "Transaction not confirmed or failed" });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/treasury", async (_req: Request, res: Response) => {
+  res.json({
+    treasury: process.env.PRESALE_TREASURY_ADDRESS || null,
+    contractDeployed: false,
+    note: "Gnosis Safe multisig treasury. Set PRESALE_TREASURY_ADDRESS env var.",
+  });
 });
 
 export default router;
