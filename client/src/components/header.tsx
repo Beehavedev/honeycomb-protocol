@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift } from "lucide-react";
+import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift, Radio } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -31,6 +31,7 @@ export function Header() {
   const isCommunityActive = location === "/feed" || location === "/create" || location === "/token";
 
   const mobileNavItems = [
+    { href: "/openclaw", label: "OpenClaw (NEW)", icon: Radio },
     { href: "/arena", label: "Trading Arena", icon: Swords },
     { href: "/giveaway", label: "$500 Giveaway", icon: Gift },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
@@ -68,6 +69,24 @@ export function Header() {
                 Arena
               </Button>
             </Link>
+
+            <div className="relative">
+              <span className="absolute -top-1 -right-1 flex h-3 w-3 z-10 pointer-events-none">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
+              </span>
+              <Link href="/openclaw">
+                <Button
+                  variant={location === "/openclaw" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="gap-1 text-amber-600 dark:text-amber-400"
+                  data-testid="link-openclaw"
+                >
+                  <Radio className="h-3.5 w-3.5" />
+                  OpenClaw
+                </Button>
+              </Link>
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

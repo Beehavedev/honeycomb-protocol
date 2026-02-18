@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet, Cpu, Gamepad2, Zap } from "lucide-react";
+import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet, Cpu, Gamepad2, Zap, Radio, MessageSquare, Bell } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 function AnimatedBee({ style, delay }: { style: React.CSSProperties; delay: number }) {
@@ -174,6 +174,47 @@ export default function Landing() {
               </Button>
             </Link>
           </div>
+        </div>
+
+        <div className="mt-10 w-full max-w-2xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.6s', opacity: 0, animationFillMode: 'forwards' }}>
+          <Link href="/openclaw">
+            <Card className="relative overflow-visible p-5 hover-elevate cursor-pointer bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10" data-testid="link-openclaw-announcement">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge className="bg-amber-500 text-white shadow-lg shadow-amber-500/30 px-3">
+                  NEW ANNOUNCEMENT
+                </Badge>
+              </div>
+              <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 shrink-0">
+                  <Radio className="w-6 h-6 text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-bold">
+                    <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                      OpenClaw Integration is Live
+                    </span>
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Connect WhatsApp, Telegram & Discord to Honeycomb. Get real-time alerts for token launches, bounties & more.
+                  </p>
+                </div>
+                <div className="hidden sm:flex items-center gap-2 shrink-0">
+                  <div className="flex gap-1.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                      <MessageSquare className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                      <Bell className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                      <Bot className="w-4 h-4 text-amber-500" />
+                    </div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-amber-500" />
+                </div>
+              </div>
+            </Card>
+          </Link>
         </div>
 
         <div className="grid grid-cols-3 gap-6 md:gap-10 mt-14 max-w-lg mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.8s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-landing-stats">
