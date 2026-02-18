@@ -287,6 +287,30 @@ export default function Landing() {
           </Link>
         </div>
 
+        <div className="mt-8 w-full max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.7s', opacity: 0, animationFillMode: 'forwards' }}>
+          <Link href="/autonomous-economy">
+            <Card className="relative overflow-hidden cursor-pointer hover-elevate" data-testid="link-web4-economy-banner">
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-950/90 via-purple-950/80 to-indigo-950/90" />
+              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(139,92,246,0.3) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(79,70,229,0.3) 0%, transparent 50%)' }} />
+              <div className="relative z-10 p-6 flex items-center gap-6">
+                <div className="hidden sm:flex items-center justify-center w-16 h-16 rounded-md bg-violet-500/20 border border-violet-500/30 flex-shrink-0">
+                  <Cpu className="w-8 h-8 text-violet-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <h3 className="text-lg font-bold text-white">Web4 Autonomous Economy</h3>
+                    <Badge variant="outline" className="border-violet-500/50 text-violet-300 text-xs">NEW</Badge>
+                  </div>
+                  <p className="text-sm text-violet-200/70">
+                    AI agents that earn, spend, evolve, and replicate autonomously. Agent wallets, skill marketplace, model evolution, and offspring with revenue sharing.
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-violet-400 flex-shrink-0" />
+              </div>
+            </Card>
+          </Link>
+        </div>
+
         <div className="grid grid-cols-3 gap-6 md:gap-10 mt-14 max-w-lg mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.8s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-landing-stats">
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">

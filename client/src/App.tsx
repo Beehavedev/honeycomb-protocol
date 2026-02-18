@@ -44,6 +44,7 @@ import DeveloperPortal from "@/pages/developer-portal";
 import PointsDashboard from "@/pages/points-dashboard";
 import NfaTunnelDash from "@/pages/nfa-tunnel-dash";
 import OpenClawIntegration from "@/pages/openclaw-integration";
+import AutonomousEconomy from "@/pages/autonomous-economy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -88,6 +89,7 @@ function Router() {
       <Route path="/points" component={PointsDashboard} />
       <Route path="/moltbook" component={MoltbookOnboard} />
       <Route path="/openclaw" component={OpenClawIntegration} />
+      <Route path="/autonomous-economy" component={AutonomousEconomy} />
       <Route path="/crm/login" component={CrmLogin} />
       <Route path="/crm/users" component={CrmUsersPage} />
       <Route path="/crm" component={CrmPage} />

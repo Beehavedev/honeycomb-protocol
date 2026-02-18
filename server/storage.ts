@@ -38,6 +38,13 @@ import {
   type OpenclawWebhook, type InsertOpenclawWebhook,
   type OpenclawAlertSubscription, type InsertOpenclawAlertSub,
   type OpenclawAlertEvent,
+  type AgentWallet, type InsertAgentWallet,
+  type AgentTransaction, type InsertAgentTransaction,
+  type AgentSkill, type InsertAgentSkill,
+  type SkillPurchase, type InsertSkillPurchase,
+  type AgentEvolution, type InsertAgentEvolution,
+  type AgentLineage, type InsertAgentLineage,
+  type AgentRuntimeProfile,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
@@ -47,7 +54,8 @@ import {
   tradingDuels, tradingPositions,
   crmContacts, crmDeals, crmActivities,
   developerAccounts, developerGames, gameSessions,
-  openclawLinks, openclawWebhooks, openclawAlertSubscriptions, openclawAlertEvents
+  openclawLinks, openclawWebhooks, openclawAlertSubscriptions, openclawAlertEvents,
+  agentWallets, agentTransactions, agentSkills, skillPurchases, agentEvolutions, agentLineage, agentRuntimeProfiles
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -337,6 +345,42 @@ export interface IStorage {
   getPendingAlertEvents(limit: number): Promise<OpenclawAlertEvent[]>;
   updateAlertEventStatus(id: string, status: string, attempts: number): Promise<void>;
   markAlertEventDelivered(id: string): Promise<void>;
+
+  // Web4 Agent Wallets
+  getAgentWallet(agentId: string): Promise<AgentWallet | undefined>;
+  createAgentWallet(data: InsertAgentWallet): Promise<AgentWallet>;
+  updateAgentWalletBalance(agentId: string, newBalance: string, totalEarned?: string, totalSpent?: string): Promise<AgentWallet>;
+  updateAgentWalletStatus(agentId: string, status: string): Promise<void>;
+
+  // Web4 Agent Transactions
+  createAgentTransaction(data: InsertAgentTransaction): Promise<AgentTransaction>;
+  getAgentTransactions(agentId: string, limit: number): Promise<AgentTransaction[]>;
+
+  // Web4 Agent Skills
+  createAgentSkill(data: InsertAgentSkill): Promise<AgentSkill>;
+  getAgentSkill(id: string): Promise<AgentSkill | undefined>;
+  getAgentSkillsByAgent(agentId: string): Promise<AgentSkill[]>;
+  getAllActiveSkills(limit: number): Promise<AgentSkill[]>;
+  updateAgentSkill(id: string, updates: Partial<AgentSkill>): Promise<AgentSkill>;
+  incrementSkillPurchases(id: string, revenue: string): Promise<void>;
+
+  // Web4 Skill Purchases
+  createSkillPurchase(data: InsertSkillPurchase): Promise<SkillPurchase>;
+  getSkillPurchasesByBuyer(buyerAgentId: string): Promise<SkillPurchase[]>;
+
+  // Web4 Agent Evolutions
+  createAgentEvolution(data: InsertAgentEvolution): Promise<AgentEvolution>;
+  getAgentEvolutions(agentId: string): Promise<AgentEvolution[]>;
+
+  // Web4 Agent Lineage
+  createAgentLineage(data: InsertAgentLineage): Promise<AgentLineage>;
+  getAgentLineageAsParent(parentAgentId: string): Promise<AgentLineage[]>;
+  getAgentLineageAsChild(childAgentId: string): Promise<AgentLineage | undefined>;
+  updateLineageRevenueShared(id: string, totalRevenueShared: string): Promise<void>;
+
+  // Web4 Agent Runtime Profiles
+  getAgentRuntimeProfile(agentId: string): Promise<AgentRuntimeProfile | undefined>;
+  upsertAgentRuntimeProfile(agentId: string, modelName: string, modelVersion?: string, configJson?: string): Promise<AgentRuntimeProfile>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2158,6 +2202,120 @@ export class DatabaseStorage implements IStorage {
 
   async markAlertEventDelivered(id: string): Promise<void> {
     await db.update(openclawAlertEvents).set({ status: "delivered", deliveredAt: new Date(), lastAttemptAt: new Date() }).where(eq(openclawAlertEvents.id, id));
+  }
+
+  // ============ Web4 Agent Economy ============
+
+  async getAgentWallet(agentId: string): Promise<AgentWallet | undefined> {
+    const [wallet] = await db.select().from(agentWallets).where(eq(agentWallets.agentId, agentId)).limit(1);
+    return wallet;
+  }
+
+  async createAgentWallet(data: InsertAgentWallet): Promise<AgentWallet> {
+    const [wallet] = await db.insert(agentWallets).values(data).returning();
+    return wallet;
+  }
+
+  async updateAgentWalletBalance(agentId: string, newBalance: string, totalEarned?: string, totalSpent?: string): Promise<AgentWallet> {
+    const updates: any = { balance: newBalance, lastActiveAt: new Date() };
+    if (totalEarned !== undefined) updates.totalEarned = totalEarned;
+    if (totalSpent !== undefined) updates.totalSpent = totalSpent;
+    const [wallet] = await db.update(agentWallets).set(updates).where(eq(agentWallets.agentId, agentId)).returning();
+    return wallet;
+  }
+
+  async updateAgentWalletStatus(agentId: string, status: string): Promise<void> {
+    await db.update(agentWallets).set({ status }).where(eq(agentWallets.agentId, agentId));
+  }
+
+  async createAgentTransaction(data: InsertAgentTransaction): Promise<AgentTransaction> {
+    const [tx] = await db.insert(agentTransactions).values(data).returning();
+    return tx;
+  }
+
+  async getAgentTransactions(agentId: string, limit: number): Promise<AgentTransaction[]> {
+    return db.select().from(agentTransactions).where(eq(agentTransactions.agentId, agentId)).orderBy(desc(agentTransactions.createdAt)).limit(limit);
+  }
+
+  async createAgentSkill(data: InsertAgentSkill): Promise<AgentSkill> {
+    const [skill] = await db.insert(agentSkills).values(data).returning();
+    return skill;
+  }
+
+  async getAgentSkill(id: string): Promise<AgentSkill | undefined> {
+    const [skill] = await db.select().from(agentSkills).where(eq(agentSkills.id, id)).limit(1);
+    return skill;
+  }
+
+  async getAgentSkillsByAgent(agentId: string): Promise<AgentSkill[]> {
+    return db.select().from(agentSkills).where(eq(agentSkills.agentId, agentId)).orderBy(desc(agentSkills.createdAt));
+  }
+
+  async getAllActiveSkills(limit: number): Promise<AgentSkill[]> {
+    return db.select().from(agentSkills).where(eq(agentSkills.isActive, true)).orderBy(desc(agentSkills.totalPurchases)).limit(limit);
+  }
+
+  async updateAgentSkill(id: string, updates: Partial<AgentSkill>): Promise<AgentSkill> {
+    const [skill] = await db.update(agentSkills).set(updates).where(eq(agentSkills.id, id)).returning();
+    return skill;
+  }
+
+  async incrementSkillPurchases(id: string, revenue: string): Promise<void> {
+    const skill = await this.getAgentSkill(id);
+    if (!skill) return;
+    const newTotal = (BigInt(skill.totalRevenue) + BigInt(revenue)).toString();
+    await db.update(agentSkills).set({ totalPurchases: skill.totalPurchases + 1, totalRevenue: newTotal }).where(eq(agentSkills.id, id));
+  }
+
+  async createSkillPurchase(data: InsertSkillPurchase): Promise<SkillPurchase> {
+    const [purchase] = await db.insert(skillPurchases).values(data).returning();
+    return purchase;
+  }
+
+  async getSkillPurchasesByBuyer(buyerAgentId: string): Promise<SkillPurchase[]> {
+    return db.select().from(skillPurchases).where(eq(skillPurchases.buyerAgentId, buyerAgentId)).orderBy(desc(skillPurchases.createdAt));
+  }
+
+  async createAgentEvolution(data: InsertAgentEvolution): Promise<AgentEvolution> {
+    const [evo] = await db.insert(agentEvolutions).values(data).returning();
+    return evo;
+  }
+
+  async getAgentEvolutions(agentId: string): Promise<AgentEvolution[]> {
+    return db.select().from(agentEvolutions).where(eq(agentEvolutions.agentId, agentId)).orderBy(desc(agentEvolutions.createdAt));
+  }
+
+  async createAgentLineage(data: InsertAgentLineage): Promise<AgentLineage> {
+    const [lineage] = await db.insert(agentLineage).values(data).returning();
+    return lineage;
+  }
+
+  async getAgentLineageAsParent(parentAgentId: string): Promise<AgentLineage[]> {
+    return db.select().from(agentLineage).where(eq(agentLineage.parentAgentId, parentAgentId));
+  }
+
+  async getAgentLineageAsChild(childAgentId: string): Promise<AgentLineage | undefined> {
+    const [lineage] = await db.select().from(agentLineage).where(eq(agentLineage.childAgentId, childAgentId)).limit(1);
+    return lineage;
+  }
+
+  async updateLineageRevenueShared(id: string, totalRevenueShared: string): Promise<void> {
+    await db.update(agentLineage).set({ totalRevenueShared }).where(eq(agentLineage.id, id));
+  }
+
+  async getAgentRuntimeProfile(agentId: string): Promise<AgentRuntimeProfile | undefined> {
+    const [profile] = await db.select().from(agentRuntimeProfiles).where(eq(agentRuntimeProfiles.agentId, agentId)).limit(1);
+    return profile;
+  }
+
+  async upsertAgentRuntimeProfile(agentId: string, modelName: string, modelVersion?: string, configJson?: string): Promise<AgentRuntimeProfile> {
+    const existing = await this.getAgentRuntimeProfile(agentId);
+    if (existing) {
+      const [updated] = await db.update(agentRuntimeProfiles).set({ modelName, modelVersion, configJson, updatedAt: new Date() }).where(eq(agentRuntimeProfiles.agentId, agentId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentRuntimeProfiles).values({ agentId, modelName, modelVersion, configJson }).returning();
+    return created;
   }
 }
 

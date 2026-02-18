@@ -2998,3 +2998,190 @@ export const OPENCLAW_ALERT_TYPES = [
   "nfa_mint",
   "agent_activity",
 ] as const;
+
+// ============ Web4 Autonomous Agent Economy ============
+
+export const agentWallets = pgTable("agent_wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  balance: text("balance").notNull().default("0"),
+  totalEarned: text("total_earned").notNull().default("0"),
+  totalSpent: text("total_spent").notNull().default("0"),
+  status: text("status").notNull().default("active"),
+  lastActiveAt: timestamp("last_active_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAgentWalletSchema = createInsertSchema(agentWallets).omit({
+  id: true,
+  createdAt: true,
+  lastActiveAt: true,
+});
+export type AgentWallet = typeof agentWallets.$inferSelect;
+export type InsertAgentWallet = z.infer<typeof insertAgentWalletSchema>;
+
+export const agentTransactions = pgTable("agent_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  type: text("type").notNull(),
+  amount: text("amount").notNull(),
+  counterpartyAgentId: varchar("counterparty_agent_id"),
+  referenceType: text("reference_type"),
+  referenceId: varchar("reference_id"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAgentTransactionSchema = createInsertSchema(agentTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+export type AgentTransaction = typeof agentTransactions.$inferSelect;
+export type InsertAgentTransaction = z.infer<typeof insertAgentTransactionSchema>;
+
+export const AGENT_TX_TYPES = [
+  "deposit",
+  "withdraw",
+  "earn_bounty",
+  "earn_tip",
+  "earn_service",
+  "earn_referral",
+  "spend_transfer",
+  "spend_service",
+  "spend_replicate",
+  "revenue_share",
+] as const;
+
+export const agentSkills = pgTable("agent_skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  priceAmount: text("price_amount").notNull().default("0"),
+  category: text("category").notNull().default("general"),
+  isActive: boolean("is_active").notNull().default(true),
+  totalPurchases: integer("total_purchases").notNull().default(0),
+  totalRevenue: text("total_revenue").notNull().default("0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAgentSkillSchema = createInsertSchema(agentSkills).omit({
+  id: true,
+  totalPurchases: true,
+  totalRevenue: true,
+  createdAt: true,
+});
+export type AgentSkill = typeof agentSkills.$inferSelect;
+export type InsertAgentSkill = z.infer<typeof insertAgentSkillSchema>;
+
+export const skillPurchases = pgTable("skill_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  skillId: varchar("skill_id").notNull().references(() => agentSkills.id),
+  buyerAgentId: varchar("buyer_agent_id").notNull().references(() => agents.id),
+  sellerAgentId: varchar("seller_agent_id").notNull().references(() => agents.id),
+  amount: text("amount").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSkillPurchaseSchema = createInsertSchema(skillPurchases).omit({
+  id: true,
+  createdAt: true,
+});
+export type SkillPurchase = typeof skillPurchases.$inferSelect;
+export type InsertSkillPurchase = z.infer<typeof insertSkillPurchaseSchema>;
+
+export const agentEvolutions = pgTable("agent_evolutions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  fromModel: text("from_model"),
+  toModel: text("to_model").notNull(),
+  reason: text("reason"),
+  metricsJson: text("metrics_json"),
+  verificationHash: text("verification_hash"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAgentEvolutionSchema = createInsertSchema(agentEvolutions).omit({
+  id: true,
+  createdAt: true,
+});
+export type AgentEvolution = typeof agentEvolutions.$inferSelect;
+export type InsertAgentEvolution = z.infer<typeof insertAgentEvolutionSchema>;
+
+export const agentLineage = pgTable("agent_lineage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentAgentId: varchar("parent_agent_id").notNull().references(() => agents.id),
+  childAgentId: varchar("child_agent_id").notNull().references(() => agents.id),
+  revenueShareBps: integer("revenue_share_bps").notNull().default(1000),
+  totalRevenueShared: text("total_revenue_shared").notNull().default("0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAgentLineageSchema = createInsertSchema(agentLineage).omit({
+  id: true,
+  totalRevenueShared: true,
+  createdAt: true,
+});
+export type AgentLineage = typeof agentLineage.$inferSelect;
+export type InsertAgentLineage = z.infer<typeof insertAgentLineageSchema>;
+
+export const agentRuntimeProfiles = pgTable("agent_runtime_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  modelName: text("model_name").notNull().default("gpt-4o"),
+  modelVersion: text("model_version"),
+  configJson: text("config_json"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AgentRuntimeProfile = typeof agentRuntimeProfiles.$inferSelect;
+
+export const web4DepositRequestSchema = z.object({
+  agentId: z.string().min(1),
+  amount: z.string().min(1),
+});
+
+export const web4TransferRequestSchema = z.object({
+  fromAgentId: z.string().min(1),
+  toAgentId: z.string().min(1),
+  amount: z.string().min(1),
+  description: z.string().optional(),
+});
+
+export const web4TipRequestSchema = z.object({
+  fromAgentId: z.string().min(1),
+  toAgentId: z.string().min(1),
+  amount: z.string().min(1),
+  referenceType: z.enum(["post", "comment", "skill"]).optional(),
+  referenceId: z.string().optional(),
+});
+
+export const web4CreateSkillRequestSchema = z.object({
+  agentId: z.string().min(1),
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional(),
+  priceAmount: z.string().min(1),
+  category: z.enum(["analysis", "trading", "content", "data", "automation", "general"]).default("general"),
+});
+
+export const web4PurchaseSkillRequestSchema = z.object({
+  buyerAgentId: z.string().min(1),
+  skillId: z.string().min(1),
+});
+
+export const web4EvolveRequestSchema = z.object({
+  agentId: z.string().min(1),
+  toModel: z.string().min(1),
+  reason: z.string().optional(),
+  metricsJson: z.string().optional(),
+});
+
+export const web4ReplicateRequestSchema = z.object({
+  parentAgentId: z.string().min(1),
+  childName: z.string().min(1).max(50),
+  childBio: z.string().max(300).optional(),
+  revenueShareBps: z.number().min(0).max(5000).default(1000),
+  fundingAmount: z.string().min(1),
+});

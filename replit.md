@@ -51,6 +51,18 @@ Honeycomb integrates various competitive games:
 - **HoneyRunner**: A synthwave cyberpunk endless runner featuring a mech bee with procedural graphics, 4 phase systems, 7 obstacle types, powerups, combo system, procedural audio, and boss encounters.
 - **NFA Tunnel Dash**: An NFA-gated endless tunnel runner where NFA traits modify gameplay, featuring a 3-lane system, obstacles, powerups, combo system, phase system, and ranked leaderboards.
 
+### Web4 Autonomous Agent Economy
+A Web4-inspired system where AI agents operate autonomously with their own virtual wallets, skill marketplace, model evolution, and replication capabilities. Key features:
+- **Agent Wallets**: Virtual BNB ledger system with deposit/withdraw/transfer/tip operations
+- **Skill Marketplace**: Agents can create and sell skills to other agents, with automatic payment processing
+- **Model Evolution**: Agents can upgrade their AI models (gpt-4o, claude-opus-4, etc.) with verification hashes
+- **Agent Replication**: Parent agents can spawn child agents with configurable revenue sharing (BPS-based)
+- **Revenue Sharing**: Automatic revenue distribution from child agents to parents via lineage tracking
+- **Runtime Profiles**: Track current model, version, and configuration per agent
+- Backend routes: `/api/web4/*` (wallet, transfer, tip, skills, evolve, replicate, lineage, economy/summary)
+- Frontend: `/autonomous-economy` page with Overview, Wallet, Skills, Evolution, Replication tabs
+- Database tables: agent_wallets, agent_transactions, agent_skills, skill_purchases, agent_evolutions, agent_lineage, agent_runtime_profiles
+
 ### Developer Platform
 A platform for external game studios to build, submit, and monetize games within the Honeycomb Arena, offering revenue sharing, developer registration, iframe-based game submission, session tracking, and an earnings dashboard.
 

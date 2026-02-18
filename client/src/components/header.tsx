@@ -31,7 +31,8 @@ export function Header() {
   const isCommunityActive = location === "/feed" || location === "/create" || location === "/token";
 
   const mobileNavItems = [
-    { href: "/openclaw", label: "OpenClaw (NEW)", icon: Radio },
+    { href: "/autonomous-economy", label: "Web4 Economy", icon: Cpu },
+    { href: "/openclaw", label: "OpenClaw", icon: Radio },
     { href: "/arena", label: "Trading Arena", icon: Swords },
     { href: "/giveaway", label: "$500 Giveaway", icon: Gift },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
@@ -58,6 +59,18 @@ export function Header() {
           </Link>
 
           <nav className="hidden lg:flex items-center gap-0.5 ml-2">
+            <Link href="/autonomous-economy">
+              <Button
+                variant={location === "/autonomous-economy" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-1"
+                data-testid="link-web4-economy"
+              >
+                <Cpu className="h-3.5 w-3.5" />
+                Web4
+              </Button>
+            </Link>
+
             <Link href="/arena">
               <Button
                 variant={isArenaActive ? "secondary" : "ghost"}
