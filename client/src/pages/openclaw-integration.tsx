@@ -13,6 +13,7 @@ import {
   ArrowLeft, Link2, Unlink, Bell,
   Send, Trash2, CheckCircle, Copy, ExternalLink,
   Zap, Shield, Eye, MessageSquare, AlertTriangle, Plus, Radio,
+  TrendingUp, ArrowRight, Sparkles, Globe,
 } from "lucide-react";
 
 const ALERT_TYPES = [
@@ -148,16 +149,61 @@ export default function OpenClawIntegration() {
   const alertSubscriptions = profileData?.alertSubscriptions || [];
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-6 max-w-4xl">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/feed">
           <Button variant="ghost" size="icon" data-testid="button-back">
             <ArrowLeft />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">OpenClaw Integration</h1>
-          <p className="text-sm text-muted-foreground">Connect your OpenClaw AI assistant to Honeycomb</p>
+        <h1 className="text-lg font-bold" data-testid="text-page-title">OpenClaw Integration</h1>
+      </div>
+
+      <div className="relative rounded-md overflow-hidden mb-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-900/90 via-orange-950 to-amber-900/90" />
+
+        <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-amber-500/15" style={{ animation: 'openclaw-glow 4s ease-in-out infinite' }} />
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-32 h-32 rounded-full bg-orange-500/10" style={{ animation: 'openclaw-glow 5s ease-in-out infinite 1.5s' }} />
+
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-[15%] w-px h-full bg-gradient-to-b from-transparent via-amber-500/20 to-transparent" style={{ animation: 'openclaw-scan 5s linear infinite' }} />
+          <div className="absolute top-0 left-[45%] w-px h-full bg-gradient-to-b from-transparent via-amber-500/15 to-transparent" style={{ animation: 'openclaw-scan 6s linear infinite 2s' }} />
+          <div className="absolute top-0 left-[75%] w-px h-full bg-gradient-to-b from-transparent via-amber-500/20 to-transparent" style={{ animation: 'openclaw-scan 4.5s linear infinite 3.5s' }} />
+        </div>
+
+        <div className="relative z-10 p-6 sm:p-8">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+              </span>
+              <span className="text-xs font-bold text-amber-200 uppercase tracking-widest">Active</span>
+            </div>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-black text-white mb-2 leading-tight">
+            Honeycomb
+            <span className="bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent"> Everywhere</span>
+          </h2>
+          <p className="text-amber-100/60 text-sm sm:text-base max-w-lg mb-5">
+            Bridge your Honeycomb activity to any messaging platform. Automated alerts, AI-powered commands, and real-time data, all secured with HMAC signatures.
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { icon: Zap, label: "6 Alert Types", sublabel: "Token, bounty, price..." },
+              { icon: Shield, label: "HMAC Secured", sublabel: "Signed webhooks" },
+              { icon: Globe, label: "Multi-Platform", sublabel: "WhatsApp, TG, Discord" },
+              { icon: Sparkles, label: "AI Commands", sublabel: "Natural language" },
+            ].map((item) => (
+              <div key={item.label} className="p-3 rounded-md bg-amber-500/10">
+                <item.icon className="w-5 h-5 text-amber-400 mb-1.5" />
+                <p className="text-sm font-semibold text-white">{item.label}</p>
+                <p className="text-xs text-amber-200/50">{item.sublabel}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
