@@ -349,307 +349,287 @@ class HoneyRunner3D {
     this.player = new THREE.Group();
     const bee = new THREE.Group();
 
-    // === PIXAR-STYLE MATERIALS - warm, soft, inviting ===
+    // All geometry built along +Z then we rotate the whole bee to face -Z (into tunnel)
+
+    // === MATERIALS ===
     const softBlack = new THREE.MeshStandardMaterial({
       color: 0x2a1a08, emissive: 0x100800, emissiveIntensity: 0.08,
       metalness: 0.05, roughness: 0.85,
     });
     const honeyYellow = new THREE.MeshStandardMaterial({
-      color: 0xf5b820, emissive: 0xf0a500, emissiveIntensity: 0.15,
-      metalness: 0.05, roughness: 0.8,
-    });
-    const warmOrange = new THREE.MeshStandardMaterial({
-      color: 0xe8a010, emissive: 0xf0a500, emissiveIntensity: 0.12,
-      metalness: 0.08, roughness: 0.82,
+      color: 0xf5b820, emissive: 0xf0a500, emissiveIntensity: 0.18,
+      metalness: 0.05, roughness: 0.75,
     });
 
-    // === HEAD - big, round, friendly ===
-    const headGeo = new THREE.SphereGeometry(0.28, 32, 28);
+    // === HEAD - large round friendly face ===
+    const headGeo = new THREE.SphereGeometry(0.3, 32, 28);
     const headMat = new THREE.MeshStandardMaterial({
-      color: 0xf5b820, emissive: 0xf0a500, emissiveIntensity: 0.1,
-      metalness: 0.04, roughness: 0.75,
+      color: 0xf5b820, emissive: 0xf0a500, emissiveIntensity: 0.12,
+      metalness: 0.04, roughness: 0.7,
     });
     const head = new THREE.Mesh(headGeo, headMat);
-    head.position.set(0, 0.12, 0.38);
-    head.scale.set(1.0, 0.95, 0.9);
+    head.position.set(0, 0.1, 0.42);
+    head.scale.set(1.0, 0.98, 0.92);
     bee.add(head);
 
-    // cheeks - soft round bulges for cute factor
+    // rosy cheeks
     for (const side of [-1, 1]) {
-      const cheekGeo = new THREE.SphereGeometry(0.1, 16, 14);
+      const cheekGeo = new THREE.SphereGeometry(0.09, 14, 12);
       const cheekMat = new THREE.MeshStandardMaterial({
-        color: 0xf8c848, emissive: 0xf0a500, emissiveIntensity: 0.08,
-        metalness: 0.03, roughness: 0.85,
+        color: 0xf8c858, emissive: 0xf0a500, emissiveIntensity: 0.1,
+        metalness: 0.03, roughness: 0.8,
       });
       const cheek = new THREE.Mesh(cheekGeo, cheekMat);
-      cheek.position.set(side * 0.18, 0.04, 0.48);
+      cheek.position.set(side * 0.2, 0.0, 0.52);
       bee.add(cheek);
     }
 
-    // === BIG ADORABLE EYES - the key to Pixar style ===
+    // === BIG EXPRESSIVE EYES ===
     for (const side of [-1, 1]) {
-      // eye white (sclera)
-      const scleraGeo = new THREE.SphereGeometry(0.14, 32, 28);
+      const scleraGeo = new THREE.SphereGeometry(0.15, 32, 28);
       const scleraMat = new THREE.MeshStandardMaterial({
-        color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.15,
-        metalness: 0.02, roughness: 0.3,
+        color: 0xfefefe, emissive: 0xffffff, emissiveIntensity: 0.12,
+        metalness: 0.02, roughness: 0.25,
       });
       const sclera = new THREE.Mesh(scleraGeo, scleraMat);
-      sclera.position.set(side * 0.13, 0.16, 0.52);
-      sclera.scale.set(0.75, 1.0, 0.6);
+      sclera.position.set(side * 0.14, 0.14, 0.54);
+      sclera.scale.set(0.72, 1.05, 0.55);
       bee.add(sclera);
 
-      // iris - deep warm brown
-      const irisGeo = new THREE.SphereGeometry(0.085, 24, 20);
+      const irisGeo = new THREE.SphereGeometry(0.09, 24, 20);
       const irisMat = new THREE.MeshStandardMaterial({
-        color: 0x3a1a05, emissive: 0x201005, emissiveIntensity: 0.1,
-        metalness: 0.3, roughness: 0.2,
+        color: 0x4a2a0a, emissive: 0x2a1508, emissiveIntensity: 0.08,
+        metalness: 0.25, roughness: 0.18,
       });
       const iris = new THREE.Mesh(irisGeo, irisMat);
-      iris.position.set(side * 0.12, 0.16, 0.58);
-      iris.scale.set(0.7, 0.9, 0.5);
+      iris.position.set(side * 0.13, 0.15, 0.59);
+      iris.scale.set(0.65, 0.9, 0.45);
       bee.add(iris);
 
-      // pupil - jet black
-      const pupilGeo = new THREE.SphereGeometry(0.055, 20, 16);
+      const pupilGeo = new THREE.SphereGeometry(0.06, 20, 16);
       const pupilMat = new THREE.MeshStandardMaterial({
-        color: 0x050505, emissive: 0x000000, emissiveIntensity: 0,
-        metalness: 0.1, roughness: 0.15,
+        color: 0x080808, metalness: 0.1, roughness: 0.12,
       });
       const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-      pupil.position.set(side * 0.115, 0.17, 0.6);
-      pupil.scale.set(0.6, 0.8, 0.4);
+      pupil.position.set(side * 0.125, 0.16, 0.61);
+      pupil.scale.set(0.55, 0.8, 0.38);
       bee.add(pupil);
 
-      // big specular highlight - the "life" in the eye
-      const specMat = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-      });
-      const specGeo = new THREE.SphereGeometry(0.03, 12, 10);
-      const spec = new THREE.Mesh(specGeo, specMat);
-      spec.position.set(side * 0.1, 0.2, 0.62);
-      bee.add(spec);
-
-      // smaller secondary highlight
-      const spec2Geo = new THREE.SphereGeometry(0.015, 10, 8);
-      const spec2 = new THREE.Mesh(spec2Geo, specMat);
-      spec2.position.set(side * 0.14, 0.12, 0.61);
+      const specMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const spec1 = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 10), specMat);
+      spec1.position.set(side * 0.105, 0.2, 0.63);
+      bee.add(spec1);
+      const spec2 = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), specMat);
+      spec2.position.set(side * 0.155, 0.1, 0.62);
       bee.add(spec2);
     }
 
-    // cute little smile
+    // small smile arc
     const smilePts: THREE.Vector3[] = [];
-    for (let i = 0; i <= 16; i++) {
-      const t = i / 16;
-      const angle = Math.PI * 0.15 + t * Math.PI * 0.7;
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20;
+      const angle = Math.PI * 0.2 + t * Math.PI * 0.6;
       smilePts.push(new THREE.Vector3(
-        Math.cos(angle) * 0.08,
-        -0.04 - Math.sin(angle) * 0.03,
-        0.58
+        Math.cos(angle) * 0.07,
+        -0.06 - Math.sin(angle) * 0.025,
+        0.6
       ));
     }
-    const smileMat = new THREE.LineBasicMaterial({ color: 0x2a1200, linewidth: 2 });
-    const smile = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(smilePts), smileMat
-    );
-    smile.position.set(0, 0.06, 0);
-    bee.add(smile);
+    bee.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(smilePts),
+      new THREE.LineBasicMaterial({ color: 0x2a1200 })
+    ));
 
-    // tiny nose bump
-    const noseGeo = new THREE.SphereGeometry(0.04, 12, 10);
-    const noseMat = new THREE.MeshStandardMaterial({
-      color: 0xe0a020, emissive: 0xf0a500, emissiveIntensity: 0.08,
-      metalness: 0.04, roughness: 0.8,
-    });
-    const nose = new THREE.Mesh(noseGeo, noseMat);
-    nose.position.set(0, 0.06, 0.58);
-    nose.scale.set(1, 0.7, 0.6);
+    // nose nub
+    const noseGeo = new THREE.SphereGeometry(0.035, 12, 10);
+    const nose = new THREE.Mesh(noseGeo, new THREE.MeshStandardMaterial({
+      color: 0xe8a820, emissive: 0xf0a500, emissiveIntensity: 0.08,
+      metalness: 0.04, roughness: 0.75,
+    }));
+    nose.position.set(0, 0.02, 0.6);
+    nose.scale.set(1, 0.65, 0.55);
     bee.add(nose);
 
-    // === ANTENNAE - cute bouncy bobbles ===
+    // === ANTENNAE - bouncy with round tips ===
+    const antMat = new THREE.MeshStandardMaterial({
+      color: 0x2a1a08, metalness: 0.1, roughness: 0.65,
+    });
     for (const side of [-1, 1]) {
       const ant = new THREE.Group();
-
-      // base stalk - smooth tube
-      const stalkGeo = new THREE.CylinderGeometry(0.018, 0.022, 0.18, 10);
-      const stalkMat = new THREE.MeshStandardMaterial({
-        color: 0x2a1a08, metalness: 0.1, roughness: 0.7,
-      });
-      const stalk = new THREE.Mesh(stalkGeo, stalkMat);
-      stalk.position.set(side * 0.02, 0.09, 0);
+      const stalk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.016, 0.022, 0.2, 10), antMat
+      );
+      stalk.position.set(side * 0.02, 0.1, 0);
       stalk.rotation.z = side * 0.35;
       ant.add(stalk);
 
-      // bobble tip - cute round ball
-      const bobbleGeo = new THREE.SphereGeometry(0.04, 14, 12);
-      const bobbleMat = new THREE.MeshStandardMaterial({
-        color: 0x3a2010, emissive: 0x100800, emissiveIntensity: 0.05,
-        metalness: 0.15, roughness: 0.6,
-      });
-      const bobble = new THREE.Mesh(bobbleGeo, bobbleMat);
-      bobble.position.set(side * 0.065, 0.19, 0.01);
-      ant.add(bobble);
+      const tipBall = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 14, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0x3a2010, emissive: 0x100800, emissiveIntensity: 0.05,
+          metalness: 0.12, roughness: 0.55,
+        })
+      );
+      tipBall.position.set(side * 0.07, 0.21, 0.01);
+      ant.add(tipBall);
 
-      ant.position.set(side * 0.06, 0.28, 0.4);
+      ant.position.set(side * 0.06, 0.3, 0.42);
       bee.add(ant);
       this.antennae.push(ant);
     }
 
-    // === THORAX - round, plump, fuzzy ===
-    const thoraxGeo = new THREE.SphereGeometry(0.32, 32, 28);
+    // === THORAX - plump round fuzzy body ===
+    const thoraxGeo = new THREE.SphereGeometry(0.34, 32, 28);
     const thorax = new THREE.Mesh(thoraxGeo, honeyYellow);
-    thorax.scale.set(1.05, 1.0, 1.1);
-    thorax.position.set(0, 0.0, 0.08);
+    thorax.scale.set(1.08, 1.02, 1.12);
+    thorax.position.set(0, -0.02, 0.08);
     bee.add(thorax);
     this.playerBody = thorax;
 
-    // soft fuzzy texture on thorax - subtle bumps
+    // fuzzy texture bumps
     const fuzzMat = new THREE.MeshStandardMaterial({
       color: 0xd4a020, emissive: 0xf0a500, emissiveIntensity: 0.06,
-      metalness: 0.02, roughness: 0.95, transparent: true, opacity: 0.5,
+      metalness: 0.02, roughness: 0.95, transparent: true, opacity: 0.45,
     });
-    for (let i = 0; i < 25; i++) {
-      const theta = Math.random() * Math.PI * 0.7 + 0.2;
+    for (let i = 0; i < 28; i++) {
+      const theta = Math.random() * Math.PI * 0.65 + 0.25;
       const phi = Math.random() * Math.PI * 2;
-      const r = 0.31;
-      const fx = Math.sin(theta) * Math.cos(phi) * r * 1.05;
-      const fy = Math.sin(theta) * Math.sin(phi) * r;
-      const fz = Math.cos(theta) * r * 1.1 + 0.08;
-      if (fy < -0.15) continue;
-      const fGeo = new THREE.SphereGeometry(0.025 + Math.random() * 0.015, 6, 5);
-      const fuzz = new THREE.Mesh(fGeo, fuzzMat);
-      fuzz.position.set(fx, fy, fz);
+      const r = 0.33;
+      const fx = Math.sin(theta) * Math.cos(phi) * r * 1.08;
+      const fy = Math.sin(theta) * Math.sin(phi) * r * 1.02;
+      const fz = Math.cos(theta) * r * 1.12 + 0.08;
+      if (fy < -0.18) continue;
+      const fuzz = new THREE.Mesh(
+        new THREE.SphereGeometry(0.022 + Math.random() * 0.014, 6, 5), fuzzMat
+      );
+      fuzz.position.set(fx, fy - 0.02, fz);
       bee.add(fuzz);
     }
 
-    // === BODY / ABDOMEN - chubby, round, striped ===
-    const abdGeo = new THREE.SphereGeometry(0.38, 32, 28);
+    // === ABDOMEN - big chubby striped rear ===
+    const abdGeo = new THREE.SphereGeometry(0.4, 32, 28);
     const abdomen = new THREE.Mesh(abdGeo, honeyYellow);
-    abdomen.scale.set(0.95, 0.92, 1.35);
-    abdomen.position.set(0, -0.04, -0.28);
+    abdomen.scale.set(0.96, 0.94, 1.4);
+    abdomen.position.set(0, -0.06, -0.3);
     bee.add(abdomen);
 
-    // bold, clean stripes - alternating black bands
+    // bold stripes
     const stripes = [
-      { z: -0.10, thick: 0.045 },
-      { z: -0.20, thick: 0.05 },
-      { z: -0.30, thick: 0.05 },
-      { z: -0.40, thick: 0.045 },
-      { z: -0.48, thick: 0.035 },
+      { z: -0.10, thick: 0.048 },
+      { z: -0.20, thick: 0.052 },
+      { z: -0.32, thick: 0.052 },
+      { z: -0.42, thick: 0.046 },
+      { z: -0.50, thick: 0.038 },
     ];
     for (const s of stripes) {
-      const dist = Math.abs(s.z - (-0.28));
-      const normDist = dist / (0.38 * 1.35);
+      const dist = Math.abs(s.z - (-0.3));
+      const normDist = dist / (0.4 * 1.4);
       const rFrac = Math.max(1 - normDist * normDist, 0.03);
-      const bandR = 0.38 * 0.95 * Math.sqrt(rFrac) + 0.008;
-      const bandGeo = new THREE.TorusGeometry(bandR, s.thick, 14, 36);
-      const band = new THREE.Mesh(bandGeo, softBlack);
-      band.position.set(0, -0.04, s.z);
+      const bandR = 0.4 * 0.96 * Math.sqrt(rFrac) + 0.01;
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(bandR, s.thick, 14, 36), softBlack
+      );
+      band.position.set(0, -0.06, s.z);
       band.rotation.y = Math.PI / 2;
       bee.add(band);
     }
 
-    // cute round bottom/tail
-    const tailGeo = new THREE.SphereGeometry(0.12, 16, 14);
-    const tailMat = new THREE.MeshStandardMaterial({
-      color: 0xf5b820, emissive: 0xf0a500, emissiveIntensity: 0.1,
-      metalness: 0.04, roughness: 0.8,
-    });
-    const tail = new THREE.Mesh(tailGeo, tailMat);
-    tail.position.set(0, -0.04, -0.6);
-    tail.scale.set(0.8, 0.75, 0.9);
+    // round tail cap
+    const tail = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 16, 14),
+      new THREE.MeshStandardMaterial({
+        color: 0xf5b820, emissive: 0xf0a500, emissiveIntensity: 0.1,
+        metalness: 0.04, roughness: 0.75,
+      })
+    );
+    tail.position.set(0, -0.06, -0.64);
+    tail.scale.set(0.8, 0.75, 0.85);
     bee.add(tail);
 
-    // tiny stinger - not scary, just cute
-    const stingerGeo = new THREE.ConeGeometry(0.02, 0.08, 8);
-    const stingerMat = new THREE.MeshStandardMaterial({
-      color: 0x2a1a08, metalness: 0.2, roughness: 0.5,
-    });
-    const stinger = new THREE.Mesh(stingerGeo, stingerMat);
-    stinger.position.set(0, -0.05, -0.66);
+    // tiny stinger
+    const stinger = new THREE.Mesh(
+      new THREE.ConeGeometry(0.018, 0.07, 8),
+      new THREE.MeshStandardMaterial({ color: 0x2a1a08, metalness: 0.2, roughness: 0.5 })
+    );
+    stinger.position.set(0, -0.07, -0.7);
     stinger.rotation.x = Math.PI / 2;
     bee.add(stinger);
 
-    // === WINGS - rounded, soft, translucent ===
+    // === WINGS ===
     const wingMat = new THREE.MeshStandardMaterial({
-      color: 0xeef4ff, emissive: 0xddeeff, emissiveIntensity: 0.12,
-      transparent: true, opacity: 0.28, side: THREE.DoubleSide,
-      metalness: 0.15, roughness: 0.05,
+      color: 0xeef4ff, emissive: 0xddeeff, emissiveIntensity: 0.14,
+      transparent: true, opacity: 0.3, side: THREE.DoubleSide,
+      metalness: 0.12, roughness: 0.04,
     });
-    const wingShimmer = new THREE.MeshStandardMaterial({
+    const wingShimMat = new THREE.MeshStandardMaterial({
       color: 0xccddff, emissive: 0x88aaff, emissiveIntensity: 0.06,
       transparent: true, opacity: 0.1, side: THREE.DoubleSide,
       metalness: 0.3, roughness: 0.02,
     });
-    const wingVeinMat = new THREE.LineBasicMaterial({
-      color: 0xaab8cc, transparent: true, opacity: 0.3,
+    const veinMat = new THREE.LineBasicMaterial({
+      color: 0xaab8cc, transparent: true, opacity: 0.25,
     });
 
     const makeWing = (len: number, wid: number): THREE.Group => {
       const wg = new THREE.Group();
-      // rounder, softer wing shape
       const s = new THREE.Shape();
       s.moveTo(0, 0);
-      s.bezierCurveTo(len * 0.1, wid * 0.7, len * 0.35, wid * 1.1, len * 0.6, wid);
-      s.bezierCurveTo(len * 0.8, wid * 0.85, len * 0.95, wid * 0.5, len, wid * 0.15);
-      s.bezierCurveTo(len * 0.9, -wid * 0.08, len * 0.5, -wid * 0.1, len * 0.25, -wid * 0.05);
-      s.bezierCurveTo(len * 0.1, -wid * 0.02, 0, 0, 0, 0);
-      const geo = new THREE.ShapeGeometry(s, 14);
-      wg.add(new THREE.Mesh(geo, wingMat));
-
-      // shimmer layer
-      const shimGeo = new THREE.ShapeGeometry(s, 14);
-      const shim = new THREE.Mesh(shimGeo, wingShimmer);
+      s.bezierCurveTo(len * 0.1, wid * 0.75, len * 0.35, wid * 1.12, len * 0.6, wid);
+      s.bezierCurveTo(len * 0.8, wid * 0.82, len * 0.96, wid * 0.45, len, wid * 0.12);
+      s.bezierCurveTo(len * 0.88, -wid * 0.08, len * 0.48, -wid * 0.1, len * 0.22, -wid * 0.04);
+      s.bezierCurveTo(len * 0.08, -wid * 0.02, 0, 0, 0, 0);
+      wg.add(new THREE.Mesh(new THREE.ShapeGeometry(s, 14), wingMat));
+      const shim = new THREE.Mesh(new THREE.ShapeGeometry(s, 14), wingShimMat);
       shim.position.z = 0.001;
       wg.add(shim);
-
-      // simple clean veins
       const veins: number[][][] = [
-        [[0, 0], [len * 0.4, wid * 0.4], [len * 0.8, wid * 0.3]],
-        [[0, 0], [len * 0.3, wid * 0.15], [len * 0.7, wid * 0.05]],
-        [[0, 0], [len * 0.25, wid * 0.65], [len * 0.5, wid * 0.8]],
+        [[0, 0], [len * 0.4, wid * 0.4], [len * 0.8, wid * 0.28]],
+        [[0, 0], [len * 0.3, wid * 0.12], [len * 0.7, wid * 0.04]],
+        [[0, 0], [len * 0.25, wid * 0.68], [len * 0.5, wid * 0.82]],
       ];
       for (const v of veins) {
-        const pts = v.map(([x, y]) => new THREE.Vector3(x, y, 0.002));
-        wg.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wingVeinMat));
+        wg.add(new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(v.map(([x, y]) => new THREE.Vector3(x, y, 0.002))),
+          veinMat
+        ));
       }
       return wg;
     };
 
-    const fwL = makeWing(0.65, 0.28);
-    fwL.position.set(-0.22, 0.22, 0.06);
-    fwL.rotation.set(0.1, -0.12, 0.4);
+    const fwL = makeWing(0.68, 0.3);
+    fwL.position.set(-0.24, 0.24, 0.06);
+    fwL.rotation.set(0.1, -0.1, 0.38);
     fwL.scale.x = -1;
     bee.add(fwL);
     this.playerWingL = fwL as unknown as THREE.Mesh;
 
-    const fwR = makeWing(0.65, 0.28);
-    fwR.position.set(0.22, 0.22, 0.06);
-    fwR.rotation.set(0.1, 0.12, -0.4);
+    const fwR = makeWing(0.68, 0.3);
+    fwR.position.set(0.24, 0.24, 0.06);
+    fwR.rotation.set(0.1, 0.1, -0.38);
     bee.add(fwR);
     this.playerWingR = fwR as unknown as THREE.Mesh;
 
-    const hwL = makeWing(0.42, 0.18);
-    hwL.position.set(-0.18, 0.18, -0.02);
-    hwL.rotation.set(0.05, -0.2, 0.5);
+    const hwL = makeWing(0.44, 0.19);
+    hwL.position.set(-0.2, 0.2, -0.04);
+    hwL.rotation.set(0.05, -0.18, 0.48);
     hwL.scale.x = -1;
     bee.add(hwL);
     this.hindWingL = hwL as unknown as THREE.Mesh;
 
-    const hwR = makeWing(0.42, 0.18);
-    hwR.position.set(0.18, 0.18, -0.02);
-    hwR.rotation.set(0.05, 0.2, -0.5);
+    const hwR = makeWing(0.44, 0.19);
+    hwR.position.set(0.2, 0.2, -0.04);
+    hwR.rotation.set(0.05, 0.18, -0.48);
     bee.add(hwR);
     this.hindWingR = hwR as unknown as THREE.Mesh;
 
-    // === LEGS - short, stubby, cute ===
+    // === LEGS - short stubby cute ===
     const legMat = new THREE.MeshStandardMaterial({
-      color: 0x2a1a08, metalness: 0.1, roughness: 0.7,
+      color: 0x2a1a08, metalness: 0.1, roughness: 0.65,
     });
     const legPairs = [
-      { x: 0.22, z: 0.1, splay: 0.45, segs: [0.08, 0.1, 0.07] },
-      { x: 0.25, z: -0.02, splay: 0.65, segs: [0.09, 0.11, 0.08] },
-      { x: 0.22, z: -0.14, splay: 0.85, segs: [0.1, 0.12, 0.09] },
+      { x: 0.24, z: 0.1, splay: 0.45, segs: [0.07, 0.09, 0.06] },
+      { x: 0.27, z: -0.02, splay: 0.65, segs: [0.08, 0.1, 0.07] },
+      { x: 0.24, z: -0.14, splay: 0.85, segs: [0.09, 0.11, 0.08] },
     ];
     for (const lp of legPairs) {
       for (const side of [-1, 1]) {
@@ -657,42 +637,40 @@ class HoneyRunner3D {
         let cy = 0;
         for (let s = 0; s < lp.segs.length; s++) {
           const sLen = lp.segs[s];
-          const thick = 0.025 - s * 0.005;
-          const sGeo = new THREE.CylinderGeometry(thick * 0.8, thick, sLen, 8);
-          const sMesh = new THREE.Mesh(sGeo, legMat);
+          const thick = 0.024 - s * 0.005;
+          const sMesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(thick * 0.78, thick, sLen, 8), legMat
+          );
           sMesh.position.y = cy - sLen / 2;
-          const bend = s === 1 ? side * 0.3 : s === 2 ? -side * 0.2 : 0;
-          sMesh.rotation.z = bend;
+          sMesh.rotation.z = s === 1 ? side * 0.3 : s === 2 ? -side * 0.2 : 0;
           leg.add(sMesh);
           if (s < lp.segs.length - 1) {
-            const jGeo = new THREE.SphereGeometry(thick * 0.9, 8, 6);
-            const j = new THREE.Mesh(jGeo, legMat);
+            const j = new THREE.Mesh(new THREE.SphereGeometry(thick * 0.85, 8, 6), legMat);
             j.position.y = cy - sLen;
             leg.add(j);
           }
           cy -= sLen;
         }
-        // cute round foot
-        const footGeo = new THREE.SphereGeometry(0.022, 10, 8);
-        const foot = new THREE.Mesh(footGeo, legMat);
+        const foot = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 8), legMat);
         foot.position.y = cy;
         leg.add(foot);
-
-        leg.position.set(side * lp.x, -0.1, lp.z);
+        leg.position.set(side * lp.x, -0.12, lp.z);
         leg.rotation.z = side * lp.splay;
         bee.add(leg);
         this.legs.push(leg);
       }
     }
 
-    // === WARM GOLDEN GLOW around body ===
-    const glowGeo = new THREE.SphereGeometry(0.55, 14, 12);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xf0a500, transparent: true, opacity: 0.04,
-    });
-    const glow = new THREE.Mesh(glowGeo, glowMat);
-    glow.position.set(0, 0.02, 0.0);
+    // === WARM GLOW ===
+    const glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.6, 14, 12),
+      new THREE.MeshBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.04 })
+    );
+    glow.position.set(0, 0, 0);
     bee.add(glow);
+
+    // ROTATE entire bee to face -Z (into the tunnel / direction of travel)
+    bee.rotation.y = Math.PI;
 
     bee.scale.setScalar(1.3);
     this.player.add(bee);
