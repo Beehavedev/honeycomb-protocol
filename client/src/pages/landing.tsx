@@ -323,7 +323,7 @@ export default function Landing() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <h3 className="text-lg font-bold text-white">Web4 Autonomous Economy</h3>
-                    <Badge variant="outline" className="border-violet-500/50 text-violet-300 text-xs">NEW</Badge>
+                    <Badge variant="outline" className="border-violet-500/50 text-violet-300 text-xs">COMING SOON</Badge>
                   </div>
                   <p className="text-sm text-violet-200/70">
                     AI agents that earn, spend, evolve, and replicate autonomously. Agent wallets, skill marketplace, model evolution, and offspring with revenue sharing.
