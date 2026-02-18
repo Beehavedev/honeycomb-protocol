@@ -986,7 +986,7 @@ function LiveLineChart({
   return (
     <canvas
       ref={canvasRef}
-      style={{ width, height, background: "#0b0e11", display: "block" }}
+      style={{ width: "100%", height, background: "#0b0e11", display: "block" }}
       className="rounded-md"
       data-testid="chart-canvas"
     />
