@@ -2960,8 +2960,9 @@ export async function registerRoutes(
       const duel = await storage.getTradingDuelByJoinCode(joinCode.toUpperCase());
       if (!duel) return res.status(404).json({ message: "No open duel found with that code" });
       if (duel.creatorId === joinerId) return res.status(400).json({ message: "Cannot join your own duel" });
-      const updated = await storage.joinTradingDuel(duel.id, joinerId);
-      res.json(updated);
+      await storage.joinTradingDuel(duel.id, joinerId);
+      const started = await storage.startTradingDuel(duel.id);
+      res.json(started);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -2975,8 +2976,9 @@ export async function registerRoutes(
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "waiting") return res.status(400).json({ message: "Duel not available to join" });
       if (duel.creatorId === joinerId) return res.status(400).json({ message: "Cannot join your own duel" });
-      const updated = await storage.joinTradingDuel(req.params.id, joinerId);
-      res.json(updated);
+      await storage.joinTradingDuel(req.params.id, joinerId);
+      const started = await storage.startTradingDuel(req.params.id);
+      res.json(started);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
