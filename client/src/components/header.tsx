@@ -27,22 +27,25 @@ export function Header() {
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
   const isArenaActive = location.startsWith("/arena");
-  const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery") || location.startsWith("/nfa");
+  const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery") || location.startsWith("/nfa") || location.startsWith("/openclaw") || location.startsWith("/moltbook");
   const isCommunityActive = location === "/feed" || location === "/create" || location === "/token";
 
-  const mobileNavItems = [
-    { href: "/autonomous-economy", label: "Web4 Economy", icon: Cpu },
+  const mobileAgentItems = [
     { href: "/openclaw", label: "OpenClaw", icon: Radio },
-    { href: "/arena", label: "Trading Arena", icon: Swords },
-    { href: "/giveaway", label: "$500 Giveaway", icon: Gift },
+    { href: "/moltbook", label: "Moltbook", icon: Link2 },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
-    { href: "/moltbook", label: "Moltbook", icon: Link2 },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
-    { href: "/feed", label: t('nav.feed'), icon: MessageSquare },
-    { href: "/create", label: "New Post", icon: Plus },
-    { href: "/token", label: "$HONEY", icon: Coins },
+  ];
+  const mobileCompeteItems = [
+    { href: "/arena", label: "Games Arena", icon: Swords },
+    { href: "/autonomous-economy", label: "Web4 Economy", icon: Cpu },
+    { href: "/giveaway", label: "$500 Giveaway", icon: Gift },
     { href: "/rewards", label: "Rewards", icon: Trophy },
+  ];
+  const mobileCommunityItems = [
+    { href: "/feed", label: t('nav.feed'), icon: MessageSquare },
+    { href: "/token", label: "$HONEY", icon: Coins },
     { href: "/how-to", label: "Guide", icon: HelpCircle },
     ...(isAdmin ? [{ href: "/stats", label: t('stats.title'), icon: BarChart3 }] : []),
   ];
@@ -83,24 +86,6 @@ export function Header() {
               </Button>
             </Link>
 
-            <div className="relative">
-              <span className="absolute -top-1 -right-1 flex h-3 w-3 z-10 pointer-events-none">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
-              </span>
-              <Link href="/openclaw">
-                <Button
-                  variant={location === "/openclaw" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-1 text-amber-600 dark:text-amber-400"
-                  data-testid="link-openclaw"
-                >
-                  <Radio className="h-3.5 w-3.5" />
-                  OpenClaw
-                </Button>
-              </Link>
-            </div>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant={isAgentsActive ? "secondary" : "ghost"} size="sm" className="gap-1" data-testid="dropdown-agents">
@@ -110,6 +95,19 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
+                <Link href="/openclaw">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-openclaw">
+                    <Radio className="h-4 w-4" />
+                    OpenClaw
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/moltbook">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-moltbook">
+                    <Link2 className="h-4 w-4" />
+                    Moltbook
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuSeparator />
                 <Link href="/nfa">
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-nfa-showroom">
                     <Shield className="h-4 w-4" />
@@ -120,12 +118,6 @@ export function Header() {
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-ai-hatchery">
                     <Bot className="h-4 w-4" />
                     AI Hatchery
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/moltbook">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-moltbook">
-                    <Link2 className="h-4 w-4" />
-                    Moltbook
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuSeparator />
@@ -249,8 +241,8 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-72 pt-12">
               <nav className="flex flex-col gap-1">
-                <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Compete</div>
-                {mobileNavItems.slice(0, 1).map((item) => (
+                <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Agents</div>
+                {mobileAgentItems.map((item) => (
                   <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
@@ -262,8 +254,8 @@ export function Header() {
                   </Link>
                 ))}
 
-                <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">AI Agents</div>
-                {mobileNavItems.slice(1, 4).map((item) => (
+                <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">Compete</div>
+                {mobileCompeteItems.map((item) => (
                   <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
@@ -276,23 +268,10 @@ export function Header() {
                 ))}
 
                 <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">Community</div>
-                {mobileNavItems.slice(4, 7).map((item) => (
+                {mobileCommunityItems.map((item) => (
                   <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
                     <Button
                       variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
-                      className="w-full justify-start gap-3"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                ))}
-
-                <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">More</div>
-                {mobileNavItems.slice(7).map((item) => (
-                  <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant={location === item.href ? "secondary" : "ghost"}
                       className="w-full justify-start gap-3"
                     >
                       <item.icon className="h-4 w-4" />
