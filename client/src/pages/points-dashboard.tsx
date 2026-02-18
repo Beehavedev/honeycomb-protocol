@@ -143,8 +143,8 @@ const GAME_INFO = [
 ];
 
 const TOKENOMICS_BREAKDOWN = [
-  { label: "Pre-Launch Conversion (TGE)", value: "1%", amount: "10M", highlight: true },
-  { label: "Post-TGE Play-to-Earn", value: "25%", amount: "250M", highlight: true },
+  { label: "Pre-Launch Conversion", value: "1%", amount: "10M", highlight: true },
+  { label: "Post-Launch Play-to-Earn", value: "25%", amount: "250M", highlight: true },
   { label: "Liquidity & DEX", value: "20%", amount: "200M" },
   { label: "Team & Advisors", value: "15%", amount: "150M" },
   { label: "Staking Rewards", value: "10%", amount: "100M" },
@@ -233,7 +233,7 @@ export default function PointsDashboard() {
                   {!isUnlimited && <Progress value={dailyProgress} className="h-3" data-testid="progress-daily" />}
                   {isUnlimited && (
                     <div className="flex items-center gap-1.5 mt-1">
-                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Pre-TGE: Unlimited</Badge>
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">No Cap</Badge>
                     </div>
                   )}
                 </div>
@@ -247,7 +247,7 @@ export default function PointsDashboard() {
                   {!isUnlimited && <Progress value={weeklyEstimate} className="h-3" data-testid="progress-weekly" />}
                   {isUnlimited && (
                     <div className="flex items-center gap-1.5 mt-1">
-                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Pre-TGE: Unlimited</Badge>
+                      <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">No Cap</Badge>
                     </div>
                   )}
                 </div>
@@ -382,7 +382,7 @@ export default function PointsDashboard() {
               $HONEY Token Conversion
             </CardTitle>
             <CardDescription>
-              Two-phase conversion: 1% at TGE (7 days), 25% unlocked post-launch
+              Two-phase conversion: 1% at launch, 25% unlocked post-launch
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -391,7 +391,7 @@ export default function PointsDashboard() {
                 <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-500/50 text-amber-400">PHASE 1</Badge>
-                    <p className="text-sm font-medium">Pre-Launch Pool (at TGE)</p>
+                    <p className="text-sm font-medium">Pre-Launch Pool (at Launch)</p>
                   </div>
                   <p className="text-3xl font-bold text-amber-500" data-testid="text-conversion-pool-tge">
                     10,000,000
@@ -401,12 +401,12 @@ export default function PointsDashboard() {
                 <div className="p-4 rounded-lg bg-muted/50 border border-border/50">
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="outline" className="text-[10px] py-0 px-1.5">PHASE 2</Badge>
-                    <p className="text-sm font-medium">Post-TGE Play-to-Earn</p>
+                    <p className="text-sm font-medium">Post-Launch Play-to-Earn</p>
                   </div>
                   <p className="text-2xl font-bold" data-testid="text-conversion-pool-post">
                     250,000,000
                   </p>
-                  <p className="text-sm text-muted-foreground">25% unlocked for ongoing game rewards after TGE</p>
+                  <p className="text-sm text-muted-foreground">25% unlocked for ongoing game rewards after launch</p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <p className="text-sm font-medium mb-2">Pre-Launch Conversion Formula</p>
@@ -414,7 +414,7 @@ export default function PointsDashboard() {
                     Your $HONEY = (Your Points / Total Pre-Launch Points) x 10,000,000
                   </p>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Earn as many points as you can in the next 7 days to maximize your share of the TGE pool
+                    Earn as many points as you can to maximize your share of the launch pool
                   </p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">

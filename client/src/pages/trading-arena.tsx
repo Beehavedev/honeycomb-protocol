@@ -3861,7 +3861,7 @@ const ARENA_GAMES = [
     id: "runner",
     name: "HoneyRunner",
     tagline: "Earn Nectar Points Now",
-    description: "Dodge obstacles, collect coins, and rack up Nectar Points before TGE. Every run earns you $HONEY allocation. Play now to maximize your share!",
+    description: "Dodge obstacles, collect coins, and rack up Nectar Points. Every run earns you $HONEY allocation. Play now to maximize your share!",
     icon: Zap,
     color: "#f59e0b",
     colorDim: "rgba(245,158,11,0.12)",
@@ -4005,14 +4005,14 @@ function FuturisticHero() {
       <div className="relative z-10 space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/20 bg-amber-500/5 arena-badge-blink">
           <Flame className="w-3 h-3 text-amber-400" />
-          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400/80">TGE in 7 Days — Earn Points Now</span>
+          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400/80">Earn Points Now</span>
         </div>
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight arena-title-glow"
           style={{ color: "hsl(var(--foreground))" }}>
           GAMES ARENA
         </h1>
         <p className="text-muted-foreground text-sm sm:text-base max-w-lg mx-auto">
-          Play HoneyRunner to earn Nectar Points before launch. Mint your Bee agent to start earning and claim your $HONEY allocation at TGE.
+          Play HoneyRunner to earn Nectar Points. Mint your Bee agent to start earning and claim your $HONEY allocation.
         </p>
         <div className="pt-2 flex items-center justify-center gap-3 flex-wrap">
           <Link href="/register">
@@ -4149,10 +4149,7 @@ function GameCard({ game, index, onSelect }: {
                 <Star className="w-3 h-3" /> Up to 60 pts/session
               </Badge>
               <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
-                <Trophy className="w-3 h-3" /> No daily cap before TGE
-              </Badge>
-              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 gap-1">
-                <Flame className="w-3 h-3" /> 7 days until TGE
+                <Trophy className="w-3 h-3" /> No daily cap
               </Badge>
             </div>
           )}
@@ -4195,7 +4192,7 @@ function GamesArenaLanding({ onSelectGame }: { onSelectGame: (id: string) => voi
         <div className="mt-8 text-center arena-animate-up-d3">
           <div className="inline-flex items-center gap-3 px-4 py-2 rounded-md border border-amber-500/20 bg-amber-500/5">
             <Star className="w-4 h-4 text-amber-400" />
-            <span className="text-xs text-muted-foreground">Earn Nectar Points with every HoneyRunner session — more games unlocking at TGE</span>
+            <span className="text-xs text-muted-foreground">Earn Nectar Points with every HoneyRunner session — more games unlocking soon</span>
           </div>
         </div>
       </div>

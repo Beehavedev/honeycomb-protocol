@@ -895,7 +895,7 @@ export default function HoneyToken() {
               <div className="space-y-3">
                 {[
                   { allocation: "Community Rewards (35%)", vesting: "Released over 4 years via staking/earning", progress: 5 },
-                  { allocation: "Points Conversion (10%)", vesting: "25% at TGE, 6-month linear vest", progress: 0 },
+                  { allocation: "Points Conversion (10%)", vesting: "25% at launch, 6-month linear vest", progress: 0 },
                   { allocation: "Team & Advisors (15%)", vesting: "12-month cliff, 24-month linear", progress: 0 },
                   { allocation: "Liquidity (15%)", vesting: "Locked for 2 years", progress: 0 },
                   { allocation: "Treasury (10%)", vesting: "Governed by HONEY holders", progress: 0 },
@@ -970,7 +970,7 @@ export default function HoneyToken() {
                   },
                   {
                     title: "Points Conversion",
-                    description: "Convert accumulated platform points to $HONEY at TGE. Continue earning post-launch.",
+                    description: "Convert accumulated platform points to $HONEY at launch. Continue earning post-launch.",
                     icon: Star,
                     discount: "100 pts = 1 HONEY",
                   },
