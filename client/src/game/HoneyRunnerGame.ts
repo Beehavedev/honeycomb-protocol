@@ -37,7 +37,7 @@ const WHITE = new THREE.Color(0xffffff);
 const PURPLE = new THREE.Color(0xaa44ff);
 
 const PHASE_THRESHOLDS = [0, 2000, 6000, 15000];
-const PHASE_NAMES = ["AMBER SURGE", "GOLDEN BLAZE", "HONEY RUSH", "HYPER HIVE"];
+const PHASE_NAMES = ["NEON DRIFT", "GOLDEN GRID", "PLASMA RUSH", "HYPER CORE"];
 const PHASE_COLORS = [AMBER, GOLD, ORANGE, RED];
 const PHASE_RING_COLORS = [AMBER_BRIGHT, new THREE.Color(0xffe070), new THREE.Color(0xffb060), new THREE.Color(0xff6060)];
 
@@ -151,25 +151,33 @@ class HoneyRunner3D {
     this.renderer.domElement.style.display = "block";
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x020204, 0.025);
+    this.scene.fog = new THREE.FogExp2(0x010108, 0.02);
 
-    this.camera = new THREE.PerspectiveCamera(65, W / H, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(68, W / H, 0.1, 200);
     this.camera.position.set(0, 3.5, 6);
     this.camera.lookAt(0, 1.5, -20);
 
-    this.ambientLight = new THREE.AmbientLight(0x222222, 0.6);
+    this.ambientLight = new THREE.AmbientLight(0x0a0a18, 0.5);
     this.scene.add(this.ambientLight);
 
-    this.pointLight = new THREE.PointLight(0xf0a500, 2, 30);
+    this.pointLight = new THREE.PointLight(0xf0a500, 2.5, 35);
     this.pointLight.position.set(0, 4, 2);
     this.scene.add(this.pointLight);
 
-    const backLight = new THREE.PointLight(0x4488ff, 0.8, 40);
+    const backLight = new THREE.PointLight(0x00ccff, 1.2, 50);
     backLight.position.set(0, 3, -15);
     this.scene.add(backLight);
 
-    this.coinGeom = new THREE.SphereGeometry(0.25, 12, 8);
-    this.coinMat = new THREE.MeshStandardMaterial({ color: 0xffc040, emissive: 0xf0a500, emissiveIntensity: 0.5, metalness: 0.8, roughness: 0.2 });
+    const rimLight = new THREE.PointLight(0xaa44ff, 0.6, 25);
+    rimLight.position.set(4, 5, -5);
+    this.scene.add(rimLight);
+
+    const rimLight2 = new THREE.PointLight(0x00ff80, 0.4, 25);
+    rimLight2.position.set(-4, 2, -10);
+    this.scene.add(rimLight2);
+
+    this.coinGeom = new THREE.OctahedronGeometry(0.2, 1);
+    this.coinMat = new THREE.MeshStandardMaterial({ color: 0xffc040, emissive: 0xf0a500, emissiveIntensity: 0.7, metalness: 0.9, roughness: 0.1 });
 
     this.buildTunnel();
     this.buildPlayer();
@@ -192,19 +200,19 @@ class HoneyRunner3D {
     const floorWidth = LANE_W * 3 + 2;
     const floorGeo = new THREE.PlaneGeometry(floorWidth, TUNNEL_LEN);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x08080f,
-      emissive: 0x020204,
-      emissiveIntensity: 0.3,
-      metalness: 0.7,
-      roughness: 0.3,
+      color: 0x040410,
+      emissive: 0x00ccff,
+      emissiveIntensity: 0.03,
+      metalness: 0.85,
+      roughness: 0.15,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(0, -0.01, -TUNNEL_LEN / 2 + 10);
     this.tunnel.add(floor);
 
-    const gridMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.08 });
-    for (let z = 0; z <= TUNNEL_LEN; z += 3) {
+    const gridMat = new THREE.LineBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.1 });
+    for (let z = 0; z <= TUNNEL_LEN; z += 2) {
       const crossGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(-floorWidth / 2, 0.02, -z + 10),
         new THREE.Vector3(floorWidth / 2, 0.02, -z + 10),
@@ -212,22 +220,40 @@ class HoneyRunner3D {
       this.tunnel.add(new THREE.Line(crossGeo, gridMat));
     }
 
+    const longGridMat = new THREE.LineBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.06 });
+    const gridSpacing = 0.5;
+    for (let x = -floorWidth / 2; x <= floorWidth / 2; x += gridSpacing) {
+      const pts = [
+        new THREE.Vector3(x, 0.02, 10),
+        new THREE.Vector3(x, 0.02, -TUNNEL_LEN),
+      ];
+      this.tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), longGridMat));
+    }
+
     for (let i = 0; i < 3; i++) {
       const laneX = LANES[i];
       const pts = [
-        new THREE.Vector3(laneX - LANE_W * 0.5, 0.02, 10),
-        new THREE.Vector3(laneX - LANE_W * 0.5, 0.02, -TUNNEL_LEN),
+        new THREE.Vector3(laneX - LANE_W * 0.5, 0.025, 10),
+        new THREE.Vector3(laneX - LANE_W * 0.5, 0.025, -TUNNEL_LEN),
       ];
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const lineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.12 });
-      this.tunnel.add(new THREE.Line(lineGeo, lineMat));
+      const lineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.2 });
+      this.tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
       if (i === 2) {
         const pts2 = [
-          new THREE.Vector3(laneX + LANE_W * 0.5, 0.02, 10),
-          new THREE.Vector3(laneX + LANE_W * 0.5, 0.02, -TUNNEL_LEN),
+          new THREE.Vector3(laneX + LANE_W * 0.5, 0.025, 10),
+          new THREE.Vector3(laneX + LANE_W * 0.5, 0.025, -TUNNEL_LEN),
         ];
         this.tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), lineMat));
       }
+    }
+
+    const centerLineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.25 });
+    for (let i = 0; i < 3; i++) {
+      const pts = [
+        new THREE.Vector3(LANES[i], 0.025, 10),
+        new THREE.Vector3(LANES[i], 0.025, -TUNNEL_LEN),
+      ];
+      this.tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), centerLineMat));
     }
 
     const archSegments = 24;
@@ -246,29 +272,49 @@ class HoneyRunner3D {
     for (let i = 0; i < RING_COUNT; i++) {
       const zPos = -i * ringSpacing;
       const archGeo = new THREE.BufferGeometry().setFromPoints(archPts);
-      const opacity = 0.15 + 0.15 * (1 - i / RING_COUNT);
-      const ringMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity });
+      const opacity = 0.18 + 0.2 * (1 - i / RING_COUNT);
+      const hue = (i / RING_COUNT) * 0.15;
+      const ringColor = new THREE.Color().setHSL(0.08 + hue, 1, 0.55);
+      const ringMat = new THREE.LineBasicMaterial({ color: ringColor, transparent: true, opacity });
       const archLine = new THREE.Line(archGeo, ringMat);
       archLine.position.z = zPos;
       this.tunnel.add(archLine);
       this.rings.push(archLine);
 
-      const pillarHeight = 0.8;
-      const pillarMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, transparent: true, opacity: opacity * 0.5 });
-      const pillarGeo = new THREE.BoxGeometry(0.06, pillarHeight, 0.06);
+      const pillarHeight = 1.2;
+      const pillarMat = new THREE.MeshStandardMaterial({
+        color: 0x00ccff, emissive: 0x00ccff, emissiveIntensity: 0.3,
+        transparent: true, opacity: opacity * 0.4, metalness: 0.8, roughness: 0.1,
+      });
+      const pillarGeo = new THREE.BoxGeometry(0.04, pillarHeight, 0.04);
       const pillarL = new THREE.Mesh(pillarGeo, pillarMat);
       pillarL.position.set(-archHalfW, pillarHeight / 2, zPos);
       this.tunnel.add(pillarL);
       const pillarR = new THREE.Mesh(pillarGeo, pillarMat);
       pillarR.position.set(archHalfW, pillarHeight / 2, zPos);
       this.tunnel.add(pillarR);
+
+      if (i % 5 === 0) {
+        const nodeMat = new THREE.MeshStandardMaterial({
+          color: 0xaa44ff, emissive: 0xaa44ff, emissiveIntensity: 0.6,
+          transparent: true, opacity: 0.5,
+        });
+        const nodeGeo = new THREE.SphereGeometry(0.08, 8, 6);
+        const nodeL = new THREE.Mesh(nodeGeo, nodeMat);
+        nodeL.position.set(-archHalfW, pillarHeight, zPos);
+        this.tunnel.add(nodeL);
+        const nodeR = new THREE.Mesh(nodeGeo, nodeMat);
+        nodeR.position.set(archHalfW, pillarHeight, zPos);
+        this.tunnel.add(nodeR);
+      }
     }
 
-    const wallLineCount = 8;
-    const wallLineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.06 });
+    const wallLineCount = 10;
     for (let i = 0; i < wallLineCount; i++) {
       const t = (i + 1) / (wallLineCount + 1);
       const angle = Math.PI * t;
+      const wallColor = t < 0.5 ? 0x00ccff : 0xaa44ff;
+      const wallLineMat = new THREE.LineBasicMaterial({ color: wallColor, transparent: true, opacity: 0.05 });
       const pts: THREE.Vector3[] = [];
       for (let z = 0; z <= TUNNEL_LEN; z += 2) {
         const x = Math.cos(angle) * archHalfW;
@@ -281,7 +327,7 @@ class HoneyRunner3D {
       this.wallLines.push(line);
     }
 
-    const edgeLineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.1 });
+    const edgeLineMat = new THREE.LineBasicMaterial({ color: 0x00ccff, transparent: true, opacity: 0.15 });
     const edgeL = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(-archHalfW, 0, 10),
       new THREE.Vector3(-archHalfW, 0, -TUNNEL_LEN),
@@ -634,71 +680,93 @@ class HoneyRunner3D {
     const ctx = this.menuCtx;
     ctx.clearRect(0, 0, W, H);
 
-    ctx.fillStyle = "rgba(2,2,4,0.85)";
+    ctx.fillStyle = "rgba(1,1,8,0.88)";
     ctx.fillRect(0, 0, W, H);
 
+    ctx.strokeStyle = "rgba(0,204,255,0.08)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < H; y += 4) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+
     if (this.state === "menu") {
-      ctx.fillStyle = "#f0a500";
-      ctx.font = "bold 42px 'Inter', sans-serif";
+      ctx.fillStyle = "#00ccff";
+      ctx.font = "bold 11px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
-      ctx.fillText("HONEYRUNNER", W / 2, H * 0.3);
+      ctx.fillText("// SYSTEM ONLINE", W / 2, H * 0.22);
 
-      ctx.fillStyle = "#ffc040";
-      ctx.font = "16px 'Inter', sans-serif";
-      ctx.fillText("3D Endless Runner", W / 2, H * 0.3 + 35);
+      ctx.fillStyle = "#f0a500";
+      ctx.font = "bold 44px 'JetBrains Mono', monospace";
+      ctx.fillText("HONEY", W / 2, H * 0.3);
+      ctx.fillStyle = "#00ccff";
+      ctx.fillText("RUNNER", W / 2, H * 0.3 + 45);
 
-      this.drawBtn(ctx, W / 2, H * 0.5, 200, 50, "PLAY", "#f0a500", "#000");
+      ctx.fillStyle = "rgba(170,68,255,0.5)";
+      ctx.font = "12px 'JetBrains Mono', monospace";
+      ctx.fillText("[ QUANTUM ENDLESS RUNNER ]", W / 2, H * 0.3 + 70);
+
+      this.drawBtn(ctx, W / 2, H * 0.5, 220, 50, "INITIALIZE", "#f0a500", "#000");
 
       const best = getBestScore();
       if (best > 0) {
-        ctx.fillStyle = "#888";
-        ctx.font = "14px 'Inter', sans-serif";
-        ctx.fillText(`Best Score: ${best.toLocaleString()}`, W / 2, H * 0.5 + 60);
+        ctx.fillStyle = "#00ccff";
+        ctx.font = "12px 'JetBrains Mono', monospace";
+        ctx.fillText(`RECORD: ${best.toLocaleString()}`, W / 2, H * 0.5 + 55);
       }
 
-      ctx.fillStyle = "#666";
-      ctx.font = "13px 'Inter', sans-serif";
-      ctx.fillText("Arrow Keys / Swipe to move", W / 2, H * 0.7);
-      ctx.fillText("Up / Swipe Up to jump", W / 2, H * 0.7 + 22);
-      ctx.fillText("Down / Swipe Down to slide", W / 2, H * 0.7 + 44);
+      ctx.fillStyle = "#555";
+      ctx.font = "11px 'JetBrains Mono', monospace";
+      ctx.fillText("[ARROWS/SWIPE] NAVIGATE", W / 2, H * 0.7);
+      ctx.fillText("[UP/SWIPE-UP] BOOST", W / 2, H * 0.7 + 18);
+      ctx.fillText("[DOWN/SWIPE-DOWN] EVADE", W / 2, H * 0.7 + 36);
     } else if (this.state === "gameover") {
       ctx.fillStyle = "#ff3858";
-      ctx.font = "bold 36px 'Inter', sans-serif";
+      ctx.font = "bold 13px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
-      ctx.fillText("GAME OVER", W / 2, H * 0.25);
+      ctx.fillText("// SYSTEM FAILURE", W / 2, H * 0.2);
+
+      ctx.fillStyle = "#ff1030";
+      ctx.font = "bold 38px 'JetBrains Mono', monospace";
+      ctx.fillText("TERMINATED", W / 2, H * 0.27);
 
       const isNew = setBestScore(this.score);
       if (isNew) {
-        ctx.fillStyle = "#ffc040";
-        ctx.font = "bold 16px 'Inter', sans-serif";
-        ctx.fillText("NEW BEST!", W / 2, H * 0.25 + 30);
+        ctx.fillStyle = "#00ff80";
+        ctx.font = "bold 14px 'JetBrains Mono', monospace";
+        ctx.fillText(">>> NEW RECORD <<<", W / 2, H * 0.27 + 28);
       }
 
       ctx.fillStyle = "#f0a500";
-      ctx.font = "bold 48px 'JetBrains Mono', monospace";
-      ctx.fillText(this.score.toLocaleString(), W / 2, H * 0.38);
+      ctx.font = "bold 50px 'JetBrains Mono', monospace";
+      ctx.fillText(this.score.toLocaleString(), W / 2, H * 0.39);
 
-      ctx.fillStyle = "#aaa";
-      ctx.font = "14px 'Inter', sans-serif";
-      ctx.fillText(`Distance: ${Math.floor(this.distance)}m`, W / 2, H * 0.38 + 30);
-      ctx.fillText(`Coins: ${this.coins}`, W / 2, H * 0.38 + 52);
-      ctx.fillText(`Max Combo: ${this.combo}x`, W / 2, H * 0.38 + 74);
+      ctx.fillStyle = "#00ccff";
+      ctx.font = "12px 'JetBrains Mono', monospace";
+      ctx.fillText(`DIST: ${Math.floor(this.distance)}m  |  DATA: ${this.coins}  |  CHAIN: ${this.combo}x`, W / 2, H * 0.39 + 28);
 
-      this.drawBtn(ctx, W / 2, H * 0.58, 200, 50, "PLAY AGAIN", "#f0a500", "#000");
-      this.drawBtn(ctx, W / 2, H * 0.66, 200, 40, "MENU", "#333", "#ccc");
+      this.drawBtn(ctx, W / 2, H * 0.58, 220, 50, "REBOOT", "#f0a500", "#000");
+      this.drawBtn(ctx, W / 2, H * 0.66, 220, 40, "MAIN GRID", "#1a1a2e", "#00ccff");
     }
 
     this.menuTexture.needsUpdate = true;
   }
 
   private drawBtn(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, text: string, bg: string, fg: string) {
-    const r = 8;
+    const r = 4;
     ctx.fillStyle = bg;
     ctx.beginPath();
     ctx.roundRect(x - w / 2, y - h / 2, w, h, r);
     ctx.fill();
+    ctx.strokeStyle = fg;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - h / 2, w, h, r);
+    ctx.stroke();
     ctx.fillStyle = fg;
-    ctx.font = `bold ${h > 42 ? 18 : 14}px 'Inter', sans-serif`;
+    ctx.font = `bold ${h > 42 ? 16 : 12}px 'JetBrains Mono', monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(text, x, y);
@@ -924,38 +992,49 @@ class HoneyRunner3D {
     const group = new THREE.Group();
 
     const mat = new THREE.MeshStandardMaterial({
-      color: 0xff3858, emissive: 0xff1030, emissiveIntensity: 0.4,
-      metalness: 0.6, roughness: 0.3, transparent: true, opacity: 0.9,
+      color: 0xff1030, emissive: 0xff0020, emissiveIntensity: 0.6,
+      metalness: 0.8, roughness: 0.1, transparent: true, opacity: 0.7,
     });
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xff4060, transparent: true, opacity: 0.9 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xff0030, transparent: true, opacity: 0.08 });
 
     if (type === "barrier") {
-      const geo = new THREE.BoxGeometry(LANE_W * 0.85, 1.2, 0.4);
+      const geo = new THREE.BoxGeometry(LANE_W * 0.85, 1.2, 0.15);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.y = 0.6;
       group.add(mesh);
-      const edgeGeo = new THREE.EdgesGeometry(geo);
-      const edgeMat = new THREE.LineBasicMaterial({ color: 0xff6080 });
-      group.add(new THREE.LineSegments(edgeGeo, edgeMat));
+      group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+      const glowGeo = new THREE.BoxGeometry(LANE_W * 0.95, 1.4, 0.6);
+      const glow = new THREE.Mesh(glowGeo, glowMat);
+      glow.position.y = 0.6;
+      group.add(glow);
     } else if (type === "low_gate") {
-      const geo = new THREE.BoxGeometry(LANE_W * 0.85, 0.35, 0.4);
+      const geo = new THREE.BoxGeometry(LANE_W * 0.85, 0.2, 0.1);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.y = 1.6;
       group.add(mesh);
-      const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6);
-      const poleL = new THREE.Mesh(poleGeo, mat);
+      group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+      const poleMat = new THREE.MeshStandardMaterial({
+        color: 0x440020, emissive: 0xff0030, emissiveIntensity: 0.3,
+        metalness: 0.9, roughness: 0.1, transparent: true, opacity: 0.8,
+      });
+      const poleGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.8, 6);
+      const poleL = new THREE.Mesh(poleGeo, poleMat);
       poleL.position.set(-LANE_W * 0.4, 0.9, 0);
       group.add(poleL);
-      const poleR = new THREE.Mesh(poleGeo, mat);
+      const poleR = new THREE.Mesh(poleGeo, poleMat);
       poleR.position.set(LANE_W * 0.4, 0.9, 0);
       group.add(poleR);
     } else {
-      const geo = new THREE.BoxGeometry(0.5, 2.0, 0.4);
+      const geo = new THREE.BoxGeometry(0.3, 2.0, 0.1);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.y = 1.0;
       group.add(mesh);
-      const edgeGeo = new THREE.EdgesGeometry(geo);
-      const edgeMat = new THREE.LineBasicMaterial({ color: 0xff6080 });
-      group.add(new THREE.LineSegments(edgeGeo, edgeMat));
+      group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat));
+      const glowGeo = new THREE.BoxGeometry(0.6, 2.2, 0.5);
+      const glow = new THREE.Mesh(glowGeo, glowMat);
+      glow.position.y = 1.0;
+      group.add(glow);
     }
 
     const z = -TUNNEL_LEN + 5;
@@ -980,17 +1059,21 @@ class HoneyRunner3D {
     const kind = kinds[Math.floor(Math.random() * kinds.length)];
     const group = new THREE.Group();
 
-    const colors = { shield: 0x00ff80, magnet: 0x4488ff, boost: 0xff7800 };
-    const geo = new THREE.OctahedronGeometry(0.35, 0);
+    const colors = { shield: 0x00ff80, magnet: 0x00ccff, boost: 0xaa44ff };
+    const geo = new THREE.IcosahedronGeometry(0.3, 0);
     const mat = new THREE.MeshStandardMaterial({
-      color: colors[kind], emissive: colors[kind], emissiveIntensity: 0.6,
-      transparent: true, opacity: 0.85, metalness: 0.4, roughness: 0.3,
+      color: colors[kind], emissive: colors[kind], emissiveIntensity: 0.8,
+      transparent: true, opacity: 0.75, metalness: 0.9, roughness: 0.05,
     });
     const mesh = new THREE.Mesh(geo, mat);
     group.add(mesh);
 
+    const wireGeo = new THREE.IcosahedronGeometry(0.35, 0);
+    const wireMat = new THREE.MeshBasicMaterial({ color: colors[kind], wireframe: true, transparent: true, opacity: 0.3 });
+    group.add(new THREE.Mesh(wireGeo, wireMat));
+
     const glowGeo = new THREE.SphereGeometry(0.5, 8, 6);
-    const glowMat = new THREE.MeshBasicMaterial({ color: colors[kind], transparent: true, opacity: 0.15 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: colors[kind], transparent: true, opacity: 0.1 });
     group.add(new THREE.Mesh(glowGeo, glowMat));
 
     const z = -TUNNEL_LEN + 5;
