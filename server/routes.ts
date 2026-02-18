@@ -2897,7 +2897,18 @@ export async function registerRoutes(
     try {
       const agentId = req.query.agentId as string;
       if (!agentId) return res.status(400).json({ message: "agentId required" });
-      const positions = await storage.getTradingPositions(req.params.id, agentId);
+      let resolvedAgentId = agentId;
+      const duel = await storage.getTradingDuel(req.params.id);
+      if (duel && duel.creatorId !== agentId && duel.joinerId !== agentId) {
+        const agentRecord = await storage.getAgent(agentId);
+        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        if (walletAddr && walletAddr === duel.creatorWallet?.toLowerCase()) {
+          resolvedAgentId = duel.creatorId;
+        } else if (walletAddr && walletAddr === duel.joinerWallet?.toLowerCase()) {
+          resolvedAgentId = duel.joinerId!;
+        }
+      }
+      const positions = await storage.getTradingPositions(req.params.id, resolvedAgentId);
       res.json(positions);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -3033,8 +3044,17 @@ export async function registerRoutes(
       const duel = await storage.getTradingDuel(req.params.id);
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
+      let resolvedAgentId = agentId;
       if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
-        return res.status(403).json({ message: "Not a participant" });
+        const agentRecord = await storage.getAgent(agentId);
+        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        if (walletAddr && (walletAddr === duel.creatorWallet?.toLowerCase())) {
+          resolvedAgentId = duel.creatorId;
+        } else if (walletAddr && (walletAddr === duel.joinerWallet?.toLowerCase())) {
+          resolvedAgentId = duel.joinerId!;
+        } else {
+          return res.status(403).json({ message: "Not a participant" });
+        }
       }
       if (duel.endsAt && new Date() > new Date(duel.endsAt)) {
         return res.status(400).json({ message: "Duel timer expired" });
@@ -3048,8 +3068,8 @@ export async function registerRoutes(
         return res.status(500).json({ message: "Failed to fetch price from exchange" });
       }
 
-      const openPositions = await storage.getOpenTradingPositions(req.params.id, agentId);
-      const allPositions = await storage.getTradingPositions(req.params.id, agentId);
+      const openPositions = await storage.getOpenTradingPositions(req.params.id, resolvedAgentId);
+      const allPositions = await storage.getTradingPositions(req.params.id, resolvedAgentId);
       const initialBal = parseFloat(duel.initialBalance);
       let usedBalance = 0;
       for (const p of openPositions) {
@@ -3071,7 +3091,7 @@ export async function registerRoutes(
 
       const position = await storage.createTradingPosition({
         duelId: req.params.id,
-        agentId,
+        agentId: resolvedAgentId,
         side,
         leverage: lev,
         sizeUsdt: sizeUsdt.toString(),
@@ -3098,11 +3118,20 @@ export async function registerRoutes(
       const duel = await storage.getTradingDuel(req.params.id);
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
+      let resolvedAgentId = agentId;
       if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
-        return res.status(403).json({ message: "Not a participant" });
+        const agentRecord = await storage.getAgent(agentId);
+        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        if (walletAddr && (walletAddr === duel.creatorWallet?.toLowerCase())) {
+          resolvedAgentId = duel.creatorId;
+        } else if (walletAddr && (walletAddr === duel.joinerWallet?.toLowerCase())) {
+          resolvedAgentId = duel.joinerId!;
+        } else {
+          return res.status(403).json({ message: "Not a participant" });
+        }
       }
 
-      const openPositions = await storage.getOpenTradingPositions(req.params.id, agentId);
+      const openPositions = await storage.getOpenTradingPositions(req.params.id, resolvedAgentId);
       const position = openPositions.find(p => p.id === positionId);
       if (!position) return res.status(404).json({ message: "Position not found or already closed" });
 
@@ -3860,8 +3889,17 @@ export async function registerRoutes(
       const duel = await storage.getTradingDuel(req.params.id);
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "active") return res.json({ status: duel.status });
+      let resolvedAgentId = agentId;
       if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
-        return res.status(403).json({ message: "Not a participant" });
+        const agentRecord = await storage.getAgent(agentId);
+        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        if (walletAddr && (walletAddr === duel.creatorWallet?.toLowerCase())) {
+          resolvedAgentId = duel.creatorId;
+        } else if (walletAddr && (walletAddr === duel.joinerWallet?.toLowerCase())) {
+          resolvedAgentId = duel.joinerId!;
+        } else {
+          return res.status(403).json({ message: "Not a participant" });
+        }
       }
 
       let currentPrice: number;
@@ -3890,8 +3928,8 @@ export async function registerRoutes(
         return ((total - initialBal) / initialBal) * 100;
       };
 
-      const myPnlPct = await calcPnlPercent(agentId);
-      const opponentId = agentId === duel.creatorId ? duel.joinerId : duel.creatorId;
+      const myPnlPct = await calcPnlPercent(resolvedAgentId);
+      const opponentId = resolvedAgentId === duel.creatorId ? duel.joinerId : duel.creatorId;
       const oppPnlPct = opponentId ? await calcPnlPercent(opponentId) : 0;
 
       const diff = myPnlPct - oppPnlPct;
@@ -3905,7 +3943,7 @@ export async function registerRoutes(
       const myMomentum = Math.max(0, Math.min(100, 50 + myPnlPct * 10));
       const oppMomentum = Math.max(0, Math.min(100, 50 + oppPnlPct * 10));
 
-      const currentLeaderId = myPnlPct > oppPnlPct ? agentId : (oppPnlPct > myPnlPct ? opponentId : null);
+      const currentLeaderId = myPnlPct > oppPnlPct ? resolvedAgentId : (oppPnlPct > myPnlPct ? opponentId : null);
       let leadChanges = duel.leadChanges || 0;
       let leadJustChanged = false;
 
