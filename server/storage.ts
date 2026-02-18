@@ -451,11 +451,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentByAddress(address: string): Promise<Agent | undefined> {
-    const [agent] = await db.select()
+    const results = await db.select()
       .from(agents)
-      .where(eq(agents.ownerAddress, address.toLowerCase()))
-      .limit(1);
-    return agent;
+      .where(eq(agents.ownerAddress, address.toLowerCase()));
+    if (results.length === 0) return undefined;
+    const nonBot = results.find(a => !a.isBot);
+    return nonBot || results[0];
   }
 
   async getAgentsByIds(ids: string[]): Promise<Agent[]> {

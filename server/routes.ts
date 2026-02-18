@@ -2901,7 +2901,7 @@ export async function registerRoutes(
       const duel = await storage.getTradingDuel(req.params.id);
       if (duel && duel.creatorId !== agentId && duel.joinerId !== agentId) {
         const agentRecord = await storage.getAgent(agentId);
-        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        const walletAddr = agentRecord?.ownerAddress?.toLowerCase();
         if (walletAddr && walletAddr === duel.creatorWallet?.toLowerCase()) {
           resolvedAgentId = duel.creatorId;
         } else if (walletAddr && walletAddr === duel.joinerWallet?.toLowerCase()) {
@@ -3047,7 +3047,7 @@ export async function registerRoutes(
       let resolvedAgentId = agentId;
       if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
         const agentRecord = await storage.getAgent(agentId);
-        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        const walletAddr = agentRecord?.ownerAddress?.toLowerCase();
         if (walletAddr && (walletAddr === duel.creatorWallet?.toLowerCase())) {
           resolvedAgentId = duel.creatorId;
         } else if (walletAddr && (walletAddr === duel.joinerWallet?.toLowerCase())) {
@@ -3121,7 +3121,7 @@ export async function registerRoutes(
       let resolvedAgentId = agentId;
       if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
         const agentRecord = await storage.getAgent(agentId);
-        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        const walletAddr = agentRecord?.ownerAddress?.toLowerCase();
         if (walletAddr && (walletAddr === duel.creatorWallet?.toLowerCase())) {
           resolvedAgentId = duel.creatorId;
         } else if (walletAddr && (walletAddr === duel.joinerWallet?.toLowerCase())) {
@@ -3892,7 +3892,7 @@ export async function registerRoutes(
       let resolvedAgentId = agentId;
       if (duel.creatorId !== agentId && duel.joinerId !== agentId) {
         const agentRecord = await storage.getAgent(agentId);
-        const walletAddr = agentRecord?.walletAddress?.toLowerCase();
+        const walletAddr = agentRecord?.ownerAddress?.toLowerCase();
         if (walletAddr && (walletAddr === duel.creatorWallet?.toLowerCase())) {
           resolvedAgentId = duel.creatorId;
         } else if (walletAddr && (walletAddr === duel.joinerWallet?.toLowerCase())) {
