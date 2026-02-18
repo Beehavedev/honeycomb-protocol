@@ -187,6 +187,13 @@ function PhaseCard({ phase, isAdmin, onContribute }: { phase: any; isAdmin: bool
           <span>Referral Bonus: {phase.referralBonusPercent}%</span>
         </div>
 
+        {phase.type === "public" && (
+          <div className="flex items-center gap-2 rounded-md bg-blue-500/10 p-2 text-xs text-blue-400">
+            <Shield className="h-3 w-3 shrink-0" />
+            <span>Requires an active Honeycomb agent to participate</span>
+          </div>
+        )}
+
         {isActive && (
           <Button
             className="w-full"

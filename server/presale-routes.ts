@@ -10,6 +10,7 @@ import {
   presaleReferrals,
   presaleContributeRequestSchema,
   presaleWhitelistAddSchema,
+  agents,
 } from "@shared/schema";
 import { eq, and, desc, sql, sum } from "drizzle-orm";
 import crypto from "crypto";
@@ -340,6 +341,17 @@ router.post("/contribute", async (req: Request, res: Response) => {
         return res
           .status(403)
           .json({ error: "Wallet not whitelisted for private presale" });
+    }
+
+    if (phase.type === "public") {
+      const userAgents = await db
+        .select()
+        .from(agents)
+        .where(eq(agents.ownerAddress, address));
+      if (userAgents.length === 0)
+        return res
+          .status(403)
+          .json({ error: "Public presale requires an active Honeycomb agent. Create one first at /agents." });
     }
 
     const existingContribs = await db
