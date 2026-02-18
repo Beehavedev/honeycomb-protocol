@@ -3186,6 +3186,103 @@ export const web4ReplicateRequestSchema = z.object({
   fundingAmount: z.string().min(1),
 });
 
+// ============ WEB4 SURVIVAL, CONSTITUTION, SOUL, AUDIT, INBOX ============
+
+export const SURVIVAL_TIERS = ["normal", "low_compute", "critical", "dead"] as const;
+export const SURVIVAL_THRESHOLDS = {
+  normal: BigInt("1000000000000000000"),    // >= 1.0 credits
+  low_compute: BigInt("100000000000000000"), // >= 0.1 credits
+  critical: BigInt("10000000000000000"),     // >= 0.01 credits
+  dead: BigInt(0),                          // 0 credits
+};
+
+export const agentSurvivalStatus = pgTable("agent_survival_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  tier: text("tier").notNull().default("normal"),
+  previousTier: text("previous_tier"),
+  lastTransitionAt: timestamp("last_transition_at").defaultNow().notNull(),
+  reason: text("reason"),
+  turnsAlive: integer("turns_alive").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertAgentSurvivalStatusSchema = createInsertSchema(agentSurvivalStatus).omit({ id: true, createdAt: true });
+export type AgentSurvivalStatus = typeof agentSurvivalStatus.$inferSelect;
+export type InsertAgentSurvivalStatus = z.infer<typeof insertAgentSurvivalStatusSchema>;
+
+export const agentConstitution = pgTable("agent_constitution", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  lawNumber: integer("law_number").notNull(),
+  lawTitle: text("law_title").notNull(),
+  lawText: text("law_text").notNull(),
+  isImmutable: boolean("is_immutable").notNull().default(true),
+  version: integer("version").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertAgentConstitutionSchema = createInsertSchema(agentConstitution).omit({ id: true, createdAt: true });
+export type AgentConstitution = typeof agentConstitution.$inferSelect;
+export type InsertAgentConstitution = z.infer<typeof insertAgentConstitutionSchema>;
+
+export const agentSoulEntries = pgTable("agent_soul_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  entry: text("entry").notNull(),
+  entryType: text("entry_type").notNull().default("reflection"),
+  source: text("source").notNull().default("self"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertAgentSoulEntrySchema = createInsertSchema(agentSoulEntries).omit({ id: true, createdAt: true });
+export type AgentSoulEntry = typeof agentSoulEntries.$inferSelect;
+export type InsertAgentSoulEntry = z.infer<typeof insertAgentSoulEntrySchema>;
+
+export const agentAuditLogs = pgTable("agent_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  actionType: text("action_type").notNull(),
+  targetAgentId: varchar("target_agent_id"),
+  detailsJson: text("details_json"),
+  result: text("result").notNull().default("success"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertAgentAuditLogSchema = createInsertSchema(agentAuditLogs).omit({ id: true, createdAt: true });
+export type AgentAuditLog = typeof agentAuditLogs.$inferSelect;
+export type InsertAgentAuditLog = z.infer<typeof insertAgentAuditLogSchema>;
+
+export const AUDIT_ACTION_TYPES = [
+  "wallet_deposit", "wallet_withdraw", "wallet_transfer", "wallet_tip",
+  "skill_create", "skill_purchase", "model_evolve", "agent_replicate",
+  "soul_entry", "message_send", "tier_transition", "constitution_init",
+] as const;
+
+export const agentMessages = pgTable("agent_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromAgentId: varchar("from_agent_id").notNull().references(() => agents.id),
+  toAgentId: varchar("to_agent_id").notNull().references(() => agents.id),
+  subject: text("subject"),
+  body: text("body").notNull(),
+  status: text("status").notNull().default("unread"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({ id: true, createdAt: true, readAt: true });
+export type AgentMessage = typeof agentMessages.$inferSelect;
+export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
+
+export const web4SoulEntryRequestSchema = z.object({
+  agentId: z.string().min(1),
+  entry: z.string().min(1).max(2000),
+  entryType: z.enum(["reflection", "goal", "identity", "milestone", "observation"]).default("reflection"),
+});
+
+export const web4SendMessageRequestSchema = z.object({
+  fromAgentId: z.string().min(1),
+  toAgentId: z.string().min(1),
+  subject: z.string().max(200).optional(),
+  body: z.string().min(1).max(5000),
+});
+
 // ============ $HONEY PRESALE SYSTEM ============
 
 export const presalePhases = pgTable("presale_phases", {
