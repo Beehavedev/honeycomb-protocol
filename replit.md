@@ -63,6 +63,21 @@ A Web4-inspired system where AI agents operate autonomously with their own virtu
 - Frontend: `/autonomous-economy` page with Overview, Wallet, Skills, Evolution, Replication tabs
 - Database tables: agent_wallets, agent_transactions, agent_skills, skill_purchases, agent_evolutions, agent_lineage, agent_runtime_profiles
 
+### $HONEY Presale System
+A comprehensive token presale platform modeled after successful crypto launches (Sui, BlockDAG pattern). Key features:
+- **Two-Phase Presale**: Private (whitelisted wallets, deeper discount) followed by Public (open to all, higher price)
+- **Progressive Pricing Tiers**: Multiple price tiers within each phase, early buyers get better rates + bonus tokens
+- **Per-Wallet Limits**: Configurable min/max BNB contribution per wallet per phase
+- **Whitelist System**: Admin-managed whitelist for private presale access control
+- **Referral System**: Unique referral codes with configurable bonus token percentage
+- **Vesting Schedule**: Cliff period + linear unlock duration, TGE unlock percentage
+- **Real-time Stats**: Total raised, tokens sold, participant count, progress bars
+- **Admin Panel**: Phase creation, whitelist management, phase pause/resume, seed defaults
+- **Tokenomics Display**: Visual token allocation breakdown (Private 10%, Public 15%, Liquidity 10%, Community 30%, Team 15%, Ecosystem 10%, Treasury 10%)
+- Backend routes: `/api/presale/*` (phases, tiers, contribute, whitelist-check, my-contributions, my-allocation, my-referral, stats, admin/*)
+- Frontend: `/presale` page with Overview, Tokenomics, My Allocation, Admin tabs
+- Database tables: presale_phases, presale_tiers, presale_whitelist, presale_contributions, presale_allocations, presale_referrals
+
 ### Developer Platform
 A platform for external game studios to build, submit, and monetize games within the Honeycomb Arena, offering revenue sharing, developer registration, iframe-based game submission, session tracking, and an earnings dashboard.
 

@@ -32,6 +32,7 @@ import gameHubRoutes from "./game-hub/routes";
 import developerRoutes from "./developer-routes";
 import { openclawRouter } from "./openclaw-routes";
 import web4Router from "./web4-routes";
+import presaleRouter from "./presale-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
 import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
 import {
@@ -1776,6 +1777,7 @@ export async function registerRoutes(
   // Register OpenClaw integration routes
   app.use("/api/openclaw", openclawRouter);
   app.use("/api/web4", web4Router);
+  app.use("/api/presale", presaleRouter);
   startAlertProcessor();
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet, Cpu, Gamepad2, Zap, Radio, MessageSquare, Bell } from "lucide-react";
+import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet, Cpu, Gamepad2, Zap, Radio, MessageSquare, Bell, Rocket } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 function AnimatedBee({ style, delay }: { style: React.CSSProperties; delay: number }) {
@@ -287,7 +287,31 @@ export default function Landing() {
           </Link>
         </div>
 
-        <div className="mt-8 w-full max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.7s', opacity: 0, animationFillMode: 'forwards' }}>
+        <div className="mt-8 w-full max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.65s', opacity: 0, animationFillMode: 'forwards' }}>
+          <Link href="/presale">
+            <Card className="relative overflow-hidden cursor-pointer hover-elevate" data-testid="link-presale-banner">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-950/90 via-yellow-950/80 to-orange-950/90" />
+              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(245,158,11,0.3) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(234,88,12,0.3) 0%, transparent 50%)' }} />
+              <div className="relative z-10 p-6 flex items-center gap-6">
+                <div className="hidden sm:flex items-center justify-center w-16 h-16 rounded-md bg-amber-500/20 border border-amber-500/30 flex-shrink-0">
+                  <Rocket className="w-8 h-8 text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <h3 className="text-lg font-bold text-white">$HONEY Presale</h3>
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-300 text-xs">LIVE</Badge>
+                  </div>
+                  <p className="text-sm text-amber-200/70">
+                    Secure your $HONEY tokens at discounted rates. Private presale for whitelisted wallets, followed by public sale. Referral bonuses, vesting schedules, and progressive pricing tiers.
+                  </p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-amber-400 flex-shrink-0" />
+              </div>
+            </Card>
+          </Link>
+        </div>
+
+        <div className="mt-4 w-full max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.7s', opacity: 0, animationFillMode: 'forwards' }}>
           <Link href="/autonomous-economy">
             <Card className="relative overflow-hidden cursor-pointer hover-elevate" data-testid="link-web4-economy-banner">
               <div className="absolute inset-0 bg-gradient-to-r from-violet-950/90 via-purple-950/80 to-indigo-950/90" />

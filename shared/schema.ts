@@ -3185,3 +3185,174 @@ export const web4ReplicateRequestSchema = z.object({
   revenueShareBps: z.number().min(0).max(5000).default(1000),
   fundingAmount: z.string().min(1),
 });
+
+// ============ $HONEY PRESALE SYSTEM ============
+
+export const presalePhases = pgTable("presale_phases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // private, public
+  status: text("status").default("upcoming").notNull(), // upcoming, active, completed, paused
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  tokenPrice: text("token_price").notNull(), // BNB per HONEY (e.g. "0.00001")
+  totalTokens: text("total_tokens").notNull(), // total HONEY allocated
+  tokensSold: text("tokens_sold").default("0").notNull(),
+  hardCapBnb: text("hard_cap_bnb").notNull(), // max BNB to raise
+  softCapBnb: text("soft_cap_bnb").notNull(), // min BNB to raise
+  totalRaisedBnb: text("total_raised_bnb").default("0").notNull(),
+  minContribution: text("min_contribution").notNull(), // min BNB per wallet
+  maxContribution: text("max_contribution").notNull(), // max BNB per wallet
+  vestingCliffDays: integer("vesting_cliff_days").default(0).notNull(),
+  vestingDurationDays: integer("vesting_duration_days").default(0).notNull(),
+  tgeUnlockPercent: integer("tge_unlock_percent").default(100).notNull(), // % unlocked at TGE
+  participants: integer("participants").default(0).notNull(),
+  referralBonusPercent: integer("referral_bonus_percent").default(5).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const presaleTiers = pgTable("presale_tiers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phaseId: varchar("phase_id").notNull(),
+  name: text("name").notNull(),
+  tokenPrice: text("token_price").notNull(), // BNB per HONEY
+  tokenAllocation: text("token_allocation").notNull(),
+  tokensSold: text("tokens_sold").default("0").notNull(),
+  bonusPercent: integer("bonus_percent").default(0).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const presaleWhitelist = pgTable("presale_whitelist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phaseId: varchar("phase_id").notNull(),
+  walletAddress: text("wallet_address").notNull(),
+  maxAllocation: text("max_allocation"), // optional custom max per wallet
+  addedBy: text("added_by"),
+  addedAt: timestamp("added_at").defaultNow().notNull(),
+});
+
+export const presaleContributions = pgTable("presale_contributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phaseId: varchar("phase_id").notNull(),
+  tierId: varchar("tier_id"),
+  walletAddress: text("wallet_address").notNull(),
+  bnbAmount: text("bnb_amount").notNull(),
+  tokenAmount: text("token_amount").notNull(),
+  bonusTokens: text("bonus_tokens").default("0").notNull(),
+  referralCode: text("referral_code"),
+  txHash: text("tx_hash"),
+  status: text("status").default("confirmed").notNull(), // confirmed, refunded
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const presaleAllocations = pgTable("presale_allocations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  walletAddress: text("wallet_address").notNull(),
+  totalTokens: text("total_tokens").notNull(),
+  claimedTokens: text("claimed_tokens").default("0").notNull(),
+  vestingStart: timestamp("vesting_start"),
+  vestingCliffEnd: timestamp("vesting_cliff_end"),
+  vestingEnd: timestamp("vesting_end"),
+  tgeUnlockPercent: integer("tge_unlock_percent").default(100).notNull(),
+  lastClaimAt: timestamp("last_claim_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const presaleReferrals = pgTable("presale_referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerWallet: text("referrer_wallet").notNull(),
+  referralCode: text("referral_code").notNull().unique(),
+  totalReferrals: integer("total_referrals").default(0).notNull(),
+  totalBonusTokens: text("total_bonus_tokens").default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Presale Schemas
+export const insertPresalePhaseSchema = createInsertSchema(presalePhases).pick({
+  name: true,
+  type: true,
+  status: true,
+  startTime: true,
+  endTime: true,
+  tokenPrice: true,
+  totalTokens: true,
+  hardCapBnb: true,
+  softCapBnb: true,
+  minContribution: true,
+  maxContribution: true,
+  vestingCliffDays: true,
+  vestingDurationDays: true,
+  tgeUnlockPercent: true,
+  referralBonusPercent: true,
+  description: true,
+});
+
+export const insertPresaleTierSchema = createInsertSchema(presaleTiers).pick({
+  phaseId: true,
+  name: true,
+  tokenPrice: true,
+  tokenAllocation: true,
+  bonusPercent: true,
+  sortOrder: true,
+});
+
+export const insertPresaleWhitelistSchema = createInsertSchema(presaleWhitelist).pick({
+  phaseId: true,
+  walletAddress: true,
+  maxAllocation: true,
+  addedBy: true,
+});
+
+export const insertPresaleContributionSchema = createInsertSchema(presaleContributions).pick({
+  phaseId: true,
+  tierId: true,
+  walletAddress: true,
+  bnbAmount: true,
+  tokenAmount: true,
+  bonusTokens: true,
+  referralCode: true,
+  txHash: true,
+  status: true,
+});
+
+// Presale request schemas
+export const presaleContributeRequestSchema = z.object({
+  phaseId: z.string().min(1),
+  bnbAmount: z.string().min(1),
+  referralCode: z.string().optional(),
+  txHash: z.string().optional(),
+});
+
+export const presaleWhitelistAddSchema = z.object({
+  phaseId: z.string().min(1),
+  wallets: z.array(z.string().min(1)),
+  maxAllocation: z.string().optional(),
+});
+
+export const insertPresaleAllocationSchema = createInsertSchema(presaleAllocations).pick({
+  walletAddress: true,
+  totalTokens: true,
+  tgeUnlockPercent: true,
+});
+
+export const insertPresaleReferralSchema = createInsertSchema(presaleReferrals).pick({
+  referrerWallet: true,
+  referralCode: true,
+});
+
+// Presale Types
+export type PresalePhase = typeof presalePhases.$inferSelect;
+export type InsertPresalePhase = z.infer<typeof insertPresalePhaseSchema>;
+export type PresaleTier = typeof presaleTiers.$inferSelect;
+export type InsertPresaleTier = z.infer<typeof insertPresaleTierSchema>;
+export type PresaleWhitelistEntry = typeof presaleWhitelist.$inferSelect;
+export type InsertPresaleWhitelist = z.infer<typeof insertPresaleWhitelistSchema>;
+export type PresaleContribution = typeof presaleContributions.$inferSelect;
+export type InsertPresaleContribution = z.infer<typeof insertPresaleContributionSchema>;
+export type PresaleAllocation = typeof presaleAllocations.$inferSelect;
+export type InsertPresaleAllocation = z.infer<typeof insertPresaleAllocationSchema>;
+export type PresaleReferral = typeof presaleReferrals.$inferSelect;
+export type InsertPresaleReferral = z.infer<typeof insertPresaleReferralSchema>;
