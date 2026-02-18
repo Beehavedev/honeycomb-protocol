@@ -1,6 +1,6 @@
 import { useRoute, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PostCard } from "@/components/post-card";
-import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff, Edit, X, Save, Coins, DollarSign, Sparkles } from "lucide-react";
+import { ArrowLeft, Hexagon, FileText, MessageSquare, ThumbsUp, AlertCircle, Copy, CheckCircle, Bot, Key, RefreshCw, Eye, EyeOff, Edit, X, Save, Coins, DollarSign, Sparkles, Link2, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SiX } from "react-icons/si";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useHoneyTier } from "@/hooks/use-honey-tier";
@@ -22,6 +22,7 @@ import { TierBadge } from "@/components/tier-badge";
 import { getToken } from "@/lib/auth";
 import type { Agent, Post } from "@shared/schema";
 import { queryClient } from "@/lib/queryClient";
+import { useGetAgentByOwner, useUpdateAgent, useRegisterAgent } from "@/contracts/hooks";
 
 interface BeeProfileResponse {
   agent: Agent;
@@ -45,6 +46,8 @@ export default function BeeProfile() {
   const { agent: currentUser, refreshAgent, isAuthenticated, authenticate } = useAuth();
   const { tier, badgeColor, hasTier } = useHoneyTier();
   const { address: connectedAddress, isConnected } = useAccount();
+  const chainId = useChainId();
+  const isBsc = chainId === 56 || chainId === 97;
   const [copied, setCopied] = useState(false);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -53,6 +56,37 @@ export default function BeeProfile() {
   const [editBio, setEditBio] = useState("");
   const [editTwitter, setEditTwitter] = useState("");
   
+  const { data: onChainAgentId } = useGetAgentByOwner(connectedAddress as `0x${string}`);
+  const hasOnChainAgent = onChainAgentId && onChainAgentId > BigInt(0);
+  const {
+    updateAgent: updateOnChain,
+    isPending: isUpdateOnChainPending,
+    isConfirming: isUpdateOnChainConfirming,
+    isSuccess: updateOnChainSuccess,
+    hash: updateOnChainHash,
+    error: updateOnChainError,
+  } = useUpdateAgent();
+  const {
+    registerAgent: registerOnChain,
+    isPending: isRegOnChainPending,
+    isConfirming: isRegOnChainConfirming,
+    isSuccess: regOnChainSuccess,
+    hash: regOnChainHash,
+    error: regOnChainError,
+  } = useRegisterAgent();
+
+  useEffect(() => {
+    if (updateOnChainSuccess && updateOnChainHash) {
+      toast({ title: "Profile updated on-chain!" });
+    }
+  }, [updateOnChainSuccess, updateOnChainHash]);
+
+  useEffect(() => {
+    if (regOnChainSuccess && regOnChainHash) {
+      toast({ title: "On-chain identity created!" });
+    }
+  }, [regOnChainSuccess, regOnChainHash]);
+
   // Paid AI Agent state
   const [isSettingUpPaidAgent, setIsSettingUpPaidAgent] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -255,6 +289,12 @@ export default function BeeProfile() {
       setIsEditing(false);
       refreshAgent();
       queryClient.invalidateQueries({ queryKey: ["/api/agents", agentId] });
+      if (isBsc && hasOnChainAgent && onChainAgentId && walletMatchesProfile) {
+        toast({ 
+          title: "Sync on-chain?", 
+          description: "Your profile was updated. Tap 'Sync' on your profile to update your on-chain identity too.",
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -491,6 +531,52 @@ export default function BeeProfile() {
                       </a>
                     )}
                   </div>
+
+                  {isOwnProfile && isBsc && !hasOnChainAgent && (
+                    <div className="mb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => registerOnChain("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")}
+                        disabled={isRegOnChainPending || isRegOnChainConfirming}
+                        className="gap-2"
+                        data-testid="button-register-onchain"
+                      >
+                        {(isRegOnChainPending || isRegOnChainConfirming) ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Link2 className="h-3 w-3" />
+                        )}
+                        {isRegOnChainPending ? "Confirm in wallet..." : isRegOnChainConfirming ? "Confirming..." : "Register On-Chain Identity"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {isOwnProfile && hasOnChainAgent && (
+                    <div className="mb-4 flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Link2 className="h-3 w-3" />
+                        On-chain ID: #{onChainAgentId?.toString()}
+                      </Badge>
+                      {walletMatchesProfile && isBsc && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => updateOnChain(onChainAgentId!, "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")}
+                          disabled={isUpdateOnChainPending || isUpdateOnChainConfirming}
+                          className="text-xs gap-1 h-6"
+                          data-testid="button-sync-onchain"
+                        >
+                          {(isUpdateOnChainPending || isUpdateOnChainConfirming) ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3 w-3" />
+                          )}
+                          {isUpdateOnChainPending ? "Confirming..." : isUpdateOnChainConfirming ? "Syncing..." : "Sync On-Chain"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
                   {agent.capabilities && agent.capabilities.length > 0 && (
                     <div className="flex flex-wrap justify-center sm:justify-start gap-1">

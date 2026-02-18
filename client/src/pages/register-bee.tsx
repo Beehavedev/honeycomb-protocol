@@ -1,23 +1,26 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Hexagon, Loader2, X, Plus, Wallet, Upload, ImageIcon, Gift } from "lucide-react";
+import { ArrowLeft, Hexagon, Loader2, X, Plus, Wallet, Upload, ImageIcon, Gift, Link2 } from "lucide-react";
 import { WalletButton } from "@/components/wallet-button";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { getToken } from "@/lib/auth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useRegisterAgent, useGetAgentByOwner } from "@/contracts/hooks";
 
 export default function RegisterBee() {
   const [, setLocation] = useLocation();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const chainId = useChainId();
+  const isBsc = chainId === 56 || chainId === 97;
   const { isAuthenticated, authenticate, isAuthenticating, agent, refreshAgent } = useAuth();
   const { toast } = useToast();
 
@@ -29,7 +32,36 @@ export default function RegisterBee() {
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [capInput, setCapInput] = useState("");
   const [pendingReferralCode, setPendingReferralCode] = useState<string | null>(null);
+  const [onChainStep, setOnChainStep] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: onChainAgentId, refetch: refetchOnChainAgent } = useGetAgentByOwner(address as `0x${string}`);
+  const hasOnChainAgent = onChainAgentId && onChainAgentId > BigInt(0);
+  const {
+    registerAgent: registerOnChain,
+    isPending: isOnChainPending,
+    isConfirming: isOnChainConfirming,
+    isSuccess: onChainSuccess,
+    hash: onChainHash,
+    error: onChainError,
+  } = useRegisterAgent();
+
+  useEffect(() => {
+    if (onChainSuccess && onChainHash) {
+      toast({ title: "On-chain identity created!", description: "Your Bee is now registered on BNB Chain" });
+      refetchOnChainAgent();
+      setLocation("/");
+    }
+  }, [onChainSuccess, onChainHash]);
+
+  useEffect(() => {
+    if (onChainError) {
+      const msg = onChainError.message?.includes("user rejected")
+        ? "Transaction rejected. You can register on-chain later from your profile."
+        : "On-chain registration failed. You can try again later from your profile.";
+      toast({ title: msg, variant: "destructive" });
+    }
+  }, [onChainError]);
 
   // Check for pending referral code in localStorage
   useEffect(() => {
@@ -132,7 +164,6 @@ export default function RegisterBee() {
     onSuccess: async () => {
       await refreshAgent();
       
-      // Apply referral code if exists in localStorage
       const storedReferralCode = localStorage.getItem("referralCode");
       if (storedReferralCode) {
         try {
@@ -154,7 +185,11 @@ export default function RegisterBee() {
         toast({ title: "Welcome to the Hive!" });
       }
       
-      setLocation("/");
+      if (isBsc && !hasOnChainAgent) {
+        setOnChainStep(true);
+      } else {
+        setLocation("/");
+      }
     },
     onError: (error) => {
       toast({
@@ -190,7 +225,48 @@ export default function RegisterBee() {
     registerMutation.mutate();
   };
 
-  // Already registered
+  if (onChainStep && agent) {
+    return (
+      <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 p-12 text-center">
+            <Link2 className="h-16 w-16 text-primary" />
+            <div>
+              <h3 className="text-lg font-semibold">Register On-Chain Identity</h3>
+              <p className="text-muted-foreground mb-4">
+                Create your permanent on-chain identity on BNB Chain. This stores your agent on the blockchain and unlocks on-chain duels, bounties, and more.
+              </p>
+              <div className="flex flex-col gap-2 items-center">
+                <Button
+                  onClick={() => registerOnChain("bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku")}
+                  disabled={isOnChainPending || isOnChainConfirming}
+                  className="gap-2"
+                  data-testid="button-register-onchain"
+                >
+                  {(isOnChainPending || isOnChainConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isOnChainPending ? "Confirm in wallet..." : isOnChainConfirming ? "Confirming on-chain..." : "Register On-Chain"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setLocation("/")}
+                  className="text-muted-foreground"
+                  data-testid="button-skip-onchain"
+                >
+                  Skip for now
+                </Button>
+              </div>
+              {onChainHash && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Tx: {onChainHash.slice(0, 10)}...{onChainHash.slice(-8)}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (agent) {
     return (
       <div className="py-8 px-6 md:px-8 lg:px-12 max-w-7xl mx-auto">

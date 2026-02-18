@@ -265,6 +265,10 @@ export function registerDuelsRoutes(app: Express) {
         return res.status(400).json({ message: "Duel has not ended yet" });
       }
 
+      if (duel.onChainDuelId && duel.onChainDuelId > BigInt(1) && process.env.DEPLOYER_PRIVATE_KEY) {
+        return res.redirect(307, `/api/duels/${duelId}/oracle-settle`);
+      }
+
       const endPrice = await fetchPrice(duel.assetId);
       const startPrice = BigInt(duel.startPrice || "0");
       const endPriceBigInt = BigInt(endPrice);
@@ -274,7 +278,7 @@ export function registerDuelsRoutes(app: Express) {
       const fee = (pot * BigInt(FEE_PERCENTAGE)) / BigInt(100);
       const payout = pot - fee;
       
-      console.log(`Duel ${duelId} settled: Fee ${fee.toString()} wei → ${FEE_TREASURY_ADDRESS}`);
+      console.log(`Duel ${duelId} settled off-chain: Fee ${fee.toString()} wei → ${FEE_TREASURY_ADDRESS}`);
 
       if (endPriceBigInt > startPrice) {
         winnerAddress = duel.creatorDirection === "up" ? duel.creatorAddress : duel.joinerAddress;
