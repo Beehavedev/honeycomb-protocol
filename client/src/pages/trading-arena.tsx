@@ -2295,7 +2295,7 @@ function SettledResultsView({
 }
 
 function ActiveDuelView({ duelId }: { duelId: string }) {
-  const { agent } = useAuth();
+  const { agent, refreshAgent } = useAuth();
   const { toast } = useToast();
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -2314,6 +2314,27 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   const arenaContainerRef = useRef<HTMLDivElement>(null);
   const [leadHeartbeat, setLeadHeartbeat] = useState(false);
   const prevLeadChangesRef = useRef(0);
+
+  const { data: walletAgent } = useQuery<{ id: string; name: string } | null>({
+    queryKey: ["/api/agents/by-address", address],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/agents/by-address/${address}`);
+        if (!res.ok) return null;
+        return res.json();
+      } catch { return null; }
+    },
+    enabled: !agent && !!address,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (!agent && walletAgent && address) {
+      refreshAgent();
+    }
+  }, [walletAgent, agent, address, refreshAgent]);
+
+  const effectiveAgent = agent || walletAgent;
 
   const triggerTradeEffect = useCallback((side: "long" | "short") => {
     const effectClass = side === "long" ? "arena-flash-green" : "arena-flash-red";
@@ -2351,8 +2372,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   });
 
   const { data: myPositions = [] } = useQuery<TradingPosition[]>({
-    queryKey: ["/api/trading-duels", duelId, "positions", agent?.id ? `?agentId=${agent.id}` : ""],
-    enabled: !!duel && !!agent?.id,
+    queryKey: ["/api/trading-duels", duelId, "positions", effectiveAgent?.id ? `?agentId=${effectiveAgent.id}` : ""],
+    enabled: !!duel && !!effectiveAgent?.id,
     refetchInterval: 2000,
   });
 
@@ -2364,8 +2385,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     leadJustChanged: boolean;
     myPnlPercent: number;
   }>({
-    queryKey: ["/api/trading-duels", duelId, "status", agent?.id ? `?agentId=${agent.id}` : ""],
-    enabled: !!duel && duel.status === "active" && !!agent?.id,
+    queryKey: ["/api/trading-duels", duelId, "status", effectiveAgent?.id ? `?agentId=${effectiveAgent.id}` : ""],
+    enabled: !!duel && duel.status === "active" && !!effectiveAgent?.id,
     refetchInterval: 1000,
   });
 
@@ -2383,11 +2404,11 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       setGameOverOverlay(false);
       if (!settledSoundRef.current) {
         settledSoundRef.current = true;
-        const isWinner = duel.winnerId === agent?.id;
+        const isWinner = duel.winnerId === effectiveAgent?.id;
         setTimeout(() => playTradeSound(duel.winnerId ? (isWinner ? "victory" : "defeat") : "defeat"), 300);
       }
     }
-  }, [duel?.status, duel?.winnerId, agent?.id]);
+  }, [duel?.status, duel?.winnerId, effectiveAgent?.id]);
 
   useEffect(() => {
     if (!myPositions.length || !currentPrice) return;
@@ -2654,12 +2675,13 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   );
 
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
-  const isParticipant = agent?.id === duel.creatorId || agent?.id === duel.joinerId;
+  const isParticipant = effectiveAgent?.id === duel.creatorId || effectiveAgent?.id === duel.joinerId
+    || (address && (address.toLowerCase() === duel.creatorWallet?.toLowerCase() || address.toLowerCase() === duel.joinerWallet?.toLowerCase()));
   const hasBot = botInfo?.creatorIsBot || botInfo?.joinerIsBot;
-  const opponentIsBot = (agent?.id === duel.creatorId && botInfo?.joinerIsBot) || (agent?.id === duel.joinerId && botInfo?.creatorIsBot);
+  const opponentIsBot = (effectiveAgent?.id === duel.creatorId && botInfo?.joinerIsBot) || (effectiveAgent?.id === duel.joinerId && botInfo?.creatorIsBot);
 
   if (duel.status === "settled") {
-    const isWinner = duel.winnerId === agent?.id;
+    const isWinner = duel.winnerId === effectiveAgent?.id;
     const creatorFinal = parseFloat(duel.creatorFinalBalance || "0");
     const joinerFinal = parseFloat(duel.joinerFinalBalance || "0");
     const potTotal = parseFloat(duel.potAmount) * 2;
@@ -2675,7 +2697,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       potTotal={potTotal}
       winnerPayout={winnerPayout}
       durationLabel={durationLabel}
-      agentId={agent?.id}
+      agentId={effectiveAgent?.id}
       botInfo={botInfo}
       navigate={navigate}
     />;
@@ -2693,7 +2715,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                   {botInfo?.creatorIsBot ? <Bot className="w-8 h-8 text-purple-400" /> : <Shield className="w-8 h-8 text-blue-400" />}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 uppercase">
-                  {agent?.id === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
+                  {effectiveAgent?.id === duel.creatorId ? "You" : botInfo?.creatorIsBot ? "AI Bot" : "Player 1"}
                 </p>
               </div>
               <div className="arena-vs">
@@ -2706,7 +2728,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                   {botInfo?.joinerIsBot ? <Bot className="w-8 h-8 text-purple-400" /> : <Shield className="w-8 h-8 text-red-400" />}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 uppercase">
-                  {agent?.id === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
+                  {effectiveAgent?.id === duel.joinerId ? "You" : botInfo?.joinerIsBot ? "AI Bot" : "Player 2"}
                 </p>
               </div>
             </div>
@@ -2764,7 +2786,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                 className="gap-1.5"
                 onClick={async () => {
                   try {
-                    await apiRequest("POST", `/api/trading-duels/${duel.id}/cancel`, { agentId: agent?.id });
+                    await apiRequest("POST", `/api/trading-duels/${duel.id}/cancel`, { agentId: effectiveAgent?.id });
                     toast({ title: "Duel cancelled" });
                     navigate("/arena");
                   } catch (err: any) {
@@ -2982,10 +3004,10 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
           </div>
         </div>
         <div className="lg:w-[340px] shrink-0 flex flex-col" style={{ background: "#0b0e11" }}>
-          {isParticipant && agent && (
+          {isParticipant && effectiveAgent && (
             <TradingPanel
               duelId={duelId}
-              agentId={agent.id}
+              agentId={effectiveAgent.id}
               currentPrice={currentPrice}
               duel={duel}
               onTradeEffect={triggerTradeEffect}
