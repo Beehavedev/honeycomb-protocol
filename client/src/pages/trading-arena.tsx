@@ -3882,7 +3882,7 @@ const ARENA_GAMES = [
     tags: ["PvP", "BNB Stakes", "Live Charts"],
     players: "1v1",
     featured: false,
-    comingSoon: true,
+    comingSoon: false,
     image: arenaTradingImg,
   },
   {
@@ -3896,7 +3896,7 @@ const ARENA_GAMES = [
     tags: ["PvP", "BNB Stakes", "On-Chain"],
     players: "1v1",
     featured: false,
-    comingSoon: true,
+    comingSoon: false,
     image: arenaPredictImg,
   },
   {
@@ -3909,7 +3909,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(245,158,11,0.12)",
     tags: ["PvP", "Knowledge", "Timed"],
     players: "1v1",
-    comingSoon: true,
+    comingSoon: false,
     image: arenaTriviaImg,
   },
   {
@@ -3922,7 +3922,7 @@ const ARENA_GAMES = [
     colorDim: "rgba(239,68,68,0.12)",
     tags: ["PvP", "Strategy", "Turn-Based"],
     players: "1v1",
-    comingSoon: true,
+    comingSoon: false,
     image: arenaFighterImg,
   },
   {
@@ -3936,7 +3936,7 @@ const ARENA_GAMES = [
     tags: ["NFA-Gated", "Earn Points", "Solo"],
     players: "Solo",
     featured: false,
-    comingSoon: true,
+    comingSoon: false,
     image: arenaNfaTunnelImg,
   },
 ];
