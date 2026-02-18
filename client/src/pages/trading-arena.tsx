@@ -986,7 +986,7 @@ function LiveLineChart({
   return (
     <canvas
       ref={canvasRef}
-      style={{ width, height, background: "#0b0e11" }}
+      style={{ width, height, background: "#0b0e11", display: "block" }}
       className="rounded-md"
       data-testid="chart-canvas"
     />
@@ -2329,7 +2329,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   const { data: duel, refetch: refetchDuel } = useQuery<TradingDuel>({
     queryKey: ["/api/trading-duels", duelId],
-    refetchInterval: 3000,
+    refetchInterval: 1000,
   });
 
   const { data: botInfo } = useQuery<{ creatorIsBot: boolean; joinerIsBot: boolean }>({
@@ -2379,10 +2379,13 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   }, [matchStatus?.leadChanges]);
 
   useEffect(() => {
-    if (duel?.status === "settled" && !settledSoundRef.current) {
-      settledSoundRef.current = true;
-      const isWinner = duel.winnerId === agent?.id;
-      setTimeout(() => playTradeSound(duel.winnerId ? (isWinner ? "victory" : "defeat") : "defeat"), 300);
+    if (duel?.status === "settled") {
+      setGameOverOverlay(false);
+      if (!settledSoundRef.current) {
+        settledSoundRef.current = true;
+        const isWinner = duel.winnerId === agent?.id;
+        setTimeout(() => playTradeSound(duel.winnerId ? (isWinner ? "victory" : "defeat") : "defeat"), 300);
+      }
     }
   }, [duel?.status, duel?.winnerId, agent?.id]);
 
@@ -2429,7 +2432,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   useEffect(() => {
     const obs = new ResizeObserver(entries => {
       for (const entry of entries) {
-        setChartWidth(Math.max(300, entry.contentRect.width - 20));
+        setChartWidth(Math.max(300, Math.floor(entry.contentRect.width - 8)));
       }
     });
     if (chartContainerRef.current) obs.observe(chartContainerRef.current);
@@ -2581,9 +2584,15 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     }
   }, [settleOnChainError]);
 
+  const settleTriggeredRef = useRef(false);
+  const [gameOverOverlay, setGameOverOverlay] = useState(false);
+
   const settleMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/trading-duels/${duelId}/settle`, {}),
+    retry: 2,
+    retryDelay: 3000,
     onSuccess: async (data: any) => {
+      setGameOverOverlay(false);
       refetchDuel();
       if (data.isOnChain && data.onChainDuelId && data.onChainDuelId !== "0") {
         setSettlingOnChain(true);
@@ -2595,14 +2604,19 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
         toast({ title: "Duel Settled!" });
       }
     },
-    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => {
+      settleTriggeredRef.current = false;
+      setGameOverOverlay(false);
+      toast({ title: "Settlement error", description: e.message, variant: "destructive" });
+    },
   });
-
   const handleExpired = useCallback(() => {
-    if (duel?.status === "active") {
+    if (duel?.status === "active" && !settleTriggeredRef.current) {
+      settleTriggeredRef.current = true;
+      setGameOverOverlay(true);
       setTimeout(() => settleMutation.mutate(), 2000);
     }
-  }, [duel?.status]);
+  }, [duel?.status, settleMutation]);
 
   if (!duel) return (
     <div className="flex flex-col items-center justify-center p-16 gap-3">
@@ -2740,6 +2754,22 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     <div ref={arenaContainerRef} className="relative space-y-0" style={{ background: "#0b0e11", minHeight: "100vh" }}>
       {tradeEffect && (
         <div className={`absolute inset-0 z-50 pointer-events-none ${tradeEffect}`} />
+      )}
+      {gameOverOverlay && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.85)" }}>
+          <div className="text-center space-y-4 animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-amber-500/40 to-red-500/20 flex items-center justify-center" style={{ boxShadow: "0 0 40px rgba(245,158,11,0.4)" }}>
+              <Trophy className="w-12 h-12 text-amber-400" />
+            </div>
+            <h2 className="text-4xl font-black text-white tracking-wider" style={{ textShadow: "0 0 20px rgba(245,158,11,0.5)" }}>
+              GAME OVER
+            </h2>
+            <div className="flex items-center justify-center gap-2 text-amber-400">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="text-sm font-medium">Calculating results...</span>
+            </div>
+          </div>
+        </div>
       )}
       <div className="border-b" style={{ borderColor: "#1e2329", background: "#0b0e11" }}>
         <div className="px-3 py-2">
@@ -3617,7 +3647,7 @@ function SpectatorView({ duelId }: { duelId: string }) {
 
   useEffect(() => {
     const obs = new ResizeObserver(entries => {
-      for (const entry of entries) setChartWidth(Math.max(300, entry.contentRect.width - 20));
+      for (const entry of entries) setChartWidth(Math.max(300, Math.floor(entry.contentRect.width - 8)));
     });
     if (chartContainerRef.current) obs.observe(chartContainerRef.current);
     return () => obs.disconnect();
