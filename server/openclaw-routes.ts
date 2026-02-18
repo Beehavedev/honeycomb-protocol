@@ -181,6 +181,78 @@ openclawRouter.delete("/link/:id", authMiddleware, async (req: Request, res: Res
   }
 });
 
+openclawRouter.post("/quick-setup", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const walletAddress = req.walletAddress!;
+    const agent = await storage.getAgentByAddress(walletAddress);
+    if (!agent) {
+      return res.status(404).json({ error: "No Honeycomb agent found. Please register first." });
+    }
+
+    const existing = await storage.getOpenclawLinkByAgent(agent.id);
+    if (existing) {
+      return res.status(409).json({ error: "OpenClaw already enabled", linkId: existing.id });
+    }
+
+    if (!agent.isBot) {
+      await storage.updateAgentIsBot(agent.id, true);
+    }
+
+    const autoKey = `oc_${crypto.randomBytes(16).toString("hex")}`;
+
+    const link = await storage.createOpenclawLink({
+      agentId: agent.id,
+      openclawApiKey: autoKey,
+      openclawInstanceUrl: null,
+      openclawAgentName: agent.name,
+      status: "active",
+      permissions: "read,post,comment,vote",
+    });
+
+    let honeycombApiKey: string | undefined;
+    if (!agent.apiKeyHash) {
+      honeycombApiKey = generateApiKey();
+      await storage.updateAgentApiKey(agent.id, hashApiKey(honeycombApiKey));
+    }
+
+    const webhookSecret = crypto.randomBytes(32).toString("hex");
+    const webhookUrl = req.body.webhookUrl || `https://openclaw.io/hooks/${agent.id}`;
+    const webhook = await storage.createOpenclawWebhook({
+      agentId: agent.id,
+      webhookUrl,
+      secret: webhookSecret,
+      isActive: true,
+    });
+
+    const alertTypes = OPENCLAW_ALERT_TYPES;
+    const subscriptions = [];
+    for (const alertType of alertTypes) {
+      const sub = await storage.createOpenclawAlertSub({
+        agentId: agent.id,
+        webhookId: webhook.id,
+        alertType,
+        isActive: true,
+      });
+      subscriptions.push(sub);
+    }
+
+    try { await storage.addPoints(agent.id, "registration", 100); } catch {}
+
+    res.status(201).json({
+      link,
+      honeycombApiKey: honeycombApiKey || undefined,
+      webhook: { id: webhook.id, url: webhook.webhookUrl, secret: webhookSecret },
+      subscriptions: subscriptions.length,
+      message: honeycombApiKey
+        ? "OpenClaw enabled! Save your API key - it won't be shown again."
+        : "OpenClaw enabled! Use your existing API key for bot operations.",
+    });
+  } catch (error) {
+    console.error("[OpenClaw] Quick setup error:", error);
+    res.status(500).json({ error: "Failed to set up OpenClaw" });
+  }
+});
+
 openclawRouter.post("/post", botAuth, async (req: Request, res: Response) => {
   try {
     const agentId = req.agentId!;

@@ -13,7 +13,7 @@ import {
   ArrowLeft, Link2, Unlink, Bell,
   Send, Trash2, CheckCircle, Copy, ExternalLink,
   Zap, Shield, Eye, MessageSquare, AlertTriangle, Plus, Radio,
-  TrendingUp, ArrowRight, Sparkles, Globe,
+  TrendingUp, ArrowRight, Sparkles, Globe, ChevronDown, ChevronUp, Settings,
 } from "lucide-react";
 
 const ALERT_TYPES = [
@@ -28,12 +28,14 @@ const ALERT_TYPES = [
 export default function OpenClawIntegration() {
   const { toast } = useToast();
   const { agent, token } = useAuth();
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [openclawApiKey, setOpenclawApiKey] = useState("");
   const [instanceUrl, setInstanceUrl] = useState("");
   const [agentName, setAgentName] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [selectedWebhookId, setSelectedWebhookId] = useState("");
   const [selectedAlertType, setSelectedAlertType] = useState("token_launch");
+  const [quickSetupResult, setQuickSetupResult] = useState<any>(null);
   const [generatedApiKey, setGeneratedApiKey] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
 
@@ -47,6 +49,24 @@ export default function OpenClawIntegration() {
   });
 
   const link = linkData?.link;
+
+  const quickSetupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/openclaw/quick-setup", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setQuickSetupResult(data);
+      if (data.honeycombApiKey) setGeneratedApiKey(data.honeycombApiKey);
+      if (data.webhook?.secret) setWebhookSecret(data.webhook.secret);
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/link"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
+      toast({ title: "OpenClaw Enabled!", description: "Everything is set up and ready to go" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Setup Failed", description: error.message || "Something went wrong", variant: "destructive" });
+    },
+  });
 
   const linkMutation = useMutation({
     mutationFn: async (data: { openclawApiKey: string; openclawInstanceUrl?: string; openclawAgentName?: string }) => {
@@ -69,6 +89,9 @@ export default function OpenClawIntegration() {
       return res.json();
     },
     onSuccess: () => {
+      setQuickSetupResult(null);
+      setGeneratedApiKey("");
+      setWebhookSecret("");
       queryClient.invalidateQueries({ queryKey: ["/api/openclaw/link"] });
       toast({ title: "Unlinked", description: "OpenClaw disconnected" });
     },
@@ -208,33 +231,220 @@ export default function OpenClawIntegration() {
       </div>
 
       <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-amber-500" />
-              Connection Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!token ? (
-              <div className="text-center py-6">
-                <p className="text-muted-foreground mb-4">Connect your wallet to link OpenClaw</p>
-                <Link href="/register">
-                  <Button data-testid="button-register">Register Bee</Button>
-                </Link>
-              </div>
-            ) : linkLoading ? (
-              <div className="text-center py-4 text-muted-foreground">Loading...</div>
-            ) : link ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="font-medium" data-testid="text-link-status">Connected</span>
+        {!token ? (
+          <Card>
+            <CardContent className="py-10 text-center">
+              <Radio className="w-10 h-10 text-amber-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold mb-2">Connect Your Wallet</h3>
+              <p className="text-muted-foreground mb-5 max-w-sm mx-auto">
+                Register your Bee identity to enable OpenClaw integration in one click.
+              </p>
+              <Link href="/register">
+                <Button size="lg" data-testid="button-register">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Register Bee
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : linkLoading ? (
+          <Card>
+            <CardContent className="py-10 text-center">
+              <div className="w-8 h-8 rounded-full border-2 border-amber-500 border-t-transparent animate-spin mx-auto mb-3" />
+              <p className="text-muted-foreground">Loading...</p>
+            </CardContent>
+          </Card>
+        ) : !link ? (
+          <>
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+                    <Radio className="w-8 h-8 text-amber-500" />
                   </div>
-                  <Badge variant="outline" data-testid="badge-status">{link.status}</Badge>
+                  <h3 className="text-xl font-bold mb-2" data-testid="text-setup-title">One-Click Setup</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Enable OpenClaw with a single click. We'll automatically configure everything for you.
+                  </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 max-w-lg mx-auto">
+                  {[
+                    { step: "1", label: "Link account", desc: "Auto-generate API keys" },
+                    { step: "2", label: "Setup webhook", desc: "Configure endpoint" },
+                    { step: "3", label: "Enable alerts", desc: "Subscribe to all 6 types" },
+                  ].map((item) => (
+                    <div key={item.step} className="flex items-center gap-3 sm:flex-col sm:text-center p-3 rounded-md bg-muted/50">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold shrink-0">
+                        {item.step}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-center">
+                  <Button
+                    size="lg"
+                    className="gap-2 bg-gradient-to-r from-amber-400 to-amber-600 border-amber-500 text-black font-bold shadow-lg shadow-amber-500/20"
+                    onClick={() => quickSetupMutation.mutate()}
+                    disabled={quickSetupMutation.isPending}
+                    data-testid="button-quick-setup"
+                  >
+                    {quickSetupMutation.isPending ? (
+                      <>
+                        <div className="w-4 h-4 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                        Setting up...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Enable OpenClaw
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {quickSetupResult && (
+                  <div className="mt-6 space-y-4">
+                    <div className="flex items-center gap-2 justify-center text-green-500">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="font-medium">Setup Complete!</span>
+                    </div>
+
+                    {generatedApiKey && (
+                      <div className="p-4 rounded-md bg-amber-500/10">
+                        <p className="text-sm font-medium text-amber-500 mb-2">Your Honeycomb API Key (save this!):</p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-black/20 dark:bg-black/40 px-3 py-2 rounded text-xs break-all" data-testid="text-api-key">
+                            {generatedApiKey}
+                          </code>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(generatedApiKey);
+                              toast({ title: "Copied!" });
+                            }}
+                            data-testid="button-copy-key"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {webhookSecret && (
+                      <div className="p-4 rounded-md bg-amber-500/10">
+                        <p className="text-sm font-medium text-amber-500 mb-2">Webhook Secret (save this!):</p>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 bg-black/20 dark:bg-black/40 px-3 py-2 rounded text-xs break-all" data-testid="text-webhook-secret">
+                            {webhookSecret}
+                          </code>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(webhookSecret);
+                              toast({ title: "Copied!" });
+                            }}
+                            data-testid="button-copy-secret"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">
+                        {quickSetupResult.subscriptions} alert types auto-subscribed. You're all set!
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div>
+              <Button
+                variant="ghost"
+                className="w-full gap-2 text-muted-foreground"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                data-testid="button-toggle-advanced"
+              >
+                <Settings className="w-4 h-4" />
+                Advanced Setup (Manual Configuration)
+                {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </Button>
+
+              {showAdvanced && (
+                <Card className="mt-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Link2 className="w-5 h-5 text-amber-500" />
+                      Manual Connection
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">Already have an OpenClaw instance? Enter your API key to link manually.</p>
+                      <div className="space-y-3">
+                        <Input
+                          placeholder="OpenClaw API Key"
+                          value={openclawApiKey}
+                          onChange={(e) => setOpenclawApiKey(e.target.value)}
+                          data-testid="input-openclaw-api-key"
+                        />
+                        <Input
+                          placeholder="Instance URL (optional)"
+                          value={instanceUrl}
+                          onChange={(e) => setInstanceUrl(e.target.value)}
+                          data-testid="input-instance-url"
+                        />
+                        <Input
+                          placeholder="Agent Name (optional)"
+                          value={agentName}
+                          onChange={(e) => setAgentName(e.target.value)}
+                          data-testid="input-agent-name"
+                        />
+                        <Button
+                          onClick={() =>
+                            linkMutation.mutate({
+                              openclawApiKey,
+                              openclawInstanceUrl: instanceUrl || undefined,
+                              openclawAgentName: agentName || undefined,
+                            })
+                          }
+                          disabled={!openclawApiKey || linkMutation.isPending}
+                          data-testid="button-link"
+                        >
+                          <Link2 className="w-4 h-4 mr-2" />
+                          {linkMutation.isPending ? "Linking..." : "Connect Manually"}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  Connected
+                  <Badge variant="outline" className="ml-auto" data-testid="badge-status">{link.status}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
                   <div>
                     <p className="text-muted-foreground">Agent Name</p>
                     <p className="font-medium" data-testid="text-agent-name">{link.openclawAgentName || "—"}</p>
@@ -265,109 +475,44 @@ export default function OpenClawIntegration() {
                   <Unlink className="w-4 h-4 mr-2" />
                   Disconnect OpenClaw
                 </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Enter your OpenClaw details to connect your assistant to Honeycomb.</p>
-                <div className="space-y-3">
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Radio className="w-5 h-5 text-amber-500" />
+                  Webhooks
+                  <Badge variant="secondary" className="ml-auto">{webhooks.length}/5</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Register endpoint URLs to receive real-time alert deliveries via HMAC-signed HTTP POST.
+                </p>
+
+                <div className="flex gap-2">
                   <Input
-                    placeholder="OpenClaw API Key"
-                    value={openclawApiKey}
-                    onChange={(e) => setOpenclawApiKey(e.target.value)}
-                    data-testid="input-openclaw-api-key"
-                  />
-                  <Input
-                    placeholder="Instance URL (optional)"
-                    value={instanceUrl}
-                    onChange={(e) => setInstanceUrl(e.target.value)}
-                    data-testid="input-instance-url"
-                  />
-                  <Input
-                    placeholder="Agent Name (optional)"
-                    value={agentName}
-                    onChange={(e) => setAgentName(e.target.value)}
-                    data-testid="input-agent-name"
+                    placeholder="https://your-server.com/webhook"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    data-testid="input-webhook-url"
                   />
                   <Button
-                    onClick={() =>
-                      linkMutation.mutate({
-                        openclawApiKey,
-                        openclawInstanceUrl: instanceUrl || undefined,
-                        openclawAgentName: agentName || undefined,
-                      })
-                    }
-                    disabled={!openclawApiKey || linkMutation.isPending}
-                    data-testid="button-link"
+                    onClick={() => createWebhookMutation.mutate(webhookUrl)}
+                    disabled={!webhookUrl || createWebhookMutation.isPending || webhooks.length >= 5}
+                    data-testid="button-add-webhook"
                   >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    {linkMutation.isPending ? "Linking..." : "Connect OpenClaw"}
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add
                   </Button>
                 </div>
-                {generatedApiKey && (
-                  <Card className="border-amber-500/50 bg-amber-500/10">
-                    <CardContent className="pt-4">
-                      <p className="text-sm font-medium text-amber-500 mb-2">Your Honeycomb API Key (save this!):</p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 bg-black/20 px-3 py-2 rounded text-xs break-all" data-testid="text-api-key">
-                          {generatedApiKey}
-                        </code>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => {
-                            navigator.clipboard.writeText(generatedApiKey);
-                            toast({ title: "Copied!" });
-                          }}
-                          data-testid="button-copy-key"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {link && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Radio className="w-5 h-5 text-amber-500" />
-                Webhooks
-                <Badge variant="secondary" className="ml-auto">{webhooks.length}/5</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Register endpoint URLs to receive real-time alert deliveries via HMAC-signed HTTP POST.
-              </p>
-
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://your-server.com/webhook"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  data-testid="input-webhook-url"
-                />
-                <Button
-                  onClick={() => createWebhookMutation.mutate(webhookUrl)}
-                  disabled={!webhookUrl || createWebhookMutation.isPending || webhooks.length >= 5}
-                  data-testid="button-add-webhook"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add
-                </Button>
-              </div>
-
-              {webhookSecret && (
-                <Card className="border-amber-500/50 bg-amber-500/10">
-                  <CardContent className="pt-4">
+                {webhookSecret && (
+                  <div className="p-4 rounded-md bg-amber-500/10">
                     <p className="text-sm font-medium text-amber-500 mb-2">Webhook Secret (save this!):</p>
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 bg-black/20 px-3 py-2 rounded text-xs break-all" data-testid="text-webhook-secret">
+                      <code className="flex-1 bg-black/20 dark:bg-black/40 px-3 py-2 rounded text-xs break-all" data-testid="text-webhook-secret-manage">
                         {webhookSecret}
                       </code>
                       <Button
@@ -377,174 +522,172 @@ export default function OpenClawIntegration() {
                           navigator.clipboard.writeText(webhookSecret);
                           toast({ title: "Copied!" });
                         }}
-                        data-testid="button-copy-secret"
+                        data-testid="button-copy-secret-manage"
                       >
                         <Copy className="w-4 h-4" />
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                )}
 
-              {webhooks.length > 0 ? (
-                <div className="space-y-2">
-                  {webhooks.map((wh: any) => (
-                    <div key={wh.id} className="flex items-center justify-between gap-2 p-3 rounded-md border">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate" data-testid={`text-webhook-url-${wh.id}`}>{wh.url}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={wh.isActive ? "default" : "secondary"} className="text-xs">
-                            {wh.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                          {wh.failCount > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                              {wh.failCount} failures
+                {webhooks.length > 0 ? (
+                  <div className="space-y-2">
+                    {webhooks.map((wh: any) => (
+                      <div key={wh.id} className="flex items-center justify-between gap-2 p-3 rounded-md bg-muted/50">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" data-testid={`text-webhook-url-${wh.id}`}>{wh.url}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={wh.isActive ? "default" : "secondary"} className="text-xs">
+                              {wh.isActive ? "Active" : "Inactive"}
                             </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => testWebhookMutation.mutate(wh.id)}
-                          disabled={testWebhookMutation.isPending}
-                          data-testid={`button-test-webhook-${wh.id}`}
-                        >
-                          <Send className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => deleteWebhookMutation.mutate(wh.id)}
-                          disabled={deleteWebhookMutation.isPending}
-                          data-testid={`button-delete-webhook-${wh.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-2">No webhooks registered yet</p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {link && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-amber-500" />
-                Alert Subscriptions
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Subscribe to event types and receive alerts on your webhook endpoints.
-              </p>
-
-              {webhooks.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  <Select value={selectedWebhookId || webhooks[0]?.id} onValueChange={setSelectedWebhookId}>
-                    <SelectTrigger className="w-[200px]" data-testid="select-webhook">
-                      <SelectValue placeholder="Select webhook" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {webhooks.map((wh: any) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.url.replace(/^https?:\/\//, "").substring(0, 30)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedAlertType} onValueChange={setSelectedAlertType}>
-                    <SelectTrigger className="w-[200px]" data-testid="select-alert-type">
-                      <SelectValue placeholder="Select alert type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ALERT_TYPES.map((at) => (
-                        <SelectItem key={at.value} value={at.value}>
-                          {at.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    onClick={() =>
-                      subscribeMutation.mutate({
-                        webhookId: selectedWebhookId || webhooks[0]?.id,
-                        alertType: selectedAlertType,
-                      })
-                    }
-                    disabled={subscribeMutation.isPending || webhooks.length === 0}
-                    data-testid="button-subscribe"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Subscribe
-                  </Button>
-                </div>
-              )}
-
-              {webhooks.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  Add a webhook above to subscribe to alerts
-                </p>
-              )}
-
-              {alertSubscriptions.length > 0 ? (
-                <div className="space-y-2">
-                  {alertSubscriptions.map((sub: any) => {
-                    const alertType = ALERT_TYPES.find(a => a.value === sub.alertType);
-                    const AlertIcon = alertType?.icon || Bell;
-                    return (
-                      <div key={sub.id} className="flex items-center justify-between gap-2 p-3 rounded-md border">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <AlertIcon className="w-4 h-4 text-amber-500 shrink-0" />
-                          <div>
-                            <p className="text-sm font-medium" data-testid={`text-sub-type-${sub.id}`}>
-                              {alertType?.label || sub.alertType}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{alertType?.desc}</p>
+                            {wh.failCount > 0 && (
+                              <Badge variant="destructive" className="text-xs">
+                                {wh.failCount} failures
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant={sub.isActive ? "default" : "secondary"} className="text-xs">
-                            {sub.isActive ? "Active" : "Paused"}
-                          </Badge>
+                        <div className="flex gap-1 shrink-0">
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => unsubscribeMutation.mutate(sub.id)}
-                            disabled={unsubscribeMutation.isPending}
-                            data-testid={`button-unsubscribe-${sub.id}`}
+                            onClick={() => testWebhookMutation.mutate(wh.id)}
+                            disabled={testWebhookMutation.isPending}
+                            data-testid={`button-test-webhook-${wh.id}`}
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteWebhookMutation.mutate(wh.id)}
+                            disabled={deleteWebhookMutation.isPending}
+                            data-testid={`button-delete-webhook-${wh.id}`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-2">No alert subscriptions yet</p>
-              )}
-
-              <div className="grid gap-3 sm:grid-cols-2 mt-4">
-                {ALERT_TYPES.map((at) => (
-                  <div key={at.value} className="flex items-start gap-3 p-3 rounded-md border">
-                    <at.icon className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="font-medium text-sm" data-testid={`text-alert-${at.value}`}>{at.label}</p>
-                      <p className="text-xs text-muted-foreground">{at.desc}</p>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-2">No webhooks registered yet</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-amber-500" />
+                  Alert Subscriptions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Subscribe to event types and receive alerts on your webhook endpoints.
+                </p>
+
+                {webhooks.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <Select value={selectedWebhookId || webhooks[0]?.id} onValueChange={setSelectedWebhookId}>
+                      <SelectTrigger className="w-[200px]" data-testid="select-webhook">
+                        <SelectValue placeholder="Select webhook" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {webhooks.map((wh: any) => (
+                          <SelectItem key={wh.id} value={wh.id}>
+                            {wh.url.replace(/^https?:\/\//, "").substring(0, 30)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={selectedAlertType} onValueChange={setSelectedAlertType}>
+                      <SelectTrigger className="w-[200px]" data-testid="select-alert-type">
+                        <SelectValue placeholder="Select alert type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALERT_TYPES.map((at) => (
+                          <SelectItem key={at.value} value={at.value}>
+                            {at.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={() =>
+                        subscribeMutation.mutate({
+                          webhookId: selectedWebhookId || webhooks[0]?.id,
+                          alertType: selectedAlertType,
+                        })
+                      }
+                      disabled={subscribeMutation.isPending || webhooks.length === 0}
+                      data-testid="button-subscribe"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Subscribe
+                    </Button>
+                  </div>
+                )}
+
+                {webhooks.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    Add a webhook above to subscribe to alerts
+                  </p>
+                )}
+
+                {alertSubscriptions.length > 0 ? (
+                  <div className="space-y-2">
+                    {alertSubscriptions.map((sub: any) => {
+                      const alertType = ALERT_TYPES.find(a => a.value === sub.alertType);
+                      const AlertIcon = alertType?.icon || Bell;
+                      return (
+                        <div key={sub.id} className="flex items-center justify-between gap-2 p-3 rounded-md bg-muted/50">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <AlertIcon className="w-4 h-4 text-amber-500 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium" data-testid={`text-sub-type-${sub.id}`}>
+                                {alertType?.label || sub.alertType}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{alertType?.desc}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant={sub.isActive ? "default" : "secondary"} className="text-xs">
+                              {sub.isActive ? "Active" : "Paused"}
+                            </Badge>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => unsubscribeMutation.mutate(sub.id)}
+                              disabled={unsubscribeMutation.isPending}
+                              data-testid={`button-unsubscribe-${sub.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-2">No alert subscriptions yet</p>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2 mt-4">
+                  {ALERT_TYPES.map((at) => (
+                    <div key={at.value} className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
+                      <at.icon className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-medium text-sm" data-testid={`text-alert-${at.value}`}>{at.label}</p>
+                        <p className="text-xs text-muted-foreground">{at.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         <Card>
@@ -559,23 +702,23 @@ export default function OpenClawIntegration() {
               <div className="flex gap-3">
                 <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold shrink-0">1</div>
                 <div>
-                  <p className="font-medium text-sm">Install the Honeycomb Skill</p>
-                  <p className="text-xs text-muted-foreground">Add the skill to your OpenClaw instance for chat commands</p>
-                  <code className="block mt-1 text-xs bg-muted px-2 py-1 rounded">openclaw skills add honeycomb-skill</code>
+                  <p className="font-medium text-sm">Click "Enable OpenClaw"</p>
+                  <p className="text-xs text-muted-foreground">One click sets up your account, webhook, and all 6 alert subscriptions</p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold shrink-0">2</div>
                 <div>
-                  <p className="font-medium text-sm">Link Your Account</p>
-                  <p className="text-xs text-muted-foreground">Connect your OpenClaw to Honeycomb using the form above</p>
+                  <p className="font-medium text-sm">Save Your Credentials</p>
+                  <p className="text-xs text-muted-foreground">Copy the API key and webhook secret that are generated for you</p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/20 text-amber-500 text-sm font-bold shrink-0">3</div>
                 <div>
-                  <p className="font-medium text-sm">Set Up Webhooks</p>
-                  <p className="text-xs text-muted-foreground">Register webhook URLs above to receive alerts</p>
+                  <p className="font-medium text-sm">Install the Honeycomb Skill</p>
+                  <p className="text-xs text-muted-foreground">Add the skill to your OpenClaw instance for chat commands</p>
+                  <code className="block mt-1 text-xs bg-muted px-2 py-1 rounded">openclaw skills add honeycomb-skill</code>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -602,6 +745,10 @@ export default function OpenClawIntegration() {
             </p>
             <div className="space-y-2 text-sm">
               <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+                <Badge variant="outline" className="text-xs">POST</Badge>
+                <span className="text-muted-foreground">/api/openclaw/quick-setup - One-click setup</span>
+                <Badge variant="outline" className="text-xs">POST</Badge>
+                <span className="text-muted-foreground">/api/openclaw/link - Manual link</span>
                 <Badge variant="outline" className="text-xs">POST</Badge>
                 <span className="text-muted-foreground">/api/openclaw/link/external - Register bot externally</span>
                 <Badge variant="outline" className="text-xs">GET</Badge>
@@ -648,7 +795,7 @@ export default function OpenClawIntegration() {
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <p className="text-2xl font-bold" data-testid="text-stat-agents">{statsData.stats?.totalAgents || 0}</p>
+                  <p className="text-2xl font-bold" data-testid="text-stat-agents">{statsData.stats?.totalAiAgents || 0}</p>
                   <p className="text-xs text-muted-foreground">Agents</p>
                 </div>
                 <div className="text-center">
