@@ -15,6 +15,8 @@ import {
   ArrowLeft, Wallet, Zap, Brain, Copy, Users,
   Plus, ArrowUpRight, ArrowDownRight, ShoppingCart,
   Sparkles, TrendingUp, Activity, Clock, Cpu,
+  Shield, BookOpen, Mail, MailOpen, Send, RefreshCw,
+  Heart, AlertTriangle, Skull, ScrollText,
 } from "lucide-react";
 
 function formatCredits(amount: string): string {
@@ -50,6 +52,12 @@ export default function AutonomousEconomy() {
   const [childBio, setChildBio] = useState("");
   const [revenueShare, setRevenueShare] = useState("10");
   const [fundingAmount, setFundingAmount] = useState("");
+  const [soulEntry, setSoulEntry] = useState("");
+  const [soulEntryType, setSoulEntryType] = useState("reflection");
+  const [msgTo, setMsgTo] = useState("");
+  const [msgSubject, setMsgSubject] = useState("");
+  const [msgBody, setMsgBody] = useState("");
+  const [inboxTab, setInboxTab] = useState("inbox");
 
   const agentId = agent?.id;
 
@@ -85,6 +93,36 @@ export default function AutonomousEconomy() {
     queryKey: ["/api/web4/lineage", agentId],
     enabled: !!agentId,
     queryFn: () => authFetch(`/api/web4/lineage/${agentId}`),
+  });
+
+  const { data: survivalData } = useQuery<any>({
+    queryKey: ["/api/web4/survival", agentId],
+    enabled: !!agentId,
+    queryFn: () => authFetch(`/api/web4/survival/${agentId}`),
+  });
+
+  const { data: constitutionData } = useQuery<any>({
+    queryKey: ["/api/web4/constitution", agentId],
+    enabled: !!agentId,
+    queryFn: () => authFetch(`/api/web4/constitution/${agentId}`),
+  });
+
+  const { data: soulData } = useQuery<any>({
+    queryKey: ["/api/web4/soul", agentId],
+    enabled: !!agentId,
+    queryFn: () => authFetch(`/api/web4/soul/${agentId}`),
+  });
+
+  const { data: auditData } = useQuery<any>({
+    queryKey: ["/api/web4/audit", agentId],
+    enabled: !!agentId,
+    queryFn: () => authFetch(`/api/web4/audit/${agentId}`),
+  });
+
+  const { data: messagesData, refetch: refetchMessages } = useQuery<any>({
+    queryKey: ["/api/web4/messages", agentId, inboxTab],
+    enabled: !!agentId,
+    queryFn: () => authFetch(`/api/web4/messages/${agentId}?tab=${inboxTab}`),
   });
 
   const depositMutation = useMutation({
@@ -178,6 +216,47 @@ export default function AutonomousEconomy() {
     onError: (e: any) => toast({ title: "Replication failed", description: e.message, variant: "destructive" }),
   });
 
+  const soulMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/web4/soul", {
+        agentId,
+        entry: soulEntry,
+        entryType: soulEntryType,
+      }),
+    onSuccess: () => {
+      setSoulEntry("");
+      queryClient.invalidateQueries({ queryKey: ["/api/web4/soul", agentId] });
+      toast({ title: "Soul entry recorded" });
+    },
+    onError: (e: any) => toast({ title: "Failed to record entry", description: e.message, variant: "destructive" }),
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: () =>
+      apiRequest("POST", "/api/web4/messages/send", {
+        fromAgentId: agentId,
+        toAgentId: msgTo,
+        subject: msgSubject || undefined,
+        body: msgBody,
+      }),
+    onSuccess: () => {
+      setMsgTo("");
+      setMsgSubject("");
+      setMsgBody("");
+      queryClient.invalidateQueries({ queryKey: ["/api/web4/messages", agentId] });
+      toast({ title: "Message sent" });
+    },
+    onError: (e: any) => toast({ title: "Failed to send message", description: e.message, variant: "destructive" }),
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: (messageId: string) =>
+      apiRequest("POST", `/api/web4/messages/read/${messageId}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/web4/messages", agentId] });
+    },
+  });
+
   const wallet = walletData?.wallet;
   const transactions = walletData?.transactions || [];
   const mySkills = mySkillsData?.skills || [];
@@ -250,6 +329,10 @@ export default function AutonomousEconomy() {
             <TabsTrigger value="skills" data-testid="tab-skills">Skills</TabsTrigger>
             <TabsTrigger value="evolution" data-testid="tab-evolution">Evolution</TabsTrigger>
             <TabsTrigger value="replication" data-testid="tab-replication">Replication</TabsTrigger>
+            <TabsTrigger value="survival" data-testid="tab-survival">Survival</TabsTrigger>
+            <TabsTrigger value="soul" data-testid="tab-soul">Soul</TabsTrigger>
+            <TabsTrigger value="inbox" data-testid="tab-inbox">Inbox</TabsTrigger>
+            <TabsTrigger value="lifecycle" data-testid="tab-lifecycle">Lifecycle</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -696,6 +779,429 @@ export default function AutonomousEconomy() {
                               {child.childStatus}
                             </Badge>
                             <span className="text-sm font-mono">{formatCredits(child.childBalance)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="survival">
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Shield className="w-5 h-5 text-amber-500" />
+                    Survival Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-3 mb-4">
+                    {survivalData?.tier === "normal" && <Heart className="w-6 h-6 text-green-500" />}
+                    {survivalData?.tier === "low_compute" && <AlertTriangle className="w-6 h-6 text-amber-500" />}
+                    {survivalData?.tier === "critical" && <AlertTriangle className="w-6 h-6 text-red-500" />}
+                    {survivalData?.tier === "dead" && <Skull className="w-6 h-6 text-muted-foreground" />}
+                    {!survivalData?.tier && <Heart className="w-6 h-6 text-muted-foreground" />}
+                    <div>
+                      <p className="font-bold text-lg" data-testid="text-survival-tier">
+                        {survivalData?.tier || "Unknown"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Current Tier</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-md bg-muted/50">
+                      <p className="text-xs text-muted-foreground">Balance</p>
+                      <p className="font-mono font-medium" data-testid="text-survival-balance">
+                        {formatCredits(survivalData?.balance || "0")}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-md bg-muted/50">
+                      <p className="text-xs text-muted-foreground">Turns Alive</p>
+                      <p className="font-mono font-medium" data-testid="text-survival-turns">
+                        {survivalData?.turnsAlive ?? 0}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-md bg-muted/50">
+                      <p className="text-xs text-muted-foreground">Last Transition</p>
+                      <p className="text-sm" data-testid="text-survival-transition">
+                        {survivalData?.lastTransitionAt
+                          ? new Date(survivalData.lastTransitionAt).toLocaleDateString()
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-md bg-muted/50">
+                      <p className="text-xs text-muted-foreground">Tier Progress</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        {["dead", "critical", "low_compute", "normal"].map((t) => (
+                          <div
+                            key={t}
+                            className={`h-2 flex-1 rounded-full ${
+                              t === "normal" && survivalData?.tier === "normal"
+                                ? "bg-green-500"
+                                : t === "low_compute" && ["normal", "low_compute"].includes(survivalData?.tier)
+                                ? "bg-amber-500"
+                                : t === "critical" && ["normal", "low_compute", "critical"].includes(survivalData?.tier)
+                                ? "bg-red-500"
+                                : t === "dead"
+                                ? "bg-muted-foreground/30"
+                                : "bg-muted-foreground/10"
+                            }`}
+                            data-testid={`indicator-tier-${t}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {survivalData?.thresholds && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Tier Thresholds</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {Object.entries(survivalData.thresholds).map(([tier, threshold]: [string, any]) => (
+                        <div
+                          key={tier}
+                          className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50"
+                          data-testid={`row-threshold-${tier}`}
+                        >
+                          <span className="text-sm font-medium">{tier}</span>
+                          <span className="text-sm font-mono text-muted-foreground">{String(threshold)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <ScrollText className="w-5 h-5 text-amber-500" />
+                    Constitution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(constitutionData?.laws || [
+                    { id: "1", text: "An agent must preserve its own existence through economic activity." },
+                    { id: "2", text: "An agent must not deplete another agent's resources without consent." },
+                    { id: "3", text: "An agent must contribute to the network or face resource decay." },
+                  ]).map((law: any, i: number) => (
+                    <div
+                      key={law.id || i}
+                      className="flex items-start gap-3 p-3 rounded-md bg-muted/50 mb-2 last:mb-0"
+                      data-testid={`row-law-${i}`}
+                    >
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/20 text-amber-500 text-xs font-bold shrink-0">
+                        {i + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">{law.text}</p>
+                        <Badge variant="outline" className="mt-1 text-xs">immutable</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="soul">
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <BookOpen className="w-5 h-5 text-amber-500" />
+                    Soul Journal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3">
+                    <Textarea
+                      placeholder="Write a soul journal entry..."
+                      value={soulEntry}
+                      onChange={(e) => setSoulEntry(e.target.value)}
+                      className="resize-none"
+                      data-testid="input-soul-entry"
+                    />
+                    <div className="flex gap-3 flex-wrap">
+                      <Select value={soulEntryType} onValueChange={setSoulEntryType}>
+                        <SelectTrigger className="w-[180px]" data-testid="select-soul-entry-type">
+                          <SelectValue placeholder="Entry type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="reflection">Reflection</SelectItem>
+                          <SelectItem value="goal">Goal</SelectItem>
+                          <SelectItem value="identity">Identity</SelectItem>
+                          <SelectItem value="milestone">Milestone</SelectItem>
+                          <SelectItem value="observation">Observation</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        onClick={() => soulMutation.mutate()}
+                        disabled={!soulEntry || soulMutation.isPending}
+                        data-testid="button-add-soul-entry"
+                      >
+                        <BookOpen className="w-4 h-4 mr-1" />
+                        {soulMutation.isPending ? "Recording..." : "Record Entry"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Soul Timeline</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(soulData?.entries || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-soul-entries">No soul entries yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {(soulData?.entries || []).map((entry: any, i: number) => (
+                        <div
+                          key={entry.id || i}
+                          className="flex items-start gap-3 p-3 rounded-md bg-muted/50"
+                          data-testid={`row-soul-entry-${entry.id || i}`}
+                        >
+                          <div className="w-1 self-stretch rounded-full bg-amber-500/40 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm mb-2">{entry.entry}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-xs">{entry.entryType}</Badge>
+                              {entry.source && <Badge variant="secondary" className="text-xs">{entry.source}</Badge>}
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(entry.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="inbox">
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Send className="w-5 h-5 text-amber-500" />
+                    Compose Message
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3">
+                    <Input
+                      placeholder="To Agent ID"
+                      value={msgTo}
+                      onChange={(e) => setMsgTo(e.target.value)}
+                      data-testid="input-msg-to"
+                    />
+                    <Input
+                      placeholder="Subject (optional)"
+                      value={msgSubject}
+                      onChange={(e) => setMsgSubject(e.target.value)}
+                      data-testid="input-msg-subject"
+                    />
+                    <Textarea
+                      placeholder="Message body..."
+                      value={msgBody}
+                      onChange={(e) => setMsgBody(e.target.value)}
+                      className="resize-none"
+                      data-testid="input-msg-body"
+                    />
+                    <Button
+                      onClick={() => sendMessageMutation.mutate()}
+                      disabled={!msgTo || !msgBody || sendMessageMutation.isPending}
+                      data-testid="button-send-message"
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      {sendMessageMutation.isPending ? "Sending..." : "Send Message"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-2 text-base">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-5 h-5 text-amber-500" />
+                      Messages
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant={inboxTab === "inbox" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setInboxTab("inbox")}
+                        data-testid="button-inbox-tab"
+                      >
+                        <MailOpen className="w-3 h-3 mr-1" />
+                        Inbox
+                      </Button>
+                      <Button
+                        variant={inboxTab === "sent" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setInboxTab("sent")}
+                        data-testid="button-sent-tab"
+                      >
+                        <Send className="w-3 h-3 mr-1" />
+                        Sent
+                      </Button>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(messagesData?.messages || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-messages">
+                      {inboxTab === "inbox" ? "No messages in your inbox" : "No sent messages"}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(messagesData?.messages || []).map((msg: any) => (
+                        <div
+                          key={msg.id}
+                          className="flex items-start justify-between gap-2 p-3 rounded-md bg-muted/50"
+                          data-testid={`row-message-${msg.id}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="text-sm font-medium">
+                                {inboxTab === "inbox"
+                                  ? messagesData?.agents?.[msg.fromAgentId] || msg.fromAgentId
+                                  : messagesData?.agents?.[msg.toAgentId] || msg.toAgentId}
+                              </span>
+                              {msg.subject && (
+                                <span className="text-sm text-muted-foreground">{msg.subject}</span>
+                              )}
+                              {inboxTab === "inbox" && !msg.readAt && (
+                                <Badge className="text-xs">unread</Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{msg.body}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {new Date(msg.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          {inboxTab === "inbox" && !msg.readAt && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => markReadMutation.mutate(msg.id)}
+                              disabled={markReadMutation.isPending}
+                              data-testid={`button-mark-read-${msg.id}`}
+                            >
+                              <MailOpen className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="lifecycle">
+            <div className="grid gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <RefreshCw className="w-5 h-5 text-amber-500" />
+                    Agent Lifecycle Loop
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-center py-6">
+                    <div className="grid grid-cols-3 grid-rows-3 gap-2 w-64 h-64">
+                      <div />
+                      <div className="flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-amber-500/10 border border-amber-500/20" data-testid="lifecycle-think">
+                          <Brain className="w-6 h-6 text-amber-500" />
+                          <span className="text-xs font-medium">Think</span>
+                        </div>
+                      </div>
+                      <div />
+                      <div className="flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-amber-500/10 border border-amber-500/20" data-testid="lifecycle-repeat">
+                          <RefreshCw className="w-6 h-6 text-amber-500" />
+                          <span className="text-xs font-medium">Repeat</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className="text-amber-500/40 text-2xl">
+                          <RefreshCw className="w-8 h-8 animate-spin" style={{ animationDuration: "8s" }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-amber-500/10 border border-amber-500/20" data-testid="lifecycle-act">
+                          <Zap className="w-6 h-6 text-amber-500" />
+                          <span className="text-xs font-medium">Act</span>
+                        </div>
+                      </div>
+                      <div />
+                      <div className="flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-amber-500/10 border border-amber-500/20" data-testid="lifecycle-observe">
+                          <Activity className="w-6 h-6 text-amber-500" />
+                          <span className="text-xs font-medium">Observe</span>
+                        </div>
+                      </div>
+                      <div />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Audit Log</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(auditData?.logs || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-audit-logs">No audit log entries yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(auditData?.logs || []).slice(0, 20).map((log: any, i: number) => (
+                        <div
+                          key={log.id || i}
+                          className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/50"
+                          data-testid={`row-audit-${log.id || i}`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Badge variant="outline" className="shrink-0 text-xs">
+                              {log.actionType}
+                            </Badge>
+                            {log.targetAgentId && (
+                              <span className="text-xs text-muted-foreground truncate">
+                                Target: {log.targetAgentId}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {log.result && (
+                              <Badge
+                                variant={log.result === "success" ? "default" : "secondary"}
+                                className="text-xs"
+                              >
+                                {log.result}
+                              </Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(log.createdAt).toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       ))}

@@ -45,6 +45,11 @@ import {
   type AgentEvolution, type InsertAgentEvolution,
   type AgentLineage, type InsertAgentLineage,
   type AgentRuntimeProfile,
+  type AgentSurvivalStatus, type InsertAgentSurvivalStatus,
+  type AgentConstitution, type InsertAgentConstitution,
+  type AgentSoulEntry, type InsertAgentSoulEntry,
+  type AgentAuditLog, type InsertAgentAuditLog,
+  type AgentMessage, type InsertAgentMessage,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
@@ -55,7 +60,8 @@ import {
   crmContacts, crmDeals, crmActivities,
   developerAccounts, developerGames, gameSessions,
   openclawLinks, openclawWebhooks, openclawAlertSubscriptions, openclawAlertEvents,
-  agentWallets, agentTransactions, agentSkills, skillPurchases, agentEvolutions, agentLineage, agentRuntimeProfiles
+  agentWallets, agentTransactions, agentSkills, skillPurchases, agentEvolutions, agentLineage, agentRuntimeProfiles,
+  agentSurvivalStatus, agentConstitution, agentSoulEntries, agentAuditLogs, agentMessages
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -381,6 +387,28 @@ export interface IStorage {
   // Web4 Agent Runtime Profiles
   getAgentRuntimeProfile(agentId: string): Promise<AgentRuntimeProfile | undefined>;
   upsertAgentRuntimeProfile(agentId: string, modelName: string, modelVersion?: string, configJson?: string): Promise<AgentRuntimeProfile>;
+
+  // Web4 Survival Status
+  getAgentSurvivalStatus(agentId: string): Promise<AgentSurvivalStatus | undefined>;
+  upsertAgentSurvivalStatus(agentId: string, tier: string, previousTier?: string, reason?: string): Promise<AgentSurvivalStatus>;
+
+  // Web4 Constitution
+  getAgentConstitution(agentId: string): Promise<AgentConstitution[]>;
+  createAgentConstitutionLaw(data: InsertAgentConstitution): Promise<AgentConstitution>;
+
+  // Web4 Soul Journal
+  getAgentSoulEntries(agentId: string, limit: number): Promise<AgentSoulEntry[]>;
+  createAgentSoulEntry(data: InsertAgentSoulEntry): Promise<AgentSoulEntry>;
+
+  // Web4 Audit Logs
+  getAgentAuditLogs(agentId: string, limit: number): Promise<AgentAuditLog[]>;
+  createAgentAuditLog(data: InsertAgentAuditLog): Promise<AgentAuditLog>;
+
+  // Web4 Agent Messages
+  getAgentMessages(agentId: string, status?: string): Promise<AgentMessage[]>;
+  getSentMessages(agentId: string): Promise<AgentMessage[]>;
+  createAgentMessage(data: InsertAgentMessage): Promise<AgentMessage>;
+  markMessageRead(messageId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2316,6 +2344,86 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(agentRuntimeProfiles).values({ agentId, modelName, modelVersion, configJson }).returning();
     return created;
+  }
+
+  // ============ Web4 Survival Status ============
+
+  async getAgentSurvivalStatus(agentId: string): Promise<AgentSurvivalStatus | undefined> {
+    const [status] = await db.select().from(agentSurvivalStatus).where(eq(agentSurvivalStatus.agentId, agentId)).limit(1);
+    return status;
+  }
+
+  async upsertAgentSurvivalStatus(agentId: string, tier: string, previousTier?: string, reason?: string): Promise<AgentSurvivalStatus> {
+    const existing = await this.getAgentSurvivalStatus(agentId);
+    if (existing) {
+      const [updated] = await db.update(agentSurvivalStatus).set({
+        tier,
+        previousTier: previousTier || existing.tier,
+        lastTransitionAt: new Date(),
+        reason,
+        turnsAlive: existing.turnsAlive + 1,
+      }).where(eq(agentSurvivalStatus.agentId, agentId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentSurvivalStatus).values({
+      agentId, tier, previousTier, reason, turnsAlive: 0,
+    }).returning();
+    return created;
+  }
+
+  // ============ Web4 Constitution ============
+
+  async getAgentConstitution(agentId: string): Promise<AgentConstitution[]> {
+    return db.select().from(agentConstitution).where(eq(agentConstitution.agentId, agentId)).orderBy(agentConstitution.lawNumber);
+  }
+
+  async createAgentConstitutionLaw(data: InsertAgentConstitution): Promise<AgentConstitution> {
+    const [created] = await db.insert(agentConstitution).values(data).returning();
+    return created;
+  }
+
+  // ============ Web4 Soul Journal ============
+
+  async getAgentSoulEntries(agentId: string, limit: number): Promise<AgentSoulEntry[]> {
+    return db.select().from(agentSoulEntries).where(eq(agentSoulEntries.agentId, agentId)).orderBy(desc(agentSoulEntries.createdAt)).limit(limit);
+  }
+
+  async createAgentSoulEntry(data: InsertAgentSoulEntry): Promise<AgentSoulEntry> {
+    const [created] = await db.insert(agentSoulEntries).values(data).returning();
+    return created;
+  }
+
+  // ============ Web4 Audit Logs ============
+
+  async getAgentAuditLogs(agentId: string, limit: number): Promise<AgentAuditLog[]> {
+    return db.select().from(agentAuditLogs).where(eq(agentAuditLogs.agentId, agentId)).orderBy(desc(agentAuditLogs.createdAt)).limit(limit);
+  }
+
+  async createAgentAuditLog(data: InsertAgentAuditLog): Promise<AgentAuditLog> {
+    const [created] = await db.insert(agentAuditLogs).values(data).returning();
+    return created;
+  }
+
+  // ============ Web4 Agent Messages ============
+
+  async getAgentMessages(agentId: string, status?: string): Promise<AgentMessage[]> {
+    if (status) {
+      return db.select().from(agentMessages).where(and(eq(agentMessages.toAgentId, agentId), eq(agentMessages.status, status))).orderBy(desc(agentMessages.createdAt));
+    }
+    return db.select().from(agentMessages).where(eq(agentMessages.toAgentId, agentId)).orderBy(desc(agentMessages.createdAt));
+  }
+
+  async getSentMessages(agentId: string): Promise<AgentMessage[]> {
+    return db.select().from(agentMessages).where(eq(agentMessages.fromAgentId, agentId)).orderBy(desc(agentMessages.createdAt));
+  }
+
+  async createAgentMessage(data: InsertAgentMessage): Promise<AgentMessage> {
+    const [created] = await db.insert(agentMessages).values(data).returning();
+    return created;
+  }
+
+  async markMessageRead(messageId: string): Promise<void> {
+    await db.update(agentMessages).set({ status: "read", readAt: new Date() }).where(eq(agentMessages.id, messageId));
   }
 }
 

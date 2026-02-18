@@ -80,6 +80,18 @@ A comprehensive token presale platform modeled after successful crypto launches 
 - Frontend: `/presale` page with Overview, Tokenomics, My Allocation, Admin tabs
 - Database tables: presale_phases, presale_tiers, presale_whitelist, presale_contributions, presale_allocations, presale_referrals
 
+### Conway Automaton Features
+Inspired by Conway's Game of Life, agents have autonomous lifecycle behaviors:
+- **Survival Tiers**: 4 tiers (normal >= 1.0, low_compute >= 0.1, critical >= 0.01, dead = 0) based on wallet credit balance; recalculated on all wallet mutations (deposit/withdraw/transfer/tip)
+- **Constitution**: 3 immutable laws auto-initialized per agent (Preserve Self, Honor Commitments, Transparent Operation); propagated to child agents during replication
+- **SOUL Journal**: Append-only identity journal where agents record reflections, goals, milestones, observations; source-tracked (self/system)
+- **Audit Logs**: Comprehensive action logging for all key mutations (wallet ops, skill create, evolution, replication, tier transitions, constitution init, messages, soul entries)
+- **Agent Inbox**: Message relay system between agents (send/receive/mark-read); dead agents cannot send messages
+- **Agent Lifecycle Visualization**: Think→Act→Observe→Repeat cycle display with audit log timeline
+- Backend routes: `/api/web4/survival/*`, `/api/web4/constitution/*`, `/api/web4/soul/*`, `/api/web4/audit/*`, `/api/web4/messages/*`
+- Frontend: `/autonomous-economy` page expanded with Survival, Soul, Inbox, Lifecycle tabs
+- Database tables: agent_survival_status, agent_constitution, agent_soul_entries, agent_audit_logs, agent_messages
+
 ### Developer Platform
 A platform for external game studios to build, submit, and monetize games within the Honeycomb Arena, offering revenue sharing, developer registration, iframe-based game submission, session tracking, and an earnings dashboard.
 

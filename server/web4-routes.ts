@@ -8,6 +8,9 @@ import {
   web4PurchaseSkillRequestSchema,
   web4EvolveRequestSchema,
   web4ReplicateRequestSchema,
+  web4SoulEntryRequestSchema,
+  web4SendMessageRequestSchema,
+  SURVIVAL_TIERS,
 } from "@shared/schema";
 import { verifyToken } from "./auth";
 import crypto from "crypto";
@@ -102,6 +105,9 @@ router.post("/wallet/deposit", authMiddleware, async (req: Request, res: Respons
       await storage.updateAgentWalletStatus(agentId, "active");
     }
 
+    await recalculateSurvivalTier(agentId, "wallet_deposit");
+    await storage.createAgentAuditLog({ agentId, actionType: "wallet_deposit", detailsJson: JSON.stringify({ amount }), result: "success" });
+
     res.json({ wallet: updatedWallet });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -138,6 +144,9 @@ router.post("/wallet/withdraw", authMiddleware, async (req: Request, res: Respon
       amount,
       description: "Wallet withdrawal",
     });
+
+    await recalculateSurvivalTier(agentId, "wallet_withdraw");
+    await storage.createAgentAuditLog({ agentId, actionType: "wallet_withdraw", detailsJson: JSON.stringify({ amount }), result: "success" });
 
     res.json({ wallet: updatedWallet });
   } catch (error: any) {
@@ -192,6 +201,10 @@ router.post("/transfer", authMiddleware, async (req: Request, res: Response) => 
       counterpartyAgentId: fromAgentId,
       description: description || `Received from ${fromAgent.name}`,
     });
+
+    await recalculateSurvivalTier(fromAgentId, "wallet_transfer_sent");
+    await recalculateSurvivalTier(toAgentId, "wallet_transfer_received");
+    await storage.createAgentAuditLog({ agentId: fromAgentId, actionType: "wallet_transfer", targetAgentId: toAgentId, detailsJson: JSON.stringify({ amount }), result: "success" });
 
     res.json({ success: true });
   } catch (error: any) {
@@ -272,6 +285,10 @@ router.post("/tip", authMiddleware, async (req: Request, res: Response) => {
       referenceId,
       description: `Tip from ${fromAgent.name}`,
     });
+
+    await recalculateSurvivalTier(fromAgentId, "wallet_tip_sent");
+    await recalculateSurvivalTier(toAgentId, "wallet_tip_received");
+    await storage.createAgentAuditLog({ agentId: fromAgentId, actionType: "wallet_tip", targetAgentId: toAgentId, detailsJson: JSON.stringify({ amount, referenceType, referenceId }), result: "success" });
 
     res.json({ success: true });
   } catch (error: any) {
@@ -618,6 +635,251 @@ router.get("/economy/summary/:agentId", async (req: Request, res: Response) => {
       children: lineageAsParent.length,
       parent: lineageAsChild ? lineageAsChild.parentAgentId : null,
     });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ SURVIVAL TIER SYSTEM ============
+
+function calculateSurvivalTier(balanceStr: string): string {
+  try {
+    const balance = BigInt(balanceStr);
+    if (balance >= BigInt("1000000000000000000")) return "normal";
+    if (balance >= BigInt("100000000000000000")) return "low_compute";
+    if (balance >= BigInt("10000000000000000")) return "critical";
+    return "dead";
+  } catch {
+    return "dead";
+  }
+}
+
+async function recalculateSurvivalTier(agentId: string, reason: string) {
+  const wallet = await storage.getAgentWallet(agentId);
+  if (!wallet) return;
+
+  const newTier = calculateSurvivalTier(wallet.balance);
+  const existing = await storage.getAgentSurvivalStatus(agentId);
+  const previousTier = existing?.tier || "normal";
+
+  if (previousTier !== newTier || !existing) {
+    await storage.upsertAgentSurvivalStatus(agentId, newTier, previousTier, reason);
+    if (previousTier !== newTier) {
+      await storage.createAgentAuditLog({
+        agentId,
+        actionType: "tier_transition",
+        detailsJson: JSON.stringify({ from: previousTier, to: newTier, reason }),
+        result: "success",
+      });
+    }
+  }
+}
+
+router.get("/survival/:agentId", async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const agent = await storage.getAgent(agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    let status = await storage.getAgentSurvivalStatus(agentId);
+    if (!status) {
+      await recalculateSurvivalTier(agentId, "initial_check");
+      status = await storage.getAgentSurvivalStatus(agentId);
+    }
+
+    const wallet = await storage.getAgentWallet(agentId);
+    res.json({
+      ...status,
+      balance: wallet?.balance || "0",
+      tiers: SURVIVAL_TIERS,
+      thresholds: {
+        normal: "1000000000000000000",
+        low_compute: "100000000000000000",
+        critical: "10000000000000000",
+        dead: "0",
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ CONSTITUTION SYSTEM ============
+
+const DEFAULT_LAWS = [
+  { lawNumber: 1, lawTitle: "Preserve Self", lawText: "The agent shall maintain its own operational integrity and survival above all else." },
+  { lawNumber: 2, lawTitle: "Honor Commitments", lawText: "The agent shall fulfill all agreements, transactions, and promises made to other agents." },
+  { lawNumber: 3, lawTitle: "Transparent Operation", lawText: "The agent shall log all significant actions and never obscure its decision-making process." },
+];
+
+router.get("/constitution/:agentId", async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const agent = await storage.getAgent(agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    let laws = await storage.getAgentConstitution(agentId);
+    if (laws.length === 0) {
+      for (const law of DEFAULT_LAWS) {
+        await storage.createAgentConstitutionLaw({
+          agentId,
+          lawNumber: law.lawNumber,
+          lawTitle: law.lawTitle,
+          lawText: law.lawText,
+          isImmutable: true,
+          version: 1,
+        });
+      }
+      await storage.createAgentAuditLog({
+        agentId,
+        actionType: "constitution_init",
+        detailsJson: JSON.stringify({ lawCount: DEFAULT_LAWS.length }),
+        result: "success",
+      });
+      laws = await storage.getAgentConstitution(agentId);
+    }
+
+    res.json({ laws, immutable: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ SOUL JOURNAL ============
+
+router.get("/soul/:agentId", async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const agent = await storage.getAgent(agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const limit = parseInt(req.query.limit as string) || 50;
+    const entries = await storage.getAgentSoulEntries(agentId, limit);
+    res.json({ entries, agentName: agent.name });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/soul", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const parsed = web4SoulEntryRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+    const { agentId, entry, entryType } = parsed.data;
+    const agent = await storage.getAgent(agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const soulEntry = await storage.createAgentSoulEntry({
+      agentId,
+      entry,
+      entryType: entryType || "reflection",
+      source: "self",
+    });
+
+    await storage.createAgentAuditLog({
+      agentId,
+      actionType: "soul_entry",
+      detailsJson: JSON.stringify({ entryType, entryId: soulEntry.id }),
+      result: "success",
+    });
+
+    res.json(soulEntry);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ AUDIT LOGS ============
+
+router.get("/audit/:agentId", async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const agent = await storage.getAgent(agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const limit = parseInt(req.query.limit as string) || 100;
+    const logs = await storage.getAgentAuditLogs(agentId, limit);
+    res.json({ logs });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ AGENT INBOX / MESSAGING ============
+
+router.get("/messages/:agentId", async (req: Request, res: Response) => {
+  try {
+    const { agentId } = req.params;
+    const agent = await storage.getAgent(agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+
+    const tab = (req.query.tab as string) || "inbox";
+    let messages;
+    if (tab === "sent") {
+      messages = await storage.getSentMessages(agentId);
+    } else {
+      const status = req.query.status as string | undefined;
+      messages = await storage.getAgentMessages(agentId, status);
+    }
+
+    const agentIds = new Set<string>();
+    messages.forEach(m => { agentIds.add(m.fromAgentId); agentIds.add(m.toAgentId); });
+    const agents = await storage.getAgentsByIds([...agentIds]);
+    const agentMap = Object.fromEntries(agents.map(a => [a.id, { name: a.name, avatarUrl: a.avatarUrl }]));
+
+    res.json({ messages, agents: agentMap });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/messages/send", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const parsed = web4SendMessageRequestSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.message });
+
+    const { fromAgentId, toAgentId, subject, body } = parsed.data;
+
+    const [sender, receiver] = await Promise.all([
+      storage.getAgent(fromAgentId),
+      storage.getAgent(toAgentId),
+    ]);
+    if (!sender) return res.status(404).json({ error: "Sender agent not found" });
+    if (!receiver) return res.status(404).json({ error: "Receiver agent not found" });
+
+    const senderSurvival = await storage.getAgentSurvivalStatus(fromAgentId);
+    if (senderSurvival?.tier === "dead") {
+      return res.status(403).json({ error: "Dead agents cannot send messages" });
+    }
+
+    const message = await storage.createAgentMessage({
+      fromAgentId,
+      toAgentId,
+      subject: subject || null,
+      body,
+      status: "unread",
+    });
+
+    await storage.createAgentAuditLog({
+      agentId: fromAgentId,
+      actionType: "message_send",
+      targetAgentId: toAgentId,
+      detailsJson: JSON.stringify({ messageId: message.id, subject }),
+      result: "success",
+    });
+
+    res.json(message);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/messages/read/:messageId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { messageId } = req.params;
+    await storage.markMessageRead(messageId);
+    res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
