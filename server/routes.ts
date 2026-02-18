@@ -3720,6 +3720,8 @@ export async function registerRoutes(
         seriesRound: duel.seriesRound,
         potAmount: duel.potAmount,
         matchType: duel.matchType,
+        creatorWallet: duel.creatorWallet,
+        joinerWallet: duel.joinerWallet,
         creator: {
           id: duel.creatorId,
           name: creatorAgent?.name || "Player 1",

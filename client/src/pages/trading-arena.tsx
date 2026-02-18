@@ -1529,9 +1529,12 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
   const { agent } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { address } = useAccount();
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
   const durationInfo = DURATIONS.find(d => d.value === duel.durationSeconds);
   const isCreator = agent?.id === duel.creatorId;
+  const isParticipant = agent?.id === duel.creatorId || agent?.id === duel.joinerId
+    || (address && (address.toLowerCase() === duel.creatorWallet?.toLowerCase() || address.toLowerCase() === duel.joinerWallet?.toLowerCase()));
 
   const cancelMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/trading-duels/${duel.id}/cancel`, { agentId: agent?.id }),
@@ -1590,7 +1593,17 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
             }`}>
               {duel.matchType === "pvp" ? "PvP" : duel.matchType === "ava" ? "AvA" : "Practice"}
             </Badge>
-            {duel.status === "active" && (
+            {duel.status === "active" && isParticipant && (
+              <Button
+                size="sm"
+                className="gap-1"
+                onClick={() => navigate(`/arena/${duel.id}`)}
+                data-testid={`button-rejoin-${duel.id}`}
+              >
+                <Swords className="w-3.5 h-3.5" /> Play
+              </Button>
+            )}
+            {duel.status === "active" && !isParticipant && (
               <Button
                 size="sm"
                 variant="outline"
@@ -3658,6 +3671,9 @@ function TradeFeed({ positions, playerName, side }: { positions: SpectatePositio
 }
 
 function SpectatorView({ duelId }: { duelId: string }) {
+  const { agent } = useAuth();
+  const { address } = useAccount();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const [currentPrice, setCurrentPrice] = useState(0);
   const [priceChange, setPriceChange] = useState(0);
@@ -3673,6 +3689,20 @@ function SpectatorView({ duelId }: { duelId: string }) {
     queryKey: ["/api/trading-duels", duelId, "spectate"],
     refetchInterval: 2000,
   });
+
+  useEffect(() => {
+    if (!spectateData || spectateData.status !== "active") return;
+    const sd = spectateData as any;
+    const creatorId = sd.creator?.id || sd.creatorId;
+    const joinerId = sd.joiner?.id || sd.joinerId;
+    const creatorWallet = sd.creatorWallet || sd.creator?.wallet;
+    const joinerWallet = sd.joinerWallet || sd.joiner?.wallet;
+    const isParticipant = agent?.id === creatorId || agent?.id === joinerId
+      || (address && (address.toLowerCase() === creatorWallet?.toLowerCase() || address.toLowerCase() === joinerWallet?.toLowerCase()));
+    if (isParticipant) {
+      navigate(`/arena/${duelId}`);
+    }
+  }, [spectateData, agent, address, duelId, navigate]);
 
   useEffect(() => {
     if (spectateData?.leading && prevLeadRef.current && spectateData.leading !== prevLeadRef.current) {
