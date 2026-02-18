@@ -73,7 +73,7 @@ A comprehensive token presale platform modeled after successful crypto launches 
 - **Vesting Schedule**: Cliff period + linear unlock duration, TGE unlock percentage
 - **Real-time Stats**: Total raised, tokens sold, participant count, progress bars
 - **Admin Panel**: Phase creation, whitelist management, phase pause/resume, seed defaults
-- **Tokenomics Display**: Visual token allocation breakdown (Private 10%, Public 15%, Liquidity 10%, Community 30%, Team 15%, Ecosystem 10%, Treasury 10%)
+- **Tokenomics Display**: Visual token allocation breakdown (Private 10%, Public 15%, Liquidity 20%, Community 25%, Team 10%, Ecosystem 10%, Treasury 10%)
 - Backend routes: `/api/presale/*` (phases, tiers, contribute, whitelist-check, my-contributions, my-allocation, my-referral, stats, admin/*)
 - Frontend: `/presale` page with Overview, Tokenomics, My Allocation, Admin tabs
 - Database tables: presale_phases, presale_tiers, presale_whitelist, presale_contributions, presale_allocations, presale_referrals

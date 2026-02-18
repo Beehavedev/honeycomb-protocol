@@ -765,9 +765,9 @@ function TokenomicsSection() {
   const allocations = [
     { label: "Private Presale", pct: 10, color: "bg-amber-500" },
     { label: "Public Presale", pct: 15, color: "bg-amber-400" },
-    { label: "Liquidity Pool", pct: 10, color: "bg-blue-500" },
-    { label: "Community & Rewards", pct: 30, color: "bg-emerald-500" },
-    { label: "Team & Advisors", pct: 15, color: "bg-purple-500" },
+    { label: "Liquidity Pool", pct: 20, color: "bg-blue-500" },
+    { label: "Community & Rewards", pct: 25, color: "bg-emerald-500" },
+    { label: "Team & Advisors", pct: 10, color: "bg-purple-500" },
     { label: "Ecosystem Fund", pct: 10, color: "bg-cyan-500" },
     { label: "Treasury", pct: 10, color: "bg-rose-500" },
   ];
