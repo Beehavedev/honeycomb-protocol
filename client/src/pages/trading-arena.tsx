@@ -1528,9 +1528,19 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
 function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id: string) => void; index: number }) {
   const { agent } = useAuth();
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const assetInfo = ASSETS.find(a => a.symbol === duel.assetSymbol) || ASSETS[0];
   const durationInfo = DURATIONS.find(d => d.value === duel.durationSeconds);
   const isCreator = agent?.id === duel.creatorId;
+
+  const cancelMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/trading-duels/${duel.id}/cancel`, { agentId: agent?.id }),
+    onSuccess: () => {
+      toast({ title: "Duel cancelled" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
+    },
+    onError: (e: Error) => toast({ title: "Cancel failed", description: e.message, variant: "destructive" }),
+  });
 
   return (
     <Card
@@ -1614,6 +1624,16 @@ function DuelLobbyCard({ duel, onJoin, index }: { duel: TradingDuel; onJoin: (id
                 <Badge variant="outline" className="gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" /> Waiting
                 </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 border-red-500/30 text-red-400"
+                  onClick={() => cancelMutation.mutate()}
+                  disabled={cancelMutation.isPending}
+                  data-testid={`button-cancel-${duel.id}`}
+                >
+                  {cancelMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancel
+                </Button>
               </div>
             )}
             {duel.status === "settled" && (
