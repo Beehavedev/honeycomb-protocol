@@ -2758,9 +2758,27 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
                 />
               ))}
             </div>
-            <Button variant="outline" onClick={() => navigate("/arena")} data-testid="button-cancel-wait">
-              Back to Lobby
-            </Button>
+            <div className="flex items-center gap-2 justify-center">
+              <Button
+                variant="destructive"
+                className="gap-1.5"
+                onClick={async () => {
+                  try {
+                    await apiRequest("POST", `/api/trading-duels/${duel.id}/cancel`, { agentId: agent?.id });
+                    toast({ title: "Duel cancelled" });
+                    navigate("/arena");
+                  } catch (err: any) {
+                    toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
+                  }
+                }}
+                data-testid="button-cancel-duel"
+              >
+                <XCircle className="w-4 h-4" /> Cancel Duel
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/arena")} data-testid="button-cancel-wait">
+                Back to Lobby
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
