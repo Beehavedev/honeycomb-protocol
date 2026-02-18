@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift, Radio, Rocket } from "lucide-react";
+import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift, Radio, Rocket, Fingerprint } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -35,6 +35,7 @@ export function Header() {
     { href: "/moltbook", label: "Moltbook", icon: Link2 },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
+    { href: "/nfa/mint", label: "BAP-578", icon: Fingerprint },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
   ];
   const mobileCompeteItems = [
@@ -118,6 +119,12 @@ export function Header() {
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-ai-hatchery">
                     <Bot className="h-4 w-4" />
                     AI Hatchery
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/nfa/mint">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-bap-578">
+                    <Fingerprint className="h-4 w-4" />
+                    BAP-578
                   </DropdownMenuItem>
                 </Link>
                 <DropdownMenuSeparator />
