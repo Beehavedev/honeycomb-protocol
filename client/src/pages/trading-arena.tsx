@@ -3143,11 +3143,24 @@ function TradingArenaLobby() {
 
   useEffect(() => {
     if (joinError) {
-      const errorMsg = joinError.message?.includes("user rejected")
-        ? "Transaction rejected"
-        : joinError.message?.slice(0, 100) || "Failed to join duel";
+      const msg = joinError.message || "";
+      let errorMsg = msg.slice(0, 100) || "Failed to join duel";
+      if (msg.includes("user rejected") || msg.includes("User denied")) {
+        errorMsg = "Transaction rejected";
+      } else if (msg.includes("DuelNotOpen")) {
+        errorMsg = "This duel is no longer available. It may have been taken by another player or cancelled.";
+      } else if (msg.includes("DuelNotFound")) {
+        errorMsg = "This duel no longer exists on-chain.";
+      } else if (msg.includes("StakeMismatch")) {
+        errorMsg = "Stake amount doesn't match. Please refresh and try again.";
+      } else if (msg.includes("NotAgentOwner")) {
+        errorMsg = "Your wallet is not the registered owner of this agent.";
+      } else if (msg.includes("CannotJoinOwnDuel")) {
+        errorMsg = "You cannot join your own duel.";
+      }
       toast({ title: "Transaction failed", description: errorMsg, variant: "destructive" });
       setJoiningDuelId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
     }
   }, [joinError]);
 
@@ -3160,6 +3173,24 @@ function TradingArenaLobby() {
     }
 
     setJoiningDuelId(duel.id);
+
+    try {
+      const checkRes = await fetch(`/api/trading-duels/${duel.id}`);
+      if (checkRes.ok) {
+        const freshDuel = await checkRes.json();
+        if (freshDuel.status !== "waiting") {
+          toast({
+            title: "Duel unavailable",
+            description: "This duel was already taken by another player or cancelled. Try another one!",
+            variant: "destructive"
+          });
+          setJoiningDuelId(null);
+          queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
+          return;
+        }
+      }
+    } catch (e) {
+    }
 
     if (!hasAgent) {
       toast({ title: "Registering on-chain agent...", description: "First-time setup required" });

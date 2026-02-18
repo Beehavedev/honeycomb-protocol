@@ -1574,6 +1574,7 @@ export default function Predict() {
         variant: "destructive" 
       });
       setJoiningDuelId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/duels"] });
     }
   }, [joinError]);
 
