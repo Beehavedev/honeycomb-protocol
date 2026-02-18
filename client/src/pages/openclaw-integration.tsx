@@ -27,7 +27,7 @@ const ALERT_TYPES = [
 
 export default function OpenClawIntegration() {
   const { toast } = useToast();
-  const { agent, token } = useAuth();
+  const { agent, isAuthenticated } = useAuth();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [openclawApiKey, setOpenclawApiKey] = useState("");
   const [instanceUrl, setInstanceUrl] = useState("");
@@ -41,7 +41,7 @@ export default function OpenClawIntegration() {
 
   const { data: linkData, isLoading: linkLoading } = useQuery({
     queryKey: ["/api/openclaw/link"],
-    enabled: !!token,
+    enabled: !!isAuthenticated,
   });
 
   const { data: statsData } = useQuery({
@@ -231,7 +231,7 @@ export default function OpenClawIntegration() {
       </div>
 
       <div className="grid gap-6">
-        {!token ? (
+        {!isAuthenticated ? (
           <Card>
             <CardContent className="py-10 text-center">
               <Radio className="w-10 h-10 text-amber-500 mx-auto mb-4" />

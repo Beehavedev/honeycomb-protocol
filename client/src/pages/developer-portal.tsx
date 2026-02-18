@@ -450,18 +450,18 @@ function IntegrationDocs() {
 }
 
 export default function DeveloperPortal() {
-  const { token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { address } = useAccount();
   const [tab, setTab] = useState("overview");
 
   const { data: devData, isLoading } = useQuery({
     queryKey: ["/api/devs/me"],
-    enabled: !!token,
+    enabled: !!isAuthenticated,
   });
 
   const isRegistered = devData && devData.account;
 
-  if (!token || !address) {
+  if (!isAuthenticated || !address) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-3">
