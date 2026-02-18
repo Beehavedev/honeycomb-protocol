@@ -294,60 +294,302 @@ class HoneyRunner3D {
     this.tunnel.add(new THREE.Line(edgeR, edgeLineMat));
   }
 
+  private legs: THREE.Group[] = [];
+  private antennae: THREE.Group[] = [];
+  private hindWingL!: THREE.Mesh;
+  private hindWingR!: THREE.Mesh;
+
   private buildPlayer() {
     this.player = new THREE.Group();
+    const beeGroup = new THREE.Group();
 
-    const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 8, 12);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1208, emissive: 0xf0a500, emissiveIntensity: 0.15, metalness: 0.5, roughness: 0.4 });
-    this.playerBody = new THREE.Mesh(bodyGeo, bodyMat);
-    this.playerBody.castShadow = true;
-    this.player.add(this.playerBody);
+    const darkFur = new THREE.MeshStandardMaterial({
+      color: 0x1a0e00, emissive: 0x0a0500, emissiveIntensity: 0.05,
+      metalness: 0.15, roughness: 0.85,
+    });
+    const amberFur = new THREE.MeshStandardMaterial({
+      color: 0xd49000, emissive: 0xf0a500, emissiveIntensity: 0.08,
+      metalness: 0.1, roughness: 0.9,
+    });
+    const goldenFur = new THREE.MeshStandardMaterial({
+      color: 0xe8a800, emissive: 0xf0a500, emissiveIntensity: 0.12,
+      metalness: 0.15, roughness: 0.85,
+    });
+    const chitinDark = new THREE.MeshStandardMaterial({
+      color: 0x0d0800, emissive: 0x050200, emissiveIntensity: 0.02,
+      metalness: 0.4, roughness: 0.35,
+    });
 
-    const stripeGeo = new THREE.TorusGeometry(0.36, 0.04, 8, 16);
-    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xf0a500, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.2 });
-    for (let i = -1; i <= 1; i++) {
-      const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-      stripe.position.y = i * 0.2;
-      stripe.rotation.x = Math.PI / 2;
-      this.player.add(stripe);
+    const headGeo = new THREE.SphereGeometry(0.22, 24, 20);
+    const head = new THREE.Mesh(headGeo, chitinDark);
+    head.position.set(0, 0.08, 0.38);
+    head.scale.set(1, 0.9, 0.85);
+    beeGroup.add(head);
+
+    const eyeGeo = new THREE.SphereGeometry(0.12, 20, 16);
+    const eyeMat = new THREE.MeshStandardMaterial({
+      color: 0x1a0800, emissive: 0x2a1500, emissiveIntensity: 0.15,
+      metalness: 0.7, roughness: 0.15,
+    });
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(-0.14, 0.12, 0.48);
+    eyeL.scale.set(0.85, 1.1, 0.7);
+    beeGroup.add(eyeL);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeR.position.set(0.14, 0.12, 0.48);
+    eyeR.scale.set(0.85, 1.1, 0.7);
+    beeGroup.add(eyeR);
+
+    const eyeHighGeo = new THREE.SphereGeometry(0.03, 8, 6);
+    const eyeHighMat = new THREE.MeshStandardMaterial({
+      color: 0xffeedd, emissive: 0xffffff, emissiveIntensity: 0.8,
+      metalness: 0.9, roughness: 0.05,
+    });
+    const eyeHighL = new THREE.Mesh(eyeHighGeo, eyeHighMat);
+    eyeHighL.position.set(-0.11, 0.16, 0.55);
+    beeGroup.add(eyeHighL);
+    const eyeHighR = new THREE.Mesh(eyeHighGeo, eyeHighMat);
+    eyeHighR.position.set(0.17, 0.16, 0.55);
+    beeGroup.add(eyeHighR);
+
+    const facetGeo = new THREE.SphereGeometry(0.115, 6, 5);
+    const facetMat = new THREE.MeshStandardMaterial({
+      color: 0x2a1200, emissive: 0x1a0800, emissiveIntensity: 0.1,
+      metalness: 0.6, roughness: 0.2, wireframe: true,
+    });
+    const facetL = new THREE.Mesh(facetGeo, facetMat);
+    facetL.position.copy(eyeL.position);
+    facetL.scale.copy(eyeL.scale);
+    beeGroup.add(facetL);
+    const facetR = new THREE.Mesh(facetGeo, facetMat);
+    facetR.position.copy(eyeR.position);
+    facetR.scale.copy(eyeR.scale);
+    beeGroup.add(facetR);
+
+    for (const side of [-1, 1]) {
+      const ant = new THREE.Group();
+      const seg1Geo = new THREE.CylinderGeometry(0.012, 0.015, 0.2, 6);
+      const seg1 = new THREE.Mesh(seg1Geo, chitinDark);
+      seg1.position.y = 0.1;
+      seg1.rotation.z = side * 0.3;
+      ant.add(seg1);
+      const seg2Geo = new THREE.CylinderGeometry(0.008, 0.012, 0.18, 6);
+      const seg2 = new THREE.Mesh(seg2Geo, chitinDark);
+      seg2.position.set(side * 0.06, 0.22, 0.02);
+      seg2.rotation.z = side * 0.6;
+      ant.add(seg2);
+      for (let k = 0; k < 5; k++) {
+        const knobGeo = new THREE.SphereGeometry(0.013, 6, 4);
+        const knob = new THREE.Mesh(knobGeo, chitinDark);
+        const frac = k / 4;
+        knob.position.set(side * (0.08 + frac * 0.06), 0.26 + frac * 0.06, 0.02 + frac * 0.02);
+        ant.add(knob);
+      }
+      ant.position.set(side * 0.06, 0.2, 0.42);
+      beeGroup.add(ant);
+      this.antennae.push(ant);
     }
 
-    const eyeGeo = new THREE.SphereGeometry(0.1, 8, 6);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffd040, emissive: 0xffd040, emissiveIntensity: 1.0 });
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeL.position.set(-0.18, 0.15, 0.28);
-    this.player.add(eyeL);
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-    eyeR.position.set(0.18, 0.15, 0.28);
-    this.player.add(eyeR);
+    const mouthGeo = new THREE.CylinderGeometry(0.015, 0.01, 0.08, 6);
+    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x0a0500, metalness: 0.3, roughness: 0.6 });
+    const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+    mouth.position.set(0, -0.06, 0.54);
+    mouth.rotation.x = Math.PI * 0.4;
+    beeGroup.add(mouth);
 
-    const wingGeo = new THREE.PlaneGeometry(0.6, 0.3);
-    const wingMat = new THREE.MeshStandardMaterial({
-      color: 0xf0a500, emissive: 0xf0a500, emissiveIntensity: 0.4,
-      transparent: true, opacity: 0.6, side: THREE.DoubleSide,
-      metalness: 0.3, roughness: 0.5,
+    const thoraxGeo = new THREE.SphereGeometry(0.28, 24, 20);
+    const thorax = new THREE.Mesh(thoraxGeo, goldenFur);
+    thorax.scale.set(1, 0.85, 1.1);
+    thorax.position.set(0, 0.06, 0.1);
+    beeGroup.add(thorax);
+    this.playerBody = thorax;
+
+    const fuzzPositions = [
+      [0, 0.22, 0.1], [0.12, 0.2, 0.06], [-0.12, 0.2, 0.06],
+      [0.08, 0.2, 0.18], [-0.08, 0.2, 0.18], [0, 0.22, 0.02],
+      [0.15, 0.15, 0.12], [-0.15, 0.15, 0.12],
+    ];
+    const fuzzMat = new THREE.MeshStandardMaterial({
+      color: 0xc89020, emissive: 0xf0a500, emissiveIntensity: 0.05,
+      metalness: 0.05, roughness: 0.95, transparent: true, opacity: 0.7,
     });
-    this.playerWingL = new THREE.Mesh(wingGeo, wingMat);
-    this.playerWingL.position.set(-0.55, 0.2, -0.05);
-    this.playerWingL.rotation.set(0, -0.3, 0.4);
-    this.player.add(this.playerWingL);
+    for (const [fx, fy, fz] of fuzzPositions) {
+      const fuzzGeo = new THREE.SphereGeometry(0.035 + Math.random() * 0.02, 6, 4);
+      const fuzz = new THREE.Mesh(fuzzGeo, fuzzMat);
+      fuzz.position.set(fx, fy, fz);
+      beeGroup.add(fuzz);
+    }
 
-    this.playerWingR = new THREE.Mesh(wingGeo, wingMat);
-    this.playerWingR.position.set(0.55, 0.2, -0.05);
-    this.playerWingR.rotation.set(0, 0.3, -0.4);
-    this.player.add(this.playerWingR);
+    const abdomenGeo = new THREE.SphereGeometry(0.34, 24, 20);
+    const abdomen = new THREE.Mesh(abdomenGeo, darkFur);
+    abdomen.scale.set(0.9, 0.85, 1.4);
+    abdomen.position.set(0, 0, -0.28);
+    beeGroup.add(abdomen);
 
-    const stingerGeo = new THREE.ConeGeometry(0.08, 0.3, 6);
-    const stingerMat = new THREE.MeshStandardMaterial({ color: 0xff7800, emissive: 0xff7800, emissiveIntensity: 0.3 });
+    const stripeData = [
+      { z: -0.12, w: 0.08, color: amberFur },
+      { z: -0.24, w: 0.07, color: amberFur },
+      { z: -0.36, w: 0.065, color: amberFur },
+      { z: -0.46, w: 0.05, color: amberFur },
+    ];
+    for (const s of stripeData) {
+      const dist = Math.abs(s.z - (-0.28));
+      const rFrac = 1 - (dist / (0.34 * 1.4)) * (dist / (0.34 * 1.4));
+      const r = 0.34 * 0.9 * Math.sqrt(Math.max(rFrac, 0.05));
+      const stripeGeo = new THREE.TorusGeometry(r, s.w, 10, 24);
+      const stripe = new THREE.Mesh(stripeGeo, s.color);
+      stripe.position.set(0, 0, s.z);
+      stripe.rotation.y = Math.PI / 2;
+      beeGroup.add(stripe);
+    }
+
+    const segLinesMat = new THREE.LineBasicMaterial({ color: 0x0a0500, transparent: true, opacity: 0.3 });
+    for (let si = 0; si < 5; si++) {
+      const sz = -0.06 - si * 0.1;
+      const sDist = Math.abs(sz - (-0.28));
+      const sRFrac = 1 - (sDist / (0.34 * 1.4)) * (sDist / (0.34 * 1.4));
+      const sR = 0.34 * 0.9 * Math.sqrt(Math.max(sRFrac, 0.05)) + 0.005;
+      const pts: THREE.Vector3[] = [];
+      for (let a = 0; a <= 32; a++) {
+        const angle = (a / 32) * Math.PI * 2;
+        pts.push(new THREE.Vector3(Math.cos(angle) * sR, Math.sin(angle) * sR * 0.85, sz));
+      }
+      beeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), segLinesMat));
+    }
+
+    const stingerGeo = new THREE.ConeGeometry(0.04, 0.22, 8);
+    const stingerMat = new THREE.MeshStandardMaterial({
+      color: 0x1a0a00, emissive: 0x0a0400, emissiveIntensity: 0.05,
+      metalness: 0.5, roughness: 0.3,
+    });
     const stinger = new THREE.Mesh(stingerGeo, stingerMat);
-    stinger.position.set(0, -0.05, -0.45);
+    stinger.position.set(0, -0.02, -0.62);
     stinger.rotation.x = Math.PI / 2;
-    this.player.add(stinger);
+    beeGroup.add(stinger);
 
-    const shieldGeo = new THREE.SphereGeometry(0.7, 16, 12);
+    const tipGeo = new THREE.ConeGeometry(0.015, 0.08, 6);
+    const tipMat = new THREE.MeshStandardMaterial({ color: 0x0a0400, metalness: 0.6, roughness: 0.2 });
+    const tip = new THREE.Mesh(tipGeo, tipMat);
+    tip.position.set(0, -0.02, -0.74);
+    tip.rotation.x = Math.PI / 2;
+    beeGroup.add(tip);
+
+    const wingMembraneMat = new THREE.MeshStandardMaterial({
+      color: 0xeee8d8, emissive: 0xf0a500, emissiveIntensity: 0.06,
+      transparent: true, opacity: 0.22, side: THREE.DoubleSide,
+      metalness: 0.15, roughness: 0.1,
+    });
+    const wingVeinMat = new THREE.LineBasicMaterial({ color: 0x8a6a30, transparent: true, opacity: 0.5 });
+
+    const createWing = (large: boolean): THREE.Group => {
+      const wg = new THREE.Group();
+      const wLen = large ? 0.7 : 0.45;
+      const wWid = large ? 0.28 : 0.18;
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.quadraticCurveTo(wLen * 0.3, wWid, wLen * 0.7, wWid * 0.9);
+      shape.quadraticCurveTo(wLen, wWid * 0.5, wLen, 0);
+      shape.quadraticCurveTo(wLen * 0.6, -wWid * 0.15, 0, 0);
+      const shapeGeo = new THREE.ShapeGeometry(shape, 12);
+      wg.add(new THREE.Mesh(shapeGeo, wingMembraneMat));
+      const veins = [
+        [[0, 0], [wLen * 0.5, wWid * 0.5], [wLen * 0.9, wWid * 0.3]],
+        [[0, 0], [wLen * 0.4, wWid * 0.2], [wLen * 0.85, 0.02]],
+        [[0, 0], [wLen * 0.3, wWid * 0.7], [wLen * 0.6, wWid * 0.8]],
+        [[wLen * 0.35, wWid * 0.2], [wLen * 0.4, wWid * 0.55]],
+        [[wLen * 0.55, wWid * 0.15], [wLen * 0.6, wWid * 0.65]],
+        [[wLen * 0.7, wWid * 0.1], [wLen * 0.75, wWid * 0.55]],
+      ];
+      for (const v of veins) {
+        const pts = v.map(([x, y]) => new THREE.Vector3(x, y, 0.001));
+        wg.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wingVeinMat));
+      }
+      return wg;
+    };
+
+    const foreWingL = createWing(true);
+    foreWingL.position.set(-0.18, 0.18, 0.05);
+    foreWingL.rotation.set(0.1, -0.2, 0.5);
+    foreWingL.scale.x = -1;
+    beeGroup.add(foreWingL);
+    this.playerWingL = foreWingL as unknown as THREE.Mesh;
+
+    const foreWingR = createWing(true);
+    foreWingR.position.set(0.18, 0.18, 0.05);
+    foreWingR.rotation.set(0.1, 0.2, -0.5);
+    beeGroup.add(foreWingR);
+    this.playerWingR = foreWingR as unknown as THREE.Mesh;
+
+    const hindWingLG = createWing(false);
+    hindWingLG.position.set(-0.15, 0.15, -0.05);
+    hindWingLG.rotation.set(0.05, -0.3, 0.6);
+    hindWingLG.scale.x = -1;
+    beeGroup.add(hindWingLG);
+    this.hindWingL = hindWingLG as unknown as THREE.Mesh;
+
+    const hindWingRG = createWing(false);
+    hindWingRG.position.set(0.15, 0.15, -0.05);
+    hindWingRG.rotation.set(0.05, 0.3, -0.6);
+    beeGroup.add(hindWingRG);
+    this.hindWingR = hindWingRG as unknown as THREE.Mesh;
+
+    const legMat = new THREE.MeshStandardMaterial({
+      color: 0x0d0800, metalness: 0.3, roughness: 0.5,
+    });
+    const legAttachments = [
+      { x: 0.2, z: 0.12, angle: 0.6, len: [0.12, 0.14, 0.1] },
+      { x: 0.22, z: 0, angle: 0.8, len: [0.14, 0.16, 0.12] },
+      { x: 0.18, z: -0.15, angle: 1.0, len: [0.16, 0.2, 0.14] },
+    ];
+    for (const att of legAttachments) {
+      for (const side of [-1, 1]) {
+        const leg = new THREE.Group();
+        let curY = 0;
+        for (let seg = 0; seg < 3; seg++) {
+          const segLen = att.len[seg];
+          const thick = 0.018 - seg * 0.004;
+          const segGeo = new THREE.CylinderGeometry(thick, thick + 0.003, segLen, 5);
+          const segMesh = new THREE.Mesh(segGeo, legMat);
+          segMesh.position.y = curY - segLen / 2;
+          if (seg === 1) segMesh.rotation.z = side * 0.4;
+          if (seg === 2) segMesh.rotation.z = -side * 0.3;
+          const jGeo = new THREE.SphereGeometry(thick + 0.005, 5, 4);
+          const jMesh = new THREE.Mesh(jGeo, legMat);
+          jMesh.position.y = curY;
+          leg.add(jMesh);
+          leg.add(segMesh);
+          curY -= segLen;
+        }
+        const footGeo = new THREE.SphereGeometry(0.015, 4, 3);
+        const foot = new THREE.Mesh(footGeo, legMat);
+        foot.position.y = curY;
+        leg.add(foot);
+        leg.position.set(side * att.x, -0.08, att.z);
+        leg.rotation.z = side * att.angle;
+        beeGroup.add(leg);
+        this.legs.push(leg);
+      }
+    }
+
+    const pollenGeo = new THREE.SphereGeometry(0.04, 8, 6);
+    const pollenMat = new THREE.MeshStandardMaterial({
+      color: 0xf5c840, emissive: 0xf0a500, emissiveIntensity: 0.15,
+      metalness: 0.05, roughness: 0.95,
+    });
+    const pollenL = new THREE.Mesh(pollenGeo, pollenMat);
+    pollenL.position.set(-0.22, -0.32, -0.12);
+    beeGroup.add(pollenL);
+    const pollenR = new THREE.Mesh(pollenGeo, pollenMat);
+    pollenR.position.set(0.22, -0.32, -0.12);
+    beeGroup.add(pollenR);
+
+    beeGroup.scale.setScalar(1.3);
+    this.player.add(beeGroup);
+
+    const shieldGeo = new THREE.SphereGeometry(0.85, 24, 18);
     const shieldMat = new THREE.MeshStandardMaterial({
       color: 0x00ff80, emissive: 0x00ff80, emissiveIntensity: 0.3,
-      transparent: true, opacity: 0.25, side: THREE.DoubleSide,
+      transparent: true, opacity: 0.2, side: THREE.DoubleSide,
     });
     this.shieldBubble = new THREE.Mesh(shieldGeo, shieldMat);
     this.shieldBubble.visible = false;
@@ -974,8 +1216,23 @@ class HoneyRunner3D {
   private updateVisuals(dt: number) {
     const t = this.clock.elapsedTime;
 
-    this.playerWingL.rotation.z = 0.4 + Math.sin(t * 20) * 0.3;
-    this.playerWingR.rotation.z = -0.4 - Math.sin(t * 20) * 0.3;
+    const wingFlap = Math.sin(t * 25) * 0.35;
+    this.playerWingL.rotation.z = 0.5 + wingFlap;
+    this.playerWingR.rotation.z = -0.5 - wingFlap;
+    if (this.hindWingL) this.hindWingL.rotation.z = 0.6 + wingFlap * 0.8;
+    if (this.hindWingR) this.hindWingR.rotation.z = -0.6 - wingFlap * 0.8;
+
+    for (let li = 0; li < this.legs.length; li++) {
+      const leg = this.legs[li];
+      const legPhase = li * 0.5;
+      leg.rotation.x = Math.sin(t * 8 + legPhase) * 0.15;
+    }
+
+    for (let ai = 0; ai < this.antennae.length; ai++) {
+      const ant = this.antennae[ai];
+      ant.rotation.x = Math.sin(t * 3 + ai) * 0.1;
+      ant.rotation.z = (ai === 0 ? -1 : 1) * (0.1 + Math.sin(t * 2.5 + ai * 2) * 0.08);
+    }
 
     if (this.isSliding) {
       this.player.rotation.x = 0.3;
