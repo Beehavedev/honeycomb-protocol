@@ -274,10 +274,7 @@ export function registerDuelsRoutes(app: Express) {
       const fee = (pot * BigInt(FEE_PERCENTAGE)) / BigInt(100);
       const payout = pot - fee;
       
-      const treasuryFee = (fee * BigInt(50)) / BigInt(100);
-      const burnFee = (fee * BigInt(25)) / BigInt(100);
-      const rewardPoolFee = fee - treasuryFee - burnFee;
-      console.log(`Duel ${duelId} settled: Fee ${fee.toString()} wei (treasury: ${treasuryFee.toString()}, burn: ${burnFee.toString()}, rewardPool: ${rewardPoolFee.toString()}) → ${FEE_TREASURY_ADDRESS}`);
+      console.log(`Duel ${duelId} settled: Fee ${fee.toString()} wei → ${FEE_TREASURY_ADDRESS}`);
 
       if (endPriceBigInt > startPrice) {
         winnerAddress = duel.creatorDirection === "up" ? duel.creatorAddress : duel.joinerAddress;
