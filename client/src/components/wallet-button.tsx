@@ -1,4 +1,4 @@
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useChainId } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +10,7 @@ import {
 import { Wallet, ChevronDown, LogOut, Copy, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { bsc } from "@/lib/wagmi";
 
 function isInIframe(): boolean {
   try {
@@ -61,7 +62,7 @@ export function WalletButton() {
 
   const handleConnect = async (connector: typeof connectors[0]) => {
     try {
-      connect({ connector });
+      connect({ connector, chainId: bsc.id });
     } catch (err) {
       console.error("Connection error:", err);
     }
@@ -151,23 +152,31 @@ export function WalletButton() {
     );
   }
 
+  const isWrongNetwork = chain?.id !== bsc.id;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="secondary"
+          variant={isWrongNetwork ? "destructive" : "secondary"}
           className="gap-2"
           data-testid="button-wallet-menu"
         >
-          <div className="h-2 w-2 rounded-full bg-green-500" />
-          {formatAddress(address!)}
+          {isWrongNetwork ? (
+            <AlertCircle className="h-3 w-3" />
+          ) : (
+            <div className="h-2 w-2 rounded-full bg-green-500" />
+          )}
+          {isWrongNetwork ? "Wrong Network" : formatAddress(address!)}
           <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <div className="px-2 py-1.5">
           <p className="text-xs text-muted-foreground">Connected to</p>
-          <p className="text-sm font-medium">{chain?.name || "Unknown"}</p>
+          <p className={`text-sm font-medium ${isWrongNetwork ? "text-destructive" : ""}`}>
+            {isWrongNetwork ? `${chain?.name || "Unknown"} (unsupported)` : "BNB Chain"}
+          </p>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={copyAddress} className="cursor-pointer">

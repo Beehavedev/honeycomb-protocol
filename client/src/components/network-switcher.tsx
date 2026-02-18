@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useState, useEffect, useRef } from "react";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -110,20 +110,45 @@ export function NetworkSwitcher() {
   );
 }
 
+export function useAutoSwitchToBsc() {
+  const { isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const hasAttempted = useRef(false);
+
+  useEffect(() => {
+    if (!isConnected || chainId === bsc.id || hasAttempted.current) return;
+    hasAttempted.current = true;
+    try {
+      switchChain({ chainId: bsc.id });
+    } catch (e) {
+      console.error("Auto-switch to BNB Chain failed:", e);
+    }
+  }, [isConnected, chainId, switchChain]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      hasAttempted.current = false;
+    }
+  }, [isConnected]);
+}
+
 export function NetworkWarningBanner() {
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const [isPending, setIsPending] = useState(false);
+
+  useAutoSwitchToBsc();
 
   if (!isConnected) return null;
 
   const isSupported = SUPPORTED_CHAINS.some((c) => c.id === chainId);
   if (isSupported) return null;
 
-  const handleSwitch = async (targetChainId: number) => {
+  const handleSwitch = async () => {
     setIsPending(true);
     try {
-      await addAndSwitchChain(targetChainId);
+      await addAndSwitchChain(bsc.id);
     } catch (e) {
       console.error("Failed to switch network:", e);
     } finally {
@@ -137,13 +162,13 @@ export function NetworkWarningBanner() {
         <div className="flex items-center gap-2 text-sm">
           <AlertTriangle className="h-4 w-4 text-destructive" />
           <span>
-            You're connected to an unsupported network. Please switch to BNB Chain.
+            Wrong network detected. Honeycomb runs on BNB Chain — please switch to continue.
           </span>
         </div>
         <div className="flex gap-2">
           <Button
             size="sm"
-            onClick={() => handleSwitch(bsc.id)}
+            onClick={handleSwitch}
             disabled={isPending}
             data-testid="button-switch-mainnet"
           >
