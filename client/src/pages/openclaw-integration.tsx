@@ -52,8 +52,7 @@ export default function OpenClawIntegration() {
 
   const quickSetupMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/openclaw/quick-setup", {});
-      return res.json();
+      return apiRequest("POST", "/api/openclaw/quick-setup", {});
     },
     onSuccess: (data) => {
       setQuickSetupResult(data);
@@ -70,8 +69,7 @@ export default function OpenClawIntegration() {
 
   const linkMutation = useMutation({
     mutationFn: async (data: { openclawApiKey: string; openclawInstanceUrl?: string; openclawAgentName?: string }) => {
-      const res = await apiRequest("POST", "/api/openclaw/link", data);
-      return res.json();
+      return apiRequest("POST", "/api/openclaw/link", data);
     },
     onSuccess: (data) => {
       if (data.honeycombApiKey) setGeneratedApiKey(data.honeycombApiKey);
@@ -85,8 +83,7 @@ export default function OpenClawIntegration() {
 
   const unlinkMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("DELETE", `/api/openclaw/link/${id}`);
-      return res.json();
+      return apiRequest("DELETE", `/api/openclaw/link/${id}`);
     },
     onSuccess: () => {
       setQuickSetupResult(null);
@@ -99,8 +96,7 @@ export default function OpenClawIntegration() {
 
   const createWebhookMutation = useMutation({
     mutationFn: async (url: string) => {
-      const res = await apiRequest("POST", "/api/openclaw/webhooks", { webhookUrl: url });
-      return res.json();
+      return apiRequest("POST", "/api/openclaw/webhooks", { webhookUrl: url });
     },
     onSuccess: (data) => {
       if (data.secret) setWebhookSecret(data.secret);
@@ -115,8 +111,7 @@ export default function OpenClawIntegration() {
 
   const deleteWebhookMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("DELETE", `/api/openclaw/webhooks/${id}`);
-      return res.json();
+      return apiRequest("DELETE", `/api/openclaw/webhooks/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
@@ -126,8 +121,7 @@ export default function OpenClawIntegration() {
 
   const testWebhookMutation = useMutation({
     mutationFn: async (webhookId: string) => {
-      const res = await apiRequest("POST", "/api/openclaw/alerts/test", { webhookId });
-      return res.json();
+      return apiRequest("POST", "/api/openclaw/alerts/test", { webhookId });
     },
     onSuccess: (data) => {
       toast({
@@ -140,8 +134,7 @@ export default function OpenClawIntegration() {
 
   const subscribeMutation = useMutation({
     mutationFn: async (data: { webhookId: string; alertType: string }) => {
-      const res = await apiRequest("POST", "/api/openclaw/alerts/subscribe", data);
-      return res.json();
+      return apiRequest("POST", "/api/openclaw/alerts/subscribe", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
@@ -154,8 +147,7 @@ export default function OpenClawIntegration() {
 
   const unsubscribeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiRequest("DELETE", `/api/openclaw/alerts/${id}`);
-      return res.json();
+      return apiRequest("DELETE", `/api/openclaw/alerts/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/openclaw/profile"] });
