@@ -3136,6 +3136,7 @@ export async function registerRoutes(
     try {
       const duel = await storage.getTradingDuel(req.params.id);
       if (!duel) return res.status(404).json({ message: "Duel not found" });
+      if (duel.status === "settled") return res.json(duel);
       if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
 
       stopBot(req.params.id);
@@ -3275,6 +3276,8 @@ export async function registerRoutes(
     }
   });
 
+  const settlingDuels = new Set<string>();
+
   async function autoSettleExpiredDuels() {
     try {
       const activeDuels = await db.select()
@@ -3282,7 +3285,15 @@ export async function registerRoutes(
         .where(sql`${tradingDuels.status} = 'active' AND ${tradingDuels.endsAt} IS NOT NULL AND ${tradingDuels.endsAt} < NOW()`);
 
       for (const duel of activeDuels) {
+        if (settlingDuels.has(duel.id)) continue;
+        settlingDuels.add(duel.id);
         try {
+          const fresh = await storage.getTradingDuel(duel.id);
+          if (!fresh || fresh.status !== "active") {
+            settlingDuels.delete(duel.id);
+            continue;
+          }
+
           stopBot(duel.id);
 
           let settlementPrice: string;
@@ -3391,6 +3402,7 @@ export async function registerRoutes(
           console.log(`[AutoSettle] Settled duel ${duel.id} | Winner: ${winnerId || "TIE"}`);
         } catch (err) {
           console.error(`[AutoSettle] Error settling duel ${duel.id}:`, err);
+          settlingDuels.delete(duel.id);
         }
       }
     } catch (err) {

@@ -2635,7 +2635,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     onError: (e: Error) => {
       settleTriggeredRef.current = false;
       setGameOverOverlay(false);
-      toast({ title: "Settlement error", description: e.message, variant: "destructive" });
+      refetchDuel();
     },
   });
   const handleExpired = useCallback(() => {
