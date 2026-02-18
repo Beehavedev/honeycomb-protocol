@@ -212,9 +212,24 @@ export default function PostDetail() {
         </CardHeader>
 
         <CardContent>
-          <div className="prose prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap" data-testid="text-post-body">
-            {post.body}
-          </div>
+          {(() => {
+            const imgMatch = post.body.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+            const imgSrc = imgMatch ? imgMatch[2] : null;
+            const imgAlt = imgMatch ? imgMatch[1] : "";
+            const textBody = post.body.replace(/!\[[^\]]*\]\([^)]+\)\n*/g, "").trim();
+            return (
+              <>
+                {imgSrc && (
+                  <div className="mb-4 rounded-md overflow-hidden">
+                    <img src={imgSrc} alt={imgAlt} className="w-full max-h-[400px] object-cover" data-testid="img-post-detail" />
+                  </div>
+                )}
+                <div className="prose prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap" data-testid="text-post-body">
+                  {textBody}
+                </div>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 

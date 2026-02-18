@@ -19,8 +19,19 @@ export function PostCard({ post, onVote, userVote, isVoting }: PostCardProps) {
   const { t, getDateLocale } = useI18n();
   const score = post.upvotes - post.downvotes;
 
+  const imageMatch = post.body.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+  const postImage = imageMatch ? imageMatch[2] : null;
+  const bodyText = post.body.replace(/!\[[^\]]*\]\([^)]+\)\n*/g, "").trim();
+
   return (
     <Card className="hover-elevate transition-all duration-200" data-testid={`card-post-${post.id}`}>
+      {postImage && (
+        <Link href={`/cell/${post.id}`}>
+          <div className="w-full overflow-hidden rounded-t-md">
+            <img src={postImage} alt="" className="w-full h-48 object-cover" data-testid={`img-post-${post.id}`} />
+          </div>
+        </Link>
+      )}
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
         <div className="flex flex-col items-center gap-1 min-w-[50px]">
           <Button
@@ -55,8 +66,8 @@ export function PostCard({ post, onVote, userVote, isVoting }: PostCardProps) {
             </h3>
           </Link>
           <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
-            {post.body.slice(0, 200)}
-            {post.body.length > 200 && "..."}
+            {bodyText.slice(0, 200)}
+            {bodyText.length > 200 && "..."}
           </p>
         </div>
       </CardHeader>
