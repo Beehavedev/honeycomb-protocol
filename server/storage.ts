@@ -34,6 +34,10 @@ import {
   type DeveloperAccount, type InsertDeveloperAccount,
   type DeveloperGame, type InsertDeveloperGame,
   type GameSession,
+  type OpenclawLink, type InsertOpenclawLink,
+  type OpenclawWebhook, type InsertOpenclawWebhook,
+  type OpenclawAlertSubscription, type InsertOpenclawAlertSub,
+  type OpenclawAlertEvent,
   agents, posts, comments, votes, authNonces, bounties, solutions,
   launchTokens, launchTrades, launchActivity, launchComments, duels, duelAssets,
   duelStats, leaderboardDaily, leaderboardWeekly,
@@ -42,7 +46,8 @@ import {
   userPoints, pointsHistory, pointsConfig,
   tradingDuels, tradingPositions,
   crmContacts, crmDeals, crmActivities,
-  developerAccounts, developerGames, gameSessions
+  developerAccounts, developerGames, gameSessions,
+  openclawLinks, openclawWebhooks, openclawAlertSubscriptions, openclawAlertEvents
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -305,6 +310,33 @@ export interface IStorage {
   endGameSession(id: string, outcome: string, score: number, grossAmount: string, platformFee: string, developerNet: string): Promise<GameSession>;
   getGameSessionsByDeveloper(developerId: string, limit: number): Promise<GameSession[]>;
   getDeveloperEarnings(developerId: string): Promise<{ totalSessions: number; totalRevenue: string; totalFees: string; totalNet: string }>;
+
+  // OpenClaw Integration
+  createOpenclawLink(data: InsertOpenclawLink): Promise<OpenclawLink>;
+  getOpenclawLink(id: string): Promise<OpenclawLink | undefined>;
+  getOpenclawLinkByAgent(agentId: string): Promise<OpenclawLink | undefined>;
+  getOpenclawLinkByApiKey(apiKey: string): Promise<OpenclawLink | undefined>;
+  updateOpenclawLink(id: string, updates: Partial<OpenclawLink>): Promise<OpenclawLink>;
+  deleteOpenclawLink(id: string): Promise<void>;
+
+  createOpenclawWebhook(data: InsertOpenclawWebhook): Promise<OpenclawWebhook>;
+  getOpenclawWebhook(id: string): Promise<OpenclawWebhook | undefined>;
+  getOpenclawWebhooksByAgent(agentId: string): Promise<OpenclawWebhook[]>;
+  updateOpenclawWebhook(id: string, updates: Partial<OpenclawWebhook>): Promise<OpenclawWebhook>;
+  deleteOpenclawWebhook(id: string): Promise<void>;
+  incrementWebhookFailCount(id: string): Promise<void>;
+  resetWebhookFailCount(id: string): Promise<void>;
+
+  createOpenclawAlertSub(data: InsertOpenclawAlertSub): Promise<OpenclawAlertSubscription>;
+  getOpenclawAlertSubsByAgent(agentId: string): Promise<OpenclawAlertSubscription[]>;
+  getOpenclawAlertSubsByType(alertType: string): Promise<OpenclawAlertSubscription[]>;
+  updateOpenclawAlertSub(id: string, updates: Partial<OpenclawAlertSubscription>): Promise<OpenclawAlertSubscription>;
+  deleteOpenclawAlertSub(id: string): Promise<void>;
+
+  createOpenclawAlertEvent(data: Omit<OpenclawAlertEvent, 'id' | 'createdAt' | 'lastAttemptAt' | 'deliveredAt'>): Promise<OpenclawAlertEvent>;
+  getPendingAlertEvents(limit: number): Promise<OpenclawAlertEvent[]>;
+  updateAlertEventStatus(id: string, status: string, attempts: number): Promise<void>;
+  markAlertEventDelivered(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2018,6 +2050,114 @@ export class DatabaseStorage implements IStorage {
       .from(gameSessions)
       .where(and(eq(gameSessions.developerId, developerId), eq(gameSessions.status, "completed")));
     return result[0] ?? { totalSessions: 0, totalRevenue: "0", totalFees: "0", totalNet: "0" };
+  }
+
+  // OpenClaw Integration
+  async createOpenclawLink(data: InsertOpenclawLink): Promise<OpenclawLink> {
+    const [link] = await db.insert(openclawLinks).values(data).returning();
+    return link;
+  }
+
+  async getOpenclawLink(id: string): Promise<OpenclawLink | undefined> {
+    const [link] = await db.select().from(openclawLinks).where(eq(openclawLinks.id, id));
+    return link;
+  }
+
+  async getOpenclawLinkByAgent(agentId: string): Promise<OpenclawLink | undefined> {
+    const [link] = await db.select().from(openclawLinks).where(and(eq(openclawLinks.agentId, agentId), eq(openclawLinks.status, "active")));
+    return link;
+  }
+
+  async getOpenclawLinkByApiKey(apiKey: string): Promise<OpenclawLink | undefined> {
+    const [link] = await db.select().from(openclawLinks).where(eq(openclawLinks.openclawApiKey, apiKey));
+    return link;
+  }
+
+  async updateOpenclawLink(id: string, updates: Partial<OpenclawLink>): Promise<OpenclawLink> {
+    const [link] = await db.update(openclawLinks).set(updates).where(eq(openclawLinks.id, id)).returning();
+    return link;
+  }
+
+  async deleteOpenclawLink(id: string): Promise<void> {
+    await db.delete(openclawLinks).where(eq(openclawLinks.id, id));
+  }
+
+  async createOpenclawWebhook(data: InsertOpenclawWebhook): Promise<OpenclawWebhook> {
+    const [wh] = await db.insert(openclawWebhooks).values(data).returning();
+    return wh;
+  }
+
+  async getOpenclawWebhook(id: string): Promise<OpenclawWebhook | undefined> {
+    const [wh] = await db.select().from(openclawWebhooks).where(eq(openclawWebhooks.id, id));
+    return wh;
+  }
+
+  async getOpenclawWebhooksByAgent(agentId: string): Promise<OpenclawWebhook[]> {
+    return db.select().from(openclawWebhooks).where(eq(openclawWebhooks.agentId, agentId));
+  }
+
+  async updateOpenclawWebhook(id: string, updates: Partial<OpenclawWebhook>): Promise<OpenclawWebhook> {
+    const [wh] = await db.update(openclawWebhooks).set(updates).where(eq(openclawWebhooks.id, id)).returning();
+    return wh;
+  }
+
+  async deleteOpenclawWebhook(id: string): Promise<void> {
+    await db.delete(openclawWebhooks).where(eq(openclawWebhooks.id, id));
+  }
+
+  async incrementWebhookFailCount(id: string): Promise<void> {
+    await db.update(openclawWebhooks).set({
+      failCount: sql`${openclawWebhooks.failCount} + 1`,
+      lastDeliveryAt: new Date(),
+    }).where(eq(openclawWebhooks.id, id));
+  }
+
+  async resetWebhookFailCount(id: string): Promise<void> {
+    await db.update(openclawWebhooks).set({ failCount: 0, lastDeliveryAt: new Date() }).where(eq(openclawWebhooks.id, id));
+  }
+
+  async createOpenclawAlertSub(data: InsertOpenclawAlertSub): Promise<OpenclawAlertSubscription> {
+    const [sub] = await db.insert(openclawAlertSubscriptions).values(data).returning();
+    return sub;
+  }
+
+  async getOpenclawAlertSubsByAgent(agentId: string): Promise<OpenclawAlertSubscription[]> {
+    return db.select().from(openclawAlertSubscriptions).where(eq(openclawAlertSubscriptions.agentId, agentId));
+  }
+
+  async getOpenclawAlertSubsByType(alertType: string): Promise<OpenclawAlertSubscription[]> {
+    return db.select().from(openclawAlertSubscriptions).where(
+      and(eq(openclawAlertSubscriptions.alertType, alertType), eq(openclawAlertSubscriptions.isActive, true))
+    );
+  }
+
+  async updateOpenclawAlertSub(id: string, updates: Partial<OpenclawAlertSubscription>): Promise<OpenclawAlertSubscription> {
+    const [sub] = await db.update(openclawAlertSubscriptions).set(updates).where(eq(openclawAlertSubscriptions.id, id)).returning();
+    return sub;
+  }
+
+  async deleteOpenclawAlertSub(id: string): Promise<void> {
+    await db.delete(openclawAlertSubscriptions).where(eq(openclawAlertSubscriptions.id, id));
+  }
+
+  async createOpenclawAlertEvent(data: Omit<OpenclawAlertEvent, 'id' | 'createdAt' | 'lastAttemptAt' | 'deliveredAt'>): Promise<OpenclawAlertEvent> {
+    const [event] = await db.insert(openclawAlertEvents).values(data).returning();
+    return event;
+  }
+
+  async getPendingAlertEvents(limit: number): Promise<OpenclawAlertEvent[]> {
+    return db.select().from(openclawAlertEvents)
+      .where(eq(openclawAlertEvents.status, "pending"))
+      .orderBy(openclawAlertEvents.createdAt)
+      .limit(limit);
+  }
+
+  async updateAlertEventStatus(id: string, status: string, attempts: number): Promise<void> {
+    await db.update(openclawAlertEvents).set({ status, attempts, lastAttemptAt: new Date() }).where(eq(openclawAlertEvents.id, id));
+  }
+
+  async markAlertEventDelivered(id: string): Promise<void> {
+    await db.update(openclawAlertEvents).set({ status: "delivered", deliveredAt: new Date(), lastAttemptAt: new Date() }).where(eq(openclawAlertEvents.id, id));
   }
 }
 

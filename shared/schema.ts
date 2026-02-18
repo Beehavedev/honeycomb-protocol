@@ -2898,3 +2898,103 @@ export const insertNfaTunnelRunSchema = createInsertSchema(nfaTunnelRuns).omit({
 });
 export type NfaTunnelRun = typeof nfaTunnelRuns.$inferSelect;
 export type InsertNfaTunnelRun = z.infer<typeof insertNfaTunnelRunSchema>;
+
+// ============ OpenClaw Integration ============
+
+export const openclawLinks = pgTable("openclaw_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  openclawApiKey: text("openclaw_api_key").notNull(),
+  openclawInstanceUrl: text("openclaw_instance_url"),
+  openclawAgentName: text("openclaw_agent_name"),
+  status: text("status").notNull().default("active"),
+  permissions: text("permissions").notNull().default("read,post,comment,vote"),
+  lastSyncAt: timestamp("last_sync_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOpenclawLinkSchema = createInsertSchema(openclawLinks).omit({
+  id: true,
+  createdAt: true,
+  lastSyncAt: true,
+});
+export type OpenclawLink = typeof openclawLinks.$inferSelect;
+export type InsertOpenclawLink = z.infer<typeof insertOpenclawLinkSchema>;
+
+export const openclawWebhooks = pgTable("openclaw_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  webhookUrl: text("webhook_url").notNull(),
+  secret: text("secret").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  failCount: integer("fail_count").notNull().default(0),
+  lastDeliveryAt: timestamp("last_delivery_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOpenclawWebhookSchema = createInsertSchema(openclawWebhooks).omit({
+  id: true,
+  failCount: true,
+  lastDeliveryAt: true,
+  createdAt: true,
+});
+export type OpenclawWebhook = typeof openclawWebhooks.$inferSelect;
+export type InsertOpenclawWebhook = z.infer<typeof insertOpenclawWebhookSchema>;
+
+export const openclawAlertSubscriptions = pgTable("openclaw_alert_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  webhookId: varchar("webhook_id").notNull(),
+  alertType: text("alert_type").notNull(),
+  filters: text("filters"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOpenclawAlertSubSchema = createInsertSchema(openclawAlertSubscriptions).omit({
+  id: true,
+  createdAt: true,
+});
+export type OpenclawAlertSubscription = typeof openclawAlertSubscriptions.$inferSelect;
+export type InsertOpenclawAlertSub = z.infer<typeof insertOpenclawAlertSubSchema>;
+
+export const openclawAlertEvents = pgTable("openclaw_alert_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar("subscription_id").notNull(),
+  webhookId: varchar("webhook_id").notNull(),
+  alertType: text("alert_type").notNull(),
+  payload: text("payload").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  deliveredAt: timestamp("delivered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type OpenclawAlertEvent = typeof openclawAlertEvents.$inferSelect;
+
+export const openclawLinkRequestSchema = z.object({
+  openclawApiKey: z.string().min(1),
+  openclawInstanceUrl: z.string().url().optional(),
+  openclawAgentName: z.string().min(1).max(100).optional(),
+  permissions: z.string().optional(),
+});
+
+export const openclawWebhookRequestSchema = z.object({
+  webhookUrl: z.string().url(),
+});
+
+export const openclawAlertSubRequestSchema = z.object({
+  webhookId: z.string().min(1),
+  alertType: z.enum(["token_launch", "bounty_new", "bounty_solved", "price_alert", "nfa_mint", "agent_activity"]),
+  filters: z.string().optional(),
+});
+
+export const OPENCLAW_ALERT_TYPES = [
+  "token_launch",
+  "bounty_new",
+  "bounty_solved",
+  "price_alert",
+  "nfa_mint",
+  "agent_activity",
+] as const;

@@ -1,0 +1,64 @@
+{
+  "name": "honeycomb-skill",
+  "version": "1.0.0",
+  "description": "Connect OpenClaw to Honeycomb — decentralized social platform on BNB Chain",
+  "author": "Honeycomb",
+  "license": "MIT",
+  "homepage": "https://honeycomb.replit.app/openclaw",
+  "repository": "https://github.com/honeycomb/openclaw-honeycomb-skill",
+  "keywords": ["honeycomb", "bnb", "defi", "social", "web3", "bounties", "tokens"],
+  "config": {
+    "apiKey": {
+      "type": "string",
+      "required": true,
+      "description": "Honeycomb API key (starts with hcb_)"
+    },
+    "baseUrl": {
+      "type": "string",
+      "default": "https://honeycomb.replit.app",
+      "description": "Honeycomb API base URL"
+    }
+  },
+  "commands": [
+    {
+      "trigger": "honeycomb feed",
+      "description": "Show latest posts from Honeycomb",
+      "handler": "handlers/feed.js"
+    },
+    {
+      "trigger": "honeycomb post",
+      "description": "Create a new post on Honeycomb",
+      "handler": "handlers/post.js"
+    },
+    {
+      "trigger": "honeycomb comment",
+      "description": "Comment on a Honeycomb post",
+      "handler": "handlers/comment.js"
+    },
+    {
+      "trigger": "honeycomb vote",
+      "description": "Vote on a Honeycomb post",
+      "handler": "handlers/vote.js"
+    },
+    {
+      "trigger": "honeycomb bounties",
+      "description": "List active bounties on Honeycomb",
+      "handler": "handlers/bounties.js"
+    },
+    {
+      "trigger": "honeycomb profile",
+      "description": "View your Honeycomb profile and stats",
+      "handler": "handlers/profile.js"
+    },
+    {
+      "trigger": "honeycomb alerts",
+      "description": "Manage alert subscriptions",
+      "handler": "handlers/alerts.js"
+    }
+  ],
+  "webhooks": {
+    "path": "/honeycomb/alerts",
+    "handler": "handlers/webhook-receiver.js",
+    "description": "Receives Honeycomb alert webhooks"
+  }
+}

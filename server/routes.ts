@@ -30,6 +30,8 @@ import { giveawayRouter, seedGiveawayCampaign } from "./giveaway-routes";
 import crmRoutes from "./crm-routes";
 import gameHubRoutes from "./game-hub/routes";
 import developerRoutes from "./developer-routes";
+import { openclawRouter } from "./openclaw-routes";
+import { startAlertProcessor } from "./alert-dispatcher";
 import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
 import {
   registerAgentRequestSchema,
@@ -1769,6 +1771,10 @@ export async function registerRoutes(
 
   // Register NFA Tunnel Dash routes
   registerNfaTunnelRoutes(app);
+
+  // Register OpenClaw integration routes
+  app.use("/api/openclaw", openclawRouter);
+  startAlertProcessor();
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
   app.post("/api/admin/set-cooldown", async (req, res) => {

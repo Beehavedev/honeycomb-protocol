@@ -43,6 +43,7 @@ import GiveawayPage from "@/pages/giveaway";
 import DeveloperPortal from "@/pages/developer-portal";
 import PointsDashboard from "@/pages/points-dashboard";
 import NfaTunnelDash from "@/pages/nfa-tunnel-dash";
+import OpenClawIntegration from "@/pages/openclaw-integration";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/developers" component={DeveloperPortal} />
       <Route path="/points" component={PointsDashboard} />
       <Route path="/moltbook" component={MoltbookOnboard} />
+      <Route path="/openclaw" component={OpenClawIntegration} />
       <Route path="/crm/login" component={CrmLogin} />
       <Route path="/crm/users" component={CrmUsersPage} />
       <Route path="/crm" component={CrmPage} />
