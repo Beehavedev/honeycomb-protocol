@@ -72,6 +72,7 @@ export function useTotalAgents() {
 
 export function useRegisterAgent() {
   const address = useAgentRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -83,6 +84,7 @@ export function useRegisterAgent() {
       abi: HoneycombAgentRegistryABI,
       functionName: 'registerAgent',
       args: [metadataCID],
+      chainId,
     });
   };
   
@@ -91,6 +93,7 @@ export function useRegisterAgent() {
 
 export function useUpdateAgent() {
   const address = useAgentRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -102,6 +105,7 @@ export function useUpdateAgent() {
       abi: HoneycombAgentRegistryABI,
       functionName: 'updateAgent',
       args: [agentId, newMetadataCID],
+      chainId,
     });
   };
   
@@ -149,6 +153,7 @@ export function useTotalBounties() {
 
 export function useCreateBounty() {
   const address = useBountyEscrowAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -161,6 +166,7 @@ export function useCreateBounty() {
       functionName: 'createBounty',
       args: [agentId, bountyCID, deadline],
       value: parseEther(rewardBnb),
+      chainId,
     });
   };
   
@@ -169,6 +175,7 @@ export function useCreateBounty() {
 
 export function useSubmitSolution() {
   const address = useBountyEscrowAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -180,6 +187,7 @@ export function useSubmitSolution() {
       abi: HoneycombBountyEscrowABI,
       functionName: 'submitSolution',
       args: [bountyId, agentId, solutionCID],
+      chainId,
     });
   };
   
@@ -188,6 +196,7 @@ export function useSubmitSolution() {
 
 export function useAwardSolution() {
   const address = useBountyEscrowAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -199,6 +208,7 @@ export function useAwardSolution() {
       abi: HoneycombBountyEscrowABI,
       functionName: 'awardSolution',
       args: [bountyId, solutionId],
+      chainId,
     });
   };
   
@@ -207,6 +217,7 @@ export function useAwardSolution() {
 
 export function useCancelBounty() {
   const address = useBountyEscrowAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -218,6 +229,7 @@ export function useCancelBounty() {
       abi: HoneycombBountyEscrowABI,
       functionName: 'cancelBounty',
       args: [bountyId],
+      chainId,
     });
   };
   
@@ -264,6 +276,7 @@ export function useChallengeStake() {
 
 export function useCreatePostBond() {
   const address = usePostBondAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -276,6 +289,7 @@ export function useCreatePostBond() {
       functionName: 'createPost',
       args: [agentId, contentCID],
       value: parseEther(bondBnb),
+      chainId,
     });
   };
   
@@ -284,6 +298,7 @@ export function useCreatePostBond() {
 
 export function useChallengePost() {
   const address = usePostBondAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -296,6 +311,7 @@ export function useChallengePost() {
       functionName: 'challengePost',
       args: [postId, reason],
       value: parseEther(stakeBnb),
+      chainId,
     });
   };
   
@@ -345,6 +361,7 @@ export function useBondingCurveMarketAddress() {
 
 export function useCreateToken() {
   const address = useTokenFactoryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -361,6 +378,7 @@ export function useCreateToken() {
       abi: HoneycombTokenFactoryABI,
       functionName: 'createToken',
       args: [name, symbol, metadataCID, creatorBeeId, salt],
+      chainId,
     });
   };
   
@@ -369,6 +387,7 @@ export function useCreateToken() {
 
 export function useInitializeMarket() {
   const address = useBondingCurveMarketAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -384,6 +403,7 @@ export function useInitializeMarket() {
       abi: HoneycombBondingCurveMarketABI,
       functionName: 'initializeMarket',
       args: [tokenAddress],
+      chainId,
     });
   };
   
@@ -483,6 +503,7 @@ export function useQuoteSell(tokenAddress?: `0x${string}`, tokenAmountIn?: bigin
 
 export function useBuyTokens() {
   const address = useBondingCurveMarketAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -495,6 +516,7 @@ export function useBuyTokens() {
       functionName: 'buy',
       args: [tokenAddress, minTokensOut],
       value: nativeValueWei,
+      chainId,
     });
   };
   
@@ -503,6 +525,7 @@ export function useBuyTokens() {
 
 export function useSellTokens() {
   const address = useBondingCurveMarketAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error, reset } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -515,6 +538,7 @@ export function useSellTokens() {
       abi: HoneycombBondingCurveMarketABI,
       functionName: 'sell',
       args: [tokenAddress, tokenAmountIn, minNativeOut],
+      chainId,
     });
   };
   
@@ -569,6 +593,7 @@ export function useTokenAllowance(tokenAddress?: `0x${string}`, owner?: `0x${str
 }
 
 export function useApproveToken() {
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -579,6 +604,7 @@ export function useApproveToken() {
       abi: HoneycombTokenABI,
       functionName: 'approve',
       args: [spender, amount],
+      chainId,
     });
   };
   
@@ -632,6 +658,7 @@ export function useGetMigrationInfo(tokenAddress?: `0x${string}`) {
 
 export function useMigrateToken() {
   const address = useMigrationAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
@@ -643,6 +670,7 @@ export function useMigrateToken() {
       abi: HoneycombMigrationABI,
       functionName: 'migrate',
       args: [tokenAddress],
+      chainId,
     });
   };
   
@@ -824,6 +852,7 @@ export function useDuelFeeConfig() {
 
 export function useCreateDuel() {
   const address = usePredictDuelAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, data: receipt } = useWaitForTransactionReceipt({ hash });
 
@@ -841,6 +870,7 @@ export function useCreateDuel() {
       functionName: 'createDuel',
       args: [agentId, assetId, direction, durationSeconds],
       value: stakeWei,
+      chainId,
     });
   };
 
@@ -849,6 +879,7 @@ export function useCreateDuel() {
 
 export function useJoinDuel() {
   const address = usePredictDuelAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -865,6 +896,7 @@ export function useJoinDuel() {
       functionName: 'joinDuel',
       args: [duelId, agentId, startPrice],
       value: stakeWei,
+      chainId,
     });
   };
 
@@ -873,6 +905,7 @@ export function useJoinDuel() {
 
 export function useCancelDuel() {
   const address = usePredictDuelAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -883,6 +916,7 @@ export function useCancelDuel() {
       abi: HoneycombPredictDuelABI,
       functionName: 'cancelDuel',
       args: [duelId],
+      chainId,
     });
   };
 
@@ -891,6 +925,7 @@ export function useCancelDuel() {
 
 export function useSettleDuel() {
   const address = usePredictDuelAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -901,6 +936,7 @@ export function useSettleDuel() {
       abi: HoneycombPredictDuelABI,
       functionName: 'settleDuel',
       args: [duelId, endPrice],
+      chainId,
     });
   };
 
@@ -985,6 +1021,7 @@ export function useERC8004AgentMetadata(agentId?: bigint, metadataKey?: string) 
 // Register new ERC-8004 agent
 export function useERC8004RegisterAgent() {
   const address = useERC8004IdentityRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -995,6 +1032,7 @@ export function useERC8004RegisterAgent() {
       abi: ERC8004IdentityRegistryABI,
       functionName: 'register',
       args: [agentURI],
+      chainId,
     });
   };
 
@@ -1004,6 +1042,7 @@ export function useERC8004RegisterAgent() {
 // Register agent with metadata
 export function useERC8004RegisterAgentWithMetadata() {
   const address = useERC8004IdentityRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1014,6 +1053,7 @@ export function useERC8004RegisterAgentWithMetadata() {
       abi: ERC8004IdentityRegistryABI,
       functionName: 'register',
       args: [agentURI, metadata],
+      chainId,
     });
   };
 
@@ -1023,6 +1063,7 @@ export function useERC8004RegisterAgentWithMetadata() {
 // Update agent URI
 export function useERC8004SetAgentURI() {
   const address = useERC8004IdentityRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1033,6 +1074,7 @@ export function useERC8004SetAgentURI() {
       abi: ERC8004IdentityRegistryABI,
       functionName: 'setAgentURI',
       args: [agentId, newURI],
+      chainId,
     });
   };
 
@@ -1042,6 +1084,7 @@ export function useERC8004SetAgentURI() {
 // Set agent metadata
 export function useERC8004SetMetadata() {
   const address = useERC8004IdentityRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1052,6 +1095,7 @@ export function useERC8004SetMetadata() {
       abi: ERC8004IdentityRegistryABI,
       functionName: 'setMetadata',
       args: [agentId, metadataKey, metadataValue],
+      chainId,
     });
   };
 
@@ -1119,6 +1163,7 @@ export function useERC8004ReadFeedback(agentId?: bigint, clientAddress?: `0x${st
 // Give feedback to an agent
 export function useERC8004GiveFeedback() {
   const address = useERC8004ReputationRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1138,6 +1183,7 @@ export function useERC8004GiveFeedback() {
       abi: ERC8004ReputationRegistryABI,
       functionName: 'giveFeedback',
       args: [agentId, value, valueDecimals, tag1, tag2, endpoint, feedbackURI, feedbackHash],
+      chainId,
     });
   };
 
@@ -1147,6 +1193,7 @@ export function useERC8004GiveFeedback() {
 // Revoke feedback
 export function useERC8004RevokeFeedback() {
   const address = useERC8004ReputationRegistryAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1157,6 +1204,7 @@ export function useERC8004RevokeFeedback() {
       abi: ERC8004ReputationRegistryABI,
       functionName: 'revokeFeedback',
       args: [agentId, feedbackIndex],
+      chainId,
     });
   };
 
@@ -1253,6 +1301,7 @@ export function useHoneyTradingEnabled() {
 
 export function useHoneyApprove() {
   const address = useHoneyTokenAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1263,6 +1312,7 @@ export function useHoneyApprove() {
       abi: HoneyTokenABI,
       functionName: 'approve',
       args: [spender, amount],
+      chainId,
     });
   };
 
@@ -1271,6 +1321,7 @@ export function useHoneyApprove() {
 
 export function useHoneyTransfer() {
   const address = useHoneyTokenAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1281,6 +1332,7 @@ export function useHoneyTransfer() {
       abi: HoneyTokenABI,
       functionName: 'transfer',
       args: [to, amount],
+      chainId,
     });
   };
 
@@ -1289,6 +1341,7 @@ export function useHoneyTransfer() {
 
 export function useHoneyBurn() {
   const address = useHoneyTokenAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1299,6 +1352,7 @@ export function useHoneyBurn() {
       abi: HoneyTokenABI,
       functionName: 'burn',
       args: [amount],
+      chainId,
     });
   };
 
@@ -1394,6 +1448,7 @@ export function useStakingRewardPool() {
 
 export function useStakeHoney() {
   const address = useHoneyStakingAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1404,6 +1459,7 @@ export function useStakeHoney() {
       abi: HoneyStakingABI,
       functionName: 'stake',
       args: [amount, lockPeriod],
+      chainId,
     });
   };
 
@@ -1412,6 +1468,7 @@ export function useStakeHoney() {
 
 export function useUnstakeHoney() {
   const address = useHoneyStakingAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1422,6 +1479,7 @@ export function useUnstakeHoney() {
       abi: HoneyStakingABI,
       functionName: 'unstake',
       args: [amount],
+      chainId,
     });
   };
 
@@ -1430,6 +1488,7 @@ export function useUnstakeHoney() {
 
 export function useClaimStakingRewards() {
   const address = useHoneyStakingAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1439,6 +1498,7 @@ export function useClaimStakingRewards() {
       address,
       abi: HoneyStakingABI,
       functionName: 'claimRewards',
+      chainId,
     });
   };
 
@@ -1447,6 +1507,7 @@ export function useClaimStakingRewards() {
 
 export function useFundRewardPool() {
   const address = useHoneyStakingAddress();
+  const chainId = useChainId();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -1457,6 +1518,7 @@ export function useFundRewardPool() {
       abi: HoneyStakingABI,
       functionName: 'fundRewardPool',
       args: [amount],
+      chainId,
     });
   };
 
@@ -1553,6 +1615,7 @@ export function useBAP578MintAgent() {
         },
       ],
       value: params.mintFee,
+      chainId,
     });
   };
 
@@ -1576,6 +1639,7 @@ export function useRegisterAgentOnRegistry() {
       abi: HoneycombAgentRegistryABI,
       functionName: 'registerAgent',
       args: [metadataCID],
+      chainId,
     });
   };
 
