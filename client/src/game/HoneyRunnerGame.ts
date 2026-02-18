@@ -89,7 +89,7 @@ class HoneyRunner3D {
   private playerWingR!: THREE.Mesh;
   private shieldBubble!: THREE.Mesh;
   private tunnel!: THREE.Group;
-  private rings: THREE.Mesh[] = [];
+  private rings: THREE.Line[] = [];
   private wallLines: THREE.Line[] = [];
   private obstacles: Obstacle[] = [];
   private coinPool: Coin[] = [];
@@ -189,50 +189,90 @@ class HoneyRunner3D {
     this.tunnel = new THREE.Group();
     this.scene.add(this.tunnel);
 
-    const floorGeo = new THREE.PlaneGeometry(TUNNEL_RAD * 2.2, TUNNEL_LEN);
+    const floorWidth = LANE_W * 3 + 2;
+    const floorGeo = new THREE.PlaneGeometry(floorWidth, TUNNEL_LEN);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0a0a12,
+      color: 0x08080f,
       emissive: 0x020204,
       emissiveIntensity: 0.3,
-      metalness: 0.6,
-      roughness: 0.4,
+      metalness: 0.7,
+      roughness: 0.3,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(0, -0.01, -TUNNEL_LEN / 2 + 10);
     this.tunnel.add(floor);
 
+    const gridMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.08 });
+    for (let z = 0; z <= TUNNEL_LEN; z += 3) {
+      const crossGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-floorWidth / 2, 0.02, -z + 10),
+        new THREE.Vector3(floorWidth / 2, 0.02, -z + 10),
+      ]);
+      this.tunnel.add(new THREE.Line(crossGeo, gridMat));
+    }
+
     for (let i = 0; i < 3; i++) {
       const laneX = LANES[i];
-      const lineGeo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(laneX - LANE_W * 0.45, 0.01, 10),
-        new THREE.Vector3(laneX - LANE_W * 0.45, 0.01, -TUNNEL_LEN),
-        new THREE.Vector3(laneX + LANE_W * 0.45, 0.01, 10),
-        new THREE.Vector3(laneX + LANE_W * 0.45, 0.01, -TUNNEL_LEN),
-      ]);
-      const lineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.15 });
-      const line = new THREE.LineSegments(lineGeo, lineMat);
-      this.tunnel.add(line);
+      const pts = [
+        new THREE.Vector3(laneX - LANE_W * 0.5, 0.02, 10),
+        new THREE.Vector3(laneX - LANE_W * 0.5, 0.02, -TUNNEL_LEN),
+      ];
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.12 });
+      this.tunnel.add(new THREE.Line(lineGeo, lineMat));
+      if (i === 2) {
+        const pts2 = [
+          new THREE.Vector3(laneX + LANE_W * 0.5, 0.02, 10),
+          new THREE.Vector3(laneX + LANE_W * 0.5, 0.02, -TUNNEL_LEN),
+        ];
+        this.tunnel.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), lineMat));
+      }
     }
 
-    const ringGeo = new THREE.TorusGeometry(TUNNEL_RAD, 0.06, 8, 32);
+    const archSegments = 24;
+    const archHeight = TUNNEL_RAD * 1.2;
+    const archHalfW = floorWidth / 2 + 0.5;
+    const archPts: THREE.Vector3[] = [];
+    for (let j = 0; j <= archSegments; j++) {
+      const t = j / archSegments;
+      const angle = Math.PI * t;
+      const x = Math.cos(angle) * archHalfW;
+      const y = Math.sin(angle) * archHeight;
+      archPts.push(new THREE.Vector3(x, Math.max(y, 0), 0));
+    }
+
+    const ringSpacing = TUNNEL_LEN / RING_COUNT;
     for (let i = 0; i < RING_COUNT; i++) {
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.3 });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.position.set(0, TUNNEL_RAD * 0.55, -i * (TUNNEL_LEN / RING_COUNT));
-      ring.rotation.y = Math.PI * 0.02 * i;
-      this.tunnel.add(ring);
-      this.rings.push(ring);
+      const zPos = -i * ringSpacing;
+      const archGeo = new THREE.BufferGeometry().setFromPoints(archPts);
+      const opacity = 0.15 + 0.15 * (1 - i / RING_COUNT);
+      const ringMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity });
+      const archLine = new THREE.Line(archGeo, ringMat);
+      archLine.position.z = zPos;
+      this.tunnel.add(archLine);
+      this.rings.push(archLine);
+
+      const pillarHeight = 0.8;
+      const pillarMat = new THREE.MeshBasicMaterial({ color: 0xf0a500, transparent: true, opacity: opacity * 0.5 });
+      const pillarGeo = new THREE.BoxGeometry(0.06, pillarHeight, 0.06);
+      const pillarL = new THREE.Mesh(pillarGeo, pillarMat);
+      pillarL.position.set(-archHalfW, pillarHeight / 2, zPos);
+      this.tunnel.add(pillarL);
+      const pillarR = new THREE.Mesh(pillarGeo, pillarMat);
+      pillarR.position.set(archHalfW, pillarHeight / 2, zPos);
+      this.tunnel.add(pillarR);
     }
 
-    const wallLineCount = 12;
-    const wallLineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.08 });
+    const wallLineCount = 8;
+    const wallLineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.06 });
     for (let i = 0; i < wallLineCount; i++) {
-      const angle = (i / wallLineCount) * Math.PI * 2;
-      const pts = [];
+      const t = (i + 1) / (wallLineCount + 1);
+      const angle = Math.PI * t;
+      const pts: THREE.Vector3[] = [];
       for (let z = 0; z <= TUNNEL_LEN; z += 2) {
-        const x = Math.cos(angle) * TUNNEL_RAD;
-        const y = Math.sin(angle) * TUNNEL_RAD * 0.55 + TUNNEL_RAD * 0.55;
+        const x = Math.cos(angle) * archHalfW;
+        const y = Math.sin(angle) * archHeight;
         pts.push(new THREE.Vector3(x, Math.max(y, 0), -z + 10));
       }
       const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -240,6 +280,18 @@ class HoneyRunner3D {
       this.tunnel.add(line);
       this.wallLines.push(line);
     }
+
+    const edgeLineMat = new THREE.LineBasicMaterial({ color: 0xf0a500, transparent: true, opacity: 0.1 });
+    const edgeL = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-archHalfW, 0, 10),
+      new THREE.Vector3(-archHalfW, 0, -TUNNEL_LEN),
+    ]);
+    this.tunnel.add(new THREE.Line(edgeL, edgeLineMat));
+    const edgeR = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(archHalfW, 0, 10),
+      new THREE.Vector3(archHalfW, 0, -TUNNEL_LEN),
+    ]);
+    this.tunnel.add(new THREE.Line(edgeR, edgeLineMat));
   }
 
   private buildPlayer() {
@@ -940,8 +992,8 @@ class HoneyRunner3D {
         if (ring.position.z > 10) ring.position.z -= TUNNEL_LEN;
       }
       const pulse = 0.2 + Math.sin(t * 3 + i * 0.5) * 0.15;
-      (ring.material as THREE.MeshBasicMaterial).opacity = pulse;
-      (ring.material as THREE.MeshBasicMaterial).color.copy(phaseColor);
+      (ring.material as THREE.LineBasicMaterial).opacity = pulse;
+      (ring.material as THREE.LineBasicMaterial).color.copy(phaseColor);
     }
 
     for (const coin of this.coinPool) {
