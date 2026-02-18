@@ -24,7 +24,11 @@ import {
   Star,
   Target,
   Medal,
+  Copy,
+  Hash,
+  X,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { TriviaDuel } from "@shared/schema";
 
 function decodeHtml(html: string): string {
@@ -38,6 +42,8 @@ function TriviaLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void })
   const [category, setCategory] = useState("general");
   const [difficulty, setDifficulty] = useState("medium");
   const [questionCount, setQuestionCount] = useState("10");
+  const [showJoinCode, setShowJoinCode] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
 
   const { data: categories } = useQuery<{ key: string; id: number; label: string }[]>({
     queryKey: ["/api/trivia/categories"],
@@ -85,6 +91,40 @@ function TriviaLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void })
     },
     onError: (e: any) => {
       toast({ title: "Error", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const joinByCodeMutation = useMutation({
+    mutationFn: async (code: string) => {
+      return await apiRequest<TriviaDuel>("POST", "/api/trivia/duels/join-by-code", {
+        joinCode: code,
+        joinerName: agent?.name || "Player",
+        joinerAddress: agent?.ownerAddress,
+      });
+    },
+    onSuccess: (duel: TriviaDuel) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trivia/duels"] });
+      setJoinCodeInput("");
+      setShowJoinCode(false);
+      onStartDuel(duel.id);
+    },
+    onError: (e: any) => {
+      toast({ title: "Invalid code", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async (duelId: string) => {
+      return await apiRequest("POST", `/api/trivia/duels/${duelId}/cancel`, {
+        creatorName: agent?.name || "Player",
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Challenge cancelled" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trivia/duels"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "Cancel failed", description: e.message, variant: "destructive" });
     },
   });
 
@@ -159,6 +199,51 @@ function TriviaLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void })
         </CardContent>
       </Card>
 
+      {showJoinCode ? (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-amber-400 shrink-0" />
+              <Input
+                placeholder="Enter 6-digit join code"
+                value={joinCodeInput}
+                onChange={e => setJoinCodeInput(e.target.value.toUpperCase().slice(0, 6))}
+                className="font-mono text-center tracking-widest uppercase"
+                maxLength={6}
+                data-testid="input-trivia-join-code"
+              />
+              <Button
+                size="sm"
+                onClick={() => joinByCodeMutation.mutate(joinCodeInput)}
+                disabled={joinCodeInput.length !== 6 || joinByCodeMutation.isPending || !agent}
+                data-testid="button-submit-trivia-join-code"
+              >
+                {joinByCodeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => { setShowJoinCode(false); setJoinCodeInput(""); }}
+                data-testid="button-close-trivia-join-code"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex justify-end mb-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowJoinCode(true)}
+            data-testid="button-open-trivia-join-code"
+          >
+            <Hash className="w-3.5 h-3.5 mr-1.5" /> Join by Code
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-3">
@@ -176,30 +261,66 @@ function TriviaLobby({ onStartDuel }: { onStartDuel: (duelId: string) => void })
               <p className="text-sm text-muted-foreground text-center py-6">No open challenges</p>
             ) : (
               <div className="space-y-2">
-                {openDuels.map((d) => (
-                  <div
-                    key={d.id}
-                    className="flex items-center justify-between gap-2 p-2.5 rounded-md border"
-                    data-testid={`trivia-open-duel-${d.id}`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{d.creatorName}</p>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge variant="secondary">{d.category}</Badge>
-                        <Badge variant="outline">{d.difficulty}</Badge>
-                        <span className="text-xs text-muted-foreground">{d.questionCount}Q</span>
+                {openDuels.map((d) => {
+                  const isMyDuel = (agent?.name || "") === d.creatorName;
+                  return (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-md border"
+                      data-testid={`trivia-open-duel-${d.id}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{d.creatorName}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="secondary">{d.category}</Badge>
+                          <Badge variant="outline">{d.difficulty}</Badge>
+                          <span className="text-xs text-muted-foreground">{d.questionCount}Q</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {isMyDuel && (d as any).joinCode && (
+                          <Badge
+                            variant="outline"
+                            className="gap-1 text-[9px] py-0 px-1.5 cursor-pointer border-amber-500/30 text-amber-300"
+                            onClick={() => {
+                              navigator.clipboard.writeText((d as any).joinCode);
+                              toast({ title: "Code copied!", description: (d as any).joinCode });
+                            }}
+                            data-testid={`badge-trivia-code-${d.id}`}
+                          >
+                            <Copy className="w-2.5 h-2.5" /> {(d as any).joinCode}
+                          </Badge>
+                        )}
+                        {isMyDuel ? (
+                          <>
+                            <Badge variant="outline" className="gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin" /> Waiting
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 border-red-500/30 text-red-400"
+                              onClick={() => cancelMutation.mutate(d.id)}
+                              disabled={cancelMutation.isPending}
+                              data-testid={`button-cancel-trivia-${d.id}`}
+                            >
+                              {cancelMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />} Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => joinMutation.mutate(d.id)}
+                            disabled={joinMutation.isPending}
+                            data-testid={`button-join-trivia-${d.id}`}
+                          >
+                            Join
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => joinMutation.mutate(d.id)}
-                      disabled={joinMutation.isPending}
-                      data-testid={`button-join-trivia-${d.id}`}
-                    >
-                      Join
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

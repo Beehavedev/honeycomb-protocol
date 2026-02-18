@@ -42,7 +42,10 @@ import {
   Medal,
   Crown,
   Shuffle,
-  ShieldCheck
+  ShieldCheck,
+  Copy,
+  Hash,
+  X,
 } from "lucide-react";
 import type { Duel, DuelAsset } from "@shared/schema";
 
@@ -508,6 +511,7 @@ function LeaderboardPanel() {
 function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSettling, isCancelling, isReclaiming, isHighlighted }: { duel: Duel; onJoin?: () => void; onSettle?: () => void; onCancel?: () => void; onReclaim?: () => void; isJoining?: boolean; isSettling?: boolean; isCancelling?: boolean; isReclaiming?: boolean; isHighlighted?: boolean }) {
   const { address } = useAccount();
   const { t } = useI18n();
+  const { toast } = useToast();
   const isCreator = Boolean(address && address.toLowerCase() === duel.creatorAddress.toLowerCase());
   const isJoiner = Boolean(duel.joinerAddress && address && address.toLowerCase() === duel.joinerAddress.toLowerCase());
   const canJoin = duel.status === "open" && !isCreator && !!address;
@@ -591,6 +595,19 @@ function DuelCard({ duel, onJoin, onSettle, onCancel, onReclaim, isJoining, isSe
             >
               {duel.status === "open" ? t('duel.waitingOpponent') : duel.status === "live" ? t('duel.liveNow') : duel.status === "cancelled" ? t('duel.cancelled') : t('duel.settled')}
             </Badge>
+            {duel.status === "open" && isCreator && (duel as any).joinCode && (
+              <Badge
+                variant="outline"
+                className="gap-1 text-[10px] py-0 px-1.5 cursor-pointer border-amber-500/30 text-amber-300"
+                onClick={() => {
+                  navigator.clipboard.writeText((duel as any).joinCode);
+                  toast({ title: "Code copied!", description: (duel as any).joinCode });
+                }}
+                data-testid={`badge-predict-code-${duel.id}`}
+              >
+                <Copy className="w-2.5 h-2.5" /> {(duel as any).joinCode}
+              </Badge>
+            )}
           </div>
           <div className="text-right">
             <div className="text-xl font-bold text-primary">{totalPot.toFixed(4)} BNB</div>
@@ -1386,6 +1403,9 @@ export default function Predict() {
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState("open");
   const [highlightedDuelTx, setHighlightedDuelTx] = useState<string | null>(null);
+  const [showJoinCode, setShowJoinCode] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
+  const [foundDuelId, setFoundDuelId] = useState<string | null>(null);
   const { address } = useAccount();
   const chainId = useChainId();
   const { signMessageAsync } = useSignMessage();
@@ -2106,6 +2126,63 @@ export default function Predict() {
         </div>
       )}
 
+      {showJoinCode ? (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Hash className="w-4 h-4 text-amber-400 shrink-0" />
+              <Input
+                placeholder="Enter 6-digit join code"
+                value={joinCodeInput}
+                onChange={e => setJoinCodeInput(e.target.value.toUpperCase().slice(0, 6))}
+                className="font-mono text-center tracking-widest uppercase"
+                maxLength={6}
+                data-testid="input-predict-join-code"
+              />
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const res = await apiRequest<any>("POST", "/api/duels/find-by-code", { joinCode: joinCodeInput });
+                    setFoundDuelId(res.id);
+                    setActiveTab("open");
+                    setShowJoinCode(false);
+                    setJoinCodeInput("");
+                    toast({ title: "Duel found!", description: `${res.assetId} - ${formatBNB(res.stakeWei)} stake` });
+                    setTimeout(() => setFoundDuelId(null), 15000);
+                  } catch (e: any) {
+                    toast({ title: "Not found", description: e.message, variant: "destructive" });
+                  }
+                }}
+                disabled={joinCodeInput.length !== 6}
+                data-testid="button-submit-predict-join-code"
+              >
+                Find
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => { setShowJoinCode(false); setJoinCodeInput(""); }}
+                data-testid="button-close-predict-join-code"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex justify-end mb-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowJoinCode(true)}
+            data-testid="button-open-predict-join-code"
+          >
+            <Hash className="w-3.5 h-3.5 mr-1.5" /> Find by Code
+          </Button>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex items-center gap-2 mb-4">
           <TabsList className="grid w-full grid-cols-5">
@@ -2176,7 +2253,7 @@ export default function Predict() {
                     <DuelCard
                       key={duel.id}
                       duel={duel}
-                      isHighlighted={!!(highlightedDuelTx && duel.createTxHash === highlightedDuelTx)}
+                      isHighlighted={!!(highlightedDuelTx && duel.createTxHash === highlightedDuelTx) || duel.id === foundDuelId}
                       onJoin={activeTab === "open" ? () => handleJoinDuel(duel) : undefined}
                       onSettle={activeTab === "live" ? () => handleSettle(duel) : undefined}
                       onCancel={activeTab === "open" ? () => handleCancelDuel(duel) : undefined}

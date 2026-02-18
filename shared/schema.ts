@@ -606,6 +606,7 @@ export const duels = pgTable("duels", {
   vrfRequestId: text("vrf_request_id"), // VRF request ID for random duels
   vrfRandomWord: text("vrf_random_word"), // VRF random word result
   isAutoJoin: boolean("is_auto_join").default(false), // Whether HouseBot can auto-join
+  joinCode: varchar("join_code", { length: 8 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -2611,6 +2612,7 @@ export const triviaDuels = pgTable("trivia_duels", {
   botName: text("bot_name"),
   botDifficulty: text("bot_difficulty"),
   potAmount: text("pot_amount").notNull().default("0"),
+  joinCode: varchar("join_code", { length: 8 }),
   startedAt: timestamp("started_at"),
   endedAt: timestamp("ended_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

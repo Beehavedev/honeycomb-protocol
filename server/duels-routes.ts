@@ -188,6 +188,22 @@ export function registerDuelsRoutes(app: Express) {
     }
   });
 
+  app.post("/api/duels/find-by-code", async (req, res) => {
+    try {
+      const { joinCode } = req.body;
+      if (!joinCode) return res.status(400).json({ message: "joinCode required" });
+
+      const allDuels = await storage.getDuels("open", 200);
+      const duel = allDuels.find(d => (d as any).joinCode === joinCode.toUpperCase());
+
+      if (!duel) return res.status(404).json({ message: "No open duel found with that code" });
+      res.json(serializeDuel(duel));
+    } catch (error) {
+      console.error("Error finding duel by code:", error);
+      res.status(500).json({ message: "Failed to find duel" });
+    }
+  });
+
   // Direct duel creation disabled - must use on-chain flow via /api/duels/sync-create
   // This endpoint now returns an error instructing users to use on-chain transactions
   app.post("/api/duels", authMiddleware, async (req, res) => {
@@ -504,6 +520,8 @@ export function registerDuelsRoutes(app: Express) {
 
       const agent = await storage.getAgentByAddress(walletAddress);
 
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+
       const duel = await storage.createDuel({
         onChainDuelId: BigInt(onChainDuelId),
         createTxHash: txHash,
@@ -516,6 +534,7 @@ export function registerDuelsRoutes(app: Express) {
         creatorAgentId: agent?.id || null,
         creatorOnChainAgentId: BigInt(creatorOnChainAgentId),
         creatorDirection: direction,
+        joinCode,
       });
 
       res.status(201).json(serializeDuel(duel));

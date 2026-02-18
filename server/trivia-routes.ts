@@ -216,6 +216,8 @@ export function registerTriviaRoutes(app: Express) {
         body.difficulty
       );
 
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+
       const [duel] = await db
         .insert(triviaDuels)
         .values({
@@ -227,12 +229,68 @@ export function registerTriviaRoutes(app: Express) {
           timePerQuestion: body.timePerQuestion,
           questions: JSON.stringify(questions),
           status: "waiting",
+          joinCode,
         })
         .returning();
 
       res.json(duel);
     } catch (e: any) {
       res.status(400).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/trivia/duels/join-by-code", async (req, res) => {
+    try {
+      const { joinCode, joinerName, joinerAddress } = req.body;
+      if (!joinCode || !joinerName) return res.status(400).json({ error: "joinCode and joinerName required" });
+
+      const [duel] = await db
+        .select()
+        .from(triviaDuels)
+        .where(eq(triviaDuels.joinCode, joinCode.toUpperCase()));
+
+      if (!duel) return res.status(404).json({ error: "No duel found with that code" });
+      if (duel.status !== "waiting") return res.status(400).json({ error: "Duel is no longer open" });
+      if (duel.creatorName === joinerName) return res.status(400).json({ error: "Cannot join your own duel" });
+
+      const [updated] = await db
+        .update(triviaDuels)
+        .set({
+          joinerName,
+          joinerAddress: joinerAddress || null,
+          status: "active",
+          startedAt: new Date(),
+        })
+        .where(eq(triviaDuels.id, duel.id))
+        .returning();
+
+      res.json(updated);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/trivia/duels/:id/cancel", async (req, res) => {
+    try {
+      const { creatorName } = req.body;
+      const [duel] = await db
+        .select()
+        .from(triviaDuels)
+        .where(eq(triviaDuels.id, req.params.id));
+
+      if (!duel) return res.status(404).json({ error: "Duel not found" });
+      if (duel.status !== "waiting") return res.status(400).json({ error: "Can only cancel waiting duels" });
+      if (duel.creatorName !== creatorName) return res.status(403).json({ error: "Only creator can cancel" });
+
+      const [updated] = await db
+        .update(triviaDuels)
+        .set({ status: "cancelled" })
+        .where(eq(triviaDuels.id, req.params.id))
+        .returning();
+
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 
