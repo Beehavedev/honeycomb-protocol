@@ -3164,7 +3164,12 @@ function TradingArenaLobby() {
       const res = await fetch(`/api/trading-duels/my-duels/${agent.id}`);
       if (!res.ok) return [];
       const all = await res.json();
-      return all.filter((d: TradingDuel) => d.status === "active");
+      const now = Date.now();
+      return all.filter((d: TradingDuel) => {
+        if (d.status !== "active") return false;
+        if (d.endsAt && new Date(d.endsAt).getTime() < now) return false;
+        return true;
+      });
     },
     enabled: !!agent?.id,
     refetchInterval: 3000,

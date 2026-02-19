@@ -3395,15 +3395,21 @@ export async function registerRoutes(
           if (creatorFinal > joinerFinal) winnerId = duel.creatorId;
           else if (joinerFinal > creatorFinal && duel.joinerId) winnerId = duel.joinerId;
 
-          if (duel.isOnChain && duel.onChainDuelId) {
-            await db.update(tradingDuels)
-              .set({
-                winnerId,
-                creatorFinalBalance: creatorFinal.toFixed(2),
-                joinerFinalBalance: joinerFinal.toFixed(2),
-              })
-              .where(eq(tradingDuels.id, duel.id));
-            console.log(`[AutoSettle] On-chain duel ${duel.id} winner calculated, awaiting on-chain settlement`);
+          if (duel.isOnChain && duel.onChainDuelId && duel.onChainDuelId !== "0") {
+            await storage.settleTradingDuel(
+              duel.id,
+              winnerId,
+              creatorFinal.toFixed(2),
+              joinerFinal.toFixed(2)
+            );
+            if (winnerId) {
+              await storage.updateAgentArenaStats(duel.creatorId, winnerId === duel.creatorId);
+              if (duel.joinerId) {
+                await storage.updateAgentArenaStats(duel.joinerId, winnerId === duel.joinerId);
+              }
+            }
+            console.log(`[AutoSettle] On-chain duel ${duel.id} settled (winner=${winnerId}), on-chain escrow release handled by client`);
+            settlingDuels.delete(duel.id);
             continue;
           }
 
