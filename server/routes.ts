@@ -3241,15 +3241,21 @@ export async function registerRoutes(
       else if (joinerFinal > creatorFinal && duel.joinerId) winnerId = duel.joinerId;
 
       if (duel.isOnChain && duel.onChainDuelId) {
-        const [pendingDuel] = await db.update(tradingDuels)
-          .set({
-            winnerId,
-            creatorFinalBalance: creatorFinal.toFixed(2),
-            joinerFinalBalance: joinerFinal.toFixed(2),
-          })
-          .where(eq(tradingDuels.id, req.params.id))
-          .returning();
-        res.json({ ...pendingDuel, isOnChain: true, onChainDuelId: duel.onChainDuelId, creatorId: duel.creatorId });
+        const settled = await storage.settleTradingDuel(
+          req.params.id,
+          winnerId,
+          creatorFinal.toFixed(2),
+          joinerFinal.toFixed(2)
+        );
+
+        if (winnerId) {
+          await storage.updateAgentArenaStats(duel.creatorId, winnerId === duel.creatorId);
+          if (duel.joinerId) {
+            await storage.updateAgentArenaStats(duel.joinerId, winnerId === duel.joinerId);
+          }
+        }
+
+        res.json({ ...settled, isOnChain: true, onChainDuelId: duel.onChainDuelId, creatorId: duel.creatorId });
         return;
       }
 

@@ -2599,7 +2599,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   useEffect(() => {
     if (settleOnChainError) {
       setSettlingOnChain(false);
-      toast({ title: "On-chain settlement failed", description: settleOnChainError.message?.slice(0, 100), variant: "destructive" });
+      refetchDuel();
+      toast({ title: "On-chain settlement failed", description: "Game results saved. BNB escrow release may need manual retry.", variant: "destructive" });
     }
   }, [settleOnChainError]);
 
