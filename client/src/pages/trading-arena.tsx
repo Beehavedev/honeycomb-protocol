@@ -2186,11 +2186,11 @@ function SettledResultsView({
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-2 rounded-md border border-border">
                   <p className="text-[9px] text-muted-foreground">Settlement Price</p>
-                  <p className="text-xs font-mono font-medium">${parseFloat(resultBreakdown.settlementPrice).toLocaleString()}</p>
+                  <p className="text-xs font-mono font-medium">${(parseFloat(resultBreakdown.settlementPrice) || 0).toLocaleString()}</p>
                 </div>
                 <div className="p-2 rounded-md border border-border">
                   <p className="text-[9px] text-muted-foreground">Total Trades</p>
-                  <p className="text-xs font-mono font-medium">{resultBreakdown.creatorTrades + resultBreakdown.joinerTrades}</p>
+                  <p className="text-xs font-mono font-medium">{(resultBreakdown.creatorTrades || 0) + (resultBreakdown.joinerTrades || 0)}</p>
                 </div>
                 <div className="p-2 rounded-md border border-border">
                   <p className="text-[9px] text-muted-foreground">Your PnL %</p>
@@ -2489,17 +2489,11 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     const MAX_TICKS = 300;
     const TICK_INTERVAL = 250;
     let lastTickTime = 0;
-    let latestPrice = 0;
-    let ws: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
     let dead = false;
-    let wsConnected = false;
-    let wsFailCount = 0;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
 
     const updatePrice = (p: number) => {
       if (!p || isNaN(p)) return;
-      latestPrice = p;
       setCurrentPrice(prev => {
         if (prev > 0) setPriceChange(((p - prev) / prev) * 100);
         return p;
@@ -2514,68 +2508,22 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       }
     };
 
-    const startPolling = () => {
-      if (pollTimer || dead) return;
-      pollTimer = setInterval(async () => {
-        if (dead) return;
-        try {
-          const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${duel.assetSymbol}`);
-          const data = await res.json();
-          if (data.price) updatePrice(parseFloat(data.price));
-        } catch {}
-      }, 500);
-    };
-
-    const stopPolling = () => {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    };
-
-    const connectWs = () => {
+    const fetchPrice = async () => {
       if (dead) return;
-      const symbol = duel.assetSymbol.toLowerCase();
-      ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
-
-      ws.onopen = () => { wsConnected = true; wsFailCount = 0; stopPolling(); };
-      ws.onmessage = (evt) => {
-        try {
-          const data = JSON.parse(evt.data);
-          updatePrice(parseFloat(data.p));
-        } catch {}
-      };
-      ws.onclose = () => {
-        wsConnected = false;
-        if (!dead) {
-          wsFailCount++;
-          if (wsFailCount >= 2) startPolling();
-          reconnectTimer = setTimeout(connectWs, 3000);
-        }
-      };
-      ws.onerror = () => ws?.close();
-    };
-
-    const fetchInitialPrice = async () => {
       try {
         const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${duel.assetSymbol}`);
         const data = await res.json();
-        if (data.price) {
-          const p = parseFloat(data.price);
-          latestPrice = p;
-          setCurrentPrice(p);
-          setPriceTicks([{ time: Date.now(), price: p }]);
-        }
+        if (data.price) updatePrice(parseFloat(data.price));
       } catch {}
     };
 
-    fetchInitialPrice().then(() => {
-      startPolling();
-      connectWs();
+    fetchPrice().then(() => {
+      pollTimer = setInterval(fetchPrice, 500);
     });
 
     return () => {
       dead = true;
-      clearTimeout(reconnectTimer);
-      stopPolling();
-      if (ws) ws.close();
+      if (pollTimer) clearInterval(pollTimer);
     };
   }, [duel?.assetSymbol]);
 
@@ -3791,11 +3739,8 @@ function SpectatorView({ duelId }: { duelId: string }) {
     const MAX_TICKS = 300;
     const TICK_INTERVAL = 250;
     let lastTickTime = 0;
-    let ws: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
-    let pollTimer: ReturnType<typeof setInterval> | null = null;
     let dead = false;
-    let wsFailCount = 0;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
 
     const updatePrice = (p: number) => {
       if (!p || isNaN(p)) return;
@@ -3813,57 +3758,20 @@ function SpectatorView({ duelId }: { duelId: string }) {
       }
     };
 
-    const startPolling = () => {
-      if (pollTimer || dead) return;
-      pollTimer = setInterval(async () => {
-        if (dead) return;
-        try {
-          const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${spectateData.assetSymbol}`);
-          const data = await res.json();
-          if (data.price) updatePrice(parseFloat(data.price));
-        } catch {}
-      }, 500);
-    };
-
-    const stopPolling = () => {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    };
-
-    const connectWs = () => {
+    const fetchPrice = async () => {
       if (dead) return;
-      const symbol = spectateData.assetSymbol.toLowerCase();
-      ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol}@trade`);
-      ws.onopen = () => { wsFailCount = 0; stopPolling(); };
-      ws.onmessage = (evt) => {
-        try {
-          const data = JSON.parse(evt.data);
-          updatePrice(parseFloat(data.p));
-        } catch {}
-      };
-      ws.onclose = () => {
-        if (!dead) {
-          wsFailCount++;
-          if (wsFailCount >= 2) startPolling();
-          reconnectTimer = setTimeout(connectWs, 3000);
-        }
-      };
-      ws.onerror = () => ws?.close();
-    };
-
-    const fetchInitialPrice = async () => {
       try {
         const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${spectateData.assetSymbol}`);
         const data = await res.json();
-        if (data.price) {
-          const p = parseFloat(data.price);
-          setCurrentPrice(p);
-          setPriceTicks([{ time: Date.now(), price: p }]);
-        }
+        if (data.price) updatePrice(parseFloat(data.price));
       } catch {}
     };
 
-    fetchInitialPrice().then(connectWs);
-    return () => { dead = true; clearTimeout(reconnectTimer); stopPolling(); if (ws) ws.close(); };
+    fetchPrice().then(() => {
+      pollTimer = setInterval(fetchPrice, 500);
+    });
+
+    return () => { dead = true; if (pollTimer) clearInterval(pollTimer); };
   }, [spectateData?.assetSymbol]);
 
   useEffect(() => {
