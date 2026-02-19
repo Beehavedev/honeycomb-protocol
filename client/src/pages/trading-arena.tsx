@@ -5577,7 +5577,7 @@ function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bra
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto rounded-lg" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
-        <div className="relative px-3 py-5" style={{ minWidth: "950px" }}>
+        <div className="relative px-4 py-5" style={{ minWidth: "1200px" }}>
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
           <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
 
@@ -5586,19 +5586,19 @@ function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bra
           </div>
 
           <div className="flex items-start justify-center" style={{ gap: "0px", paddingBottom: "16px" }}>
-            {renderMatchColumn(leftR16, 8, "left", "140px")}
+            {renderMatchColumn(leftR16, 8, "left", "185px")}
             {connector(calcRoundYs(8), calcRoundYs(4), "ltr")}
-            {renderMatchColumn(leftQF, 4, "left", "140px")}
+            {renderMatchColumn(leftQF, 4, "left", "175px")}
             {connector(calcRoundYs(4), calcRoundYs(2), "ltr")}
-            {renderMatchColumn(leftSF, 2, "left", "140px")}
+            {renderMatchColumn(leftSF, 2, "left", "175px")}
             {connector(calcRoundYs(2), calcRoundYs(1), "ltr")}
 
-            <div className="relative shrink-0 flex flex-col items-center justify-center px-3" style={{ height: BH, minWidth: "80px" }}>
+            <div className="relative shrink-0 flex flex-col items-center justify-center px-4" style={{ height: BH, minWidth: "130px" }}>
               <Trophy className="w-8 h-8 text-amber-400 mb-2 drop-shadow-lg" />
               <div className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-1">Final</div>
               {finalMatch && (
                 <div className="w-full space-y-0.5">
-                  <div className="rounded bg-slate-700/60 border border-slate-600/30 px-1.5 py-0.5 text-[9px] text-center truncate" style={{ maxWidth: "100px" }}>
+                  <div className="rounded bg-slate-700/60 border border-slate-600/30 px-1.5 py-0.5 text-[9px] text-center truncate" style={{ maxWidth: "130px" }}>
                     <span className={finalMatch.winnerAgentId === finalMatch.playerAAgentId ? "text-green-300 font-semibold" : "text-slate-300"}>
                       {finalMatch.playerA?.username || "TBD"}
                     </span>
@@ -5606,7 +5606,7 @@ function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bra
                     {finalMatch.winnerAgentId === finalMatch.playerAAgentId && <Crown className="w-2.5 h-2.5 text-amber-400 inline ml-0.5" />}
                   </div>
                   <div className="text-center text-[8px] text-amber-400 font-bold">VS</div>
-                  <div className="rounded bg-slate-700/60 border border-slate-600/30 px-1.5 py-0.5 text-[9px] text-center truncate" style={{ maxWidth: "100px" }}>
+                  <div className="rounded bg-slate-700/60 border border-slate-600/30 px-1.5 py-0.5 text-[9px] text-center truncate" style={{ maxWidth: "130px" }}>
                     <span className={finalMatch.winnerAgentId === finalMatch.playerBAgentId ? "text-green-300 font-semibold" : "text-slate-300"}>
                       {finalMatch.playerB?.username || "TBD"}
                     </span>
@@ -5635,11 +5635,11 @@ function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bra
             </div>
 
             {connector(calcRoundYs(2), calcRoundYs(1), "rtl")}
-            {renderMatchColumn(rightSF, 2, "right", "140px")}
+            {renderMatchColumn(rightSF, 2, "right", "175px")}
             {connector(calcRoundYs(4), calcRoundYs(2), "rtl")}
-            {renderMatchColumn(rightQF, 4, "right", "140px")}
+            {renderMatchColumn(rightQF, 4, "right", "175px")}
             {connector(calcRoundYs(8), calcRoundYs(4), "rtl")}
-            {renderMatchColumn(rightR16, 8, "right", "140px")}
+            {renderMatchColumn(rightR16, 8, "right", "185px")}
           </div>
 
           {thirdMatch && (
