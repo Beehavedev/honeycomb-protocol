@@ -3397,9 +3397,14 @@ function TradingArenaLobby() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-2 space-y-4 arena-animate-left">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_1fr] xl:grid-cols-[300px_1fr_340px] gap-4 sm:gap-6">
+        <div className="hidden lg:block space-y-4 arena-animate-left">
           <ArenaLeaderboard agentId={agent?.id} />
+        </div>
+        <div className="lg:col-span-1 space-y-4 arena-animate-left">
+          <div className="lg:hidden">
+            <ArenaLeaderboard agentId={agent?.id} />
+          </div>
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
               <TabsTrigger value="open" className="flex-1 gap-1" data-testid="tab-open">
