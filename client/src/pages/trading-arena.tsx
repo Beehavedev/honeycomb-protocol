@@ -2417,11 +2417,16 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       setGameOverOverlay(false);
       if (!settledSoundRef.current) {
         settledSoundRef.current = true;
-        const isWinner = duel.winnerId === effectiveAgent?.id;
+        const myId = effectiveAgent?.id === duel.creatorId ? duel.creatorId
+          : effectiveAgent?.id === duel.joinerId ? duel.joinerId
+          : address && address.toLowerCase() === duel.creatorWallet?.toLowerCase() ? duel.creatorId
+          : address && address.toLowerCase() === duel.joinerWallet?.toLowerCase() ? duel.joinerId
+          : effectiveAgent?.id;
+        const isWinner = duel.winnerId === myId;
         setTimeout(() => playTradeSound(duel.winnerId ? (isWinner ? "victory" : "defeat") : "defeat"), 300);
       }
     }
-  }, [duel?.status, duel?.winnerId, effectiveAgent?.id]);
+  }, [duel?.status, duel?.winnerId, effectiveAgent?.id, address]);
 
   useEffect(() => {
     if (!myPositions.length || !currentPrice) return;
@@ -2694,7 +2699,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
   const opponentIsBot = (effectiveAgent?.id === duel.creatorId && botInfo?.joinerIsBot) || (effectiveAgent?.id === duel.joinerId && botInfo?.creatorIsBot);
 
   if (duel.status === "settled") {
-    const isWinner = duel.winnerId === effectiveAgent?.id;
+    const myDuelId = effectiveAgent?.id === duel.creatorId ? duel.creatorId
+      : effectiveAgent?.id === duel.joinerId ? duel.joinerId
+      : address && address.toLowerCase() === duel.creatorWallet?.toLowerCase() ? duel.creatorId
+      : address && address.toLowerCase() === duel.joinerWallet?.toLowerCase() ? duel.joinerId
+      : effectiveAgent?.id;
+    const isWinner = duel.winnerId === myDuelId;
     const creatorFinal = parseFloat(duel.creatorFinalBalance || "0");
     const joinerFinal = parseFloat(duel.joinerFinalBalance || "0");
     const potTotal = parseFloat(duel.potAmount) * 2;
