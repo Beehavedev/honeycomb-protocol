@@ -2602,7 +2602,6 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     if (settleOnChainError) {
       setSettlingOnChain(false);
       refetchDuel();
-      toast({ title: "On-chain settlement failed", description: "Game results saved. BNB escrow release may need manual retry.", variant: "destructive" });
     }
   }, [settleOnChainError]);
 
@@ -2649,6 +2648,17 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       }
     }
   }, [duel?.id, duel?.status, duel?.endsAt]);
+
+  const autoStartTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!duel || duel.status !== "ready" || autoStartTriggeredRef.current) return;
+    const isPlayer = effectiveAgent?.id === duel.creatorId || effectiveAgent?.id === duel.joinerId
+      || (address && (address.toLowerCase() === duel.creatorWallet?.toLowerCase() || address.toLowerCase() === duel.joinerWallet?.toLowerCase()));
+    if (!isPlayer) return;
+    autoStartTriggeredRef.current = true;
+    playTradeSound("start");
+    apiRequest("POST", `/api/trading-duels/${duelId}/start`, {}).then(() => refetchDuel()).catch(() => { autoStartTriggeredRef.current = false; });
+  }, [duel?.status, duel?.creatorId, duel?.joinerId, effectiveAgent?.id, address, duelId]);
 
   if (!duel) return (
     <div className="flex flex-col items-center justify-center p-16 gap-3">
@@ -2727,22 +2737,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
               <h2 className="text-2xl font-bold">{opponentIsBot ? "Bot Opponent Matched" : "Opponent Found"}</h2>
               <p className="text-muted-foreground mt-1">{assetInfo.short}/USDT  -  {DURATIONS.find(d => d.value === duel.durationSeconds)?.label}</p>
             </div>
-            <div className="flex justify-center gap-3 arena-animate-up-d2">
-              <StatBadge icon={DollarSign} label="Starting" value="$1M" color="green" />
-              <StatBadge icon={Target} label="Max Lev" value="50x" color="amber" />
-              <StatBadge icon={Trophy} label="Pot" value={`${(parseFloat(duel.potAmount) * 2).toFixed(3)} BNB`} color="blue" />
-            </div>
-            <Button
-              className="w-full arena-animate-up-d3"
-              onClick={async () => {
-                playTradeSound("start");
-                await apiRequest("POST", `/api/trading-duels/${duelId}/start`, {});
-                refetchDuel();
-              }}
-              data-testid="button-start-duel"
-            >
-              <Flame className="w-5 h-5 mr-2" /> Start Trading
-            </Button>
+            <Loader2 className="w-6 h-6 animate-spin text-amber-400 mx-auto" />
+            <p className="text-sm text-muted-foreground">Starting game...</p>
           </CardContent>
         </Card>
       </div>

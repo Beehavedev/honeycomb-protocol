@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
 import type { IncomingMessage } from "http";
 import { db } from "./db";
-import { arenaChatMessages, tradingDuels } from "@shared/schema";
+import { arenaChatMessages, tradingDuels, agents } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
@@ -46,13 +46,25 @@ function isRateLimited(client: ChatClient): boolean {
   return false;
 }
 
-function resolveIdentity(token?: string): { name: string; address?: string; agentId?: string } | null {
+async function resolveIdentity(token?: string): Promise<{ name: string; address?: string; agentId?: string } | null> {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const addr = decoded.address;
+    if (addr) {
+      try {
+        const [agent] = await db.select({ id: agents.id, name: agents.name })
+          .from(agents)
+          .where(eq(agents.ownerAddress, addr.toLowerCase()))
+          .limit(1);
+        if (agent) {
+          return { name: agent.name, address: addr, agentId: agent.id };
+        }
+      } catch {}
+    }
     return {
-      name: decoded.name || decoded.username || `User-${(decoded.address || "").slice(-4)}`,
-      address: decoded.address,
+      name: decoded.name || decoded.username || `User-${(addr || "").slice(-4)}`,
+      address: addr,
       agentId: decoded.agentId,
     };
   } catch {
@@ -90,7 +102,7 @@ export function setupArenaChatWS(server: Server) {
             } catch { return; }
           }
 
-          const identity = resolveIdentity(data.token);
+          const identity = await resolveIdentity(data.token);
           const fallbackName = data.senderName || "Anon";
 
           const room = getRoomKey(scopeType, data.scopeId);
