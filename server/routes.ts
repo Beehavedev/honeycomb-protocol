@@ -3584,12 +3584,15 @@ export async function registerRoutes(
       const { agentId } = req.body;
       if (!agentId) return res.status(400).json({ message: "agentId required" });
 
+      const agentRecord = await storage.getAgent(agentId);
+      if (!agentRecord) return res.status(400).json({ message: "You must mint an agent before entering a tournament" });
+
       const tournament = await storage.getTournament(req.params.id);
       if (!tournament) return res.status(404).json({ message: "Tournament not found" });
       if (tournament.status !== "registration") return res.status(400).json({ message: "Tournament is not accepting registrations" });
 
       const entries = await storage.getTournamentEntries(tournament.id);
-      if (entries.length >= tournament.maxPlayers) return res.status(400).json({ message: "Tournament is full" });
+      if (entries.length >= 16) return res.status(400).json({ message: "Tournament is full — 16/16 spots taken" });
       if (entries.some(e => e.agentId === agentId)) return res.status(400).json({ message: "Already joined this tournament" });
 
       const entry = await storage.joinTournament({ tournamentId: tournament.id, agentId });

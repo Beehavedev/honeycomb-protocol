@@ -4427,6 +4427,7 @@ function ArenaTournamentHighlight() {
   const openTournaments = tournaments.filter(t => t.status === "registration");
   const recentSettled = tournaments.filter(t => t.status === "settled").slice(0, 3);
   const hasActivity = activeTournaments.length > 0 || openTournaments.length > 0;
+  const alreadyJoined = (t: any) => t.entries?.some((e: any) => e.agentId === agent?.id);
 
   return (
     <div className="mb-6 arena-animate-up" data-testid="section-tournaments">
@@ -4448,39 +4449,41 @@ function ArenaTournamentHighlight() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex gap-1">
-                <Input
-                  placeholder="Join code..."
-                  value={tournamentJoinCode}
-                  onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
-                  className="w-24 sm:w-28 h-9 text-xs font-mono"
-                  maxLength={6}
-                  data-testid="input-tournament-join-code"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)}
-                  disabled={!tournamentJoinCode || joinByCodeMutation.isPending}
-                  data-testid="button-tournament-join-code"
-                >
-                  {joinByCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
-                </Button>
-              </div>
               {isAdmin && (
-                <Button
-                  size="sm"
-                  onClick={() => setShowCreate(!showCreate)}
-                  className="bg-amber-600 border-amber-600 text-white"
-                  data-testid="button-create-tournament"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Create Tournament
-                </Button>
+                <>
+                  <div className="flex gap-1">
+                    <Input
+                      placeholder="Join code..."
+                      value={tournamentJoinCode}
+                      onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
+                      className="w-24 sm:w-28 h-9 text-xs font-mono"
+                      maxLength={6}
+                      data-testid="input-tournament-join-code"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)}
+                      disabled={!tournamentJoinCode || joinByCodeMutation.isPending}
+                      data-testid="button-tournament-join-code"
+                    >
+                      {joinByCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
+                    </Button>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setShowCreate(!showCreate)}
+                    className="bg-amber-600 border-amber-600 text-white"
+                    data-testid="button-create-tournament"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Create Tournament
+                  </Button>
+                </>
               )}
             </div>
           </div>
 
-          {showCreate && (
+          {showCreate && isAdmin && (
             <div className="mb-4 p-4 rounded-md border border-border/50 bg-card">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 <div>
@@ -4552,7 +4555,7 @@ function ArenaTournamentHighlight() {
 
           {openTournaments.length > 0 && (
             <div className="space-y-2 mb-3">
-              <span className="text-[10px] font-bold tracking-widest uppercase text-amber-400">Open Lobbies</span>
+              <span className="text-[10px] font-bold tracking-widest uppercase text-amber-400">Open Registration</span>
               {openTournaments.map(t => (
                 <div
                   key={t.id}
@@ -4567,35 +4570,37 @@ function ArenaTournamentHighlight() {
                       <Badge variant="outline" className="text-[10px]">{Math.floor(t.durationSeconds / 60)}min</Badge>
                     </div>
                     <div className="flex items-center gap-2">
-                      {t.joinCode && (
-                        <Badge variant="outline" className="gap-1 cursor-pointer font-mono text-[10px]" onClick={() => { navigator.clipboard.writeText(t.joinCode!); toast({ title: "Code copied!" }); }}>
-                          <Copy className="w-3 h-3" /> {t.joinCode}
-                        </Badge>
-                      )}
-                      {agent && !t.entries?.some(e => e.agentId === agent.id) ? (
-                        <Button size="sm" onClick={() => joinMutation.mutate(t.id)} disabled={joinMutation.isPending} data-testid={`button-join-tournament-${t.id}`}>
-                          Join
+                      {alreadyJoined(t) ? (
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                          Entered
+                        </Button>
+                      ) : !agent ? (
+                        <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
+                          Mint Agent to Enter
                         </Button>
                       ) : (
-                        <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
-                          View
+                        <Button size="sm" onClick={() => joinMutation.mutate(t.id)} disabled={joinMutation.isPending || t.playerCount >= 16} data-testid={`button-enter-tournament-${t.id}`}>
+                          {joinMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t.playerCount >= 16 ? "Full" : "Enter Tournament"}
                         </Button>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / t.maxPlayers) * 100}%` }} />
+                      <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / 16) * 100}%` }} />
                     </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/{t.maxPlayers}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
                   </div>
+                  {t.playerCount >= 12 && t.playerCount < 16 && (
+                    <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left — first come, first served</p>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          {recentSettled.length > 0 && !hasActivity && (
-            <div className="space-y-2">
+          {recentSettled.length > 0 && (
+            <div className="space-y-2 mb-3">
               <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Recent Results</span>
               {recentSettled.map(t => (
                 <div
@@ -4617,9 +4622,20 @@ function ArenaTournamentHighlight() {
             </div>
           )}
 
-          {tournaments.length === 0 && (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground">No tournaments yet — be the first to create one</p>
+          {openTournaments.length === 0 && activeTournaments.length === 0 && (
+            <div className="text-center py-6 space-y-3" data-testid="section-coming-soon">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-amber-500/10 border border-amber-500/20">
+                <Clock className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Next Tournament Coming Soon</p>
+                <p className="text-xs text-muted-foreground mt-1">Mint your agent now to be ready when registration opens. First 16 entries get in.</p>
+              </div>
+              {!agent && (
+                <Button size="sm" onClick={() => navigate("/register")} className="bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
+                  Mint Your Agent
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -5277,35 +5293,38 @@ function TournamentLobbySection() {
   });
 
   const openTournaments = tournaments.filter(t => t.status === "registration");
-  const activeTournaments = tournaments.filter(t => t.status === "active");
+  const activeTournaments = tournaments.filter(t => t.status === "active" || t.status === "bracket_ready");
   const settledTournaments = tournaments.filter(t => t.status === "settled").slice(0, 5);
+  const alreadyJoined = (t: any) => t.entries?.some((e: any) => e.agentId === agent?.id);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-bold flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-400" /> Tournaments</h3>
         <div className="flex gap-2">
-          <div className="flex gap-1">
-            <Input
-              placeholder="Join code..."
-              value={tournamentJoinCode}
-              onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
-              className="w-28 h-9"
-              data-testid="input-tournament-join-code"
-            />
-            <Button size="sm" onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)} disabled={!tournamentJoinCode || joinByCodeMutation.isPending} data-testid="button-tournament-join-code">
-              Join
-            </Button>
-          </div>
           {isAdmin && (
-            <Button size="sm" onClick={() => setShowCreate(!showCreate)} data-testid="button-create-tournament">
-              <Plus className="w-4 h-4 mr-1" /> Create
-            </Button>
+            <>
+              <div className="flex gap-1">
+                <Input
+                  placeholder="Join code..."
+                  value={tournamentJoinCode}
+                  onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
+                  className="w-28 h-9"
+                  data-testid="input-tournament-join-code"
+                />
+                <Button size="sm" onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)} disabled={!tournamentJoinCode || joinByCodeMutation.isPending} data-testid="button-tournament-join-code">
+                  Join
+                </Button>
+              </div>
+              <Button size="sm" onClick={() => setShowCreate(!showCreate)} data-testid="button-create-tournament">
+                <Plus className="w-4 h-4 mr-1" /> Create
+              </Button>
+            </>
           )}
         </div>
       </div>
 
-      {showCreate && (
+      {showCreate && isAdmin && (
         <Card className="arena-glow-card">
           <CardContent className="p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -5339,7 +5358,7 @@ function TournamentLobbySection() {
                 <Select value={tMaxPlayers} onValueChange={setTMaxPlayers}>
                   <SelectTrigger data-testid="select-tournament-max-players"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {[5, 10, 15, 20].map(n => <SelectItem key={n} value={n.toString()}>{n} players</SelectItem>)}
+                    <SelectItem value="16">16 players (Bracket)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -5380,28 +5399,42 @@ function TournamentLobbySection() {
 
           {openTournaments.length > 0 && (
             <div className="space-y-2">
-              <span className="text-xs text-muted-foreground font-medium">Open Registration</span>
+              <span className="text-xs text-muted-foreground font-medium">Open Registration — First Come, First Served</span>
               {openTournaments.map(t => (
-                <Card key={t.id} className="arena-glow-card hover-elevate" data-testid={`card-tournament-open-${t.id}`}>
-                  <CardContent className="p-3 flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-amber-400" />
-                      <span className="font-medium text-sm">{t.name}</span>
-                      <Badge variant="outline" className="text-xs">{t.assetSymbol.replace("USDT", "")}</Badge>
+                <Card key={t.id} className="arena-glow-card" data-testid={`card-tournament-open-${t.id}`}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-amber-400" />
+                        <span className="font-medium text-sm">{t.name}</span>
+                        <Badge variant="outline" className="text-xs">{t.assetSymbol.replace("USDT", "")}</Badge>
+                        <Badge variant="outline" className="text-xs">{Math.floor(t.durationSeconds / 60)}min</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {alreadyJoined(t) ? (
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                            Entered
+                          </Button>
+                        ) : !agent ? (
+                          <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
+                            Mint Agent to Enter
+                          </Button>
+                        ) : (
+                          <Button size="sm" onClick={(e) => { e.stopPropagation(); joinMutation.mutate(t.id); }} disabled={joinMutation.isPending || t.playerCount >= 16} data-testid={`button-enter-tournament-${t.id}`}>
+                            {joinMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t.playerCount >= 16 ? "Full" : "Enter Tournament"}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline"><Users className="w-3 h-3 mr-1" />{t.playerCount}/{t.maxPlayers}</Badge>
-                      <Badge variant="outline" className="text-xs">{Math.floor(t.durationSeconds / 60)}min</Badge>
-                      {agent && !t.entries?.some(e => e.agentId === agent.id) ? (
-                        <Button size="sm" onClick={(e) => { e.stopPropagation(); joinMutation.mutate(t.id); }} disabled={joinMutation.isPending} data-testid={`button-join-tournament-${t.id}`}>
-                          Join
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
-                          View
-                        </Button>
-                      )}
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / 16) * 100}%` }} />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
                     </div>
+                    {t.playerCount >= 12 && t.playerCount < 16 && (
+                      <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -5428,12 +5461,19 @@ function TournamentLobbySection() {
             </div>
           )}
 
-          {tournaments.length === 0 && (
+          {openTournaments.length === 0 && activeTournaments.length === 0 && (
             <Card>
-              <CardContent className="p-8 text-center">
-                <Trophy className="w-10 h-10 mx-auto text-muted-foreground mb-2" />
-                <p className="text-muted-foreground">No tournaments yet</p>
-                <p className="text-xs text-muted-foreground mt-1">Create the first one and invite your friends</p>
+              <CardContent className="p-8 text-center space-y-3">
+                <Clock className="w-10 h-10 mx-auto text-amber-400" />
+                <div>
+                  <p className="font-semibold">Next Tournament Coming Soon</p>
+                  <p className="text-xs text-muted-foreground mt-1">Mint your agent now so you're ready when registration opens. First 16 entries get in.</p>
+                </div>
+                {!agent && (
+                  <Button size="sm" onClick={() => navigate("/register")} className="bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
+                    Mint Your Agent
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
