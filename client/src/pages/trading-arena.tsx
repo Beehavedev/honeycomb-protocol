@@ -2620,7 +2620,9 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     onSuccess: async (data: any) => {
       setGameOverOverlay(false);
       refetchDuel();
-      if (data.isOnChain && data.onChainDuelId && data.onChainDuelId !== "0") {
+      const myId = effectiveAgent?.id;
+      const isWinner = data.winnerId && myId && data.winnerId === myId;
+      if (data.isOnChain && data.onChainDuelId && data.onChainDuelId !== "0" && isWinner) {
         setSettlingOnChain(true);
         toast({ title: "Settling on-chain...", description: "Confirm the transaction to release BNB" });
         const creatorWins = data.winnerId === data.creatorId;
