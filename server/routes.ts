@@ -3525,19 +3525,19 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only the platform admin can create tournaments" });
       }
 
-      const { creatorId, name, assetSymbol, durationSeconds, maxPlayers, entryFeeBnb, prizePool, prize1Pct, prize2Pct, prize3Pct } = req.body;
+      const { creatorId, name, prizePool } = req.body;
       if (!creatorId || !name) return res.status(400).json({ message: "creatorId and name required" });
 
       const tournament = await storage.createTournament({
         name,
-        assetSymbol: assetSymbol || "BTCUSDT",
-        durationSeconds: durationSeconds || 300,
-        maxPlayers: maxPlayers || 20,
-        entryFeeBnb: entryFeeBnb || "0",
+        assetSymbol: "BNBUSDT",
+        durationSeconds: 300,
+        maxPlayers: 16,
+        entryFeeBnb: "0",
         prizePool: prizePool || "0",
-        prize1Pct: prize1Pct || 50,
-        prize2Pct: prize2Pct || 30,
-        prize3Pct: prize3Pct || 20,
+        prize1Pct: 100,
+        prize2Pct: 0,
+        prize3Pct: 0,
         createdByAgentId: creatorId,
       });
 

@@ -393,6 +393,7 @@ async function advanceToNextRound(
       await storage.updateTournament(tournamentId, {
         status: "settled",
         settledAt: new Date(),
+        winnerAgentId: firstPlace || null,
       });
       console.log(`[Bracket] Tournament ${tournamentId} completed! 1st: ${firstPlace}, 2nd: ${secondPlace}, 3rd: ${thirdPlace}`);
     }
