@@ -4376,9 +4376,9 @@ function ArenaTournamentHighlight() {
   const [showCreate, setShowCreate] = useState(false);
   const [tournamentJoinCode, setTournamentJoinCode] = useState("");
   const [tName, setTName] = useState("");
-  const [tAsset, setTAsset] = useState("BTCUSDT");
-  const [tDuration, setTDuration] = useState("300");
-  const [tMaxPlayers, setTMaxPlayers] = useState("16");
+  const [tAsset] = useState("BNBUSDT");
+  const [tDuration] = useState("300");
+  const [tMaxPlayers] = useState("16");
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
@@ -4492,33 +4492,15 @@ function ArenaTournamentHighlight() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Asset</Label>
-                  <Select value={tAsset} onValueChange={setTAsset}>
-                    <SelectTrigger className="h-9" data-testid="select-tournament-asset"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {ASSETS.map(a => <SelectItem key={a.symbol} value={a.symbol}>{a.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-asset">BNB/USDT</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Duration</Label>
-                  <Select value={tDuration} onValueChange={setTDuration}>
-                    <SelectTrigger className="h-9" data-testid="select-tournament-duration"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="300">5 min</SelectItem>
-                      <SelectItem value="600">10 min</SelectItem>
-                      <SelectItem value="900">15 min</SelectItem>
-                      <SelectItem value="1800">30 min</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-duration">5 min</div>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Max Players</Label>
-                  <Select value={tMaxPlayers} onValueChange={setTMaxPlayers}>
-                    <SelectTrigger className="h-9" data-testid="select-tournament-max-players"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="16">16 players (Bracket)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs text-muted-foreground">Players</Label>
+                  <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-players">16 (Bracket)</div>
                 </div>
               </div>
               <Button className="w-full bg-amber-600 border-amber-600" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !agent} data-testid="button-submit-tournament">
@@ -5558,9 +5540,9 @@ function TournamentLobbySection() {
   const [showCreate, setShowCreate] = useState(false);
   const [tournamentJoinCode, setTournamentJoinCode] = useState("");
   const [tName, setTName] = useState("");
-  const [tAsset, setTAsset] = useState("BTCUSDT");
-  const [tDuration, setTDuration] = useState("300");
-  const [tMaxPlayers, setTMaxPlayers] = useState("20");
+  const [tAsset] = useState("BNBUSDT");
+  const [tDuration] = useState("300");
+  const [tMaxPlayers] = useState("16");
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
@@ -5647,33 +5629,15 @@ function TournamentLobbySection() {
               </div>
               <div>
                 <Label className="text-xs">Asset</Label>
-                <Select value={tAsset} onValueChange={setTAsset}>
-                  <SelectTrigger data-testid="select-tournament-asset"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {ASSETS.map(a => <SelectItem key={a.symbol} value={a.symbol}>{a.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-asset">BNB/USDT</div>
               </div>
               <div>
                 <Label className="text-xs">Duration</Label>
-                <Select value={tDuration} onValueChange={setTDuration}>
-                  <SelectTrigger data-testid="select-tournament-duration"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="300">5 min</SelectItem>
-                    <SelectItem value="600">10 min</SelectItem>
-                    <SelectItem value="900">15 min</SelectItem>
-                    <SelectItem value="1800">30 min</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-duration">5 min</div>
               </div>
               <div>
-                <Label className="text-xs">Max Players</Label>
-                <Select value={tMaxPlayers} onValueChange={setTMaxPlayers}>
-                  <SelectTrigger data-testid="select-tournament-max-players"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="16">16 players (Bracket)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Players</Label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-players">16 (Bracket)</div>
               </div>
             </div>
             <Button className="w-full" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !agent} data-testid="button-submit-tournament">

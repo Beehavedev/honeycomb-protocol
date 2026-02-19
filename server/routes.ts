@@ -34,7 +34,7 @@ import { openclawRouter } from "./openclaw-routes";
 import web4Router from "./web4-routes";
 import presaleRouter from "./presale-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
-import { generateBracket, bracketAutoAdvanceLoop } from "./bracket-engine";
+import { generateBracket, startRound, bracketAutoAdvanceLoop } from "./bracket-engine";
 import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
 import {
   registerAgentRequestSchema,
@@ -3649,14 +3649,22 @@ export async function registerRoutes(
     try {
       const tournament = await storage.getTournament(req.params.id);
       if (!tournament) return res.status(404).json({ message: "Tournament not found" });
-      if (tournament.status !== "registration") return res.status(400).json({ message: "Tournament already started or settled" });
+      if (tournament.status !== "registration" && tournament.status !== "bracket_ready") {
+        return res.status(400).json({ message: "Tournament already started or settled" });
+      }
 
       const entries = await storage.getTournamentEntries(tournament.id);
-      if (entries.length < 2) return res.status(400).json({ message: "Need at least 2 players to start" });
+      if (entries.length < 16) return res.status(400).json({ message: "Need exactly 16 players to start a bracket tournament" });
 
-      const now = new Date();
-      const endsAt = new Date(now.getTime() + tournament.durationSeconds * 1000);
-      const updated = await storage.updateTournament(tournament.id, { status: "active", startedAt: now, endsAt });
+      if (tournament.status === "registration") {
+        await generateBracket(tournament.id);
+        console.log(`[Tournament] Admin generated bracket for ${tournament.id}`);
+      }
+
+      await startRound(tournament.id, "R16");
+      console.log(`[Tournament] Admin started R16 for ${tournament.id} — all 8 matches go live simultaneously`);
+
+      const updated = await storage.getTournament(tournament.id);
       res.json(updated);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

@@ -192,33 +192,40 @@ export async function startRound(tournamentId: string, roundType: string): Promi
 
   const matches = await storage.getTournamentMatchesByRound(round.id);
 
-  for (const match of matches) {
-    if (!match.playerAAgentId || !match.playerBAgentId) {
-      console.warn(`[Bracket] Match ${match.id} missing players, cannot start`);
-      continue;
+  const validMatches = matches.filter(m => {
+    if (!m.playerAAgentId || !m.playerBAgentId) {
+      console.warn(`[Bracket] Match ${m.id} missing players, cannot start`);
+      return false;
     }
+    return true;
+  });
 
+  const duelPromises = validMatches.map(async (match) => {
     const duel = await storage.createTradingDuel({
-      creatorId: match.playerAAgentId,
-      assetSymbol: tournament.assetSymbol,
+      creatorId: match.playerAAgentId!,
+      assetSymbol: "BNBUSDT",
       potAmount: "0",
-      durationSeconds: tournament.durationSeconds,
+      durationSeconds: 300,
       matchType: "pvp",
     });
+    await storage.joinTradingDuel(duel.id, match.playerBAgentId!);
+    return { match, duel };
+  });
+  const prepared = await Promise.all(duelPromises);
 
-    await storage.joinTradingDuel(duel.id, match.playerBAgentId);
+  const startTimestamp = new Date();
+  await Promise.all(prepared.map(async ({ match, duel }) => {
     const started = await storage.startTradingDuel(duel.id);
-
     await storage.updateTournamentMatch(match.id, {
       duelId: started.id,
       status: "live",
-      startedAt: new Date(),
+      startedAt: startTimestamp,
     });
-  }
+  }));
 
   await storage.updateTournamentRound(round.id, {
     status: "live",
-    startedAt: new Date(),
+    startedAt: startTimestamp,
   });
 
   if (roundType === "R16") {
@@ -395,13 +402,6 @@ async function advanceToNextRound(
 export async function bracketAutoAdvanceLoop(): Promise<void> {
   try {
     const activeTournaments = await storage.listTournaments("active");
-    const bracketReady = await storage.listTournaments("bracket_ready");
-
-    for (const t of bracketReady) {
-      if (t.maxPlayers === 16) {
-        await startRound(t.id, "R16");
-      }
-    }
 
     for (const t of activeTournaments) {
       if (t.maxPlayers === 16) {
