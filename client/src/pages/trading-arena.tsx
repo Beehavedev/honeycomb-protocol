@@ -66,6 +66,7 @@ import {
   Hash,
   Gauge,
   LogOut,
+  CheckCircle,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
@@ -5333,16 +5334,34 @@ function BracketMatchCard({ match, onSpectate, onTrade, myAgentId }: {
 
   return (
     <div className={`rounded-md border p-2 text-xs space-y-1 min-w-[160px] ${isMyMatch ? "border-amber-400 bg-amber-500/10 ring-1 ring-amber-400/30" : isLive ? "border-amber-500/50 bg-amber-500/5" : isFinished ? "border-muted bg-muted/20" : "border-border/50"}`} data-testid={`bracket-match-${match.id}`}>
-      <div className={`flex items-center justify-between gap-2 p-1 rounded ${match.winnerAgentId === match.playerAAgentId ? "bg-green-500/10" : ""}`}>
-        <span className={`truncate max-w-[100px] ${myAgentId && match.playerAAgentId === myAgentId ? "text-amber-300 font-semibold" : ""}`}>{match.playerA?.username || "TBD"}</span>
-        {isFinished && match.playerAScore && <span className="text-muted-foreground">{parseFloat(match.playerAScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
-        {match.winnerAgentId === match.playerAAgentId && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
+      <div className={`flex items-center justify-between gap-2 p-1 rounded ${match.winnerAgentId === match.playerAAgentId ? "bg-green-500/10" : ""} ${match.loserAgentId === match.playerAAgentId ? "opacity-50" : ""}`}>
+        <div className="flex items-center gap-1 min-w-0">
+          {match.playerA?.avatarUrl ? (
+            <img src={match.playerA.avatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
+          ) : match.playerA ? (
+            <div className="w-4 h-4 rounded-full bg-amber-500/30 shrink-0 flex items-center justify-center text-[7px] font-bold text-amber-300">{(match.playerA.username || "?")[0].toUpperCase()}</div>
+          ) : null}
+          <span className={`truncate ${myAgentId && match.playerAAgentId === myAgentId ? "text-amber-300 font-semibold" : ""}`}>{match.playerA?.username || "TBD"}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {isFinished && match.playerAScore && <span className="text-muted-foreground">{parseFloat(match.playerAScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+          {match.winnerAgentId === match.playerAAgentId && <Crown className="w-3 h-3 text-amber-400" />}
+        </div>
       </div>
       <div className="border-t border-border/30" />
-      <div className={`flex items-center justify-between gap-2 p-1 rounded ${match.winnerAgentId === match.playerBAgentId ? "bg-green-500/10" : ""}`}>
-        <span className={`truncate max-w-[100px] ${myAgentId && match.playerBAgentId === myAgentId ? "text-amber-300 font-semibold" : ""}`}>{match.playerB?.username || "TBD"}</span>
-        {isFinished && match.playerBScore && <span className="text-muted-foreground">{parseFloat(match.playerBScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
-        {match.winnerAgentId === match.playerBAgentId && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
+      <div className={`flex items-center justify-between gap-2 p-1 rounded ${match.winnerAgentId === match.playerBAgentId ? "bg-green-500/10" : ""} ${match.loserAgentId === match.playerBAgentId ? "opacity-50" : ""}`}>
+        <div className="flex items-center gap-1 min-w-0">
+          {match.playerB?.avatarUrl ? (
+            <img src={match.playerB.avatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
+          ) : match.playerB ? (
+            <div className="w-4 h-4 rounded-full bg-amber-500/30 shrink-0 flex items-center justify-center text-[7px] font-bold text-amber-300">{(match.playerB.username || "?")[0].toUpperCase()}</div>
+          ) : null}
+          <span className={`truncate ${myAgentId && match.playerBAgentId === myAgentId ? "text-amber-300 font-semibold" : ""}`}>{match.playerB?.username || "TBD"}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {isFinished && match.playerBScore && <span className="text-muted-foreground">{parseFloat(match.playerBScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+          {match.winnerAgentId === match.playerBAgentId && <Crown className="w-3 h-3 text-amber-400" />}
+        </div>
       </div>
       <div className="flex items-center justify-between gap-1 pt-1">
         {isLive && (
@@ -5378,8 +5397,58 @@ function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bra
 
   const roundStatus = (rt: string) => bracket.rounds.find(r => r.roundType === rt)?.status || "scheduled";
 
+  const eliminatedIds = new Set<string>();
+  for (const m of bracket.matches) {
+    if (m.loserAgentId) eliminatedIds.add(m.loserAgentId);
+  }
+
+  const playerLastRound = (pid: string): string => {
+    let lastRound = "R16";
+    for (const rt of ["R16", "QF", "SF", "THIRD", "FINAL"]) {
+      const roundMatches = matchesByRound[rt] || [];
+      const inRound = roundMatches.some(m => m.playerAAgentId === pid || m.playerBAgentId === pid);
+      if (inRound) lastRound = rt;
+    }
+    return lastRound;
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 p-3 rounded-md border border-border/50 bg-muted/20" data-testid="tournament-participants-grid">
+        <div className="col-span-full flex items-center gap-2 mb-1">
+          <Users className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-xs font-semibold">All Participants</span>
+          <span className="text-[10px] text-muted-foreground">({bracket.players.length})</span>
+        </div>
+        {bracket.players.map((p, i) => {
+          const isEliminated = eliminatedIds.has(p.id);
+          const isMe = myAgentId === p.id;
+          const lastRound = playerLastRound(p.id);
+          return (
+            <div
+              key={p.id}
+              className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] truncate ${
+                isMe ? "bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold" :
+                isEliminated ? "bg-muted/30 text-muted-foreground line-through opacity-60" :
+                "bg-muted/50 text-foreground"
+              }`}
+              title={`${p.username}${isEliminated ? ` (eliminated in ${ROUND_LABELS[lastRound] || lastRound})` : ""}`}
+              data-testid={`participant-${p.id}`}
+            >
+              {p.avatarUrl ? (
+                <img src={p.avatarUrl} alt="" className="w-3.5 h-3.5 rounded-full shrink-0" />
+              ) : (
+                <div className="w-3.5 h-3.5 rounded-full bg-amber-500/30 shrink-0 flex items-center justify-center text-[7px] font-bold text-amber-300">{(p.username || "?")[0].toUpperCase()}</div>
+              )}
+              <span className="truncate">{p.username}</span>
+              {isEliminated && <XCircle className="w-2.5 h-2.5 shrink-0 text-red-400/60" />}
+              {!isEliminated && !isMe && <CheckCircle className="w-2.5 h-2.5 shrink-0 text-green-400/60" />}
+              {isMe && <Star className="w-2.5 h-2.5 shrink-0 text-amber-400" />}
+            </div>
+          );
+        })}
+      </div>
+
       <div className="overflow-x-auto">
         <div className="flex gap-4 min-w-[900px] pb-4">
           {["R16", "QF", "SF"].map(rt => (
