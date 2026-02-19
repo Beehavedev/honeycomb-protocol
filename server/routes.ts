@@ -2714,18 +2714,6 @@ export async function registerRoutes(
       } catch {}
     }
 
-    try {
-      const res = await fetchFromSource(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
-      const data = await res.json();
-      if (data?.price) return setCache(parseFloat(data.price));
-    } catch {}
-
-    try {
-      const res = await fetchFromSource(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-      const data = await res.json();
-      if (data?.price) return setCache(parseFloat(data.price));
-    } catch {}
-
     if (cached) return cached.price;
 
     throw new Error("Failed to fetch price from any exchange");
@@ -2737,35 +2725,45 @@ export async function registerRoutes(
       const sym = (symbol as string) || "BTCUSDT";
       const intv = (interval as string) || "1m";
       const lim = (klimit as string) || "100";
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      try {
-        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${intv}&limit=${lim}`, { signal: controller.signal });
-        clearTimeout(timeout);
-        const data = await response.json();
-        if (Array.isArray(data)) return res.json(data);
-      } catch {}
-
-      const controller2 = new AbortController();
-      const timeout2 = setTimeout(() => controller2.abort(), 5000);
-      try {
-        const response = await fetch(`https://api.binance.us/api/v3/klines?symbol=${sym}&interval=${intv}&limit=${lim}`, { signal: controller2.signal });
-        clearTimeout(timeout2);
-        const data = await response.json();
-        if (Array.isArray(data)) return res.json(data);
-      } catch {}
-
       const base = SYMBOL_TO_BASE[sym] || sym.replace("USDT", "");
+
+      const ccIntervalMap: Record<string, string> = {
+        "1m": "histominute", "5m": "histominute", "15m": "histominute",
+        "1h": "histohour", "4h": "histohour", "1d": "histoday",
+      };
+      const ccAggMap: Record<string, number> = {
+        "1m": 1, "5m": 5, "15m": 15, "1h": 1, "4h": 4, "1d": 1,
+      };
+      const ccEndpoint = ccIntervalMap[intv] || "histominute";
+      const ccAgg = ccAggMap[intv] || 1;
+
+      try {
+        const response = await fetchFromSource(
+          `https://min-api.cryptocompare.com/data/v2/${ccEndpoint}?fsym=${base}&tsym=USD&limit=${lim}&aggregate=${ccAgg}`
+        );
+        const data = await response.json();
+        if (data?.Data?.Data && Array.isArray(data.Data.Data)) {
+          const klines = data.Data.Data.map((k: any) => [
+            k.time * 1000,
+            k.open.toString(),
+            k.high.toString(),
+            k.low.toString(),
+            k.close.toString(),
+            k.volumefrom?.toString() || "0",
+            (k.time + ccAgg * 60) * 1000,
+            k.close.toString(),
+            "0", "0", "0", "0"
+          ]);
+          return res.json(klines);
+        }
+      } catch {}
+
       const krakenSym = KRAKEN_MAP[base];
       if (krakenSym) {
         const intervalMap: Record<string, number> = { "1m": 1, "5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440 };
         const krakenInterval = intervalMap[intv] || 1;
-        const controller3 = new AbortController();
-        const timeout3 = setTimeout(() => controller3.abort(), 5000);
         try {
-          const response = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${krakenSym}&interval=${krakenInterval}`, { signal: controller3.signal });
-          clearTimeout(timeout3);
+          const response = await fetchFromSource(`https://api.kraken.com/0/public/OHLC?pair=${krakenSym}&interval=${krakenInterval}`);
           const data = await response.json();
           const pair = Object.keys(data.result || {}).find(k => k !== "last");
           if (pair && data.result[pair]) {
