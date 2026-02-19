@@ -3475,6 +3475,7 @@ export const tradingTournaments = pgTable("trading_tournaments", {
   createdByAgentId: varchar("created_by_agent_id").notNull().references(() => agents.id),
   startedAt: timestamp("started_at"),
   endsAt: timestamp("ends_at"),
+  winnerAgentId: varchar("winner_agent_id"),
   settledAt: timestamp("settled_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
