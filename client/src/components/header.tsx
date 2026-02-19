@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift, Radio, Rocket, Fingerprint } from "lucide-react";
+import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Cpu, Link2, Gift, Radio, Rocket, Fingerprint, ExternalLink } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -37,6 +37,7 @@ export function Header() {
     { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/nfa/mint", label: "BAP-578", icon: Fingerprint },
     { href: "/erc8004", label: "ERC-8004", icon: Shield },
+    { href: "https://paradigm.xyz/evmbench", label: "EVMbench", icon: ExternalLink, external: true },
   ];
   const mobileCompeteItems = [
     { href: "/arena", label: "Games Arena", icon: Swords },
@@ -134,6 +135,13 @@ export function Header() {
                     ERC-8004
                   </DropdownMenuItem>
                 </Link>
+                <DropdownMenuSeparator />
+                <a href="https://paradigm.xyz/evmbench" target="_blank" rel="noopener noreferrer">
+                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-evmbench">
+                    <ExternalLink className="h-4 w-4" />
+                    EVMbench
+                  </DropdownMenuItem>
+                </a>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -250,15 +258,24 @@ export function Header() {
               <nav className="flex flex-col gap-1">
                 <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Agents</div>
                 {mobileAgentItems.map((item) => (
-                  <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
-                    <Button
-                      variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
-                      className="w-full justify-start gap-3"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Button>
-                  </Link>
+                  'external' in item && item.external ? (
+                    <a key={item.href} href={item.href} target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full justify-start gap-3">
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    </a>
+                  ) : (
+                    <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                      <Button
+                        variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
+                        className="w-full justify-start gap-3"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  )
                 ))}
 
                 <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">Compete</div>
