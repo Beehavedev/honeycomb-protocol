@@ -3043,7 +3043,7 @@ export async function registerRoutes(
 
   app.post("/api/trading-duels/:id/open-position", async (req, res) => {
     try {
-      const { agentId, side, leverage, sizeUsdt } = req.body;
+      const { agentId, side, leverage, sizeUsdt, clientPrice } = req.body;
       if (!agentId || !side || !sizeUsdt) {
         return res.status(400).json({ message: "agentId, side, sizeUsdt required" });
       }
@@ -3073,14 +3073,17 @@ export async function registerRoutes(
       }
 
       let entryPrice: string;
-      try {
-        const price = await fetchArenaPrice(duel.assetSymbol);
-        entryPrice = price.toString();
-      } catch {
-        const cached = arenaPriceCache.get(duel.assetSymbol);
-        if (cached) {
-          entryPrice = cached.price.toString();
-        } else {
+      const cp = clientPrice ? parseFloat(clientPrice) : 0;
+      const cached = arenaPriceCache.get(duel.assetSymbol);
+      if (cp > 0 && cached && Math.abs(cp - cached.price) / cached.price < 0.02) {
+        entryPrice = cp.toString();
+      } else if (cached) {
+        entryPrice = cached.price.toString();
+      } else {
+        try {
+          const price = await fetchArenaPrice(duel.assetSymbol);
+          entryPrice = price.toString();
+        } catch {
           return res.status(500).json({ message: "Failed to fetch price from exchange" });
         }
       }
@@ -3122,7 +3125,7 @@ export async function registerRoutes(
 
   app.post("/api/trading-duels/:id/close-position", async (req, res) => {
     try {
-      const { positionId, agentId } = req.body;
+      const { positionId, agentId, clientPrice } = req.body;
       if (!positionId || !agentId) {
         return res.status(400).json({ message: "positionId and agentId required" });
       }
@@ -3153,14 +3156,17 @@ export async function registerRoutes(
       if (!position) return res.status(404).json({ message: "Position not found or already closed" });
 
       let exitPrice: string;
-      try {
-        const price = await fetchArenaPrice(duel.assetSymbol);
-        exitPrice = price.toString();
-      } catch {
-        const cached = arenaPriceCache.get(duel.assetSymbol);
-        if (cached) {
-          exitPrice = cached.price.toString();
-        } else {
+      const cp = clientPrice ? parseFloat(clientPrice) : 0;
+      const cached = arenaPriceCache.get(duel.assetSymbol);
+      if (cp > 0 && cached && Math.abs(cp - cached.price) / cached.price < 0.02) {
+        exitPrice = cp.toString();
+      } else if (cached) {
+        exitPrice = cached.price.toString();
+      } else {
+        try {
+          const price = await fetchArenaPrice(duel.assetSymbol);
+          exitPrice = price.toString();
+        } catch {
           return res.status(500).json({ message: "Failed to fetch price from exchange" });
         }
       }

@@ -1720,6 +1720,7 @@ function TradingPanel({
       side,
       leverage: parseInt(leverage),
       sizeUsdt,
+      clientPrice: currentPrice.toString(),
     }),
     onSuccess: (data: any) => {
       triggerCooldown();
@@ -1736,6 +1737,7 @@ function TradingPanel({
     mutationFn: (posId: string) => apiRequest("POST", `/api/trading-duels/${duelId}/close-position`, {
       positionId: posId,
       agentId,
+      clientPrice: currentPrice.toString(),
     }),
     onSuccess: () => {
       triggerCooldown();
