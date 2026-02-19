@@ -4446,36 +4446,36 @@ function ArenaTournamentHighlight() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              {isAdmin && (
-                <>
-                  <div className="flex gap-1">
-                    <Input
-                      placeholder="Join code..."
-                      value={tournamentJoinCode}
-                      onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
-                      className="w-24 sm:w-28 h-9 text-xs font-mono"
-                      maxLength={6}
-                      data-testid="input-tournament-join-code"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)}
-                      disabled={!tournamentJoinCode || joinByCodeMutation.isPending}
-                      data-testid="button-tournament-join-code"
-                    >
-                      {joinByCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
-                    </Button>
-                  </div>
+              {agent && (
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="Join code..."
+                    value={tournamentJoinCode}
+                    onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
+                    className="w-24 sm:w-28 h-9 text-xs font-mono"
+                    maxLength={6}
+                    data-testid="input-tournament-join-code"
+                  />
                   <Button
                     size="sm"
-                    onClick={() => setShowCreate(!showCreate)}
-                    className="bg-amber-600 border-amber-600 text-white"
-                    data-testid="button-create-tournament"
+                    variant="outline"
+                    onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)}
+                    disabled={!tournamentJoinCode || joinByCodeMutation.isPending}
+                    data-testid="button-tournament-join-code"
                   >
-                    <Plus className="w-4 h-4 mr-1" /> Create Tournament
+                    {joinByCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
                   </Button>
-                </>
+                </div>
+              )}
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowCreate(!showCreate)}
+                  className="bg-amber-600 border-amber-600 text-white"
+                  data-testid="button-create-tournament"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Create Tournament
+                </Button>
               )}
             </div>
           </div>
@@ -5649,24 +5649,24 @@ function TournamentLobbySection() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-bold flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-400" /> Tournaments</h3>
         <div className="flex gap-2">
-          {isAdmin && (
-            <>
-              <div className="flex gap-1">
-                <Input
-                  placeholder="Join code..."
-                  value={tournamentJoinCode}
-                  onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
-                  className="w-28 h-9"
-                  data-testid="input-tournament-join-code"
-                />
-                <Button size="sm" onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)} disabled={!tournamentJoinCode || joinByCodeMutation.isPending} data-testid="button-tournament-join-code">
-                  Join
-                </Button>
-              </div>
-              <Button size="sm" onClick={() => setShowCreate(!showCreate)} data-testid="button-create-tournament">
-                <Plus className="w-4 h-4 mr-1" /> Create
+          {agent && (
+            <div className="flex gap-1">
+              <Input
+                placeholder="Join code..."
+                value={tournamentJoinCode}
+                onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
+                className="w-28 h-9"
+                data-testid="input-tournament-join-code"
+              />
+              <Button size="sm" onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)} disabled={!tournamentJoinCode || joinByCodeMutation.isPending} data-testid="button-tournament-join-code">
+                Join
               </Button>
-            </>
+            </div>
+          )}
+          {isAdmin && (
+            <Button size="sm" onClick={() => setShowCreate(!showCreate)} data-testid="button-create-tournament">
+              <Plus className="w-4 h-4 mr-1" /> Create
+            </Button>
           )}
         </div>
       </div>
