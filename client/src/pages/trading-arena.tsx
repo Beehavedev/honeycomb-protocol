@@ -5758,8 +5758,16 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const startMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/trading-tournaments/${tournamentId}/start`),
+    onSuccess: () => { refetchTournament(); toast({ title: "Tournament started! First round is live." }); },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (!tournament) return <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>;
 
+  const ADMIN_ADDR = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+  const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDR;
   const isBracketTournament = true;
   const isParticipant = tournament.entries?.some(e => e.agentId === agent?.id);
   const playerCount = tournament.playerCount || tournament.entries?.length || 0;
@@ -5848,8 +5856,19 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
         <Card className="arena-glow-card">
           <CardContent className="p-6 text-center space-y-3">
             <Zap className="w-10 h-10 mx-auto text-amber-400 animate-pulse" />
-            <h3 className="text-lg font-bold">Tournament Starting...</h3>
-            <p className="text-sm text-muted-foreground">Bracket generated. First round begins shortly.</p>
+            <h3 className="text-lg font-bold">Bracket Ready</h3>
+            <p className="text-sm text-muted-foreground">Bracket generated. Waiting for admin to start first round.</p>
+            {isAdmin && (
+              <Button
+                className="bg-green-600 border-green-600"
+                onClick={() => startMutation.mutate()}
+                disabled={startMutation.isPending}
+                data-testid="button-start-first-round"
+              >
+                {startMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Zap className="w-4 h-4 mr-2" />}
+                Start First Round (R16)
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
