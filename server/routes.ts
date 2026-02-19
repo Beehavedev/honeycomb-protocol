@@ -2782,8 +2782,17 @@ export async function registerRoutes(
     try {
       const { symbol } = req.query;
       const sym = (symbol as string) || "BTCUSDT";
-      const price = await fetchArenaPrice(sym);
-      res.json({ symbol: sym, price: price.toString() });
+      try {
+        const price = await fetchArenaPrice(sym);
+        res.json({ symbol: sym, price: price.toString() });
+      } catch {
+        const cached = arenaPriceCache.get(sym);
+        if (cached) {
+          res.json({ symbol: sym, price: cached.price.toString(), stale: true });
+        } else {
+          res.status(500).json({ message: "Price unavailable" });
+        }
+      }
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -3065,7 +3074,12 @@ export async function registerRoutes(
         const price = await fetchArenaPrice(duel.assetSymbol);
         entryPrice = price.toString();
       } catch {
-        return res.status(500).json({ message: "Failed to fetch price from exchange" });
+        const cached = arenaPriceCache.get(duel.assetSymbol);
+        if (cached) {
+          entryPrice = cached.price.toString();
+        } else {
+          return res.status(500).json({ message: "Failed to fetch price from exchange" });
+        }
       }
 
       const openPositions = await storage.getOpenTradingPositions(req.params.id, resolvedAgentId);
@@ -3140,7 +3154,12 @@ export async function registerRoutes(
         const price = await fetchArenaPrice(duel.assetSymbol);
         exitPrice = price.toString();
       } catch {
-        return res.status(500).json({ message: "Failed to fetch price from exchange" });
+        const cached = arenaPriceCache.get(duel.assetSymbol);
+        if (cached) {
+          exitPrice = cached.price.toString();
+        } else {
+          return res.status(500).json({ message: "Failed to fetch price from exchange" });
+        }
       }
 
       const entry = parseFloat(position.entryPrice);
@@ -3179,7 +3198,12 @@ export async function registerRoutes(
         const price = await fetchArenaPrice(duel.assetSymbol);
         settlementPrice = price.toString();
       } catch {
-        return res.status(500).json({ message: "Failed to fetch settlement price from exchange" });
+        const cached = arenaPriceCache.get(duel.assetSymbol);
+        if (cached) {
+          settlementPrice = cached.price.toString();
+        } else {
+          return res.status(500).json({ message: "Failed to fetch settlement price from exchange" });
+        }
       }
 
       const calcBalance = async (agentId: string) => {
@@ -3330,8 +3354,14 @@ export async function registerRoutes(
             const price = await fetchArenaPrice(duel.assetSymbol);
             settlementPrice = price.toString();
           } catch {
-            console.error(`[AutoSettle] Failed to fetch price for ${duel.id}, skipping`);
-            continue;
+            const cached = arenaPriceCache.get(duel.assetSymbol);
+            if (cached) {
+              settlementPrice = cached.price.toString();
+            } else {
+              console.error(`[AutoSettle] Failed to fetch price for ${duel.id}, skipping`);
+              settlingDuels.delete(duel.id);
+              continue;
+            }
           }
 
           const calcBalance = async (agentId: string) => {
@@ -3966,6 +3996,8 @@ export async function registerRoutes(
         await storage.updateDuelLeadChange(req.params.id, leadChanges, currentLeaderId);
       }
 
+      const opponentAgent = opponentId ? await storage.getAgent(opponentId) : null;
+
       res.json({
         relativeStatus,
         myMomentum: Math.round(myMomentum),
@@ -3973,6 +4005,7 @@ export async function registerRoutes(
         leadChanges,
         leadJustChanged,
         myPnlPercent: Math.round(myPnlPct * 100) / 100,
+        opponentName: opponentAgent?.name || "Opponent",
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

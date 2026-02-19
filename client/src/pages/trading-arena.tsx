@@ -2397,6 +2397,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     leadChanges: number;
     leadJustChanged: boolean;
     myPnlPercent: number;
+    opponentName?: string;
   }>({
     queryKey: ["/api/trading-duels", duelId, "status", effectiveAgent?.id ? `?agentId=${effectiveAgent.id}` : ""],
     enabled: !!duel && duel.status === "active" && !!effectiveAgent?.id,
@@ -2565,7 +2566,10 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       } catch {}
     };
 
-    fetchInitialPrice().then(connectWs);
+    fetchInitialPrice().then(() => {
+      startPolling();
+      connectWs();
+    });
 
     return () => {
       dead = true;
@@ -2988,7 +2992,7 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[9px] uppercase font-bold" style={{ color: matchStatus.oppMomentum > matchStatus.myMomentum ? "#ea3943" : "#848e9c" }}>OPP</span>
+            <span className="text-[9px] uppercase font-bold truncate max-w-[60px]" style={{ color: matchStatus.oppMomentum > matchStatus.myMomentum ? "#ea3943" : "#848e9c" }} data-testid="text-opp-name">{matchStatus.opponentName || "OPP"}</span>
             <div className="flex-1 h-2.5 rounded-full overflow-hidden relative" style={{ background: "#1e2329" }}>
               <div
                 className="h-full rounded-full"
@@ -3152,6 +3156,25 @@ function TradingArenaLobby() {
     queryKey: ["/api/trading-duels", `?status=${statusParam}&limit=20${matchTypeParam}`],
     refetchInterval: 5000,
   });
+
+  const { data: myActiveDuels = [] } = useQuery<TradingDuel[]>({
+    queryKey: ["/api/trading-duels/my-duels", agent?.id],
+    queryFn: async () => {
+      if (!agent?.id) return [];
+      const res = await fetch(`/api/trading-duels/my-duels/${agent.id}`);
+      if (!res.ok) return [];
+      const all = await res.json();
+      return all.filter((d: TradingDuel) => d.status === "active");
+    },
+    enabled: !!agent?.id,
+    refetchInterval: 3000,
+  });
+
+  useEffect(() => {
+    if (myActiveDuels.length > 0) {
+      navigate(`/arena/${myActiveDuels[0].id}`);
+    }
+  }, [myActiveDuels, navigate]);
 
   const { data: myStats } = useQuery<{ arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number }>({
     queryKey: ["/api/agents", agent?.id, "arena-stats"],
