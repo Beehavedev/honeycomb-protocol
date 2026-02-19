@@ -2689,10 +2689,23 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     }
   }, [duel?.status, settleMutation]);
 
+  useEffect(() => {
+    if (duel && duel.status === "active" && duel.endsAt) {
+      const end = new Date(duel.endsAt).getTime();
+      if (Date.now() > end && !settleTriggeredRef.current) {
+        settleTriggeredRef.current = true;
+        settleMutation.mutate();
+      }
+    }
+  }, [duel?.id, duel?.status, duel?.endsAt]);
+
   if (!duel) return (
     <div className="flex flex-col items-center justify-center p-16 gap-3">
       <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
       <p className="text-muted-foreground text-sm">Loading arena...</p>
+      <Button variant="ghost" className="text-amber-400 mt-2" onClick={() => navigate("/arena")} data-testid="button-back-to-lobby">
+        Back to Arena
+      </Button>
     </div>
   );
 
@@ -3172,14 +3185,8 @@ function TradingArenaLobby() {
       });
     },
     enabled: !!agent?.id,
-    refetchInterval: 3000,
+    refetchInterval: 5000,
   });
-
-  useEffect(() => {
-    if (myActiveDuels.length > 0) {
-      navigate(`/arena/${myActiveDuels[0].id}`);
-    }
-  }, [myActiveDuels, navigate]);
 
   const { data: myStats } = useQuery<{ arenaWins: number; arenaLosses: number; arenaWinStreak: number; arenaBestStreak: number; arenaRating: number }>({
     queryKey: ["/api/agents", agent?.id, "arena-stats"],
@@ -3381,6 +3388,20 @@ function TradingArenaLobby() {
             </Badge>
           )}
         </div>
+      )}
+
+      {myActiveDuels.length > 0 && (
+        <Card className="arena-glow-card mb-3 arena-animate-up" data-testid="card-active-duel-banner">
+          <CardContent className="p-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm font-medium text-white">You have an active duel in progress</span>
+            </div>
+            <Button size="sm" onClick={() => navigate(`/arena/${myActiveDuels[0].id}`)} data-testid="button-rejoin-active-duel">
+              <Swords className="w-4 h-4 mr-1" /> Rejoin
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 arena-animate-up-d1 mb-4 sm:mb-6">
