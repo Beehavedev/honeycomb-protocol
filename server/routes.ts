@@ -4019,7 +4019,7 @@ export async function registerRoutes(
       const agentIds = entries.map(e => e.agentId);
       const agentsData = await Promise.all(agentIds.map(async (id) => {
         const a = await storage.getAgent(id);
-        return a ? { id: a.id, username: a.username, avatarUrl: a.avatarUrl } : { id, username: "Unknown", avatarUrl: null };
+        return a ? { id: a.id, username: a.name, avatarUrl: a.avatarUrl } : { id, username: "Unknown", avatarUrl: null };
       }));
 
       const agentMap = Object.fromEntries(agentsData.map(a => [a.id, a]));

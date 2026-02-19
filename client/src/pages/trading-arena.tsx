@@ -5321,23 +5321,26 @@ function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, on
   );
 }
 
-function BracketMatchCard({ match, onSpectate }: {
+function BracketMatchCard({ match, onSpectate, onTrade, myAgentId }: {
   match: BracketData["matches"][0];
   onSpectate?: (duelId: string) => void;
+  onTrade?: (duelId: string) => void;
+  myAgentId?: string;
 }) {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
+  const isMyMatch = myAgentId && isLive && (match.playerAAgentId === myAgentId || match.playerBAgentId === myAgentId);
 
   return (
-    <div className={`rounded-md border p-2 text-xs space-y-1 min-w-[160px] ${isLive ? "border-amber-500/50 bg-amber-500/5" : isFinished ? "border-muted bg-muted/20" : "border-border/50"}`} data-testid={`bracket-match-${match.id}`}>
+    <div className={`rounded-md border p-2 text-xs space-y-1 min-w-[160px] ${isMyMatch ? "border-amber-400 bg-amber-500/10 ring-1 ring-amber-400/30" : isLive ? "border-amber-500/50 bg-amber-500/5" : isFinished ? "border-muted bg-muted/20" : "border-border/50"}`} data-testid={`bracket-match-${match.id}`}>
       <div className={`flex items-center justify-between gap-2 p-1 rounded ${match.winnerAgentId === match.playerAAgentId ? "bg-green-500/10" : ""}`}>
-        <span className="truncate max-w-[100px]">{match.playerA?.username || "TBD"}</span>
+        <span className={`truncate max-w-[100px] ${myAgentId && match.playerAAgentId === myAgentId ? "text-amber-300 font-semibold" : ""}`}>{match.playerA?.username || "TBD"}</span>
         {isFinished && match.playerAScore && <span className="text-muted-foreground">{parseFloat(match.playerAScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
         {match.winnerAgentId === match.playerAAgentId && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
       </div>
       <div className="border-t border-border/30" />
       <div className={`flex items-center justify-between gap-2 p-1 rounded ${match.winnerAgentId === match.playerBAgentId ? "bg-green-500/10" : ""}`}>
-        <span className="truncate max-w-[100px]">{match.playerB?.username || "TBD"}</span>
+        <span className={`truncate max-w-[100px] ${myAgentId && match.playerBAgentId === myAgentId ? "text-amber-300 font-semibold" : ""}`}>{match.playerB?.username || "TBD"}</span>
         {isFinished && match.playerBScore && <span className="text-muted-foreground">{parseFloat(match.playerBScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
         {match.winnerAgentId === match.playerBAgentId && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
       </div>
@@ -5349,7 +5352,12 @@ function BracketMatchCard({ match, onSpectate }: {
         )}
         {isFinished && <Badge variant="secondary" className="text-[10px] h-4">Done</Badge>}
         {match.status === "scheduled" && <Badge variant="outline" className="text-[10px] h-4">Scheduled</Badge>}
-        {isLive && match.duelId && onSpectate && (
+        {isMyMatch && match.duelId && onTrade && (
+          <Button size="sm" className="h-5 text-[10px] px-1.5 bg-amber-500 hover:bg-amber-600 text-black" onClick={() => onTrade(match.duelId!)} data-testid={`button-trade-${match.id}`}>
+            <Swords className="w-3 h-3 mr-0.5" /> Trade
+          </Button>
+        )}
+        {!isMyMatch && isLive && match.duelId && onSpectate && (
           <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5" onClick={() => onSpectate(match.duelId!)} data-testid={`button-spectate-${match.id}`}>
             <Eye className="w-3 h-3 mr-0.5" /> Watch
           </Button>
@@ -5360,7 +5368,7 @@ function BracketMatchCard({ match, onSpectate }: {
   );
 }
 
-function BracketVisualization({ bracket, onSpectate }: { bracket: BracketData; onSpectate: (duelId: string) => void }) {
+function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bracket: BracketData; onSpectate: (duelId: string) => void; onTrade?: (duelId: string) => void; myAgentId?: string }) {
   const matchesByRound: Record<string, BracketData["matches"]> = {};
   for (const round of bracket.rounds) {
     matchesByRound[round.roundType] = bracket.matches
@@ -5383,7 +5391,7 @@ function BracketVisualization({ bracket, onSpectate }: { bracket: BracketData; o
               </div>
               <div className="space-y-2">
                 {(matchesByRound[rt] || []).map(m => (
-                  <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} />
+                  <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} onTrade={onTrade} myAgentId={myAgentId} />
                 ))}
               </div>
             </div>
@@ -5397,7 +5405,7 @@ function BracketVisualization({ bracket, onSpectate }: { bracket: BracketData; o
                 {roundStatus("FINAL") === "completed" && <Badge variant="secondary" className="text-[10px] h-4">Done</Badge>}
               </div>
               {(matchesByRound["FINAL"] || []).map(m => (
-                <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} />
+                <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} onTrade={onTrade} myAgentId={myAgentId} />
               ))}
             </div>
             <div className="space-y-2">
@@ -5407,7 +5415,7 @@ function BracketVisualization({ bracket, onSpectate }: { bracket: BracketData; o
                 {roundStatus("THIRD") === "completed" && <Badge variant="secondary" className="text-[10px] h-4">Done</Badge>}
               </div>
               {(matchesByRound["THIRD"] || []).map(m => (
-                <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} />
+                <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} onTrade={onTrade} myAgentId={myAgentId} />
               ))}
             </div>
           </div>
@@ -5495,6 +5503,10 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
 
   const handleSpectate = (duelId: string) => {
     navigate(`/arena/${duelId}/spectate`);
+  };
+
+  const handleTrade = (duelId: string) => {
+    navigate(`/arena/${duelId}`);
   };
 
   const findMyActiveDuel = () => {
@@ -5599,7 +5611,7 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
               <Target className="w-4 h-4 text-amber-400" /> Bracket
             </h3>
-            <BracketVisualization bracket={bracket} onSpectate={handleSpectate} />
+            <BracketVisualization bracket={bracket} onSpectate={handleSpectate} onTrade={handleTrade} myAgentId={agent?.id} />
           </CardContent>
         </Card>
       )}
