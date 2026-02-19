@@ -2643,7 +2643,7 @@ export async function registerRoutes(
   });
 
   const arenaPriceCache = new Map<string, { price: number; timestamp: number }>();
-  const ARENA_CACHE_TTL = 10000;
+  const ARENA_CACHE_TTL = 1500;
 
   const SYMBOL_TO_BASE: Record<string, string> = {
     BTCUSDT: "BTC", ETHUSDT: "ETH", BNBUSDT: "BNB", SOLUSDT: "SOL",
