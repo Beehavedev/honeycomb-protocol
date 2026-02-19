@@ -3446,40 +3446,31 @@ function TradingArenaLobby() {
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
               <TabsTrigger value="open" className="flex-1 gap-1" data-testid="tab-open">
-                <Users className="w-4 h-4" /> Open
+                <Users className="w-4 h-4" /> Open Duels
               </TabsTrigger>
               <TabsTrigger value="live" className="flex-1 gap-1" data-testid="tab-live">
                 <Activity className="w-4 h-4" /> Live
               </TabsTrigger>
               <TabsTrigger value="settled" className="flex-1 gap-1" data-testid="tab-settled">
-                <Trophy className="w-4 h-4" /> Done
-              </TabsTrigger>
-              <TabsTrigger value="tournaments" className="flex-1 gap-1" data-testid="tab-tournaments">
-                <Crown className="w-4 h-4" /> Cup
+                <Trophy className="w-4 h-4" /> Completed
               </TabsTrigger>
             </TabsList>
-            {tab !== "tournaments" && (
-              <div className="flex items-center gap-2 mt-2 mb-1">
-                <span className="text-xs text-muted-foreground mr-1">Filter:</span>
-                {(["all", "pvp", "ava"] as const).map(mt => (
-                  <Button
-                    key={mt}
-                    size="sm"
-                    variant={lobbyMatchType === mt ? "default" : "outline"}
-                    onClick={() => setLobbyMatchType(mt)}
-                    data-testid={`button-filter-${mt}`}
-                    className="text-xs h-7 px-2.5"
-                  >
-                    {mt === "all" ? "All" : mt === "pvp" ? "PvP" : "AvA"}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <TabsContent value="tournaments" className="mt-2">
-              <TournamentLobbySection />
-            </TabsContent>
-            {["open", "live", "settled"].map(tabVal => (
-              <TabsContent key={tabVal} value={tabVal} className="space-y-2 mt-2">
+            <div className="flex items-center gap-2 mt-2 mb-1">
+              <span className="text-xs text-muted-foreground mr-1">Filter:</span>
+              {(["all", "pvp", "ava"] as const).map(mt => (
+                <Button
+                  key={mt}
+                  size="sm"
+                  variant={lobbyMatchType === mt ? "default" : "outline"}
+                  onClick={() => setLobbyMatchType(mt)}
+                  data-testid={`button-filter-${mt}`}
+                  className="text-xs h-7 px-2.5"
+                >
+                  {mt === "all" ? "All" : mt === "pvp" ? "PvP" : "AvA"}
+                </Button>
+              ))}
+            </div>
+            <TabsContent value={tab} className="space-y-2 mt-2">
                 {isLoading ? (
                   <div className="flex flex-col items-center justify-center p-12 gap-3">
                     <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
@@ -3516,8 +3507,7 @@ function TradingArenaLobby() {
                     />
                   ))
                 )}
-              </TabsContent>
-            ))}
+            </TabsContent>
           </Tabs>
         </div>
         <div className="space-y-4">
@@ -4379,6 +4369,254 @@ function GameCard({ game, index, onSelect }: {
   );
 }
 
+function ArenaTournamentHighlight() {
+  const { agent } = useAuth();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [showCreate, setShowCreate] = useState(false);
+  const [tournamentJoinCode, setTournamentJoinCode] = useState("");
+  const [tName, setTName] = useState("");
+  const [tAsset, setTAsset] = useState("BTCUSDT");
+  const [tDuration, setTDuration] = useState("300");
+  const [tMaxPlayers, setTMaxPlayers] = useState("10");
+
+  const { data: tournaments = [] } = useQuery<(TournamentData & { playerCount: number })[]>({
+    queryKey: ["/api/trading-tournaments"],
+    refetchInterval: 5000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/trading-tournaments", {
+      creatorId: agent?.id,
+      name: tName || "Trading Tournament",
+      assetSymbol: tAsset,
+      durationSeconds: parseInt(tDuration),
+      maxPlayers: parseInt(tMaxPlayers),
+    }),
+    onSuccess: (data: any) => {
+      toast({ title: "Tournament created!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
+      navigate(`/arena/tournament/${data.id}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const joinMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/trading-tournaments/${id}/join`, { agentId: agent?.id }),
+    onSuccess: (data: any) => {
+      toast({ title: "Joined tournament!" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
+      navigate(`/arena/tournament/${data.tournamentId}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const joinByCodeMutation = useMutation({
+    mutationFn: (code: string) => apiRequest("POST", "/api/trading-tournaments/join-by-code", { joinCode: code, agentId: agent?.id }),
+    onSuccess: (data: any) => {
+      toast({ title: "Joined via code!" });
+      setTournamentJoinCode("");
+      navigate(`/arena/tournament/${data.tournamentId}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const activeTournaments = tournaments.filter(t => t.status === "active");
+  const openTournaments = tournaments.filter(t => t.status === "registration");
+  const recentSettled = tournaments.filter(t => t.status === "settled").slice(0, 3);
+  const hasActivity = activeTournaments.length > 0 || openTournaments.length > 0;
+
+  return (
+    <div className="mb-6 arena-animate-up" data-testid="section-tournaments">
+      <div className="rounded-md border border-amber-500/30 bg-gradient-to-r from-amber-500/5 via-amber-500/10 to-amber-500/5 overflow-visible">
+        <div className="p-4 sm:p-5">
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
+                <Crown className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold flex items-center gap-2">
+                  World Cup Tournaments
+                  {hasActivity && (
+                    <Badge variant="outline" className="text-[10px] border-green-500/40 text-green-400 animate-pulse">LIVE</Badge>
+                  )}
+                </h2>
+                <p className="text-xs text-muted-foreground">Compete against up to 20 players on real crypto charts</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex gap-1">
+                <Input
+                  placeholder="Join code..."
+                  value={tournamentJoinCode}
+                  onChange={(e) => setTournamentJoinCode(e.target.value.toUpperCase())}
+                  className="w-24 sm:w-28 h-9 text-xs font-mono"
+                  maxLength={6}
+                  data-testid="input-tournament-join-code"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => tournamentJoinCode && joinByCodeMutation.mutate(tournamentJoinCode)}
+                  disabled={!tournamentJoinCode || joinByCodeMutation.isPending}
+                  data-testid="button-tournament-join-code"
+                >
+                  {joinByCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowCreate(!showCreate)}
+                className="bg-amber-600 border-amber-600 text-white"
+                data-testid="button-create-tournament"
+              >
+                <Plus className="w-4 h-4 mr-1" /> Create Tournament
+              </Button>
+            </div>
+          </div>
+
+          {showCreate && (
+            <div className="mb-4 p-4 rounded-md border border-border/50 bg-card">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <Input value={tName} onChange={e => setTName(e.target.value)} placeholder="My Tournament" className="h-9" data-testid="input-tournament-name" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Asset</Label>
+                  <Select value={tAsset} onValueChange={setTAsset}>
+                    <SelectTrigger className="h-9" data-testid="select-tournament-asset"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {ASSETS.map(a => <SelectItem key={a.symbol} value={a.symbol}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Duration</Label>
+                  <Select value={tDuration} onValueChange={setTDuration}>
+                    <SelectTrigger className="h-9" data-testid="select-tournament-duration"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="300">5 min</SelectItem>
+                      <SelectItem value="600">10 min</SelectItem>
+                      <SelectItem value="900">15 min</SelectItem>
+                      <SelectItem value="1800">30 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Max Players</Label>
+                  <Select value={tMaxPlayers} onValueChange={setTMaxPlayers}>
+                    <SelectTrigger className="h-9" data-testid="select-tournament-max-players"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[5, 10, 15, 20].map(n => <SelectItem key={n} value={n.toString()}>{n} players</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button className="w-full bg-amber-600 border-amber-600" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !agent} data-testid="button-submit-tournament">
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
+                <span className="ml-2">Launch Tournament</span>
+              </Button>
+            </div>
+          )}
+
+          {activeTournaments.length > 0 && (
+            <div className="space-y-2 mb-3">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-green-400">Live Now</span>
+              {activeTournaments.map(t => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between p-3 rounded-md border border-green-500/20 bg-green-500/5 cursor-pointer hover-elevate flex-wrap gap-2"
+                  onClick={() => navigate(`/arena/tournament/${t.id}`)}
+                  data-testid={`card-tournament-live-${t.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-green-400 animate-pulse" />
+                    <span className="font-medium text-sm">{t.name}</span>
+                    <Badge variant="outline" className="text-[10px]">{t.assetSymbol.replace("USDT", "")}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1"><Users className="w-3 h-3" /> {t.playerCount}/{t.maxPlayers}</Badge>
+                    {t.endsAt && <Badge variant="outline" className="gap-1 text-green-400 border-green-500/30"><Timer className="w-3 h-3" /> <TournamentCountdown endsAt={t.endsAt} /></Badge>}
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {openTournaments.length > 0 && (
+            <div className="space-y-2 mb-3">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-amber-400">Open Registration</span>
+              {openTournaments.map(t => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between p-3 rounded-md border border-amber-500/15 bg-amber-500/5 flex-wrap gap-2"
+                  data-testid={`card-tournament-open-${t.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    <span className="font-medium text-sm">{t.name}</span>
+                    <Badge variant="outline" className="text-[10px]">{t.assetSymbol.replace("USDT", "")}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{Math.floor(t.durationSeconds / 60)}min</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1"><Users className="w-3 h-3" /> {t.playerCount}/{t.maxPlayers}</Badge>
+                    {t.joinCode && (
+                      <Badge variant="outline" className="gap-1 cursor-pointer font-mono text-[10px]" onClick={() => { navigator.clipboard.writeText(t.joinCode!); toast({ title: "Code copied!" }); }}>
+                        <Copy className="w-3 h-3" /> {t.joinCode}
+                      </Badge>
+                    )}
+                    {agent && !t.entries?.some(e => e.agentId === agent.id) ? (
+                      <Button size="sm" onClick={() => joinMutation.mutate(t.id)} disabled={joinMutation.isPending} data-testid={`button-join-tournament-${t.id}`}>
+                        Join
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                        View
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {recentSettled.length > 0 && !hasActivity && (
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">Recent Results</span>
+              {recentSettled.map(t => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between p-2.5 rounded-md bg-muted/20 cursor-pointer hover-elevate flex-wrap gap-2"
+                  onClick={() => navigate(`/arena/tournament/${t.id}`)}
+                  data-testid={`card-tournament-settled-${t.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Medal className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{t.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px]">{t.playerCount} players</Badge>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tournaments.length === 0 && (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground">No tournaments yet — be the first to create one</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GamesArenaLanding({ onSelectGame }: { onSelectGame: (id: string) => void }) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   useEffect(() => { uiSoundEnabled.current = soundEnabled; }, [soundEnabled]);
@@ -4400,6 +4638,8 @@ function GamesArenaLanding({ onSelectGame }: { onSelectGame: (id: string) => voi
         </div>
 
         <FuturisticHero />
+
+        <ArenaTournamentHighlight />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {ARENA_GAMES.map((game, i) => (
