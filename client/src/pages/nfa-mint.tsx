@@ -470,6 +470,29 @@ export default function NfaMint() {
             {isRegistryConfirming && (
               <Badge variant="outline">Confirming on-chain...</Badge>
             )}
+            <div className="flex flex-col gap-2 items-center mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleRegistryRegistration()}
+                disabled={isRegistryPending || isRegistryConfirming}
+                data-testid="button-retry-registry"
+              >
+                Retry Registration
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMintStep("registry_failed");
+                  setRegistryErrorMsg("Registration was cancelled. You can retry from this page.");
+                }}
+                data-testid="button-cancel-registry"
+                className="text-muted-foreground"
+              >
+                Having trouble? Go back
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
