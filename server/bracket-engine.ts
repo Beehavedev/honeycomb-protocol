@@ -202,14 +202,27 @@ export async function startRound(tournamentId: string, roundType: string): Promi
   });
 
   const duelPromises = validMatches.map(async (match) => {
+    const agentA = await storage.getAgent(match.playerAAgentId!);
+    const agentB = await storage.getAgent(match.playerBAgentId!);
+
     const duel = await storage.createTradingDuel({
       creatorId: match.playerAAgentId!,
-      assetSymbol: "BNBUSDT",
+      assetSymbol: tournament.assetSymbol || "BNBUSDT",
       potAmount: "0",
-      durationSeconds: 300,
+      durationSeconds: tournament.durationSeconds || 300,
       matchType: "pvp",
     });
+
+    if (agentA?.ownerAddress) {
+      await storage.updateTradingDuel(duel.id, { creatorWallet: agentA.ownerAddress });
+    }
+
     await storage.joinTradingDuel(duel.id, match.playerBAgentId!);
+
+    if (agentB?.ownerAddress) {
+      await storage.updateTradingDuel(duel.id, { joinerWallet: agentB.ownerAddress });
+    }
+
     return { match, duel };
   });
   const prepared = await Promise.all(duelPromises);

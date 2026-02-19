@@ -3720,6 +3720,21 @@ function SpectatorView({ duelId }: { duelId: string }) {
   const { address } = useAccount();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+
+  const { data: walletAgent } = useQuery<{ id: string; name: string } | null>({
+    queryKey: ["/api/agents/by-address", address],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/agents/by-address/${address}`);
+        if (!res.ok) return null;
+        return res.json();
+      } catch { return null; }
+    },
+    enabled: !agent && !!address,
+    retry: false,
+  });
+
+  const effectiveAgent = agent || walletAgent;
   const [currentPrice, setCurrentPrice] = useState(0);
   const [priceChange, setPriceChange] = useState(0);
   const [priceTicks, setPriceTicks] = useState<{ time: number; price: number }[]>([]);
@@ -3742,12 +3757,12 @@ function SpectatorView({ duelId }: { duelId: string }) {
     const joinerId = sd.joiner?.id || sd.joinerId;
     const creatorWallet = sd.creatorWallet || sd.creator?.wallet;
     const joinerWallet = sd.joinerWallet || sd.joiner?.wallet;
-    const isParticipant = agent?.id === creatorId || agent?.id === joinerId
+    const isParticipant = effectiveAgent?.id === creatorId || effectiveAgent?.id === joinerId
       || (address && (address.toLowerCase() === creatorWallet?.toLowerCase() || address.toLowerCase() === joinerWallet?.toLowerCase()));
     if (isParticipant) {
       navigate(`/arena/${duelId}`);
     }
-  }, [spectateData, agent, address, duelId, navigate]);
+  }, [spectateData, effectiveAgent, address, duelId, navigate]);
 
   useEffect(() => {
     if (spectateData?.leading && prevLeadRef.current && spectateData.leading !== prevLeadRef.current) {
