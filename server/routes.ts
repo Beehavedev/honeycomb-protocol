@@ -2643,7 +2643,7 @@ export async function registerRoutes(
   });
 
   const arenaPriceCache = new Map<string, { price: number; timestamp: number }>();
-  const ARENA_CACHE_TTL = 1500;
+  const ARENA_CACHE_TTL = 800;
 
   const SYMBOL_TO_BASE: Record<string, string> = {
     BTCUSDT: "BTC", ETHUSDT: "ETH", BNBUSDT: "BNB", SOLUSDT: "SOL",
@@ -2657,6 +2657,24 @@ export async function registerRoutes(
     LINK: "LINKUSD",
   };
 
+  const COINGECKO_ID: Record<string, string> = {
+    BTC: "bitcoin", ETH: "ethereum", BNB: "binancecoin", SOL: "solana",
+    DOGE: "dogecoin", XRP: "ripple", ADA: "cardano", AVAX: "avalanche-2",
+  };
+
+  async function fetchFromSource(url: string, timeoutMs = 3000): Promise<Response> {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(t);
+      return res;
+    } catch (e) {
+      clearTimeout(t);
+      throw e;
+    }
+  }
+
   async function fetchArenaPrice(symbol: string): Promise<number> {
     const cached = arenaPriceCache.get(symbol);
     if (cached && Date.now() - cached.timestamp < ARENA_CACHE_TTL) {
@@ -2664,61 +2682,48 @@ export async function registerRoutes(
     }
 
     const base = SYMBOL_TO_BASE[symbol] || symbol.replace("USDT", "");
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const setCache = (price: number) => {
+      arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
+      return price;
+    };
 
     try {
-      const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`, { signal: controller.signal });
-      clearTimeout(timeout);
+      const res = await fetchFromSource(`https://min-api.cryptocompare.com/data/price?fsym=${base}&tsyms=USD`);
       const data = await res.json();
-      if (data?.price) {
-        const price = parseFloat(data.price);
-        arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
-        return price;
-      }
-    } catch {}
-
-    try {
-      const controller2 = new AbortController();
-      const timeout2 = setTimeout(() => controller2.abort(), 4000);
-      const res = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`, { signal: controller2.signal });
-      clearTimeout(timeout2);
-      const data = await res.json();
-      if (data?.price) {
-        const price = parseFloat(data.price);
-        arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
-        return price;
-      }
+      if (data?.USD) return setCache(data.USD);
     } catch {}
 
     const krakenSym = KRAKEN_MAP[base];
     if (krakenSym) {
       try {
-        const controller3 = new AbortController();
-        const timeout3 = setTimeout(() => controller3.abort(), 4000);
-        const res = await fetch(`https://api.kraken.com/0/public/Ticker?pair=${krakenSym}`, { signal: controller3.signal });
-        clearTimeout(timeout3);
+        const res = await fetchFromSource(`https://api.kraken.com/0/public/Ticker?pair=${krakenSym}`);
         const data = await res.json();
         const pair = Object.keys(data.result || {})[0];
         if (pair && data.result[pair]?.c?.[0]) {
-          const price = parseFloat(data.result[pair].c[0]);
-          arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
-          return price;
+          return setCache(parseFloat(data.result[pair].c[0]));
         }
       } catch {}
     }
 
+    const geckoId = COINGECKO_ID[base];
+    if (geckoId) {
+      try {
+        const res = await fetchFromSource(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd`);
+        const data = await res.json();
+        if (data?.[geckoId]?.usd) return setCache(data[geckoId].usd);
+      } catch {}
+    }
+
     try {
-      const controller4 = new AbortController();
-      const timeout4 = setTimeout(() => controller4.abort(), 4000);
-      const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${base}&tsyms=USD`, { signal: controller4.signal });
-      clearTimeout(timeout4);
+      const res = await fetchFromSource(`https://api.binance.us/api/v3/ticker/price?symbol=${symbol}`);
       const data = await res.json();
-      if (data?.USD) {
-        const price = data.USD;
-        arenaPriceCache.set(symbol, { price, timestamp: Date.now() });
-        return price;
-      }
+      if (data?.price) return setCache(parseFloat(data.price));
+    } catch {}
+
+    try {
+      const res = await fetchFromSource(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+      const data = await res.json();
+      if (data?.price) return setCache(parseFloat(data.price));
     } catch {}
 
     if (cached) return cached.price;
