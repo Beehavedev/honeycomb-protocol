@@ -3558,7 +3558,9 @@ export async function registerRoutes(
       const tournaments = await storage.listTournaments(status);
       const withCounts = await Promise.all(tournaments.map(async (t) => {
         const entries = await storage.getTournamentEntries(t.id);
-        return { ...t, playerCount: entries.length };
+        const agentIds = entries.map(e => e.agentId);
+        const agentsData = agentIds.length > 0 ? await storage.getAgentsByIds(agentIds) : [];
+        return { ...t, playerCount: entries.length, entries, players: agentsData };
       }));
       res.json(withCounts);
     } catch (error: any) {

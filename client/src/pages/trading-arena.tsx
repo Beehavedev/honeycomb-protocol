@@ -4556,46 +4556,75 @@ function ArenaTournamentHighlight() {
           {openTournaments.length > 0 && (
             <div className="space-y-2 mb-3">
               <span className="text-[10px] font-bold tracking-widest uppercase text-amber-400">Open Registration</span>
-              {openTournaments.map(t => (
-                <div
-                  key={t.id}
-                  className="p-3 rounded-md border border-amber-500/15 bg-amber-500/5 space-y-2"
-                  data-testid={`card-tournament-open-${t.id}`}
-                >
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-amber-400" />
-                      <span className="font-medium text-sm">{t.name}</span>
-                      <Badge variant="outline" className="text-[10px]">{t.assetSymbol.replace("USDT", "")}</Badge>
-                      <Badge variant="outline" className="text-[10px]">{Math.floor(t.durationSeconds / 60)}min</Badge>
+              {openTournaments.map(t => {
+                const tPlayers = (t.players || []).map((p: any) => ({ id: p.id, name: p.name || p.username || "Player" }));
+                return (
+                  <div
+                    key={t.id}
+                    className="p-3 rounded-md border border-amber-500/15 bg-amber-500/5 space-y-3"
+                    data-testid={`card-tournament-open-${t.id}`}
+                  >
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-amber-400" />
+                        <span className="font-medium text-sm">{t.name}</span>
+                        <Badge variant="outline" className="text-[10px]">{t.assetSymbol.replace("USDT", "")}</Badge>
+                        <Badge variant="outline" className="text-[10px]">{Math.floor(t.durationSeconds / 60)}min</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {alreadyJoined(t) ? (
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                            Entered
+                          </Button>
+                        ) : !agent ? (
+                          <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
+                            Mint Agent to Enter
+                          </Button>
+                        ) : (
+                          <Button size="sm" onClick={() => joinMutation.mutate(t.id)} disabled={joinMutation.isPending || t.playerCount >= 16} data-testid={`button-enter-tournament-${t.id}`}>
+                            {joinMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t.playerCount >= 16 ? "Full" : "Enter Tournament"}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {alreadyJoined(t) ? (
-                        <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
-                          Entered
-                        </Button>
-                      ) : !agent ? (
-                        <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
-                          Mint Agent to Enter
-                        </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => joinMutation.mutate(t.id)} disabled={joinMutation.isPending || t.playerCount >= 16} data-testid={`button-enter-tournament-${t.id}`}>
-                          {joinMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t.playerCount >= 16 ? "Full" : "Enter Tournament"}
-                        </Button>
-                      )}
+
+                    <div className="grid grid-cols-4 gap-1">
+                      {Array.from({ length: 16 }).map((_, i) => {
+                        const player = tPlayers[i];
+                        return (
+                          <div
+                            key={i}
+                            className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] border ${
+                              player
+                                ? "border-amber-500/30 bg-amber-500/10 text-foreground"
+                                : "border-dashed border-muted-foreground/15 bg-muted/5 text-muted-foreground/30"
+                            }`}
+                            data-testid={`highlight-slot-${i}`}
+                          >
+                            <span className="text-muted-foreground/50">#{i + 1}</span>
+                            <span className="truncate">{player ? player.name : "—"}</span>
+                          </div>
+                        );
+                      })}
                     </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / 16) * 100}%` }} />
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => navigate(`/arena/tournament/${t.id}`)} className="text-[10px] h-6 px-2" data-testid={`button-view-bracket-${t.id}`}>
+                        View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
+                      </Button>
+                    </div>
+                    {t.playerCount >= 12 && t.playerCount < 16 && (
+                      <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left — first come, first served</p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / 16) * 100}%` }} />
-                    </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
-                  </div>
-                  {t.playerCount >= 12 && t.playerCount < 16 && (
-                    <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left — first come, first served</p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -4947,6 +4976,176 @@ const ROUND_LABELS: Record<string, string> = {
   FINAL: "Final",
 };
 
+function BracketRegistrationSlot({ player, index }: { player?: { id: string; name: string }; index: number }) {
+  return (
+    <div
+      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs transition-all ${
+        player
+          ? "border-amber-500/40 bg-amber-500/10 text-foreground"
+          : "border-dashed border-muted-foreground/20 bg-muted/10 text-muted-foreground/40"
+      }`}
+      data-testid={`slot-player-${index}`}
+    >
+      <span className="w-4 text-[10px] text-muted-foreground shrink-0">#{index + 1}</span>
+      <span className="truncate font-medium">{player ? player.name : "Waiting..."}</span>
+    </div>
+  );
+}
+
+function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, onJoin, joinPending }: {
+  players: { id: string; name: string }[];
+  maxPlayers: number;
+  agent: any;
+  isParticipant: boolean;
+  onJoin: () => void;
+  joinPending: boolean;
+}) {
+  const slots = Array.from({ length: 16 }, (_, i) => players[i] || null);
+  const leftSlots = slots.slice(0, 8);
+  const rightSlots = slots.slice(8, 16);
+  const playerCount = players.length;
+
+  const renderMatchup = (topIdx: number, botIdx: number, side: "left" | "right") => (
+    <div className="flex flex-col gap-0.5" key={`${side}-${topIdx}`}>
+      <BracketRegistrationSlot player={slots[topIdx] || undefined} index={topIdx} />
+      <div className="flex items-center gap-1 px-2">
+        <span className="text-[9px] text-muted-foreground/50">vs</span>
+        <div className="flex-1 border-b border-dashed border-muted-foreground/15" />
+      </div>
+      <BracketRegistrationSlot player={slots[botIdx] || undefined} index={botIdx} />
+    </div>
+  );
+
+  const renderEmptyRound = (count: number, label: string) => (
+    <div className="flex flex-col justify-around h-full gap-2">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="px-2.5 py-1.5 rounded-md border border-dashed border-muted-foreground/10 bg-muted/5 text-[10px] text-muted-foreground/30 text-center">
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-semibold">{playerCount}/16 Players Registered</span>
+            {playerCount >= 16 && <Badge className="bg-green-600 text-[10px]">FULL</Badge>}
+          </div>
+          <div className="flex items-center gap-2 w-48">
+            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(playerCount / 16) * 100}%` }} />
+            </div>
+            <span className="text-[10px] text-muted-foreground">{Math.round((playerCount / 16) * 100)}%</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!isParticipant && agent && playerCount < 16 && (
+            <Button size="sm" onClick={onJoin} disabled={joinPending} data-testid="button-enter-bracket">
+              {joinPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+              Enter Tournament
+            </Button>
+          )}
+          {!agent && (
+            <Button size="sm" onClick={() => window.location.href = "/register"} data-testid="button-mint-agent-bracket">
+              Mint Agent to Enter
+            </Button>
+          )}
+          {isParticipant && <Badge className="bg-green-600">You're In</Badge>}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="flex items-stretch gap-3 min-w-[750px] py-2">
+          <div className="flex flex-col justify-around gap-3 shrink-0" style={{ width: "140px" }}>
+            {renderMatchup(0, 1, "left")}
+            {renderMatchup(2, 3, "left")}
+            {renderMatchup(4, 5, "left")}
+            {renderMatchup(6, 7, "left")}
+          </div>
+
+          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="flex flex-col items-center" style={{ height: "60px" }}>
+                <div className="w-px flex-1 border-l border-muted-foreground/15" />
+              </div>
+            ))}
+          </div>
+
+          {renderEmptyRound(4, "QF")}
+
+          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
+            {[0, 1].map(i => (
+              <div key={i} className="flex flex-col items-center" style={{ height: "120px" }}>
+                <div className="w-px flex-1 border-l border-muted-foreground/15" />
+              </div>
+            ))}
+          </div>
+
+          {renderEmptyRound(2, "SF")}
+
+          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
+            <div className="flex flex-col items-center" style={{ height: "200px" }}>
+              <div className="w-px flex-1 border-l border-muted-foreground/15" />
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-center">
+            <div className="space-y-3 text-center">
+              <Trophy className="w-8 h-8 mx-auto text-amber-400" />
+              <div className="px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-[10px] text-amber-400 font-semibold">
+                FINAL
+              </div>
+            </div>
+          </div>
+
+          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
+            <div className="flex flex-col items-center" style={{ height: "200px" }}>
+              <div className="w-px flex-1 border-l border-muted-foreground/15" />
+            </div>
+          </div>
+
+          {renderEmptyRound(2, "SF")}
+
+          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
+            {[0, 1].map(i => (
+              <div key={i} className="flex flex-col items-center" style={{ height: "120px" }}>
+                <div className="w-px flex-1 border-l border-muted-foreground/15" />
+              </div>
+            ))}
+          </div>
+
+          {renderEmptyRound(4, "QF")}
+
+          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="flex flex-col items-center" style={{ height: "60px" }}>
+                <div className="w-px flex-1 border-l border-muted-foreground/15" />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col justify-around gap-3 shrink-0" style={{ width: "140px" }}>
+            {renderMatchup(8, 9, "right")}
+            {renderMatchup(10, 11, "right")}
+            {renderMatchup(12, 13, "right")}
+            {renderMatchup(14, 15, "right")}
+          </div>
+        </div>
+      </div>
+
+      {playerCount >= 12 && playerCount < 16 && (
+        <p className="text-xs text-amber-400 font-medium text-center">Only {16 - playerCount} spots left — tournament auto-starts at 16</p>
+      )}
+      {playerCount < 12 && (
+        <p className="text-[10px] text-muted-foreground text-center">Tournament auto-starts when all 16 spots are filled</p>
+      )}
+    </div>
+  );
+}
+
 function BracketMatchCard({ match, onSpectate }: {
   match: BracketData["matches"][0];
   onSpectate?: (duelId: string) => void;
@@ -5105,7 +5304,7 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
 
   if (!tournament) return <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>;
 
-  const isBracketTournament = tournament.maxPlayers === 16;
+  const isBracketTournament = true;
   const isParticipant = tournament.entries?.some(e => e.agentId === agent?.id);
   const playerCount = tournament.playerCount || tournament.entries?.length || 0;
 
@@ -5145,47 +5344,15 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
 
       {tournament.status === "registration" && isBracketTournament && (
         <Card className="arena-glow-card">
-          <CardContent className="p-4 sm:p-6 text-center space-y-4">
-            <Trophy className="w-10 h-10 mx-auto text-amber-400" />
-            <h3 className="text-lg font-bold">World Cup Lobby</h3>
-            <p className="text-sm text-muted-foreground">Tournament auto-starts when 16 players join</p>
-
-            <div className="w-full max-w-xs mx-auto">
-              <div className="flex justify-between text-xs mb-1">
-                <span>{playerCount} / 16 players</span>
-                <span>{Math.round((playerCount / 16) * 100)}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(playerCount / 16) * 100}%` }} />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 justify-center">
-              {tournament.players?.map(p => (
-                <Badge key={p.id} variant="outline" className="gap-1">
-                  {p.name}
-                </Badge>
-              ))}
-              {Array.from({ length: Math.max(0, 16 - playerCount) }).map((_, i) => (
-                <Badge key={`empty-${i}`} variant="outline" className="gap-1 opacity-30 border-dashed">
-                  Open Slot
-                </Badge>
-              ))}
-            </div>
-
-            {tournament.joinCode && (
-              <p className="text-sm text-muted-foreground">
-                Share code: <span className="font-mono text-amber-400 text-base">{tournament.joinCode}</span>
-              </p>
-            )}
-
-            {!isParticipant && agent && (
-              <Button onClick={() => joinMutation.mutate()} disabled={joinMutation.isPending} data-testid="button-join-tournament-lobby">
-                {joinMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                Join Lobby
-              </Button>
-            )}
-            {isParticipant && <Badge className="bg-green-600">You're in</Badge>}
+          <CardContent className="p-4 sm:p-6">
+            <BracketRegistrationView
+              players={(tournament.players || []).map(p => ({ id: p.id, name: p.name || p.username || "Player" }))}
+              maxPlayers={16}
+              agent={agent}
+              isParticipant={!!isParticipant}
+              onJoin={() => joinMutation.mutate()}
+              joinPending={joinMutation.isPending}
+            />
           </CardContent>
         </Card>
       )}
@@ -5405,44 +5572,72 @@ function TournamentLobbySection() {
           {openTournaments.length > 0 && (
             <div className="space-y-2">
               <span className="text-xs text-muted-foreground font-medium">Open Registration — First Come, First Served</span>
-              {openTournaments.map(t => (
-                <Card key={t.id} className="arena-glow-card" data-testid={`card-tournament-open-${t.id}`}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Trophy className="w-4 h-4 text-amber-400" />
-                        <span className="font-medium text-sm">{t.name}</span>
-                        <Badge variant="outline" className="text-xs">{t.assetSymbol.replace("USDT", "")}</Badge>
-                        <Badge variant="outline" className="text-xs">{Math.floor(t.durationSeconds / 60)}min</Badge>
+              {openTournaments.map(t => {
+                const tPlayers = (t.players || []).map((p: any) => ({ id: p.id, name: p.name || p.username || "Player" }));
+                return (
+                  <Card key={t.id} className="arena-glow-card" data-testid={`card-tournament-open-${t.id}`}>
+                    <CardContent className="p-3 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-amber-400" />
+                          <span className="font-medium text-sm">{t.name}</span>
+                          <Badge variant="outline" className="text-xs">{t.assetSymbol.replace("USDT", "")}</Badge>
+                          <Badge variant="outline" className="text-xs">{Math.floor(t.durationSeconds / 60)}min</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {alreadyJoined(t) ? (
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                              Entered
+                            </Button>
+                          ) : !agent ? (
+                            <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
+                              Mint Agent to Enter
+                            </Button>
+                          ) : (
+                            <Button size="sm" onClick={(e) => { e.stopPropagation(); joinMutation.mutate(t.id); }} disabled={joinMutation.isPending || t.playerCount >= 16} data-testid={`button-enter-tournament-${t.id}`}>
+                              {joinMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t.playerCount >= 16 ? "Full" : "Enter Tournament"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {alreadyJoined(t) ? (
-                          <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
-                            Entered
-                          </Button>
-                        ) : !agent ? (
-                          <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
-                            Mint Agent to Enter
-                          </Button>
-                        ) : (
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); joinMutation.mutate(t.id); }} disabled={joinMutation.isPending || t.playerCount >= 16} data-testid={`button-enter-tournament-${t.id}`}>
-                            {joinMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : t.playerCount >= 16 ? "Full" : "Enter Tournament"}
-                          </Button>
-                        )}
+
+                      <div className="grid grid-cols-4 gap-1">
+                        {Array.from({ length: 16 }).map((_, i) => {
+                          const player = tPlayers[i];
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] border ${
+                                player
+                                  ? "border-amber-500/30 bg-amber-500/10 text-foreground"
+                                  : "border-dashed border-muted-foreground/15 bg-muted/5 text-muted-foreground/30"
+                              }`}
+                            >
+                              <span className="text-muted-foreground/50">#{i + 1}</span>
+                              <span className="truncate">{player ? player.name : "—"}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / 16) * 100}%` }} />
+
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(t.playerCount / 16) * 100}%` }} />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/arena/tournament/${t.id}`)} className="text-[10px] h-6 px-2">
+                          View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
+                        </Button>
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
-                    </div>
-                    {t.playerCount >= 12 && t.playerCount < 16 && (
-                      <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      {t.playerCount >= 12 && t.playerCount < 16 && (
+                        <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 
