@@ -4976,18 +4976,90 @@ const ROUND_LABELS: Record<string, string> = {
   FINAL: "Final",
 };
 
-function BracketRegistrationSlot({ player, index }: { player?: { id: string; name: string }; index: number }) {
+function BracketSlot({ player, index, side }: { player?: { id: string; name: string }; index: number; side: "left" | "right" }) {
+  const filled = !!player;
   return (
     <div
-      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs transition-all ${
-        player
-          ? "border-amber-500/40 bg-amber-500/10 text-foreground"
-          : "border-dashed border-muted-foreground/20 bg-muted/10 text-muted-foreground/40"
+      className={`flex items-center gap-1.5 h-7 rounded text-[11px] font-medium transition-all whitespace-nowrap ${
+        side === "left" ? "flex-row" : "flex-row-reverse"
+      } ${
+        filled
+          ? "bg-amber-500/90 text-slate-950 px-2"
+          : "bg-slate-700/60 text-slate-400 px-2 border border-slate-600/40"
       }`}
+      style={{ minWidth: "110px", maxWidth: "130px" }}
       data-testid={`slot-player-${index}`}
     >
-      <span className="w-4 text-[10px] text-muted-foreground shrink-0">#{index + 1}</span>
-      <span className="truncate font-medium">{player ? player.name : "Waiting..."}</span>
+      <span className="text-[9px] opacity-70 shrink-0">#{index + 1}</span>
+      <span className="truncate">{player ? player.name : "\u2014"}</span>
+    </div>
+  );
+}
+
+const SLOT_H = 28;
+const SLOT_GAP = 6;
+const MATCH_GAP = 16;
+const MATCH_H = SLOT_H * 2 + SLOT_GAP;
+const BRACKET_H = MATCH_H * 4 + MATCH_GAP * 3;
+
+function r16SlotYs(): number[] {
+  const ys: number[] = [];
+  for (let m = 0; m < 4; m++) {
+    const matchTop = m * (MATCH_H + MATCH_GAP);
+    ys.push(matchTop + SLOT_H / 2);
+    ys.push(matchTop + MATCH_H - SLOT_H / 2);
+  }
+  return ys;
+}
+
+function roundYs(count: number): number[] {
+  const r16 = r16SlotYs();
+  if (count === 8) return r16;
+  if (count === 4) {
+    return [0,1,2,3].map(i => (r16[i*2] + r16[i*2+1]) / 2);
+  }
+  if (count === 2) {
+    const qf = roundYs(4);
+    return [0,1].map(i => (qf[i*2] + qf[i*2+1]) / 2);
+  }
+  const sf = roundYs(2);
+  return [(sf[0] + sf[1]) / 2];
+}
+
+function BracketConnector({ fromYs, toYs, direction }: { fromYs: number[]; toYs: number[]; direction: "ltr" | "rtl" }) {
+  const w = 28;
+  const ltr = direction === "ltr";
+  const fromX = ltr ? 0 : w;
+  const midX = w / 2;
+  const toX = ltr ? w : 0;
+  const stroke = "rgba(148,163,184,0.35)";
+  return (
+    <svg width={w} height={BRACKET_H} className="shrink-0" style={{ display: "block" }}>
+      {toYs.map((toY, ti) => {
+        const topFrom = fromYs[ti * 2];
+        const botFrom = fromYs[ti * 2 + 1];
+        return (
+          <g key={ti}>
+            <line x1={fromX} y1={topFrom} x2={midX} y2={topFrom} stroke={stroke} strokeWidth="1.5" />
+            <line x1={fromX} y1={botFrom} x2={midX} y2={botFrom} stroke={stroke} strokeWidth="1.5" />
+            <line x1={midX} y1={topFrom} x2={midX} y2={botFrom} stroke={stroke} strokeWidth="1.5" />
+            <line x1={midX} y1={toY} x2={toX} y2={toY} stroke={stroke} strokeWidth="1.5" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function BracketRoundSlots({ count, label }: { count: number; label: string }) {
+  const ys = roundYs(count);
+  return (
+    <div className="relative shrink-0" style={{ height: BRACKET_H, minWidth: "90px" }}>
+      {ys.map((y, i) => (
+        <div key={i} className="absolute left-0 right-0 flex items-center justify-center rounded bg-slate-700/50 border border-slate-600/30 text-[10px] text-slate-400 font-medium" style={{ top: y - SLOT_H / 2, height: SLOT_H }}>
+          {label}
+        </div>
+      ))}
     </div>
   );
 }
@@ -5001,30 +5073,29 @@ function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, on
   joinPending: boolean;
 }) {
   const slots = Array.from({ length: 16 }, (_, i) => players[i] || null);
-  const leftSlots = slots.slice(0, 8);
-  const rightSlots = slots.slice(8, 16);
   const playerCount = players.length;
 
-  const renderMatchup = (topIdx: number, botIdx: number, side: "left" | "right") => (
-    <div className="flex flex-col gap-0.5" key={`${side}-${topIdx}`}>
-      <BracketRegistrationSlot player={slots[topIdx] || undefined} index={topIdx} />
-      <div className="flex items-center gap-1 px-2">
-        <span className="text-[9px] text-muted-foreground/50">vs</span>
-        <div className="flex-1 border-b border-dashed border-muted-foreground/15" />
+  const renderMatchupColumn = (pairs: [number, number][], side: "left" | "right") => {
+    const slotPositions = r16SlotYs();
+    return (
+      <div className="relative shrink-0" style={{ height: BRACKET_H, width: "130px" }}>
+        {pairs.map(([a, b], mi) => {
+          const topY = slotPositions[mi * 2] - SLOT_H / 2;
+          const botY = slotPositions[mi * 2 + 1] - SLOT_H / 2;
+          return (
+            <div key={a}>
+              <div className="absolute left-0 right-0" style={{ top: topY, height: SLOT_H }}>
+                <BracketSlot player={slots[a] || undefined} index={a} side={side} />
+              </div>
+              <div className="absolute left-0 right-0" style={{ top: botY, height: SLOT_H }}>
+                <BracketSlot player={slots[b] || undefined} index={b} side={side} />
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <BracketRegistrationSlot player={slots[botIdx] || undefined} index={botIdx} />
-    </div>
-  );
-
-  const renderEmptyRound = (count: number, label: string) => (
-    <div className="flex flex-col justify-around h-full gap-2">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="px-2.5 py-1.5 rounded-md border border-dashed border-muted-foreground/10 bg-muted/5 text-[10px] text-muted-foreground/30 text-center">
-          {label}
-        </div>
-      ))}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -5035,10 +5106,10 @@ function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, on
             {playerCount >= 16 && <Badge className="bg-green-600 text-[10px]">FULL</Badge>}
           </div>
           <div className="flex items-center gap-2 w-48">
-            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="flex-1 h-1.5 rounded-full bg-slate-700 overflow-hidden">
               <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(playerCount / 16) * 100}%` }} />
             </div>
-            <span className="text-[10px] text-muted-foreground">{Math.round((playerCount / 16) * 100)}%</span>
+            <span className="text-[10px] text-slate-400">{Math.round((playerCount / 16) * 100)}%</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -5057,81 +5128,54 @@ function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, on
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="flex items-stretch gap-3 min-w-[750px] py-2">
-          <div className="flex flex-col justify-around gap-3 shrink-0" style={{ width: "140px" }}>
-            {renderMatchup(0, 1, "left")}
-            {renderMatchup(2, 3, "left")}
-            {renderMatchup(4, 5, "left")}
-            {renderMatchup(6, 7, "left")}
+      <div className="overflow-x-auto rounded-lg" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
+        <div className="relative px-4 py-6" style={{ minWidth: "900px" }}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
+
+          <div className="text-center mb-4">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">Tournament Bracket</p>
           </div>
 
-          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="flex flex-col items-center" style={{ height: "60px" }}>
-                <div className="w-px flex-1 border-l border-muted-foreground/15" />
-              </div>
-            ))}
-          </div>
+          <div className="flex items-start justify-center" style={{ gap: "0px" }}>
+            {renderMatchupColumn([[0,1],[2,3],[4,5],[6,7]], "left")}
 
-          {renderEmptyRound(4, "QF")}
+            <BracketConnector fromYs={roundYs(8)} toYs={roundYs(4)} direction="ltr" />
 
-          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
-            {[0, 1].map(i => (
-              <div key={i} className="flex flex-col items-center" style={{ height: "120px" }}>
-                <div className="w-px flex-1 border-l border-muted-foreground/15" />
-              </div>
-            ))}
-          </div>
+            <BracketRoundSlots count={4} label="QF" />
 
-          {renderEmptyRound(2, "SF")}
+            <BracketConnector fromYs={roundYs(4)} toYs={roundYs(2)} direction="ltr" />
 
-          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
-            <div className="flex flex-col items-center" style={{ height: "200px" }}>
-              <div className="w-px flex-1 border-l border-muted-foreground/15" />
-            </div>
-          </div>
+            <BracketRoundSlots count={2} label="SF" />
 
-          <div className="flex flex-col justify-center">
-            <div className="space-y-3 text-center">
-              <Trophy className="w-8 h-8 mx-auto text-amber-400" />
-              <div className="px-3 py-2 rounded-md border border-amber-500/30 bg-amber-500/5 text-[10px] text-amber-400 font-semibold">
-                FINAL
+            <BracketConnector fromYs={roundYs(2)} toYs={roundYs(1)} direction="ltr" />
+
+            <div className="relative shrink-0 flex flex-col items-center justify-center px-4" style={{ height: BRACKET_H, minWidth: "90px" }}>
+              <Trophy className="w-10 h-10 text-amber-400 mb-2 drop-shadow-lg" />
+              <div className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-0.5">Final</div>
+              <div className="text-[9px] text-slate-500 mb-3">Game</div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-12 h-7 rounded bg-slate-700/60 border border-slate-600/30 flex items-center justify-center text-[10px] text-slate-400 font-medium">TBD</div>
+                <span className="text-[10px] text-amber-400 font-bold">VS</span>
+                <div className="w-12 h-7 rounded bg-slate-700/60 border border-slate-600/30 flex items-center justify-center text-[10px] text-slate-400 font-medium">TBD</div>
               </div>
             </div>
+
+            <BracketConnector fromYs={roundYs(2)} toYs={roundYs(1)} direction="rtl" />
+
+            <BracketRoundSlots count={2} label="SF" />
+
+            <BracketConnector fromYs={roundYs(4)} toYs={roundYs(2)} direction="rtl" />
+
+            <BracketRoundSlots count={4} label="QF" />
+
+            <BracketConnector fromYs={roundYs(8)} toYs={roundYs(4)} direction="rtl" />
+
+            {renderMatchupColumn([[8,9],[10,11],[12,13],[14,15]], "right")}
           </div>
 
-          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
-            <div className="flex flex-col items-center" style={{ height: "200px" }}>
-              <div className="w-px flex-1 border-l border-muted-foreground/15" />
-            </div>
-          </div>
-
-          {renderEmptyRound(2, "SF")}
-
-          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
-            {[0, 1].map(i => (
-              <div key={i} className="flex flex-col items-center" style={{ height: "120px" }}>
-                <div className="w-px flex-1 border-l border-muted-foreground/15" />
-              </div>
-            ))}
-          </div>
-
-          {renderEmptyRound(4, "QF")}
-
-          <div className="shrink-0 flex flex-col justify-around" style={{ width: "12px" }}>
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="flex flex-col items-center" style={{ height: "60px" }}>
-                <div className="w-px flex-1 border-l border-muted-foreground/15" />
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-col justify-around gap-3 shrink-0" style={{ width: "140px" }}>
-            {renderMatchup(8, 9, "right")}
-            {renderMatchup(10, 11, "right")}
-            {renderMatchup(12, 13, "right")}
-            {renderMatchup(14, 15, "right")}
+          <div className="text-center mt-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-600 font-medium">World Cup</p>
           </div>
         </div>
       </div>
