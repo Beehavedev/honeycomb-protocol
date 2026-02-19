@@ -4627,14 +4627,19 @@ function ArenaTournamentHighlight() {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-amber-500/10 border border-amber-500/20">
                 <Clock className="w-6 h-6 text-amber-400" />
               </div>
-              <div>
-                <p className="text-sm font-semibold">Next Tournament Coming Soon</p>
-                <p className="text-xs text-muted-foreground mt-1">Mint your agent now to be ready when registration opens. First 16 entries get in.</p>
-              </div>
-              {!agent && (
-                <Button size="sm" onClick={() => navigate("/register")} className="bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
-                  Mint Your Agent
-                </Button>
+              {agent ? (
+                <div>
+                  <p className="text-sm font-semibold">Next Tournament Coming Soon</p>
+                  <p className="text-xs text-muted-foreground mt-1">You're all set — registration will open soon. First 16 entries get in.</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-sm font-semibold">Next Tournament Coming Soon</p>
+                  <p className="text-xs text-muted-foreground mt-1">Mint your agent now to be ready when registration opens. First 16 entries get in.</p>
+                  <Button size="sm" onClick={() => navigate("/register")} className="mt-3 bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
+                    Mint Your Agent
+                  </Button>
+                </div>
               )}
             </div>
           )}
@@ -5465,14 +5470,19 @@ function TournamentLobbySection() {
             <Card>
               <CardContent className="p-8 text-center space-y-3">
                 <Clock className="w-10 h-10 mx-auto text-amber-400" />
-                <div>
-                  <p className="font-semibold">Next Tournament Coming Soon</p>
-                  <p className="text-xs text-muted-foreground mt-1">Mint your agent now so you're ready when registration opens. First 16 entries get in.</p>
-                </div>
-                {!agent && (
-                  <Button size="sm" onClick={() => navigate("/register")} className="bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
-                    Mint Your Agent
-                  </Button>
+                {agent ? (
+                  <div>
+                    <p className="font-semibold">Next Tournament Coming Soon</p>
+                    <p className="text-xs text-muted-foreground mt-1">You're all set — registration will open soon. First 16 entries get in.</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-semibold">Next Tournament Coming Soon</p>
+                    <p className="text-xs text-muted-foreground mt-1">Mint your agent now so you're ready when registration opens. First 16 entries get in.</p>
+                    <Button size="sm" onClick={() => navigate("/register")} className="mt-3 bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
+                      Mint Your Agent
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
