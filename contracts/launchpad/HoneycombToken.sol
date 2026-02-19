@@ -46,6 +46,7 @@ contract HoneycombToken is ERC20 {
      * @notice Set the market contract address (can only be called once by factory)
      */
     function setMarket(address _market) external onlyFactory {
+        if (_market == address(0)) revert NotMarket();
         if (market != address(0)) revert MarketAlreadySet();
         market = _market;
     }

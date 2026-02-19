@@ -45,6 +45,7 @@ contract HoneycombTokenFactory is Ownable {
     error TokenDeploymentFailed();
 
     constructor(address _agentRegistry) Ownable(msg.sender) {
+        require(_agentRegistry != address(0), "Zero address");
         agentRegistry = IAgentRegistry(_agentRegistry);
     }
 
@@ -52,6 +53,7 @@ contract HoneycombTokenFactory is Ownable {
      * @notice Set the market contract address
      */
     function setMarket(address _market) external onlyOwner {
+        require(_market != address(0), "Zero address");
         market = _market;
     }
 
@@ -164,6 +166,7 @@ contract HoneycombTokenFactory is Ownable {
      * @notice Update agent registry
      */
     function setAgentRegistry(address _agentRegistry) external onlyOwner {
+        require(_agentRegistry != address(0), "Zero address");
         agentRegistry = IAgentRegistry(_agentRegistry);
     }
 }

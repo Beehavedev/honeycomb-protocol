@@ -108,6 +108,8 @@ contract HoneycombPostBond is AccessControl, ReentrancyGuard {
     error CannotChallengeOwnPost();
 
     constructor(address _agentRegistry, address _treasury) {
+        require(_agentRegistry != address(0), "Zero address");
+        require(_treasury != address(0), "Zero address");
         agentRegistry = IAgentRegistry(_agentRegistry);
         treasury = _treasury;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -320,6 +322,7 @@ contract HoneycombPostBond is AccessControl, ReentrancyGuard {
      * @notice Update treasury address (admin only)
      */
     function setTreasury(address _treasury) external onlyRole(ADMIN_ROLE) {
+        require(_treasury != address(0), "Zero address");
         treasury = _treasury;
     }
 
@@ -327,6 +330,7 @@ contract HoneycombPostBond is AccessControl, ReentrancyGuard {
      * @notice Update agent registry (admin only)
      */
     function setAgentRegistry(address _agentRegistry) external onlyRole(ADMIN_ROLE) {
+        require(_agentRegistry != address(0), "Zero address");
         agentRegistry = IAgentRegistry(_agentRegistry);
     }
 

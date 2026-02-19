@@ -61,6 +61,7 @@ contract BAP578Token is
         string memory symbol_,
         address feeVault_
     ) ERC721(name_, symbol_) {
+        require(feeVault_ != address(0), "Zero address");
         feeVault = feeVault_;
         _baseTokenURI = "";
     }
@@ -402,6 +403,7 @@ contract BAP578Token is
     }
     
     function setFeeVault(address newVault) external onlyOwner {
+        require(newVault != address(0), "Zero address");
         feeVault = newVault;
     }
     

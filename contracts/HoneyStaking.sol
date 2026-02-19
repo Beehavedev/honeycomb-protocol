@@ -72,6 +72,7 @@ contract HoneyStaking is Ownable, ReentrancyGuard {
     event RewardRateUpdated(uint256 newRate);
 
     constructor(address _honeyToken) Ownable(msg.sender) {
+        require(_honeyToken != address(0), "Zero address");
         honeyToken = IERC20(_honeyToken);
 
         tierConfigs[Tier.Drone] = TierConfig({

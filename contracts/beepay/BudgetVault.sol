@@ -36,6 +36,7 @@ contract BudgetVault is Ownable, ReentrancyGuard {
     event TargetAllowed(address indexed target, bool allowed);
     
     constructor(address _identityRegistry) Ownable(msg.sender) {
+        require(_identityRegistry != address(0), "Zero address");
         identityRegistry = IIdentityRegistry(_identityRegistry);
     }
     

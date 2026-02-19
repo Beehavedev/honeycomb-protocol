@@ -55,6 +55,9 @@ contract Paymaster is Ownable, ReentrancyGuard, EIP712 {
         address _budgetVault,
         address _treasury
     ) Ownable(msg.sender) EIP712("BeePay", "1") {
+        require(_identityRegistry != address(0), "Zero address");
+        require(_budgetVault != address(0), "Zero address");
+        require(_treasury != address(0), "Zero address");
         identityRegistry = IIdentityRegistry(_identityRegistry);
         budgetVault = BudgetVault(payable(_budgetVault));
         treasury = _treasury;

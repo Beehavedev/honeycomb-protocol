@@ -57,6 +57,8 @@ contract EscrowCore is Ownable, ReentrancyGuard {
     event ConditionModuleApproved(address indexed module, bool approved);
     
     constructor(address _identityRegistry, address _treasury) Ownable(msg.sender) {
+        require(_identityRegistry != address(0), "Zero address");
+        require(_treasury != address(0), "Zero address");
         identityRegistry = IIdentityRegistry(_identityRegistry);
         treasury = _treasury;
     }

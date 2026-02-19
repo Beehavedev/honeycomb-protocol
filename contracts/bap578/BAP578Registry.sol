@@ -81,7 +81,9 @@ contract BAP578Registry is Ownable, ReentrancyGuard {
     event AgentCategorized(uint256 indexed tokenId, string category);
     event VerifierUpdated(address indexed verifier, bool status);
     
-    constructor(address tokenAddress_, address feeRecipient_) {
+    constructor(address tokenAddress_, address feeRecipient_) Ownable(msg.sender) {
+        require(tokenAddress_ != address(0), "Zero address");
+        require(feeRecipient_ != address(0), "Zero address");
         nfaToken = BAP578Token(tokenAddress_);
         feeRecipient = feeRecipient_;
     }
@@ -283,6 +285,14 @@ contract BAP578Registry is Ownable, ReentrancyGuard {
      * @notice Record interaction for stats
      */
     function recordInteraction(uint256 tokenId) external {
+        require(
+            nfaToken.ownerOf(tokenId) == msg.sender ||
+            nfaToken.getApproved(tokenId) == msg.sender ||
+            nfaToken.isApprovedForAll(nfaToken.ownerOf(tokenId), msg.sender) ||
+            verifiers[msg.sender] ||
+            owner() == msg.sender,
+            "Not authorized"
+        );
         agentStats[tokenId].totalInteractions++;
     }
     
@@ -355,6 +365,7 @@ contract BAP578Registry is Ownable, ReentrancyGuard {
     }
     
     function setFeeRecipient(address newRecipient) external onlyOwner {
+        require(newRecipient != address(0), "Zero address");
         feeRecipient = newRecipient;
     }
 }

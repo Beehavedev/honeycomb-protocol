@@ -69,6 +69,9 @@ contract AutoGraduator is Ownable, ReentrancyGuard {
         address _migration,
         address _tokenFactory
     ) Ownable(msg.sender) {
+        require(_bondingCurveMarket != address(0), "Zero address");
+        require(_migration != address(0), "Zero address");
+        require(_tokenFactory != address(0), "Zero address");
         bondingCurveMarket = IBondingCurveMarket(_bondingCurveMarket);
         migration = IMigration(_migration);
         tokenFactory = ITokenFactory(_tokenFactory);

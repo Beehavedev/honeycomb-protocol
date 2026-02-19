@@ -72,6 +72,8 @@ contract HoneycombBondingCurveMarket is Ownable, ReentrancyGuard {
         uint256 _initialVirtualNative,
         uint256 _initialVirtualToken
     ) Ownable(msg.sender) {
+        require(_factory != address(0), "Zero address");
+        require(_feeVault != address(0), "Zero address");
         factory = ITokenFactory(_factory);
         feeVault = _feeVault;
         graduationThreshold = _graduationThreshold;
@@ -216,9 +218,9 @@ contract HoneycombBondingCurveMarket is Ownable, ReentrancyGuard {
     function setCooldownSeconds(uint256 _cooldown) external onlyOwner { cooldownSeconds = _cooldown; }
     function setMaxBuyPerTx(uint256 _maxBuy) external onlyOwner { maxBuyPerTx = _maxBuy; }
     function setLaunchDelay(uint256 _delay) external onlyOwner { launchDelay = _delay; }
-    function setFactory(address _factory) external onlyOwner { factory = ITokenFactory(_factory); }
-    function setFeeVault(address _feeVault) external onlyOwner { feeVault = _feeVault; }
-    function setMigrationContract(address _migration) external onlyOwner { migrationContract = _migration; }
+    function setFactory(address _factory) external onlyOwner { require(_factory != address(0), "Zero address"); factory = ITokenFactory(_factory); }
+    function setFeeVault(address _feeVault) external onlyOwner { require(_feeVault != address(0), "Zero address"); feeVault = _feeVault; }
+    function setMigrationContract(address _migration) external onlyOwner { require(_migration != address(0), "Zero address"); migrationContract = _migration; }
 
     /**
      * @notice Withdraw reserves for DEX migration (only callable by migration contract)

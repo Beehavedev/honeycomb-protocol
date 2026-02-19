@@ -30,6 +30,7 @@ contract ValidatorRegistry is Ownable, ReentrancyGuard {
     event BondAdded(bytes32 indexed identityId, uint256 amount);
     
     constructor(address _identityRegistry) Ownable(msg.sender) {
+        require(_identityRegistry != address(0), "Zero address");
         identityRegistry = IIdentityRegistry(_identityRegistry);
     }
     
@@ -108,7 +109,7 @@ contract ValidatorRegistry is Ownable, ReentrancyGuard {
         emit ValidatorWithdrawn(identityId, amount);
     }
     
-    function incrementEscrowsValidated(bytes32 identityId) external {
+    function incrementEscrowsValidated(bytes32 identityId) external onlyOwner {
         validators[identityId].escrowsValidated++;
     }
     

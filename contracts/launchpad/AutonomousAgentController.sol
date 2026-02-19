@@ -160,6 +160,10 @@ contract AutonomousAgentController is AccessControl, ReentrancyGuard {
         address _bondingCurveMarket,
         address _migration
     ) {
+        require(_tokenFactory != address(0), "Zero address");
+        require(_bondingCurveMarket != address(0), "Zero address");
+        require(_migration != address(0), "Zero address");
+
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
         _grantRole(KEEPER_ROLE, msg.sender);

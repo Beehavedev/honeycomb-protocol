@@ -33,6 +33,7 @@ contract HoneycombFeeVault is Ownable, ReentrancyGuard {
      * @param amount Amount to withdraw
      */
     function withdraw(address to, uint256 amount) external onlyOwner nonReentrant {
+        require(to != address(0), "Zero address");
         if (amount == 0) revert ZeroAmount();
         if (amount > address(this).balance) revert InsufficientBalance();
 

@@ -105,6 +105,7 @@ contract HoneycombBountyEscrow is AccessControl, ReentrancyGuard {
     error NoSolutions();
 
     constructor(address _agentRegistry) {
+        require(_agentRegistry != address(0), "Zero address");
         agentRegistry = IAgentRegistry(_agentRegistry);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -318,6 +319,7 @@ contract HoneycombBountyEscrow is AccessControl, ReentrancyGuard {
         external 
         onlyRole(ADMIN_ROLE) 
     {
+        require(_agentRegistry != address(0), "Zero address");
         agentRegistry = IAgentRegistry(_agentRegistry);
     }
 }

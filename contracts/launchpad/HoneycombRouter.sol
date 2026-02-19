@@ -24,6 +24,8 @@ contract HoneycombRouter {
     );
 
     constructor(address _market, address _wbnb) {
+        require(_market != address(0), "Zero address");
+        require(_wbnb != address(0), "Zero address");
         market = HoneycombBondingCurveMarket(payable(_market));
         WBNB = _wbnb;
     }

@@ -31,6 +31,7 @@ contract MockVRF is Ownable {
     error InvalidRequest();
     
     constructor(address _duelContract) Ownable(msg.sender) {
+        require(_duelContract != address(0), "Zero address");
         duelContract = _duelContract;
     }
     
@@ -38,6 +39,7 @@ contract MockVRF is Ownable {
      * @notice Set the duel contract address (owner only)
      */
     function setDuelContract(address _duelContract) external onlyOwner {
+        require(_duelContract != address(0), "Zero address");
         duelContract = _duelContract;
     }
     
@@ -62,7 +64,7 @@ contract MockVRF is Ownable {
      * @dev In production, this would be called by Chainlink VRF or similar
      * @param requestId The request to fulfill
      */
-    function fulfillRandomness(uint256 requestId) external {
+    function fulfillRandomness(uint256 requestId) external onlyOwner {
         if (requestToDuel[requestId] == 0) revert InvalidRequest();
         if (requestFulfilled[requestId]) revert AlreadyFulfilled();
         
@@ -107,7 +109,7 @@ contract MockVRF is Ownable {
     /**
      * @notice Auto-fulfill the latest request (convenience function for testing)
      */
-    function autoFulfillLatest() external {
+    function autoFulfillLatest() external onlyOwner {
         uint256 requestId = _nextRequestId - 1;
         if (requestId == 0) revert InvalidRequest();
         if (requestToDuel[requestId] == 0) revert InvalidRequest();
