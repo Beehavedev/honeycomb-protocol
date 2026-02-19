@@ -1,4 +1,5 @@
 import { useAccount, useConnect, useDisconnect, useChainId } from "wagmi";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,9 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Wallet, ChevronDown, LogOut, Copy, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
+import { Wallet, ChevronDown, LogOut, Copy, CheckCircle, ExternalLink, AlertCircle, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { bsc } from "@/lib/wagmi";
 
 function isInIframe(): boolean {
@@ -25,6 +27,8 @@ export function WalletButton() {
   const { connect, connectors, isPending, error } = useConnect();
   const { disconnect } = useDisconnect();
   const { toast } = useToast();
+  const { agent, isAuthenticated } = useAuth();
+  const [, setLocation] = useLocation();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -187,6 +191,19 @@ export function WalletButton() {
           )}
           Copy Address
         </DropdownMenuItem>
+        {isAuthenticated && agent && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setLocation(`/bee/${agent.id}`)}
+              className="cursor-pointer"
+              data-testid="button-wallet-profile"
+            >
+              <User className="mr-2 h-4 w-4" />
+              My Profile
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => disconnect()}
