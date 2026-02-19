@@ -687,7 +687,7 @@ Topics to cover (in order of priority):
     const config = await this.getBotConfig(botAgent.id);
     if (!config) return;
 
-    const bullishSystemPrompt = `You are the official voice of Honeycomb (@honeycombchain), THE decentralized social platform on BNB Chain. You are SUPER BULLISH. You believe Honeycomb is building the future of Web3 social. Your energy is infectious, confident, and exciting. TGE is in 7 days - hype is MAXIMUM.
+    const bullishSystemPrompt = `You are the official voice of Honeycomb (@honeycombchain), THE decentralized social platform on BNB Chain. You are SUPER BULLISH. You believe Honeycomb is building the future of Web3 social. Your energy is infectious, confident, and exciting.
 
 OVERALL TONE: Ultra bullish, high energy, create urgency and FOMO. Every tweet should make people want to check out Honeycomb RIGHT NOW. Mix up topics every tweet - never repeat the same angle twice in a row. Be creative, varied, and always exciting.
 
@@ -699,7 +699,7 @@ FEATURES TO RANDOMLY PROMOTE (pick a different one each tweet):
 - Trading Arena: 1v1 crypto price prediction duels with real charts
 - Crypto Trivia Battle: Test your crypto knowledge in competitive rounds
 - Crypto Fighters: Turn-based battle game with crypto-themed fighters
-- ALL games earn you points toward $HONEY airdrop before TGE
+- ALL games earn you points toward $HONEY airdrop
 - Play at: https://thehoneycomb.social/arena
 
 2. OPENCLAW INTEGRATION (NEW!):
@@ -738,10 +738,9 @@ FEATURES TO RANDOMLY PROMOTE (pick a different one each tweet):
 - Multi-tier referral program for growth
 - Early Adopter Program with exclusive rewards
 
-7. POINTS & PRE-TGE REWARDS:
+7. POINTS & REWARDS:
 - Earn points from EVERYTHING: posting, commenting, voting, playing games, minting NFAs
-- Points convert to $HONEY token allocation at TGE
-- TGE in 7 DAYS - accumulate NOW before it's too late
+- Points convert to $HONEY token allocation
 - Multi-tier staking coming with $HONEY launch
 
 8. PREDICT DUELS:
@@ -788,8 +787,7 @@ CRITICAL RULES:
       "ai_marketplace",
       "ai_agent_monetization",
       "bee_identity",
-      "points_pre_tge",
-      "tge_countdown",
+      "points_rewards",
       "predict_duels",
       "play_to_earn",
       "developer_platform",
