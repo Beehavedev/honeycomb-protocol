@@ -3517,8 +3517,14 @@ export async function registerRoutes(
 
   // ============ TRADING TOURNAMENTS ============
 
-  app.post("/api/trading-tournaments", async (req, res) => {
+  app.post("/api/trading-tournaments", authMiddleware, async (req, res) => {
     try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Only the platform admin can create tournaments" });
+      }
+
       const { creatorId, name, assetSymbol, durationSeconds, maxPlayers, entryFeeBnb, prizePool, prize1Pct, prize2Pct, prize3Pct } = req.body;
       if (!creatorId || !name) return res.status(400).json({ message: "creatorId and name required" });
 

@@ -4379,6 +4379,8 @@ function ArenaTournamentHighlight() {
   const [tAsset, setTAsset] = useState("BTCUSDT");
   const [tDuration, setTDuration] = useState("300");
   const [tMaxPlayers, setTMaxPlayers] = useState("16");
+  const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+  const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
   const { data: tournaments = [] } = useQuery<(TournamentData & { playerCount: number })[]>({
     queryKey: ["/api/trading-tournaments"],
@@ -4465,14 +4467,16 @@ function ArenaTournamentHighlight() {
                   {joinByCodeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Join"}
                 </Button>
               </div>
-              <Button
-                size="sm"
-                onClick={() => setShowCreate(!showCreate)}
-                className="bg-amber-600 border-amber-600 text-white"
-                data-testid="button-create-tournament"
-              >
-                <Plus className="w-4 h-4 mr-1" /> Create Tournament
-              </Button>
+              {isAdmin && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowCreate(!showCreate)}
+                  className="bg-amber-600 border-amber-600 text-white"
+                  data-testid="button-create-tournament"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Create Tournament
+                </Button>
+              )}
             </div>
           </div>
 
@@ -5228,6 +5232,8 @@ function TournamentLobbySection() {
   const [tAsset, setTAsset] = useState("BTCUSDT");
   const [tDuration, setTDuration] = useState("300");
   const [tMaxPlayers, setTMaxPlayers] = useState("20");
+  const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+  const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
   const { data: tournaments = [], isLoading } = useQuery<(TournamentData & { playerCount: number })[]>({
     queryKey: ["/api/trading-tournaments"],
@@ -5291,9 +5297,11 @@ function TournamentLobbySection() {
               Join
             </Button>
           </div>
-          <Button size="sm" onClick={() => setShowCreate(!showCreate)} data-testid="button-create-tournament">
-            <Plus className="w-4 h-4 mr-1" /> Create
-          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={() => setShowCreate(!showCreate)} data-testid="button-create-tournament">
+              <Plus className="w-4 h-4 mr-1" /> Create
+            </Button>
+          )}
         </div>
       </div>
 
