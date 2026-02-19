@@ -5181,10 +5181,10 @@ function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, on
       </div>
 
       {playerCount >= 12 && playerCount < 16 && (
-        <p className="text-xs text-amber-400 font-medium text-center">Only {16 - playerCount} spots left — tournament auto-starts at 16</p>
+        <p className="text-xs text-amber-400 font-medium text-center">Only {16 - playerCount} spots left — admin will start when ready</p>
       )}
       {playerCount < 12 && (
-        <p className="text-[10px] text-muted-foreground text-center">Tournament auto-starts when all 16 spots are filled</p>
+        <p className="text-[10px] text-muted-foreground text-center">Waiting for players to register — admin will start the tournament</p>
       )}
     </div>
   );
