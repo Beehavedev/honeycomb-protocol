@@ -2230,11 +2230,11 @@ function SettledResultsView({
                         }}>
                           {p.side.toUpperCase()} {p.leverage}x
                         </Badge>
-                        <span style={{ color: "#848e9c" }}>${parseFloat(p.entryPrice).toFixed(2)}</span>
+                        <span style={{ color: "#848e9c" }}>${formatPrice(parseFloat(p.entryPrice))}</span>
                         {p.exitPrice && (
                           <>
                             <ChevronRight className="w-2.5 h-2.5" style={{ color: "#848e9c" }} />
-                            <span style={{ color: "#848e9c" }}>${parseFloat(p.exitPrice).toFixed(2)}</span>
+                            <span style={{ color: "#848e9c" }}>${formatPrice(parseFloat(p.exitPrice))}</span>
                           </>
                         )}
                       </div>
