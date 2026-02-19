@@ -1106,9 +1106,14 @@ function CreateDuelPanel({ onCreated }: { onCreated: () => void }) {
           });
 
           if (res.ok) {
+            const syncData = await res.json().catch(() => null);
             toast({ title: "Duel is live!", description: "Waiting for an opponent to join." });
             queryClient.invalidateQueries({ queryKey: ["/api/trading-duels"] });
-            onCreated();
+            if (syncData?.id) {
+              navigate(`/arena/${syncData.id}`);
+            } else {
+              onCreated();
+            }
           } else if (res.status === 401 && !retried && address) {
             try {
               const nonceRes = await fetch("/api/auth/nonce", {

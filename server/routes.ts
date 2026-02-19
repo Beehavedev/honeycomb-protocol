@@ -3865,7 +3865,10 @@ export async function registerRoutes(
         matchType: mt,
       });
 
-      res.status(201).json(duel);
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const updated = await storage.updateTradingDuel(duel.id, { joinCode });
+
+      res.status(201).json(updated);
     } catch (error: any) {
       console.error("Error syncing on-chain trading duel creation:", error);
       res.status(500).json({ message: "Failed to sync on-chain trading duel" });
