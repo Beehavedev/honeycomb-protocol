@@ -93,7 +93,18 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
+  app.get("/api/contract-export/:name", (req, res) => {
+    const name = req.params.name.replace(/[^a-zA-Z0-9_.-]/g, "");
+    const filePath = path.join(process.cwd(), "public", name);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    res.setHeader("Content-Type", "text/plain");
+    res.sendFile(filePath);
+  });
+
   // Auto-seed points config if empty (prevents points system from silently failing)
   try {
     const existingConfigs = await storage.getAllPointsConfig();
