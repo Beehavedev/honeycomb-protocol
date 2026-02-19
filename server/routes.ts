@@ -3626,6 +3626,27 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/trading-tournaments/:id/leave", async (req, res) => {
+    try {
+      const { agentId } = req.body;
+      if (!agentId) return res.status(400).json({ message: "agentId required" });
+
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status !== "registration") {
+        return res.status(400).json({ message: "Cannot leave after the tournament has started" });
+      }
+
+      const entry = await storage.getTournamentEntry(tournament.id, agentId);
+      if (!entry) return res.status(400).json({ message: "You are not in this tournament" });
+
+      await storage.leaveTournament(tournament.id, agentId);
+      res.json({ message: "Left tournament successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.post("/api/trading-tournaments/join-by-code", async (req, res) => {
     try {
       const { joinCode, agentId } = req.body;

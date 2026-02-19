@@ -65,6 +65,7 @@ import {
   Sparkles,
   Hash,
   Gauge,
+  LogOut,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
@@ -4420,6 +4421,15 @@ function ArenaTournamentHighlight() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const leaveMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/trading-tournaments/${id}/leave`, { agentId: agent?.id }),
+    onSuccess: () => {
+      toast({ title: "Left tournament" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   const activeTournaments = tournaments.filter(t => t.status === "active" || t.status === "bracket_ready");
   const openTournaments = tournaments.filter(t => t.status === "registration");
   const recentSettled = tournaments.filter(t => t.status === "settled").slice(0, 3);
@@ -4561,9 +4571,14 @@ function ArenaTournamentHighlight() {
                       </div>
                       <div className="flex items-center gap-2">
                         {alreadyJoined(t) ? (
-                          <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
-                            Entered
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                              Entered
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); leaveMutation.mutate(t.id); }} disabled={leaveMutation.isPending} data-testid={`button-leave-tournament-${t.id}`}>
+                              {leaveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                            </Button>
+                          </div>
                         ) : !agent ? (
                           <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
                             Mint Agent to Enter
@@ -5169,13 +5184,15 @@ function MiniTournamentBracket({ players, playerCount }: { players: { id: string
   );
 }
 
-function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, onJoin, joinPending }: {
+function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, onJoin, joinPending, onLeave, leavePending }: {
   players: { id: string; name: string }[];
   maxPlayers: number;
   agent: any;
   isParticipant: boolean;
   onJoin: () => void;
   joinPending: boolean;
+  onLeave?: () => void;
+  leavePending?: boolean;
 }) {
   const slots = Array.from({ length: 16 }, (_, i) => players[i] || null);
   const playerCount = players.length;
@@ -5229,7 +5246,16 @@ function BracketRegistrationView({ players, maxPlayers, agent, isParticipant, on
               Mint Agent to Enter
             </Button>
           )}
-          {isParticipant && <Badge className="bg-green-600">You're In</Badge>}
+          {isParticipant && (
+            <div className="flex items-center gap-1">
+              <Badge className="bg-green-600">You're In</Badge>
+              {onLeave && (
+                <Button size="sm" variant="ghost" onClick={onLeave} disabled={leavePending} data-testid="button-leave-bracket">
+                  {leavePending ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -5455,6 +5481,12 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const leaveMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/trading-tournaments/${tournamentId}/leave`, { agentId: agent?.id }),
+    onSuccess: () => { refetchTournament(); toast({ title: "Left tournament" }); },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
   if (!tournament) return <div className="flex justify-center p-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>;
 
   const isBracketTournament = true;
@@ -5530,6 +5562,8 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
               isParticipant={!!isParticipant}
               onJoin={() => joinMutation.mutate()}
               joinPending={joinMutation.isPending}
+              onLeave={() => leaveMutation.mutate()}
+              leavePending={leaveMutation.isPending}
             />
           </CardContent>
         </Card>
@@ -5635,6 +5669,15 @@ function TournamentLobbySection() {
       toast({ title: "Joined via code!" });
       setTournamentJoinCode("");
       navigate(`/arena/tournament/${data.tournamentId}`);
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const leaveMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/trading-tournaments/${id}/leave`, { agentId: agent?.id }),
+    onSuccess: () => {
+      toast({ title: "Left tournament" });
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -5752,9 +5795,14 @@ function TournamentLobbySection() {
                         </div>
                         <div className="flex items-center gap-2">
                           {alreadyJoined(t) ? (
-                            <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
-                              Entered
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" onClick={() => navigate(`/arena/tournament/${t.id}`)} data-testid={`button-view-tournament-${t.id}`}>
+                                Entered
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); leaveMutation.mutate(t.id); }} disabled={leaveMutation.isPending} data-testid={`button-leave-tournament-${t.id}`}>
+                                {leaveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <LogOut className="w-3 h-3" />}
+                              </Button>
+                            </div>
                           ) : !agent ? (
                             <Button size="sm" onClick={() => navigate("/register")} data-testid={`button-mint-agent-${t.id}`}>
                               Mint Agent to Enter
