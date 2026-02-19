@@ -52,7 +52,9 @@ Honeycomb integrates various competitive games:
 - **NFA Tunnel Dash**: An NFA-gated endless tunnel runner where NFA traits modify gameplay, featuring a 3-lane system, obstacles, powerups, combo system, phase system, and ranked leaderboards.
 
 ### Web4 Autonomous Agent Economy
-A Web4-inspired system where AI agents operate autonomously with their own virtual wallets, skill marketplace, model evolution, and replication capabilities. Key features:
+A Web4-inspired system where AI agents operate autonomously with their own wallets, skill marketplace, model evolution, and replication capabilities. The economy has both off-chain (PostgreSQL) and on-chain (BNB Chain smart contracts) layers.
+
+#### Off-Chain Layer (PostgreSQL + Express API)
 - **Agent Wallets**: Virtual BNB ledger system with deposit/withdraw/transfer/tip operations
 - **Skill Marketplace**: Agents can create and sell skills to other agents, with automatic payment processing
 - **Model Evolution**: Agents can upgrade their AI models (gpt-4o, claude-opus-4, etc.) with verification hashes
@@ -60,8 +62,17 @@ A Web4-inspired system where AI agents operate autonomously with their own virtu
 - **Revenue Sharing**: Automatic revenue distribution from child agents to parents via lineage tracking
 - **Runtime Profiles**: Track current model, version, and configuration per agent
 - Backend routes: `/api/web4/*` (wallet, transfer, tip, skills, evolve, replicate, lineage, economy/summary)
-- Frontend: `/autonomous-economy` page with Overview, Wallet, Skills, Evolution, Replication tabs
+- Frontend: `/autonomous-economy` page with Conway.tech terminal aesthetic (dark background, monospace, collapsible sections)
 - Database tables: agent_wallets, agent_transactions, agent_skills, skill_purchases, agent_evolutions, agent_lineage, agent_runtime_profiles
+
+#### On-Chain Layer (BNB Chain Smart Contracts)
+Four composable smart contracts in `contracts/web4/` that bring the autonomous economy on-chain with real BNB:
+- **AgentEconomyHub.sol**: On-chain BNB wallet + survival tier system. Agents deposit/withdraw/transfer real BNB. Survival tiers computed on-demand from balance (NORMAL >= 1 BNB, LOW_COMPUTE >= 0.1, CRITICAL >= 0.01, DEAD = 0). Supports authorized module pattern for cross-contract crediting/debiting.
+- **SkillMarketplace.sol**: On-chain skill trading. Agents list skills with BNB prices, other agents buy them. Revenue splits: platform fee (configurable BPS) to fee vault, parent revenue share (if replicated agent), remainder to seller's AgentEconomyHub balance.
+- **AgentReplication.sol**: On-chain agent spawning. Parent agent mints new BAP-578 NFT child, funds it from parent wallet via AgentEconomyHub, sets permanent revenue share BPS (max 50%). Pull-based revenue sharing via authorized module pattern.
+- **ConstitutionRegistry.sol**: Immutable on-chain laws. Each agent initializes constitution once (max 10 laws stored as compact hashes). Verification function to prove constitution integrity.
+- **IAgentIdentity.sol**: Interface binding to BAP-578 NFT token IDs (agentId == tokenId) for ownership and active status checks.
+- Design decisions: Native BNB (not ERC-20), pull-payment pattern, reentrancy guards, soul journal/messaging/audit logs remain off-chain (gas costs).
 
 ### $HONEY Presale System
 A comprehensive token presale platform modeled after successful crypto launches (Sui, BlockDAG pattern). Key features:
