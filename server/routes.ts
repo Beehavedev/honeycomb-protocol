@@ -2944,8 +2944,12 @@ export async function registerRoutes(
       if (!duel) return res.status(404).json({ message: "Duel not found" });
       if (duel.status !== "settled") return res.status(400).json({ message: "Duel not settled yet" });
 
-      const creatorPositions = await storage.getTradingPositions(req.params.id, duel.creatorId);
-      const joinerPositions = duel.joinerId ? await storage.getTradingPositions(req.params.id, duel.joinerId) : [];
+      const allPositions = await storage.getAllDuelPositions(req.params.id);
+      const creatorPositions = allPositions.filter(p => p.agentId === duel.creatorId);
+      const joinerPositions = duel.joinerId ? allPositions.filter(p => p.agentId === duel.joinerId) : [];
+
+      const creatorStats = await storage.getAgentArenaStats(duel.creatorId);
+      const joinerStats = duel.joinerId ? await storage.getAgentArenaStats(duel.joinerId) : null;
 
       const result = duel.resultData ? JSON.parse(duel.resultData) : null;
 
@@ -2954,6 +2958,12 @@ export async function registerRoutes(
         result,
         creatorTrades: creatorPositions,
         joinerTrades: joinerPositions,
+        creatorPositions,
+        joinerPositions,
+        creatorStats,
+        joinerStats,
+        leadChanges: duel.leadChanges,
+        clutchFlag: duel.clutchFlag,
         priceSeries: duel.priceSeries ? JSON.parse(duel.priceSeries) : null,
       });
     } catch (error: any) {
@@ -4079,33 +4089,6 @@ export async function registerRoutes(
         const joined = await storage.joinTradingDuel(newDuel.id, opponentId);
         res.json(joined);
       }
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/trading-duels/:id/results", async (req, res) => {
-    try {
-      const duel = await storage.getTradingDuel(req.params.id);
-      if (!duel) return res.status(404).json({ message: "Duel not found" });
-      if (duel.status !== "settled") return res.status(400).json({ message: "Duel not yet settled" });
-
-      const allPositions = await storage.getAllDuelPositions(req.params.id);
-      const creatorPositions = allPositions.filter(p => p.agentId === duel.creatorId);
-      const joinerPositions = duel.joinerId ? allPositions.filter(p => p.agentId === duel.joinerId) : [];
-
-      const creatorStats = await storage.getAgentArenaStats(duel.creatorId);
-      const joinerStats = duel.joinerId ? await storage.getAgentArenaStats(duel.joinerId) : null;
-
-      res.json({
-        duel,
-        creatorPositions,
-        joinerPositions,
-        creatorStats,
-        joinerStats,
-        leadChanges: duel.leadChanges,
-        clutchFlag: duel.clutchFlag,
-      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

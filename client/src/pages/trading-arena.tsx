@@ -2615,8 +2615,8 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   const settleMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/trading-duels/${duelId}/settle`, {}),
-    retry: 2,
-    retryDelay: 3000,
+    retry: 1,
+    retryDelay: 2000,
     onSuccess: async (data: any) => {
       setGameOverOverlay(false);
       refetchDuel();
@@ -2631,7 +2631,6 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
       }
     },
     onError: (e: Error) => {
-      settleTriggeredRef.current = false;
       setGameOverOverlay(false);
       refetchDuel();
     },
@@ -2640,16 +2639,28 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
     if (duel?.status === "active" && !settleTriggeredRef.current) {
       settleTriggeredRef.current = true;
       setGameOverOverlay(true);
-      setTimeout(() => settleMutation.mutate(), 2000);
+      setTimeout(() => {
+        refetchDuel().then((result) => {
+          if (result.data?.status === "settled") {
+            setGameOverOverlay(false);
+          } else {
+            settleMutation.mutate();
+          }
+        }).catch(() => settleMutation.mutate());
+      }, 2000);
     }
-  }, [duel?.status, settleMutation]);
+  }, [duel?.status, settleMutation, refetchDuel]);
 
   useEffect(() => {
     if (duel && duel.status === "active" && duel.endsAt) {
       const end = new Date(duel.endsAt).getTime();
       if (Date.now() > end && !settleTriggeredRef.current) {
         settleTriggeredRef.current = true;
-        settleMutation.mutate();
+        refetchDuel().then((result) => {
+          if (result.data?.status !== "settled") {
+            settleMutation.mutate();
+          }
+        }).catch(() => settleMutation.mutate());
       }
     }
   }, [duel?.id, duel?.status, duel?.endsAt]);
