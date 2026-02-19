@@ -35,6 +35,7 @@ import web4Router from "./web4-routes";
 import presaleRouter from "./presale-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
 import { generateBracket, startRound, bracketAutoAdvanceLoop } from "./bracket-engine";
+import { distributeTournamentPrizes, getTournamentWalletBalance, getTournamentWalletAddress } from "./tournament-prizes";
 import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
 import {
   registerAgentRequestSchema,
@@ -3525,7 +3526,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only the platform admin can create tournaments" });
       }
 
-      const { creatorId, name } = req.body;
+      const { creatorId, name, prizePool, prize1Pct, prize2Pct, prize3Pct, entryFeeBnb } = req.body;
       if (!creatorId || !name) return res.status(400).json({ message: "creatorId and name required" });
 
       const tournament = await storage.createTournament({
@@ -3533,11 +3534,11 @@ export async function registerRoutes(
         assetSymbol: "BNBUSDT",
         durationSeconds: 300,
         maxPlayers: 16,
-        entryFeeBnb: "0",
-        prizePool: "0.017",
-        prize1Pct: 59,
-        prize2Pct: 29,
-        prize3Pct: 12,
+        entryFeeBnb: entryFeeBnb || "0",
+        prizePool: prizePool || "0",
+        prize1Pct: prize1Pct ?? 59,
+        prize2Pct: prize2Pct ?? 29,
+        prize3Pct: prize3Pct ?? 12,
         createdByAgentId: creatorId,
       });
 
@@ -3563,6 +3564,16 @@ export async function registerRoutes(
         return { ...t, playerCount: entries.length, entries, players: agentsData };
       }));
       res.json(withCounts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-tournaments/wallet/balance", async (req, res) => {
+    try {
+      const address = await getTournamentWalletAddress();
+      const balance = await getTournamentWalletBalance();
+      res.json({ address, balance });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -4022,6 +4033,21 @@ export async function registerRoutes(
 
       await generateBracket(tournament.id);
       res.json({ message: "Bracket generated" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/distribute-prizes", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Only the platform admin can distribute prizes" });
+      }
+
+      const result = await distributeTournamentPrizes(req.params.id);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import type { TournamentEntry, TournamentMatch, TournamentRound, TradingDuel } from "@shared/schema";
+import { distributeTournamentPrizes } from "./tournament-prizes";
 
 const ROUND_TYPES = ["R16", "QF", "SF", "THIRD", "FINAL"] as const;
 const ROUND_LABELS: Record<string, string> = {
@@ -396,6 +397,17 @@ async function advanceToNextRound(
         winnerAgentId: firstPlace || null,
       });
       console.log(`[Bracket] Tournament ${tournamentId} completed! 1st: ${firstPlace}, 2nd: ${secondPlace}, 3rd: ${thirdPlace}`);
+
+      try {
+        const prizeResult = await distributeTournamentPrizes(tournamentId);
+        if (prizeResult.success) {
+          console.log(`[Bracket] Prizes distributed for tournament ${tournamentId}: ${prizeResult.results.length} payments`);
+        } else if (prizeResult.errors.length > 0) {
+          console.error(`[Bracket] Prize distribution errors for ${tournamentId}:`, prizeResult.errors);
+        }
+      } catch (prizeErr) {
+        console.error(`[Bracket] Failed to distribute prizes for ${tournamentId}:`, prizeErr);
+      }
     }
   }
 }

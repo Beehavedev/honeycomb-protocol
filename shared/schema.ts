@@ -3477,6 +3477,7 @@ export const tradingTournaments = pgTable("trading_tournaments", {
   endsAt: timestamp("ends_at"),
   winnerAgentId: varchar("winner_agent_id"),
   settledAt: timestamp("settled_at"),
+  prizeDistributed: boolean("prize_distributed").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
