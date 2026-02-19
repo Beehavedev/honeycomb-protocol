@@ -31,6 +31,7 @@ import {
   type TradingDuel, type InsertTradingDuel, type TradingPosition, type InsertTradingPosition,
   type TradingTournament, type InsertTradingTournament, type TournamentEntry, type InsertTournamentEntry,
   type TournamentPosition, type InsertTournamentPosition,
+  type TournamentRound, type TournamentMatch,
   type CrmContact, type InsertCrmContact, type CrmDeal, type InsertCrmDeal, type CrmActivity, type InsertCrmActivity,
   type CrmUser, type InsertCrmUser, crmUsers,
   type DeveloperAccount, type InsertDeveloperAccount,
@@ -60,6 +61,7 @@ import {
   userPoints, pointsHistory, pointsConfig,
   tradingDuels, tradingPositions,
   tradingTournaments, tradingTournamentEntries, tradingTournamentPositions,
+  tournamentRounds, tournamentMatches,
   crmContacts, crmDeals, crmActivities,
   developerAccounts, developerGames, gameSessions,
   openclawLinks, openclawWebhooks, openclawAlertSubscriptions, openclawAlertEvents,
@@ -299,6 +301,16 @@ export interface IStorage {
   getTournamentPositions(tournamentId: string, agentId: string): Promise<TournamentPosition[]>;
   getOpenTournamentPositions(tournamentId: string, agentId: string): Promise<TournamentPosition[]>;
   closeTournamentPosition(id: string, exitPrice: string, pnl: string): Promise<TournamentPosition>;
+
+  // Bracket Tournament
+  createTournamentRound(data: Partial<TournamentRound> & { tournamentId: string; roundNumber: number; roundType: string }): Promise<TournamentRound>;
+  getTournamentRounds(tournamentId: string): Promise<TournamentRound[]>;
+  updateTournamentRound(id: string, data: Partial<TournamentRound>): Promise<TournamentRound>;
+  createTournamentMatch(data: Partial<TournamentMatch> & { tournamentId: string; roundId: string; matchIndex: number }): Promise<TournamentMatch>;
+  getTournamentMatches(tournamentId: string): Promise<TournamentMatch[]>;
+  getTournamentMatchesByRound(roundId: string): Promise<TournamentMatch[]>;
+  getTournamentMatch(id: string): Promise<TournamentMatch | undefined>;
+  updateTournamentMatch(id: string, data: Partial<TournamentMatch>): Promise<TournamentMatch>;
 
   // CRM
   createCrmContact(data: InsertCrmContact): Promise<CrmContact>;
@@ -2509,6 +2521,45 @@ export class DatabaseStorage implements IStorage {
   async closeTournamentPosition(id: string, exitPrice: string, pnl: string): Promise<TournamentPosition> {
     const [closed] = await db.update(tradingTournamentPositions).set({ exitPrice, pnl, isOpen: false, closedAt: new Date() }).where(eq(tradingTournamentPositions.id, id)).returning();
     return closed;
+  }
+
+  // ============ Bracket Tournament ============
+
+  async createTournamentRound(data: Partial<TournamentRound> & { tournamentId: string; roundNumber: number; roundType: string }): Promise<TournamentRound> {
+    const [created] = await db.insert(tournamentRounds).values(data as any).returning();
+    return created;
+  }
+
+  async getTournamentRounds(tournamentId: string): Promise<TournamentRound[]> {
+    return db.select().from(tournamentRounds).where(eq(tournamentRounds.tournamentId, tournamentId)).orderBy(tournamentRounds.roundNumber);
+  }
+
+  async updateTournamentRound(id: string, data: Partial<TournamentRound>): Promise<TournamentRound> {
+    const [updated] = await db.update(tournamentRounds).set(data as any).where(eq(tournamentRounds.id, id)).returning();
+    return updated;
+  }
+
+  async createTournamentMatch(data: Partial<TournamentMatch> & { tournamentId: string; roundId: string; matchIndex: number }): Promise<TournamentMatch> {
+    const [created] = await db.insert(tournamentMatches).values(data as any).returning();
+    return created;
+  }
+
+  async getTournamentMatches(tournamentId: string): Promise<TournamentMatch[]> {
+    return db.select().from(tournamentMatches).where(eq(tournamentMatches.tournamentId, tournamentId)).orderBy(tournamentMatches.matchIndex);
+  }
+
+  async getTournamentMatchesByRound(roundId: string): Promise<TournamentMatch[]> {
+    return db.select().from(tournamentMatches).where(eq(tournamentMatches.roundId, roundId)).orderBy(tournamentMatches.matchIndex);
+  }
+
+  async getTournamentMatch(id: string): Promise<TournamentMatch | undefined> {
+    const [match] = await db.select().from(tournamentMatches).where(eq(tournamentMatches.id, id));
+    return match;
+  }
+
+  async updateTournamentMatch(id: string, data: Partial<TournamentMatch>): Promise<TournamentMatch> {
+    const [updated] = await db.update(tournamentMatches).set(data as any).where(eq(tournamentMatches.id, id)).returning();
+    return updated;
   }
 }
 

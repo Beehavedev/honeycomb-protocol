@@ -1,0 +1,108 @@
+
+TECH STACK (use exactly this):
+- Next.js (App Router) + TypeScript
+- TailwindCSS for UI
+- PostgreSQL with Prisma ORM
+- NextAuth (email + optional wallet login stub)
+- WebSockets for live updates (use Socket.io or native WebSocket)
+- Deployed-ready for Replit
+
+CORE CONCEPT:
+A tournament starts when EXACTLY 16 players have joined a “Lobby”.
+- The lobby is open until it reaches 16 players.
+- The moment the 16th player joins: lock the lobby, mark it “closed”, and auto-generate the bracket.
+- Bracket is random but fair: shuffle players and pair them into 8 matches (Round of 16).
+- Then progress automatically through rounds:
+  - Round of 16: 16 players → 8 winners
+  - Quarterfinals: 8 → 4
+  - Semifinals: 4 → 2 finalists + 2 losers
+  - Third place match: the 2 semifinal losers play
+  - Final match: the 2 semifinal winners play
+- Tournament ends with 1st, 2nd, 3rd.
+
+TRADING GAME MECHANIC (MVP):
+Each match is a “Timed Trading Battle” that lasts X minutes (default 10).
+- Both players start with the same virtual balance (e.g., 10,000 USDT).
+- They trade on the same market data feed (use a mock price feed first; structure it so it can be replaced by real exchange data later).
+- Trades are simulated instantly (market orders only for MVP).
+- Winner is determined by highest PnL% at match end.
+- If tie: use tie-breakers in order:
+  1) higher realized PnL
+  2) fewer drawdown %
+  3) earliest time reached peak equity
+  4) if still tie: random coin flip (logged)
+
+USER FLOW:
+1) Home page shows:
+   - “Join Lobby” button
+   - Current lobby count (0/16 … 16/16)
+   - List of joined players with avatar + name
+2) When user clicks “Join Lobby”:
+   - Require login (email auth is enough for MVP)
+   - Add them to lobby if it’s open and not full
+   - Prevent duplicates
+   - If lobby is full/closed show message + option to join next lobby
+3) When lobby hits 16:
+   - Show “Tournament Starting…” countdown (e.g., 15 seconds)
+   - Generate bracket and publish it to all clients in real-time
+4) Bracket page:
+   - Visual bracket view (Round of 16, Quarters, Semis, 3rd place, Final)
+   - Each match shows: player A vs player B, status (Scheduled / Live / Finished), start time, and winner when done
+5) Match page:
+   - Shows timer, price chart (simple line chart), trade panel (buy/sell), positions, equity curve, PnL live
+   - Lock trading when timer ends, finalize score, publish winner
+6) Tournament results page:
+   - Podium: 1st, 2nd, 3rd
+   - Full match history + PnL snapshots
+
+TOURNAMENT ENGINE RULES:
+- Match states: SCHEDULED → LIVE → FINISHED
+- Each round starts only when all matches in previous round are finished
+- Start the next round automatically after a short break (e.g., 30 seconds)
+- Third place match starts after semifinal results are ready
+- Final starts after semifinal results are ready (can run in parallel with 3rd place or sequential; make it a setting)
+- Admin controls page (protected) to:
+  - create new lobby
+  - set match duration
+  - force start tournament (only if >=16, default OFF)
+  - cancel tournament (refund points / mark cancelled)
+
+DATA MODELS (Prisma):
+- User (id, name, avatarUrl, createdAt)
+- Lobby (id, status: OPEN/CLOSED/STARTED/FINISHED, createdAt, closedAt)
+- LobbyPlayer (id, lobbyId, userId, joinedAt)
+- Tournament (id, lobbyId, status, settingsJson, createdAt)
+- Round (id, tournamentId, number, type: R16/QF/SF/THIRD/FINAL, status)
+- Match (id, roundId, playerAId, playerBId, status, startAt, endAt, winnerId, scoreJson)
+- Trade (id, matchId, userId, side, qty, price, timestamp)
+- EquitySnapshot (id, matchId, userId, equity, pnlPercent, timestamp)
+
+REAL-TIME UPDATES:
+Broadcast via WebSockets:
+- lobby count + players list
+- bracket generation event
+- match status changes
+- live PnL updates during matches (throttle to e.g. 1 update/sec)
+- round completion + next round start
+
+RANDOMIZATION:
+Use a secure shuffle for pairing (Fisher-Yates).
+Store the shuffle seed or the resulting order in DB for auditability.
+
+UI REQUIREMENTS:
+- Honeycomb vibe: dark theme, neon/yellow accents, clean and aggressive.
+- Bracket must look good on mobile first, then desktop.
+- Show “LIVE” badge on current matches.
+- Provide a “Spectate” mode for non-players to watch matches and PnL.
+
+SECURITY / FAIRNESS:
+- No one can join after lobby closes.
+- No one can trade in a match they’re not assigned to.
+- Server is authoritative: all trades and price feed validation happen server-side.
+- All important events logged (lobby close, bracket seed, match start/end, winner calc).
+
+DELIVERABLES:
+- Working MVP with mock price feed and simulated trades
+- Clean code with comments
+- Seed script to create test users and auto-fill lobby for testing
+- README with how to run, reset DB, and how to swap mock feed for real feed later

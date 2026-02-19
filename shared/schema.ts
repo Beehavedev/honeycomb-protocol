@@ -3504,6 +3504,44 @@ export const tradingTournamentPositions = pgTable("trading_tournament_positions"
   closedAt: timestamp("closed_at"),
 });
 
+export const tournamentRounds = pgTable("tournament_rounds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tradingTournaments.id),
+  roundNumber: integer("round_number").notNull(),
+  roundType: text("round_type").notNull(),
+  status: text("status").notNull().default("scheduled"),
+  scheduledStartAt: timestamp("scheduled_start_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+});
+
+export const tournamentMatches = pgTable("tournament_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tradingTournaments.id),
+  roundId: varchar("round_id").notNull().references(() => tournamentRounds.id),
+  matchIndex: integer("match_index").notNull(),
+  playerAEntryId: varchar("player_a_entry_id").references(() => tradingTournamentEntries.id),
+  playerBEntryId: varchar("player_b_entry_id").references(() => tradingTournamentEntries.id),
+  playerAAgentId: varchar("player_a_agent_id").references(() => agents.id),
+  playerBAgentId: varchar("player_b_agent_id").references(() => agents.id),
+  duelId: varchar("duel_id"),
+  status: text("status").notNull().default("scheduled"),
+  winnerEntryId: varchar("winner_entry_id"),
+  winnerAgentId: varchar("winner_agent_id"),
+  loserEntryId: varchar("loser_entry_id"),
+  loserAgentId: varchar("loser_agent_id"),
+  playerAScore: text("player_a_score"),
+  playerBScore: text("player_b_score"),
+  tieBreakerReason: text("tie_breaker_reason"),
+  shuffleSeed: text("shuffle_seed"),
+  scheduledStartAt: timestamp("scheduled_start_at"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+});
+
+export type TournamentRound = typeof tournamentRounds.$inferSelect;
+export type TournamentMatch = typeof tournamentMatches.$inferSelect;
+
 export const insertTradingTournamentSchema = createInsertSchema(tradingTournaments).pick({
   name: true,
   assetSymbol: true,

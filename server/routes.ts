@@ -34,6 +34,7 @@ import { openclawRouter } from "./openclaw-routes";
 import web4Router from "./web4-routes";
 import presaleRouter from "./presale-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
+import { generateBracket, bracketAutoAdvanceLoop } from "./bracket-engine";
 import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
 import {
   registerAgentRequestSchema,
@@ -3586,6 +3587,17 @@ export async function registerRoutes(
       if (entries.some(e => e.agentId === agentId)) return res.status(400).json({ message: "Already joined this tournament" });
 
       const entry = await storage.joinTournament({ tournamentId: tournament.id, agentId });
+
+      const updatedEntries = await storage.getTournamentEntries(tournament.id);
+      if (tournament.maxPlayers === 16 && updatedEntries.length >= 16) {
+        try {
+          await generateBracket(tournament.id);
+          console.log(`[Tournament] Auto-generated bracket for ${tournament.id} (16 players reached)`);
+        } catch (err) {
+          console.error(`[Tournament] Failed to auto-generate bracket:`, err);
+        }
+      }
+
       res.json(entry);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -3606,6 +3618,16 @@ export async function registerRoutes(
       if (entries.some(e => e.agentId === agentId)) return res.status(400).json({ message: "Already joined" });
 
       const entry = await storage.joinTournament({ tournamentId: tournament.id, agentId });
+
+      const updatedEntries = await storage.getTournamentEntries(tournament.id);
+      if (tournament.maxPlayers === 16 && updatedEntries.length >= 16) {
+        try {
+          await generateBracket(tournament.id);
+        } catch (err) {
+          console.error(`[Tournament] Failed to auto-generate bracket:`, err);
+        }
+      }
+
       res.json({ ...entry, tournamentId: tournament.id });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -3928,6 +3950,63 @@ export async function registerRoutes(
 
   setInterval(autoSettleTournaments, 10000);
   console.log("[TournamentSettle] Started auto-settlement check every 10s");
+
+  setInterval(bracketAutoAdvanceLoop, 5000);
+  console.log("[BracketEngine] Started bracket auto-advance check every 5s");
+
+  // ============ BRACKET TOURNAMENT ROUTES ============
+
+  app.get("/api/trading-tournaments/:id/bracket", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+
+      const rounds = await storage.getTournamentRounds(tournament.id);
+      const matches = await storage.getTournamentMatches(tournament.id);
+      const entries = await storage.getTournamentEntries(tournament.id);
+
+      const agentIds = entries.map(e => e.agentId);
+      const agentsData = await Promise.all(agentIds.map(async (id) => {
+        const a = await storage.getAgent(id);
+        return a ? { id: a.id, username: a.username, avatarUrl: a.avatarUrl } : { id, username: "Unknown", avatarUrl: null };
+      }));
+
+      const agentMap = Object.fromEntries(agentsData.map(a => [a.id, a]));
+
+      const enrichedMatches = matches.map(m => ({
+        ...m,
+        playerA: m.playerAAgentId ? agentMap[m.playerAAgentId] || null : null,
+        playerB: m.playerBAgentId ? agentMap[m.playerBAgentId] || null : null,
+        winner: m.winnerAgentId ? agentMap[m.winnerAgentId] || null : null,
+      }));
+
+      res.json({
+        tournament,
+        rounds,
+        matches: enrichedMatches,
+        entries,
+        players: agentsData,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/generate-bracket", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status !== "registration") return res.status(400).json({ message: "Tournament not in registration" });
+
+      const entries = await storage.getTournamentEntries(tournament.id);
+      if (entries.length < 16) return res.status(400).json({ message: "Need 16 players" });
+
+      await generateBracket(tournament.id);
+      res.json({ message: "Bracket generated" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   app.post("/api/trading-duels/play-vs-bot", async (req, res) => {
     try {
