@@ -4588,25 +4588,7 @@ function ArenaTournamentHighlight() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-1">
-                      {Array.from({ length: 16 }).map((_, i) => {
-                        const player = tPlayers[i];
-                        return (
-                          <div
-                            key={i}
-                            className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] border ${
-                              player
-                                ? "border-amber-500/30 bg-amber-500/10 text-foreground"
-                                : "border-dashed border-muted-foreground/15 bg-muted/5 text-muted-foreground/30"
-                            }`}
-                            data-testid={`highlight-slot-${i}`}
-                          >
-                            <span className="text-muted-foreground/50">#{i + 1}</span>
-                            <span className="truncate">{player ? player.name : "—"}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <MiniTournamentBracket players={tPlayers} playerCount={t.playerCount} />
 
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1">
@@ -4615,12 +4597,12 @@ function ArenaTournamentHighlight() {
                         </div>
                         <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => navigate(`/arena/tournament/${t.id}`)} className="text-[10px] h-6 px-2" data-testid={`button-view-bracket-${t.id}`}>
+                      <Button size="sm" variant="ghost" onClick={() => navigate(`/arena/tournament/${t.id}`)} className="text-[10px]" data-testid={`button-view-bracket-${t.id}`}>
                         View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
                       </Button>
                     </div>
                     {t.playerCount >= 12 && t.playerCount < 16 && (
-                      <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left — first come, first served</p>
+                      <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
                     )}
                   </div>
                 );
@@ -5060,6 +5042,121 @@ function BracketRoundSlots({ count, label }: { count: number; label: string }) {
           {label}
         </div>
       ))}
+    </div>
+  );
+}
+
+function MiniTournamentBracket({ players, playerCount }: { players: { id: string; name: string }[]; playerCount: number }) {
+  const slots = Array.from({ length: 16 }, (_, i) => players[i] || null);
+  const S = 16;
+  const SG = 3;
+  const MG = 8;
+  const MH = S * 2 + SG;
+  const TH = MH * 4 + MG * 3;
+
+  const miniR16Ys = (): number[] => {
+    const ys: number[] = [];
+    for (let m = 0; m < 4; m++) {
+      const mt = m * (MH + MG);
+      ys.push(mt + S / 2);
+      ys.push(mt + MH - S / 2);
+    }
+    return ys;
+  };
+
+  const miniRoundYs = (count: number): number[] => {
+    const base = miniR16Ys();
+    if (count === 8) return base;
+    if (count === 4) return [0,1,2,3].map(i => (base[i*2] + base[i*2+1]) / 2);
+    if (count === 2) { const qf = miniRoundYs(4); return [0,1].map(i => (qf[i*2] + qf[i*2+1]) / 2); }
+    const sf = miniRoundYs(2);
+    return [(sf[0] + sf[1]) / 2];
+  };
+
+  const miniConnector = (fromYs: number[], toYs: number[], dir: "ltr" | "rtl") => {
+    const w = 16;
+    const ltr = dir === "ltr";
+    const fX = ltr ? 0 : w;
+    const mX = w / 2;
+    const tX = ltr ? w : 0;
+    const st = "rgba(148,163,184,0.3)";
+    return (
+      <svg width={w} height={TH} className="shrink-0" style={{ display: "block" }}>
+        {toYs.map((toY, ti) => (
+          <g key={ti}>
+            <line x1={fX} y1={fromYs[ti*2]} x2={mX} y2={fromYs[ti*2]} stroke={st} strokeWidth="1" />
+            <line x1={fX} y1={fromYs[ti*2+1]} x2={mX} y2={fromYs[ti*2+1]} stroke={st} strokeWidth="1" />
+            <line x1={mX} y1={fromYs[ti*2]} x2={mX} y2={fromYs[ti*2+1]} stroke={st} strokeWidth="1" />
+            <line x1={mX} y1={toY} x2={tX} y2={toY} stroke={st} strokeWidth="1" />
+          </g>
+        ))}
+      </svg>
+    );
+  };
+
+  const miniSlotCol = (pairs: [number, number][], side: "left" | "right") => {
+    const yPositions = miniR16Ys();
+    return (
+      <div className="relative shrink-0" style={{ height: TH, width: "75px" }}>
+        {pairs.map(([a, b], mi) => (
+          <div key={a}>
+            <div className="absolute left-0 right-0" style={{ top: yPositions[mi*2] - S/2, height: S }}>
+              <div className={`flex items-center gap-0.5 h-full rounded text-[8px] font-medium whitespace-nowrap px-1 ${side === "left" ? "flex-row" : "flex-row-reverse"} ${slots[a] ? "bg-amber-500/90 text-slate-950" : "bg-slate-700/60 text-slate-400 border border-slate-600/40"}`}>
+                <span className="text-[7px] opacity-60">#{a+1}</span>
+                <span className="truncate">{slots[a]?.name || "\u2014"}</span>
+              </div>
+            </div>
+            <div className="absolute left-0 right-0" style={{ top: yPositions[mi*2+1] - S/2, height: S }}>
+              <div className={`flex items-center gap-0.5 h-full rounded text-[8px] font-medium whitespace-nowrap px-1 ${side === "left" ? "flex-row" : "flex-row-reverse"} ${slots[b] ? "bg-amber-500/90 text-slate-950" : "bg-slate-700/60 text-slate-400 border border-slate-600/40"}`}>
+                <span className="text-[7px] opacity-60">#{b+1}</span>
+                <span className="truncate">{slots[b]?.name || "\u2014"}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const miniRoundSlots = (count: number, label: string) => {
+    const ys = miniRoundYs(count);
+    return (
+      <div className="relative shrink-0" style={{ height: TH, minWidth: "50px" }}>
+        {ys.map((y, i) => (
+          <div key={i} className="absolute left-0 right-0 flex items-center justify-center rounded bg-slate-700/40 border border-slate-600/30 text-[7px] text-slate-400 font-medium" style={{ top: y - S/2, height: S }}>
+            {label}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="overflow-x-auto rounded-md" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
+      <div className="relative px-2 py-3" style={{ minWidth: "680px" }}>
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
+        <div className="text-center mb-2">
+          <p className="text-[8px] uppercase tracking-[0.2em] text-slate-500 font-semibold">Tournament Bracket</p>
+        </div>
+        <div className="flex items-start justify-center" style={{ gap: "0px" }}>
+          {miniSlotCol([[0,1],[2,3],[4,5],[6,7]], "left")}
+          {miniConnector(miniRoundYs(8), miniRoundYs(4), "ltr")}
+          {miniRoundSlots(4, "QF")}
+          {miniConnector(miniRoundYs(4), miniRoundYs(2), "ltr")}
+          {miniRoundSlots(2, "SF")}
+          {miniConnector(miniRoundYs(2), miniRoundYs(1), "ltr")}
+          <div className="relative shrink-0 flex flex-col items-center justify-center px-2" style={{ height: TH, minWidth: "50px" }}>
+            <Trophy className="w-5 h-5 text-amber-400 mb-1" />
+            <div className="text-[8px] uppercase tracking-wider text-amber-400 font-bold">Final</div>
+          </div>
+          {miniConnector(miniRoundYs(2), miniRoundYs(1), "rtl")}
+          {miniRoundSlots(2, "SF")}
+          {miniConnector(miniRoundYs(4), miniRoundYs(2), "rtl")}
+          {miniRoundSlots(4, "QF")}
+          {miniConnector(miniRoundYs(8), miniRoundYs(4), "rtl")}
+          {miniSlotCol([[8,9],[10,11],[12,13],[14,15]], "right")}
+        </div>
+      </div>
     </div>
   );
 }
@@ -5645,24 +5742,7 @@ function TournamentLobbySection() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-4 gap-1">
-                        {Array.from({ length: 16 }).map((_, i) => {
-                          const player = tPlayers[i];
-                          return (
-                            <div
-                              key={i}
-                              className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] border ${
-                                player
-                                  ? "border-amber-500/30 bg-amber-500/10 text-foreground"
-                                  : "border-dashed border-muted-foreground/15 bg-muted/5 text-muted-foreground/30"
-                              }`}
-                            >
-                              <span className="text-muted-foreground/50">#{i + 1}</span>
-                              <span className="truncate">{player ? player.name : "—"}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <MiniTournamentBracket players={tPlayers} playerCount={t.playerCount} />
 
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1">
@@ -5671,7 +5751,7 @@ function TournamentLobbySection() {
                           </div>
                           <span className="text-[10px] text-muted-foreground shrink-0">{t.playerCount}/16 spots</span>
                         </div>
-                        <Button size="sm" variant="ghost" onClick={() => navigate(`/arena/tournament/${t.id}`)} className="text-[10px] h-6 px-2">
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/arena/tournament/${t.id}`)} className="text-[10px]">
                           View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
                         </Button>
                       </div>
