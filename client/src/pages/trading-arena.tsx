@@ -2365,7 +2365,12 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   const { data: duel, refetch: refetchDuel } = useQuery<TradingDuel>({
     queryKey: ["/api/trading-duels", duelId],
-    refetchInterval: 1000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === "waiting" || status === "ready") return 500;
+      if (status === "active") return 1000;
+      return 5000;
+    },
   });
 
   const { data: botInfo } = useQuery<{ creatorIsBot: boolean; joinerIsBot: boolean }>({
@@ -2651,7 +2656,16 @@ function ActiveDuelView({ duelId }: { duelId: string }) {
 
   const autoStartTriggeredRef = useRef(false);
   useEffect(() => {
-    if (!duel || duel.status !== "ready" || autoStartTriggeredRef.current) return;
+    if (!duel || autoStartTriggeredRef.current) return;
+    if (duel.status === "active" && !autoStartTriggeredRef.current) {
+      const isPlayer = effectiveAgent?.id === duel.creatorId || effectiveAgent?.id === duel.joinerId
+        || (address && (address.toLowerCase() === duel.creatorWallet?.toLowerCase() || address.toLowerCase() === duel.joinerWallet?.toLowerCase()));
+      if (isPlayer) {
+        autoStartTriggeredRef.current = true;
+        playTradeSound("start");
+      }
+    }
+    if (duel.status !== "ready") return;
     const isPlayer = effectiveAgent?.id === duel.creatorId || effectiveAgent?.id === duel.joinerId
       || (address && (address.toLowerCase() === duel.creatorWallet?.toLowerCase() || address.toLowerCase() === duel.joinerWallet?.toLowerCase()));
     if (!isPlayer) return;
