@@ -523,22 +523,21 @@ router.patch("/admin/phase/:id", async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Admin only" });
 
     const updates: any = {};
-    const fields = [
-      "name", "status", "startTime", "endTime", "tokenPrice",
-      "totalTokens", "hardCapBnb", "softCapBnb", "minContribution",
-      "maxContribution", "vestingCliffDays", "vestingDurationDays",
-      "tgeUnlockPercent", "referralBonusPercent", "description",
-    ];
-
-    for (const f of fields) {
-      if (req.body[f] !== undefined) {
-        if (f === "startTime" || f === "endTime") {
-          updates[f] = new Date(req.body[f]);
-        } else {
-          updates[f] = req.body[f];
-        }
-      }
-    }
+    if (req.body.name !== undefined) updates.name = req.body.name;
+    if (req.body.status !== undefined) updates.status = req.body.status;
+    if (req.body.startTime !== undefined) updates.startTime = new Date(req.body.startTime);
+    if (req.body.endTime !== undefined) updates.endTime = new Date(req.body.endTime);
+    if (req.body.tokenPrice !== undefined) updates.tokenPrice = req.body.tokenPrice;
+    if (req.body.totalTokens !== undefined) updates.totalTokens = req.body.totalTokens;
+    if (req.body.hardCapBnb !== undefined) updates.hardCapBnb = req.body.hardCapBnb;
+    if (req.body.softCapBnb !== undefined) updates.softCapBnb = req.body.softCapBnb;
+    if (req.body.minContribution !== undefined) updates.minContribution = req.body.minContribution;
+    if (req.body.maxContribution !== undefined) updates.maxContribution = req.body.maxContribution;
+    if (req.body.vestingCliffDays !== undefined) updates.vestingCliffDays = req.body.vestingCliffDays;
+    if (req.body.vestingDurationDays !== undefined) updates.vestingDurationDays = req.body.vestingDurationDays;
+    if (req.body.tgeUnlockPercent !== undefined) updates.tgeUnlockPercent = req.body.tgeUnlockPercent;
+    if (req.body.referralBonusPercent !== undefined) updates.referralBonusPercent = req.body.referralBonusPercent;
+    if (req.body.description !== undefined) updates.description = req.body.description;
     updates.updatedAt = new Date();
 
     const [phase] = await db
