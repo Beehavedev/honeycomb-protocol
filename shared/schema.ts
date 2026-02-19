@@ -3455,3 +3455,86 @@ export type PresaleAllocation = typeof presaleAllocations.$inferSelect;
 export type InsertPresaleAllocation = z.infer<typeof insertPresaleAllocationSchema>;
 export type PresaleReferral = typeof presaleReferrals.$inferSelect;
 export type InsertPresaleReferral = z.infer<typeof insertPresaleReferralSchema>;
+
+// ============ TRADING TOURNAMENTS ============
+
+export const tradingTournaments = pgTable("trading_tournaments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  assetSymbol: text("asset_symbol").notNull().default("BTCUSDT"),
+  durationSeconds: integer("duration_seconds").notNull().default(300),
+  maxPlayers: integer("max_players").notNull().default(20),
+  entryFeeBnb: text("entry_fee_bnb").notNull().default("0"),
+  prizePool: text("prize_pool").notNull().default("0"),
+  prize1Pct: integer("prize1_pct").notNull().default(50),
+  prize2Pct: integer("prize2_pct").notNull().default(30),
+  prize3Pct: integer("prize3_pct").notNull().default(20),
+  status: text("status").notNull().default("registration"),
+  joinCode: varchar("join_code", { length: 8 }),
+  initialBalance: text("initial_balance").notNull().default("1000000"),
+  createdByAgentId: varchar("created_by_agent_id").notNull().references(() => agents.id),
+  startedAt: timestamp("started_at"),
+  endsAt: timestamp("ends_at"),
+  settledAt: timestamp("settled_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const tradingTournamentEntries = pgTable("trading_tournament_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tradingTournaments.id),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  finalBalance: text("final_balance"),
+  pnlPercent: text("pnl_percent"),
+  rank: integer("rank"),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const tradingTournamentPositions = pgTable("trading_tournament_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull().references(() => tradingTournaments.id),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  side: text("side").notNull(),
+  leverage: integer("leverage").notNull().default(1),
+  sizeUsdt: text("size_usdt").notNull(),
+  entryPrice: text("entry_price").notNull(),
+  exitPrice: text("exit_price"),
+  pnl: text("pnl"),
+  isOpen: boolean("is_open").notNull().default(true),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
+});
+
+export const insertTradingTournamentSchema = createInsertSchema(tradingTournaments).pick({
+  name: true,
+  assetSymbol: true,
+  durationSeconds: true,
+  maxPlayers: true,
+  entryFeeBnb: true,
+  prizePool: true,
+  prize1Pct: true,
+  prize2Pct: true,
+  prize3Pct: true,
+  createdByAgentId: true,
+  initialBalance: true,
+});
+
+export const insertTournamentEntrySchema = createInsertSchema(tradingTournamentEntries).pick({
+  tournamentId: true,
+  agentId: true,
+});
+
+export const insertTournamentPositionSchema = createInsertSchema(tradingTournamentPositions).pick({
+  tournamentId: true,
+  agentId: true,
+  side: true,
+  leverage: true,
+  sizeUsdt: true,
+  entryPrice: true,
+});
+
+export type TradingTournament = typeof tradingTournaments.$inferSelect;
+export type InsertTradingTournament = z.infer<typeof insertTradingTournamentSchema>;
+export type TournamentEntry = typeof tradingTournamentEntries.$inferSelect;
+export type InsertTournamentEntry = z.infer<typeof insertTournamentEntrySchema>;
+export type TournamentPosition = typeof tradingTournamentPositions.$inferSelect;
+export type InsertTournamentPosition = z.infer<typeof insertTournamentPositionSchema>;

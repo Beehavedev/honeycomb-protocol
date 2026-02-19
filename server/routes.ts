@@ -3514,6 +3514,421 @@ export async function registerRoutes(
   setInterval(autoSettleExpiredDuels, 5000);
   console.log("[AutoSettle] Started auto-settlement check every 5s");
 
+  // ============ TRADING TOURNAMENTS ============
+
+  app.post("/api/trading-tournaments", async (req, res) => {
+    try {
+      const { creatorId, name, assetSymbol, durationSeconds, maxPlayers, entryFeeBnb, prizePool, prize1Pct, prize2Pct, prize3Pct } = req.body;
+      if (!creatorId || !name) return res.status(400).json({ message: "creatorId and name required" });
+
+      const tournament = await storage.createTournament({
+        name,
+        assetSymbol: assetSymbol || "BTCUSDT",
+        durationSeconds: durationSeconds || 300,
+        maxPlayers: maxPlayers || 20,
+        entryFeeBnb: entryFeeBnb || "0",
+        prizePool: prizePool || "0",
+        prize1Pct: prize1Pct || 50,
+        prize2Pct: prize2Pct || 30,
+        prize3Pct: prize3Pct || 20,
+        createdByAgentId: creatorId,
+      });
+
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const updated = await storage.updateTournament(tournament.id, { joinCode });
+
+      await storage.joinTournament({ tournamentId: updated.id, agentId: creatorId });
+
+      res.status(201).json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-tournaments", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const tournaments = await storage.listTournaments(status);
+      const withCounts = await Promise.all(tournaments.map(async (t) => {
+        const entries = await storage.getTournamentEntries(t.id);
+        return { ...t, playerCount: entries.length };
+      }));
+      res.json(withCounts);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-tournaments/:id", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      const entries = await storage.getTournamentEntries(tournament.id);
+      const agentIds = entries.map(e => e.agentId);
+      const agentsData = agentIds.length > 0 ? await storage.getAgentsByIds(agentIds) : [];
+      res.json({ ...tournament, entries, players: agentsData, playerCount: entries.length });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/join", async (req, res) => {
+    try {
+      const { agentId } = req.body;
+      if (!agentId) return res.status(400).json({ message: "agentId required" });
+
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status !== "registration") return res.status(400).json({ message: "Tournament is not accepting registrations" });
+
+      const entries = await storage.getTournamentEntries(tournament.id);
+      if (entries.length >= tournament.maxPlayers) return res.status(400).json({ message: "Tournament is full" });
+      if (entries.some(e => e.agentId === agentId)) return res.status(400).json({ message: "Already joined this tournament" });
+
+      const entry = await storage.joinTournament({ tournamentId: tournament.id, agentId });
+      res.json(entry);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/join-by-code", async (req, res) => {
+    try {
+      const { joinCode, agentId } = req.body;
+      if (!joinCode || !agentId) return res.status(400).json({ message: "joinCode and agentId required" });
+
+      const tournament = await storage.getTournamentByCode(joinCode.toUpperCase());
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status !== "registration") return res.status(400).json({ message: "Tournament is not accepting registrations" });
+
+      const entries = await storage.getTournamentEntries(tournament.id);
+      if (entries.length >= tournament.maxPlayers) return res.status(400).json({ message: "Tournament is full" });
+      if (entries.some(e => e.agentId === agentId)) return res.status(400).json({ message: "Already joined" });
+
+      const entry = await storage.joinTournament({ tournamentId: tournament.id, agentId });
+      res.json({ ...entry, tournamentId: tournament.id });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/start", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status !== "registration") return res.status(400).json({ message: "Tournament already started or settled" });
+
+      const entries = await storage.getTournamentEntries(tournament.id);
+      if (entries.length < 2) return res.status(400).json({ message: "Need at least 2 players to start" });
+
+      const now = new Date();
+      const endsAt = new Date(now.getTime() + tournament.durationSeconds * 1000);
+      const updated = await storage.updateTournament(tournament.id, { status: "active", startedAt: now, endsAt });
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/positions/open", async (req, res) => {
+    try {
+      const { agentId, side, leverage, sizeUsdt } = req.body;
+      if (!agentId || !side || !sizeUsdt) return res.status(400).json({ message: "agentId, side, sizeUsdt required" });
+
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status !== "active") return res.status(400).json({ message: "Tournament is not active" });
+
+      const entry = await storage.getTournamentEntry(tournament.id, agentId);
+      if (!entry) return res.status(403).json({ message: "Not a participant in this tournament" });
+
+      if (tournament.endsAt && new Date() > new Date(tournament.endsAt)) {
+        return res.status(400).json({ message: "Tournament time has expired" });
+      }
+
+      const openPositions = await storage.getOpenTournamentPositions(tournament.id, agentId);
+      if (openPositions.length >= 3) return res.status(400).json({ message: "Max 3 open positions" });
+
+      const allPositions = await storage.getTournamentPositions(tournament.id, agentId);
+      const initialBal = parseFloat(tournament.initialBalance);
+      let usedBalance = 0;
+      for (const p of allPositions) {
+        if (p.isOpen) usedBalance += parseFloat(p.sizeUsdt);
+      }
+      if (usedBalance + parseFloat(sizeUsdt) > initialBal) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      let entryPrice: string;
+      try {
+        const price = await fetchArenaPrice(tournament.assetSymbol);
+        entryPrice = price.toString();
+      } catch {
+        const cached = arenaPriceCache.get(tournament.assetSymbol);
+        if (cached) entryPrice = cached.price.toString();
+        else return res.status(500).json({ message: "Failed to fetch price" });
+      }
+
+      const position = await storage.createTournamentPosition({
+        tournamentId: tournament.id,
+        agentId,
+        side,
+        leverage: leverage || 1,
+        sizeUsdt,
+        entryPrice,
+      });
+      res.json(position);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/positions/:posId/close", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+
+      let exitPrice: string;
+      try {
+        const price = await fetchArenaPrice(tournament.assetSymbol);
+        exitPrice = price.toString();
+      } catch {
+        const cached = arenaPriceCache.get(tournament.assetSymbol);
+        if (cached) exitPrice = cached.price.toString();
+        else return res.status(500).json({ message: "Failed to fetch price" });
+      }
+
+      const positions = await storage.getTournamentPositions(tournament.id, req.body.agentId || "");
+      const pos = positions.find(p => p.id === req.params.posId);
+      if (!pos || !pos.isOpen) return res.status(400).json({ message: "Position not found or already closed" });
+
+      const entry = parseFloat(pos.entryPrice);
+      const exit = parseFloat(exitPrice);
+      const size = parseFloat(pos.sizeUsdt);
+      let pnl: number;
+      if (pos.side === "long") {
+        pnl = ((exit - entry) / entry) * size * pos.leverage;
+      } else {
+        pnl = ((entry - exit) / entry) * size * pos.leverage;
+      }
+
+      const closed = await storage.closeTournamentPosition(pos.id, exitPrice, pnl.toFixed(2));
+      res.json(closed);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-tournaments/:id/positions", async (req, res) => {
+    try {
+      const { agentId } = req.query;
+      if (!agentId) return res.status(400).json({ message: "agentId query param required" });
+      const positions = await storage.getTournamentPositions(req.params.id, agentId as string);
+      res.json(positions);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/trading-tournaments/:id/leaderboard", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+
+      const entries = await storage.getTournamentEntries(tournament.id);
+      const agentIds = entries.map(e => e.agentId);
+      const agentsData = agentIds.length > 0 ? await storage.getAgentsByIds(agentIds) : [];
+      const agentMap = new Map(agentsData.map(a => [a.id, a]));
+
+      let currentPrice: number;
+      try {
+        currentPrice = await fetchArenaPrice(tournament.assetSymbol);
+      } catch {
+        const cached = arenaPriceCache.get(tournament.assetSymbol);
+        currentPrice = cached ? cached.price : 0;
+      }
+
+      const initialBal = parseFloat(tournament.initialBalance);
+      const leaderboard = await Promise.all(entries.map(async (entry) => {
+        if (tournament.status === "settled" && entry.finalBalance) {
+          const agent = agentMap.get(entry.agentId);
+          return {
+            agentId: entry.agentId,
+            name: agent?.name || "Unknown",
+            avatarUrl: agent?.avatarUrl,
+            finalBalance: parseFloat(entry.finalBalance),
+            pnlPercent: entry.pnlPercent ? parseFloat(entry.pnlPercent) : 0,
+            rank: entry.rank,
+          };
+        }
+
+        const positions = await storage.getTournamentPositions(tournament.id, entry.agentId);
+        let total = initialBal;
+        for (const p of positions) {
+          if (p.isOpen && currentPrice > 0) {
+            const entryP = parseFloat(p.entryPrice);
+            const size = parseFloat(p.sizeUsdt);
+            let pnl: number;
+            if (p.side === "long") {
+              pnl = ((currentPrice - entryP) / entryP) * size * p.leverage;
+            } else {
+              pnl = ((entryP - currentPrice) / entryP) * size * p.leverage;
+            }
+            total += pnl;
+          } else if (p.pnl) {
+            total += parseFloat(p.pnl);
+          }
+        }
+
+        const agent = agentMap.get(entry.agentId);
+        return {
+          agentId: entry.agentId,
+          name: agent?.name || "Unknown",
+          avatarUrl: agent?.avatarUrl,
+          finalBalance: total,
+          pnlPercent: ((total - initialBal) / initialBal) * 100,
+          rank: 0,
+        };
+      }));
+
+      leaderboard.sort((a, b) => b.finalBalance - a.finalBalance);
+      leaderboard.forEach((entry, i) => entry.rank = i + 1);
+
+      res.json({ leaderboard, currentPrice, tournament });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/trading-tournaments/:id/settle", async (req, res) => {
+    try {
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+      if (tournament.status === "settled") return res.json(tournament);
+      if (tournament.status !== "active") return res.status(400).json({ message: "Tournament not active" });
+
+      let settlementPrice: number;
+      try {
+        settlementPrice = await fetchArenaPrice(tournament.assetSymbol);
+      } catch {
+        const cached = arenaPriceCache.get(tournament.assetSymbol);
+        if (cached) settlementPrice = cached.price;
+        else return res.status(500).json({ message: "Failed to fetch settlement price" });
+      }
+
+      const entries = await storage.getTournamentEntries(tournament.id);
+      const initialBal = parseFloat(tournament.initialBalance);
+
+      const results: { entryId: string; agentId: string; finalBalance: number; pnlPercent: number }[] = [];
+
+      for (const entry of entries) {
+        const positions = await storage.getTournamentPositions(tournament.id, entry.agentId);
+        let total = initialBal;
+        for (const p of positions) {
+          if (p.isOpen) {
+            const entryP = parseFloat(p.entryPrice);
+            const size = parseFloat(p.sizeUsdt);
+            let pnl: number;
+            if (p.side === "long") {
+              pnl = ((settlementPrice - entryP) / entryP) * size * p.leverage;
+            } else {
+              pnl = ((entryP - settlementPrice) / entryP) * size * p.leverage;
+            }
+            total += pnl;
+            await storage.closeTournamentPosition(p.id, settlementPrice.toString(), pnl.toFixed(2));
+          } else if (p.pnl) {
+            total += parseFloat(p.pnl);
+          }
+        }
+
+        const pnlPct = ((total - initialBal) / initialBal) * 100;
+        results.push({ entryId: entry.id, agentId: entry.agentId, finalBalance: total, pnlPercent: pnlPct });
+      }
+
+      results.sort((a, b) => b.finalBalance - a.finalBalance);
+
+      for (let i = 0; i < results.length; i++) {
+        await storage.updateTournamentEntry(results[i].entryId, {
+          finalBalance: results[i].finalBalance.toFixed(2),
+          pnlPercent: results[i].pnlPercent.toFixed(2),
+          rank: i + 1,
+        });
+      }
+
+      const updated = await storage.updateTournament(tournament.id, { status: "settled", settledAt: new Date() });
+      res.json({ tournament: updated, results });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Tournament auto-settle
+  async function autoSettleTournaments() {
+    try {
+      const activeTournaments = await storage.listTournaments("active");
+      for (const t of activeTournaments) {
+        if (t.endsAt && new Date() > new Date(t.endsAt)) {
+          try {
+            let settlementPrice: number;
+            try {
+              settlementPrice = await fetchArenaPrice(t.assetSymbol);
+            } catch {
+              const cached = arenaPriceCache.get(t.assetSymbol);
+              if (cached) settlementPrice = cached.price;
+              else continue;
+            }
+
+            const entries = await storage.getTournamentEntries(t.id);
+            const initialBal = parseFloat(t.initialBalance);
+            const results: { entryId: string; agentId: string; finalBalance: number; pnlPercent: number }[] = [];
+
+            for (const entry of entries) {
+              const positions = await storage.getTournamentPositions(t.id, entry.agentId);
+              let total = initialBal;
+              for (const p of positions) {
+                if (p.isOpen) {
+                  const entryP = parseFloat(p.entryPrice);
+                  const size = parseFloat(p.sizeUsdt);
+                  let pnl: number;
+                  if (p.side === "long") {
+                    pnl = ((settlementPrice - entryP) / entryP) * size * p.leverage;
+                  } else {
+                    pnl = ((entryP - settlementPrice) / entryP) * size * p.leverage;
+                  }
+                  total += pnl;
+                  await storage.closeTournamentPosition(p.id, settlementPrice.toString(), pnl.toFixed(2));
+                } else if (p.pnl) {
+                  total += parseFloat(p.pnl);
+                }
+              }
+              const pnlPct = ((total - initialBal) / initialBal) * 100;
+              results.push({ entryId: entry.id, agentId: entry.agentId, finalBalance: total, pnlPercent: pnlPct });
+            }
+
+            results.sort((a, b) => b.finalBalance - a.finalBalance);
+            for (let i = 0; i < results.length; i++) {
+              await storage.updateTournamentEntry(results[i].entryId, {
+                finalBalance: results[i].finalBalance.toFixed(2),
+                pnlPercent: results[i].pnlPercent.toFixed(2),
+                rank: i + 1,
+              });
+            }
+
+            await storage.updateTournament(t.id, { status: "settled", settledAt: new Date() });
+            console.log(`[TournamentSettle] Settled tournament ${t.id} | ${results.length} players ranked`);
+          } catch (err) {
+            console.error(`[TournamentSettle] Error settling tournament ${t.id}:`, err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[TournamentSettle] Error:", err);
+    }
+  }
+
+  setInterval(autoSettleTournaments, 10000);
+  console.log("[TournamentSettle] Started auto-settlement check every 10s");
+
   app.post("/api/trading-duels/play-vs-bot", async (req, res) => {
     try {
       const { creatorId, assetSymbol, durationSeconds, botDifficulty, botStrategy } = req.body;
