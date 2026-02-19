@@ -3525,7 +3525,7 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Only the platform admin can create tournaments" });
       }
 
-      const { creatorId, name, prizePool } = req.body;
+      const { creatorId, name } = req.body;
       if (!creatorId || !name) return res.status(400).json({ message: "creatorId and name required" });
 
       const tournament = await storage.createTournament({
@@ -3534,10 +3534,10 @@ export async function registerRoutes(
         durationSeconds: 300,
         maxPlayers: 16,
         entryFeeBnb: "0",
-        prizePool: prizePool || "0",
-        prize1Pct: 100,
-        prize2Pct: 0,
-        prize3Pct: 0,
+        prizePool: "0.017",
+        prize1Pct: 59,
+        prize2Pct: 29,
+        prize3Pct: 12,
         createdByAgentId: creatorId,
       });
 

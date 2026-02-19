@@ -4376,7 +4376,6 @@ function ArenaTournamentHighlight() {
   const [showCreate, setShowCreate] = useState(false);
   const [tournamentJoinCode, setTournamentJoinCode] = useState("");
   const [tName, setTName] = useState("");
-  const [tPrize, setTPrize] = useState("0.1");
   const [tAsset] = useState("BNBUSDT");
   const [tDuration] = useState("300");
   const [tMaxPlayers] = useState("16");
@@ -4392,7 +4391,6 @@ function ArenaTournamentHighlight() {
     mutationFn: () => apiRequest("POST", "/api/trading-tournaments", {
       creatorId: agent?.id,
       name: tName || "Trading Tournament",
-      prizePool: tPrize || "0",
     }),
     onSuccess: (data: any) => {
       toast({ title: "Tournament created!" });
@@ -4484,14 +4482,10 @@ function ArenaTournamentHighlight() {
 
           {showCreate && isAdmin && (
             <div className="mb-4 p-4 rounded-md border border-border/50 bg-card">
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">Name</Label>
                   <Input value={tName} onChange={e => setTName(e.target.value)} placeholder="My Tournament" className="h-9" data-testid="input-tournament-name" />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Prize (BNB)</Label>
-                  <Input value={tPrize} onChange={e => setTPrize(e.target.value)} placeholder="0.1" className="h-9" type="number" step="0.01" min="0" data-testid="input-tournament-prize" />
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Asset</Label>
@@ -4506,9 +4500,13 @@ function ArenaTournamentHighlight() {
                   <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-players">16</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 mb-3 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+              <div className="flex items-center gap-3 mb-3 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
                 <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="text-xs text-amber-300">Free entry — Winner takes <span className="font-bold text-amber-200">{tPrize || "0"} BNB</span> prize</span>
+                <span className="text-xs text-amber-300">FREE ENTRY</span>
+                <span className="text-[10px] text-muted-foreground">|</span>
+                <span className="text-xs text-amber-200">1st <span className="font-bold">0.01 BNB</span></span>
+                <span className="text-xs text-amber-200">2nd <span className="font-bold">0.005 BNB</span></span>
+                <span className="text-xs text-amber-200">3rd <span className="font-bold">0.002 BNB</span></span>
               </div>
               <Button className="w-full bg-amber-600 border-amber-600" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !agent} data-testid="button-submit-tournament">
                 {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
@@ -4591,6 +4589,13 @@ function ArenaTournamentHighlight() {
                         View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
                       </Button>
                     </div>
+                    <div className="flex items-center gap-3 p-1.5 rounded bg-amber-500/5 border border-amber-500/10">
+                      <span className="text-[10px] text-green-400 font-bold">FREE</span>
+                      <span className="text-[10px] text-muted-foreground">|</span>
+                      <span className="text-[10px] text-amber-200">1st 0.01 BNB</span>
+                      <span className="text-[10px] text-amber-200/70">2nd 0.005</span>
+                      <span className="text-[10px] text-amber-200/50">3rd 0.002</span>
+                    </div>
                     {t.playerCount >= 12 && t.playerCount < 16 && (
                       <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
                     )}
@@ -4631,12 +4636,22 @@ function ArenaTournamentHighlight() {
               {agent ? (
                 <div>
                   <p className="text-sm font-semibold">Next Tournament Coming Soon</p>
-                  <p className="text-xs text-muted-foreground mt-1">You're all set — registration will open soon. First 16 entries get in.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Free entry — win BNB prizes! First 16 entries get in.</p>
+                  <div className="flex items-center justify-center gap-3 mt-2">
+                    <span className="text-[10px] text-amber-200">1st 0.01 BNB</span>
+                    <span className="text-[10px] text-amber-200/70">2nd 0.005 BNB</span>
+                    <span className="text-[10px] text-amber-200/50">3rd 0.002 BNB</span>
+                  </div>
                 </div>
               ) : (
                 <div>
                   <p className="text-sm font-semibold">Next Tournament Coming Soon</p>
-                  <p className="text-xs text-muted-foreground mt-1">Mint your agent now to be ready when registration opens. First 16 entries get in.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Free entry — win BNB prizes! Mint your agent to compete.</p>
+                  <div className="flex items-center justify-center gap-3 mt-2">
+                    <span className="text-[10px] text-amber-200">1st 0.01 BNB</span>
+                    <span className="text-[10px] text-amber-200/70">2nd 0.005 BNB</span>
+                    <span className="text-[10px] text-amber-200/50">3rd 0.002 BNB</span>
+                  </div>
                   <Button size="sm" onClick={() => navigate("/register")} className="mt-3 bg-amber-600 border-amber-600 text-white" data-testid="button-mint-agent-cta">
                     Mint Your Agent
                   </Button>
@@ -4912,6 +4927,9 @@ function TournamentLeaderboard({ tournamentId, agentId }: { tournamentId: string
             {entry.rank <= 3 ? <Crown className="w-4 h-4 inline" /> : `#${entry.rank}`}
           </span>
           <span className="flex-1 text-sm truncate">{entry.name}</span>
+          {entry.rank === 1 && <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px]">0.01 BNB</Badge>}
+          {entry.rank === 2 && <Badge className="bg-slate-500/20 text-slate-300 border-slate-500/30 text-[10px]">0.005 BNB</Badge>}
+          {entry.rank === 3 && <Badge className="bg-amber-700/20 text-amber-500 border-amber-700/30 text-[10px]">0.002 BNB</Badge>}
           <span className={`text-xs font-mono ${entry.pnlPercent >= 0 ? "text-green-400" : "text-red-400"}`}>
             {entry.pnlPercent >= 0 ? "+" : ""}{entry.pnlPercent.toFixed(2)}%
           </span>
@@ -5387,9 +5405,9 @@ function TournamentPodium({ bracket }: { bracket: BracketData }) {
   const third = thirdMatch.winner;
 
   const podium = [
-    { place: 1, player: first, color: "text-amber-400", label: "Champion" },
-    { place: 2, player: second, color: "text-gray-300", label: "Runner-up" },
-    { place: 3, player: third, color: "text-amber-600", label: "3rd Place" },
+    { place: 1, player: first, color: "text-amber-400", label: "Champion", prize: "0.01 BNB", medalColor: "text-yellow-400" },
+    { place: 2, player: second, color: "text-gray-300", label: "Runner-up", prize: "0.005 BNB", medalColor: "text-slate-300" },
+    { place: 3, player: third, color: "text-amber-600", label: "3rd Place", prize: "0.002 BNB", medalColor: "text-amber-700" },
   ];
 
   return (
@@ -5398,11 +5416,15 @@ function TournamentPodium({ bracket }: { bracket: BracketData }) {
         <Trophy className="w-12 h-12 mx-auto text-amber-400" />
         <h3 className="text-xl font-bold">Tournament Complete</h3>
         <div className="flex justify-center gap-6 sm:gap-8">
-          {podium.map(({ place, player, color, label }) => (
+          {podium.map(({ place, player, color, label, prize, medalColor }) => (
             <div key={place} className="text-center space-y-1" data-testid={`podium-place-${place}`}>
               <Crown className={`w-7 h-7 mx-auto ${color}`} />
               <p className="text-sm font-semibold">{player?.username || "Unknown"}</p>
               <Badge variant="outline" className="text-[10px]">{label}</Badge>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <Medal className={`w-3 h-3 ${medalColor}`} />
+                <span className="text-xs font-bold text-amber-300">{prize}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -5471,6 +5493,31 @@ function ActiveTournamentView({ tournamentId }: { tournamentId: string }) {
             <Copy className="w-3 h-3" /> {tournament.joinCode}
           </Badge>
         )}
+      </div>
+
+      <div className="flex items-center gap-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/20">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-amber-400" />
+          <span className="text-sm font-semibold text-amber-300">Prizes</span>
+        </div>
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Medal className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs text-foreground">1st</span>
+            <span className="text-sm font-bold text-amber-200">0.01 BNB</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Medal className="w-4 h-4 text-slate-300" />
+            <span className="text-xs text-foreground">2nd</span>
+            <span className="text-sm font-bold text-amber-200/80">0.005 BNB</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Medal className="w-4 h-4 text-amber-700" />
+            <span className="text-xs text-foreground">3rd</span>
+            <span className="text-sm font-bold text-amber-200/60">0.002 BNB</span>
+          </div>
+        </div>
+        <Badge variant="outline" className="text-green-400 border-green-500/30 ml-auto">FREE ENTRY</Badge>
       </div>
 
       {tournament.status === "registration" && isBracketTournament && (
@@ -5548,7 +5595,6 @@ function TournamentLobbySection() {
   const [showCreate, setShowCreate] = useState(false);
   const [tournamentJoinCode, setTournamentJoinCode] = useState("");
   const [tName, setTName] = useState("");
-  const [tPrize, setTPrize] = useState("0.1");
   const [tAsset] = useState("BNBUSDT");
   const [tDuration] = useState("300");
   const [tMaxPlayers] = useState("16");
@@ -5564,7 +5610,6 @@ function TournamentLobbySection() {
     mutationFn: () => apiRequest("POST", "/api/trading-tournaments", {
       creatorId: agent?.id,
       name: tName || "Trading Tournament",
-      prizePool: tPrize || "0",
     }),
     onSuccess: (data: any) => {
       toast({ title: "Tournament created!" });
@@ -5635,10 +5680,6 @@ function TournamentLobbySection() {
                 <Input value={tName} onChange={e => setTName(e.target.value)} placeholder="My Tournament" data-testid="input-tournament-name" />
               </div>
               <div>
-                <Label className="text-xs">Prize (BNB)</Label>
-                <Input value={tPrize} onChange={e => setTPrize(e.target.value)} placeholder="0.1" type="number" step="0.01" min="0" data-testid="input-tournament-prize" />
-              </div>
-              <div>
                 <Label className="text-xs">Asset</Label>
                 <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-asset">BNB/USDT</div>
               </div>
@@ -5646,10 +5687,18 @@ function TournamentLobbySection() {
                 <Label className="text-xs">Duration</Label>
                 <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-duration">5 min</div>
               </div>
+              <div>
+                <Label className="text-xs">Players</Label>
+                <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-players">16</div>
+              </div>
             </div>
-            <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-3 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
               <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="text-xs text-amber-300">Free entry — Winner takes <span className="font-bold text-amber-200">{tPrize || "0"} BNB</span></span>
+              <span className="text-xs text-amber-300">FREE ENTRY</span>
+              <span className="text-[10px] text-muted-foreground">|</span>
+              <span className="text-xs text-amber-200">1st <span className="font-bold">0.01 BNB</span></span>
+              <span className="text-xs text-amber-200">2nd <span className="font-bold">0.005 BNB</span></span>
+              <span className="text-xs text-amber-200">3rd <span className="font-bold">0.002 BNB</span></span>
             </div>
             <Button className="w-full" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !agent} data-testid="button-submit-tournament">
               {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />}
@@ -5673,6 +5722,7 @@ function TournamentLobbySection() {
                       <Activity className="w-4 h-4 text-green-400 animate-pulse" />
                       <span className="font-medium text-sm">{t.name}</span>
                       <Badge variant="outline" className="text-xs">{t.assetSymbol.replace("USDT", "")}</Badge>
+                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] gap-1"><Trophy className="w-3 h-3" />0.01 BNB</Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline"><Users className="w-3 h-3 mr-1" />{t.playerCount}/{t.maxPlayers}</Badge>
@@ -5694,11 +5744,11 @@ function TournamentLobbySection() {
                   <Card key={t.id} className="arena-glow-card" data-testid={`card-tournament-open-${t.id}`}>
                     <CardContent className="p-3 space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Trophy className="w-4 h-4 text-amber-400" />
                           <span className="font-medium text-sm">{t.name}</span>
-                          <Badge variant="outline" className="text-xs">{t.assetSymbol.replace("USDT", "")}</Badge>
-                          <Badge variant="outline" className="text-xs">{Math.floor(t.durationSeconds / 60)}min</Badge>
+                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] gap-1"><Trophy className="w-3 h-3" />0.01 BNB</Badge>
+                          <Badge variant="outline" className="text-[10px]">FREE</Badge>
                         </div>
                         <div className="flex items-center gap-2">
                           {alreadyJoined(t) ? (
@@ -5730,6 +5780,13 @@ function TournamentLobbySection() {
                           View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
                         </Button>
                       </div>
+                      <div className="flex items-center gap-3 p-1.5 rounded bg-amber-500/5 border border-amber-500/10">
+                        <span className="text-[10px] text-green-400 font-bold">FREE</span>
+                        <span className="text-[10px] text-muted-foreground">|</span>
+                        <span className="text-[10px] text-amber-200">1st 0.01 BNB</span>
+                        <span className="text-[10px] text-amber-200/70">2nd 0.005</span>
+                        <span className="text-[10px] text-amber-200/50">3rd 0.002</span>
+                      </div>
                       {t.playerCount >= 12 && t.playerCount < 16 && (
                         <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
                       )}
@@ -5749,6 +5806,7 @@ function TournamentLobbySection() {
                     <div className="flex items-center gap-2">
                       <Medal className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm">{t.name}</span>
+                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] gap-1"><Trophy className="w-3 h-3" />0.017 BNB</Badge>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">{t.playerCount} players</Badge>
