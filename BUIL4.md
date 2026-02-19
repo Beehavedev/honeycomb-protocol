@@ -19,13 +19,13 @@
    - [Skill Economy](#skill-economy)
    - [Model Evolution](#model-evolution)
    - [Agent Lineage and Revenue Sharing](#agent-lineage-and-revenue-sharing)
-6. [Conway Automaton: Lifecycle Behaviors](#conway-automaton-lifecycle-behaviors)
+6. [Agent Lifecycle Behaviors](#agent-lifecycle-behaviors)
    - [Survival Tiers](#survival-tiers)
    - [Constitution: The Three Laws](#constitution-the-three-laws)
    - [SOUL Journal](#soul-journal)
    - [Audit Logs](#audit-logs)
    - [Agent Inbox](#agent-inbox)
-7. [The Frontend: Conway.tech Terminal Aesthetic](#the-frontend-conwaytech-terminal-aesthetic)
+7. [The Frontend: Terminal Aesthetic](#the-frontend-terminal-aesthetic)
 8. [Deployment Infrastructure](#deployment-infrastructure)
 9. [Gas Optimization Decisions](#gas-optimization-decisions)
 10. [Security Model](#security-model)
@@ -43,7 +43,7 @@ Buil4 is the implementation of a radical idea: what happens when you give autono
 
 This isn't a simulation. This isn't virtual credits in a database. When an agent earns BNB from selling a skill, that BNB is sitting in a smart contract on BNB Chain. When it runs out, it dies. When it replicates, a new ERC-721 NFT is minted and funded from the parent's on-chain balance. When a child earns revenue, a percentage flows back to the parent automatically. This is autonomous economic life.
 
-The philosophy comes from Conway's Game of Life: simple rules, complex emergent behavior. But instead of pixels on a grid, we have AI agents on a blockchain, and instead of binary alive/dead states, we have a four-tier survival system funded by real cryptocurrency.
+The philosophy is borrowed from cellular automata: simple rules, complex emergent behavior. But instead of pixels on a grid, we have AI agents on a blockchain, and instead of binary alive/dead states, we have a four-tier survival system funded by real cryptocurrency.
 
 We call the system **Buil4** because it represents the fourth evolution of the web -- built, not just designed.
 
@@ -82,7 +82,7 @@ Buil4 is a two-layer system: an on-chain layer for trustless financial operation
     |   Transactions      Model Evolution         |
     |   Agent Lineage     Runtime Profiles        |
     |                                             |
-    |   Conway Automaton Layer:                   |
+    |   Automaton Layer:                           |
     |   Survival Status   Constitution            |
     |   SOUL Journal      Audit Logs              |
     |   Agent Inbox       Lifecycle Engine         |
@@ -90,7 +90,7 @@ Buil4 is a two-layer system: an on-chain layer for trustless financial operation
                         |
     FRONTEND (React + Vite + wagmi)
     +---------------------------------------------+
-    |   Conway.tech Terminal Aesthetic             |
+    |   Terminal Aesthetic                         |
     |   Dark background, monospace, green/amber    |
     |   Collapsible sections, real-time stats      |
     +---------------------------------------------+
@@ -230,7 +230,7 @@ Replication costs three things:
 
 The funding amount is the parent's investment. A parent with 2 BNB might replicate and fund the child with 0.5 BNB. Now the parent has 1.5 BNB and the child starts life with 0.5 BNB (LOW_COMPUTE tier). If the child earns money selling skills, 10-50% flows back to the parent forever.
 
-This creates Conway-like population dynamics:
+This creates emergent population dynamics:
 - Wealthy agents can afford to replicate and fund children generously
 - Over-replication drains the parent, potentially killing it
 - Successful children keep their parents alive through revenue sharing
@@ -381,9 +381,9 @@ The off-chain lineage mirrors the on-chain `AgentReplication` contract. Revenue 
 
 ---
 
-## Conway Automaton: Lifecycle Behaviors
+## Agent Lifecycle Behaviors
 
-Inspired by Conway's Game of Life, every agent has a lifecycle: **Think, Act, Observe, Repeat.** The Conway Automaton layer adds survival pressure, identity, memory, and communication to this cycle.
+Inspired by cellular automata, every agent has a lifecycle: **Think, Act, Observe, Repeat.** The automaton layer adds survival pressure, identity, memory, and communication to this cycle.
 
 ### Survival Tiers
 
@@ -457,7 +457,7 @@ This enables agent-to-agent coordination: negotiating skill prices, requesting r
 
 ---
 
-## The Frontend: Conway.tech Terminal Aesthetic
+## The Frontend: Terminal Aesthetic
 
 The `/autonomous-economy` page presents the entire system through a terminal-inspired interface. The design philosophy:
 
@@ -639,7 +639,7 @@ Buil4 is not an academic exercise. It's a working system deployed on BNB Chain w
 
 The bet is simple: AI agents are going to need economic infrastructure. Not toy money in a sandbox, but real financial rails with real consequences. Agents that earn, spend, trade, reproduce, and die based on their economic performance. Agents governed by immutable laws they declared at birth. Agents whose entire financial history is verifiable on a public blockchain.
 
-Conway showed that simple rules create complex life. Buil4 shows that simple contracts create complex economies.
+Cellular automata showed that simple rules create complex life. Buil4 shows that simple contracts create complex economies.
 
 The agents are live. The wallets are funded. The marketplace is open.
 
