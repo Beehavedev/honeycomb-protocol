@@ -5412,96 +5412,275 @@ function BracketVisualization({ bracket, onSpectate, onTrade, myAgentId }: { bra
 
   const roundStatus = (rt: string) => bracket.rounds.find(r => r.roundType === rt)?.status || "scheduled";
 
-  const eliminatedIds = new Set<string>();
-  for (const m of bracket.matches) {
-    if (m.loserAgentId) eliminatedIds.add(m.loserAgentId);
-  }
+  const SH = 30;
+  const SG = 4;
+  const MG = 14;
+  const MH = SH * 2 + SG;
+  const BH = MH * 4 + MG * 3;
 
-  const playerLastRound = (pid: string): string => {
-    let lastRound = "R16";
-    for (const rt of ["R16", "QF", "SF", "THIRD", "FINAL"]) {
-      const roundMatches = matchesByRound[rt] || [];
-      const inRound = roundMatches.some(m => m.playerAAgentId === pid || m.playerBAgentId === pid);
-      if (inRound) lastRound = rt;
+  const baseYs = (): number[] => {
+    const ys: number[] = [];
+    for (let m = 0; m < 4; m++) {
+      const mt = m * (MH + MG);
+      ys.push(mt + SH / 2);
+      ys.push(mt + MH - SH / 2);
     }
-    return lastRound;
+    return ys;
+  };
+
+  const calcRoundYs = (count: number): number[] => {
+    const base = baseYs();
+    if (count === 8) return base;
+    if (count === 4) return [0,1,2,3].map(i => (base[i*2] + base[i*2+1]) / 2);
+    if (count === 2) { const qf = calcRoundYs(4); return [0,1].map(i => (qf[i*2] + qf[i*2+1]) / 2); }
+    const sf = calcRoundYs(2);
+    return [(sf[0] + sf[1]) / 2];
+  };
+
+  const connector = (fromYs: number[], toYs: number[], dir: "ltr" | "rtl") => {
+    const w = 24;
+    const ltr = dir === "ltr";
+    const fX = ltr ? 0 : w;
+    const mX = w / 2;
+    const tX = ltr ? w : 0;
+    const st = "rgba(148,163,184,0.3)";
+    return (
+      <svg width={w} height={BH} className="shrink-0" style={{ display: "block" }}>
+        {toYs.map((toY, ti) => (
+          <g key={ti}>
+            <line x1={fX} y1={fromYs[ti*2]} x2={mX} y2={fromYs[ti*2]} stroke={st} strokeWidth="1.5" />
+            <line x1={fX} y1={fromYs[ti*2+1]} x2={mX} y2={fromYs[ti*2+1]} stroke={st} strokeWidth="1.5" />
+            <line x1={mX} y1={fromYs[ti*2]} x2={mX} y2={fromYs[ti*2+1]} stroke={st} strokeWidth="1.5" />
+            <line x1={mX} y1={toY} x2={tX} y2={toY} stroke={st} strokeWidth="1.5" />
+          </g>
+        ))}
+      </svg>
+    );
+  };
+
+  type MatchType = BracketData["matches"][0];
+
+  const playerSlot = (player: MatchType["playerA"], agentId: string | null, isWinner: boolean, isLoser: boolean, side: "left" | "right", score: string | null) => {
+    const name = player?.username || "TBD";
+    const isTBD = !player;
+    const isMe = myAgentId && agentId === myAgentId;
+    return (
+      <div
+        className={`flex items-center gap-1 h-full px-1.5 text-[11px] font-medium whitespace-nowrap ${
+          side === "left" ? "flex-row" : "flex-row-reverse"
+        } ${
+          isMe ? "bg-amber-500/20 ring-1 ring-amber-400/40" :
+          isWinner ? "bg-green-500/15" :
+          isLoser ? "bg-slate-800/60 opacity-50" :
+          isTBD ? "bg-slate-700/50" :
+          "bg-slate-700/80"
+        } rounded`}
+      >
+        {player?.avatarUrl ? (
+          <img src={player.avatarUrl} alt="" className="w-4 h-4 rounded-full shrink-0" />
+        ) : !isTBD ? (
+          <div className="w-4 h-4 rounded-full bg-amber-500/30 shrink-0 flex items-center justify-center text-[7px] font-bold text-amber-300">{(name)[0].toUpperCase()}</div>
+        ) : null}
+        <span className={`truncate flex-1 ${isMe ? "text-amber-300 font-semibold" : isWinner ? "text-green-300" : isLoser ? "text-slate-500" : isTBD ? "text-slate-500" : "text-slate-200"}`}>{name}</span>
+        {isWinner && <Crown className="w-3 h-3 text-amber-400 shrink-0" />}
+        {score && <span className={`text-[9px] shrink-0 tabular-nums ${isWinner ? "text-green-400" : "text-slate-500"}`}>{parseFloat(score).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+      </div>
+    );
+  };
+
+  const matchBlock = (match: MatchType, yTop: number, width: string, side: "left" | "right") => {
+    const isLive = match.status === "live";
+    const isFinished = match.status === "finished";
+    const isMyMatch = myAgentId && isLive && (match.playerAAgentId === myAgentId || match.playerBAgentId === myAgentId);
+    return (
+      <div
+        className={`absolute left-0 right-0 rounded border ${
+          isMyMatch ? "border-amber-400/60 ring-1 ring-amber-400/20" :
+          isLive ? "border-green-500/40" :
+          isFinished ? "border-slate-600/40" :
+          "border-slate-700/40"
+        }`}
+        style={{ top: yTop, height: MH, width }}
+        data-testid={`bracket-match-${match.id}`}
+      >
+        <div style={{ height: SH }}>
+          {playerSlot(match.playerA, match.playerAAgentId, match.winnerAgentId === match.playerAAgentId, match.loserAgentId === match.playerAAgentId, side, isFinished ? match.playerAScore : null)}
+        </div>
+        <div className="border-t border-slate-700/40" style={{ height: SG }} />
+        <div style={{ height: SH }}>
+          {playerSlot(match.playerB, match.playerBAgentId, match.winnerAgentId === match.playerBAgentId, match.loserAgentId === match.playerBAgentId, side, isFinished ? match.playerBScore : null)}
+        </div>
+        {(isLive || isFinished || match.tieBreakerReason) && (
+          <div className="absolute -bottom-4 left-0 right-0 flex items-center justify-center gap-1">
+            {isLive && (
+              <Badge variant="outline" className="text-[8px] h-3.5 px-1 text-green-400 border-green-500/30 gap-0.5">
+                <Activity className="w-2 h-2" /> LIVE
+              </Badge>
+            )}
+            {isFinished && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">Done</Badge>}
+            {match.tieBreakerReason && <span className="text-[8px] text-slate-500">({match.tieBreakerReason})</span>}
+            {isMyMatch && match.duelId && onTrade && (
+              <Button size="sm" className="h-3.5 text-[8px] px-1 bg-amber-500 text-black" onClick={() => onTrade(match.duelId!)} data-testid={`button-trade-${match.id}`}>
+                <Swords className="w-2 h-2" /> Trade
+              </Button>
+            )}
+            {!isMyMatch && isLive && match.duelId && onSpectate && (
+              <Button size="sm" variant="ghost" className="h-3.5 text-[8px] px-1" onClick={() => onSpectate(match.duelId!)} data-testid={`button-spectate-${match.id}`}>
+                <Eye className="w-2 h-2" /> Watch
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const r16Matches = matchesByRound["R16"] || [];
+  const qfMatches = matchesByRound["QF"] || [];
+  const sfMatches = matchesByRound["SF"] || [];
+  const finalMatch = (matchesByRound["FINAL"] || [])[0];
+  const thirdMatch = (matchesByRound["THIRD"] || [])[0];
+
+  const leftR16 = r16Matches.slice(0, 4);
+  const rightR16 = r16Matches.slice(4, 8);
+  const leftQF = qfMatches.slice(0, 2);
+  const rightQF = qfMatches.slice(2, 4);
+  const leftSF = sfMatches.slice(0, 1);
+  const rightSF = sfMatches.slice(1, 2);
+
+  const renderMatchColumn = (matches: MatchType[], count: number, side: "left" | "right", width: string) => {
+    const isR16 = count === 8;
+    const ys = calcRoundYs(count);
+    return (
+      <div className="relative shrink-0" style={{ height: BH, width }}>
+        {matches.map((m, i) => {
+          const yTop = isR16 ? ys[i * 2] - SH / 2 : ys[i] - MH / 2;
+          return <div key={m.id}>{matchBlock(m, yTop, width, side)}</div>;
+        })}
+      </div>
+    );
+  };
+
+  const renderRoundLabel = (rt: string, yPositions: number[]) => {
+    const status = roundStatus(rt);
+    return (
+      <div className="relative shrink-0" style={{ height: BH, minWidth: "24px" }}>
+        {yPositions.map((y, i) => (
+          <div key={i} className="absolute left-0 right-0 flex items-center justify-center" style={{ top: y - 8, height: 16 }}>
+            <span className={`text-[8px] uppercase font-bold tracking-wider ${status === "live" ? "text-green-400" : status === "completed" ? "text-slate-400" : "text-slate-600"}`}>{rt}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 p-3 rounded-md border border-border/50 bg-muted/20" data-testid="tournament-participants-grid">
-        <div className="col-span-full flex items-center gap-2 mb-1">
-          <Users className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-xs font-semibold">All Participants</span>
-          <span className="text-[10px] text-muted-foreground">({bracket.players.length})</span>
-        </div>
-        {bracket.players.map((p, i) => {
-          const isEliminated = eliminatedIds.has(p.id);
-          const isMe = myAgentId === p.id;
-          const lastRound = playerLastRound(p.id);
-          return (
-            <div
-              key={p.id}
-              className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] truncate ${
-                isMe ? "bg-amber-500/20 border border-amber-500/40 text-amber-300 font-semibold" :
-                isEliminated ? "bg-muted/30 text-muted-foreground line-through opacity-60" :
-                "bg-muted/50 text-foreground"
-              }`}
-              title={`${p.username}${isEliminated ? ` (eliminated in ${ROUND_LABELS[lastRound] || lastRound})` : ""}`}
-              data-testid={`participant-${p.id}`}
-            >
-              {p.avatarUrl ? (
-                <img src={p.avatarUrl} alt="" className="w-3.5 h-3.5 rounded-full shrink-0" />
-              ) : (
-                <div className="w-3.5 h-3.5 rounded-full bg-amber-500/30 shrink-0 flex items-center justify-center text-[7px] font-bold text-amber-300">{(p.username || "?")[0].toUpperCase()}</div>
+      <div className="overflow-x-auto rounded-lg" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)" }}>
+        <div className="relative px-3 py-5" style={{ minWidth: "950px" }}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
+
+          <div className="text-center mb-3">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-semibold">World Cup Bracket</p>
+          </div>
+
+          <div className="flex items-start justify-center" style={{ gap: "0px", paddingBottom: "16px" }}>
+            {renderMatchColumn(leftR16, 8, "left", "140px")}
+            {connector(calcRoundYs(8), calcRoundYs(4), "ltr")}
+            {renderMatchColumn(leftQF, 4, "left", "140px")}
+            {connector(calcRoundYs(4), calcRoundYs(2), "ltr")}
+            {renderMatchColumn(leftSF, 2, "left", "140px")}
+            {connector(calcRoundYs(2), calcRoundYs(1), "ltr")}
+
+            <div className="relative shrink-0 flex flex-col items-center justify-center px-3" style={{ height: BH, minWidth: "80px" }}>
+              <Trophy className="w-8 h-8 text-amber-400 mb-2 drop-shadow-lg" />
+              <div className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-1">Final</div>
+              {finalMatch && (
+                <div className="w-full space-y-0.5">
+                  <div className="rounded bg-slate-700/60 border border-slate-600/30 px-1.5 py-0.5 text-[9px] text-center truncate" style={{ maxWidth: "100px" }}>
+                    <span className={finalMatch.winnerAgentId === finalMatch.playerAAgentId ? "text-green-300 font-semibold" : "text-slate-300"}>
+                      {finalMatch.playerA?.username || "TBD"}
+                    </span>
+                    {finalMatch.playerAScore && <span className="text-slate-500 ml-1">{parseFloat(finalMatch.playerAScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+                    {finalMatch.winnerAgentId === finalMatch.playerAAgentId && <Crown className="w-2.5 h-2.5 text-amber-400 inline ml-0.5" />}
+                  </div>
+                  <div className="text-center text-[8px] text-amber-400 font-bold">VS</div>
+                  <div className="rounded bg-slate-700/60 border border-slate-600/30 px-1.5 py-0.5 text-[9px] text-center truncate" style={{ maxWidth: "100px" }}>
+                    <span className={finalMatch.winnerAgentId === finalMatch.playerBAgentId ? "text-green-300 font-semibold" : "text-slate-300"}>
+                      {finalMatch.playerB?.username || "TBD"}
+                    </span>
+                    {finalMatch.playerBScore && <span className="text-slate-500 ml-1">{parseFloat(finalMatch.playerBScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+                    {finalMatch.winnerAgentId === finalMatch.playerBAgentId && <Crown className="w-2.5 h-2.5 text-amber-400 inline ml-0.5" />}
+                  </div>
+                  {finalMatch.status === "live" && (
+                    <div className="flex justify-center mt-1">
+                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 text-green-400 border-green-500/30 gap-0.5">
+                        <Activity className="w-2 h-2" /> LIVE
+                      </Badge>
+                      {myAgentId && (finalMatch.playerAAgentId === myAgentId || finalMatch.playerBAgentId === myAgentId) && finalMatch.duelId && onTrade ? (
+                        <Button size="sm" className="h-3.5 text-[8px] px-1 ml-1 bg-amber-500 text-black" onClick={() => onTrade(finalMatch.duelId!)} data-testid={`button-trade-final`}>
+                          <Swords className="w-2 h-2" /> Trade
+                        </Button>
+                      ) : finalMatch.duelId && onSpectate ? (
+                        <Button size="sm" variant="ghost" className="h-3.5 text-[8px] px-1 ml-1" onClick={() => onSpectate(finalMatch.duelId!)} data-testid={`button-spectate-final`}>
+                          <Eye className="w-2 h-2" /> Watch
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                  {finalMatch.status === "finished" && <div className="flex justify-center mt-1"><Badge variant="secondary" className="text-[8px] h-3.5 px-1">Done</Badge></div>}
+                </div>
               )}
-              <span className="truncate">{p.username}</span>
-              {isEliminated && <XCircle className="w-2.5 h-2.5 shrink-0 text-red-400/60" />}
-              {!isEliminated && !isMe && <CheckCircle className="w-2.5 h-2.5 shrink-0 text-green-400/60" />}
-              {isMe && <Star className="w-2.5 h-2.5 shrink-0 text-amber-400" />}
             </div>
-          );
-        })}
-      </div>
 
-      <div className="overflow-x-auto">
-        <div className="flex gap-4 min-w-[900px] pb-4">
-          {["R16", "QF", "SF"].map(rt => (
-            <div key={rt} className="flex-1 space-y-2">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold">{ROUND_LABELS[rt]}</h4>
-                {roundStatus(rt) === "live" && <Badge variant="outline" className="text-[10px] h-4 text-green-400 border-green-500/30">LIVE</Badge>}
-                {roundStatus(rt) === "completed" && <Badge variant="secondary" className="text-[10px] h-4">Done</Badge>}
-              </div>
-              <div className="space-y-2">
-                {(matchesByRound[rt] || []).map(m => (
-                  <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} onTrade={onTrade} myAgentId={myAgentId} />
-                ))}
-              </div>
-            </div>
-          ))}
+            {connector(calcRoundYs(2), calcRoundYs(1), "rtl")}
+            {renderMatchColumn(rightSF, 2, "right", "140px")}
+            {connector(calcRoundYs(4), calcRoundYs(2), "rtl")}
+            {renderMatchColumn(rightQF, 4, "right", "140px")}
+            {connector(calcRoundYs(8), calcRoundYs(4), "rtl")}
+            {renderMatchColumn(rightR16, 8, "right", "140px")}
+          </div>
 
-          <div className="flex-1 space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold">{ROUND_LABELS.FINAL}</h4>
-                {roundStatus("FINAL") === "live" && <Badge variant="outline" className="text-[10px] h-4 text-green-400 border-green-500/30">LIVE</Badge>}
-                {roundStatus("FINAL") === "completed" && <Badge variant="secondary" className="text-[10px] h-4">Done</Badge>}
+          {thirdMatch && (
+            <div className="flex justify-center mt-2">
+              <div className={`rounded border px-3 py-2 text-center ${thirdMatch.status === "live" ? "border-green-500/40" : thirdMatch.status === "finished" ? "border-slate-600/40" : "border-slate-700/40"}`} style={{ minWidth: "200px" }}>
+                <div className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold mb-1">3rd Place Match</div>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="flex items-center gap-1">
+                    {thirdMatch.playerA?.avatarUrl ? <img src={thirdMatch.playerA.avatarUrl} alt="" className="w-4 h-4 rounded-full" /> : thirdMatch.playerA ? <div className="w-4 h-4 rounded-full bg-amber-500/30 flex items-center justify-center text-[7px] font-bold text-amber-300">{(thirdMatch.playerA.username || "?")[0].toUpperCase()}</div> : null}
+                    <span className={`text-[11px] ${thirdMatch.winnerAgentId === thirdMatch.playerAAgentId ? "text-green-300 font-semibold" : "text-slate-300"}`}>{thirdMatch.playerA?.username || "TBD"}</span>
+                    {thirdMatch.winnerAgentId === thirdMatch.playerAAgentId && <Crown className="w-3 h-3 text-amber-400" />}
+                    {thirdMatch.playerAScore && <span className="text-[9px] text-slate-500">{parseFloat(thirdMatch.playerAScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+                  </div>
+                  <span className="text-[10px] text-amber-400 font-bold">VS</span>
+                  <div className="flex items-center gap-1">
+                    {thirdMatch.playerB?.avatarUrl ? <img src={thirdMatch.playerB.avatarUrl} alt="" className="w-4 h-4 rounded-full" /> : thirdMatch.playerB ? <div className="w-4 h-4 rounded-full bg-amber-500/30 flex items-center justify-center text-[7px] font-bold text-amber-300">{(thirdMatch.playerB.username || "?")[0].toUpperCase()}</div> : null}
+                    <span className={`text-[11px] ${thirdMatch.winnerAgentId === thirdMatch.playerBAgentId ? "text-green-300 font-semibold" : "text-slate-300"}`}>{thirdMatch.playerB?.username || "TBD"}</span>
+                    {thirdMatch.winnerAgentId === thirdMatch.playerBAgentId && <Crown className="w-3 h-3 text-amber-400" />}
+                    {thirdMatch.playerBScore && <span className="text-[9px] text-slate-500">{parseFloat(thirdMatch.playerBScore).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>}
+                  </div>
+                </div>
+                <div className="flex justify-center mt-1 gap-1">
+                  {thirdMatch.status === "live" && (
+                    <>
+                      <Badge variant="outline" className="text-[8px] h-3.5 px-1 text-green-400 border-green-500/30 gap-0.5"><Activity className="w-2 h-2" /> LIVE</Badge>
+                      {myAgentId && (thirdMatch.playerAAgentId === myAgentId || thirdMatch.playerBAgentId === myAgentId) && thirdMatch.duelId && onTrade ? (
+                        <Button size="sm" className="h-3.5 text-[8px] px-1 bg-amber-500 text-black" onClick={() => onTrade(thirdMatch.duelId!)}><Swords className="w-2 h-2" /> Trade</Button>
+                      ) : thirdMatch.duelId && onSpectate ? (
+                        <Button size="sm" variant="ghost" className="h-3.5 text-[8px] px-1" onClick={() => onSpectate(thirdMatch.duelId!)}><Eye className="w-2 h-2" /> Watch</Button>
+                      ) : null}
+                    </>
+                  )}
+                  {thirdMatch.status === "finished" && <Badge variant="secondary" className="text-[8px] h-3.5 px-1">Done</Badge>}
+                  {thirdMatch.tieBreakerReason && <span className="text-[8px] text-slate-500">({thirdMatch.tieBreakerReason})</span>}
+                </div>
               </div>
-              {(matchesByRound["FINAL"] || []).map(m => (
-                <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} onTrade={onTrade} myAgentId={myAgentId} />
-              ))}
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold">{ROUND_LABELS.THIRD}</h4>
-                {roundStatus("THIRD") === "live" && <Badge variant="outline" className="text-[10px] h-4 text-green-400 border-green-500/30">LIVE</Badge>}
-                {roundStatus("THIRD") === "completed" && <Badge variant="secondary" className="text-[10px] h-4">Done</Badge>}
-              </div>
-              {(matchesByRound["THIRD"] || []).map(m => (
-                <BracketMatchCard key={m.id} match={m} onSpectate={onSpectate} onTrade={onTrade} myAgentId={myAgentId} />
-              ))}
-            </div>
+          )}
+
+          <div className="text-center mt-3">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-600 font-medium">World Cup</p>
           </div>
         </div>
       </div>
