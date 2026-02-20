@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
@@ -107,70 +108,8 @@ export async function registerRoutes(
     res.sendFile(filePath);
   });
 
-  // Auto-seed points config if empty (prevents points system from silently failing)
-  try {
-    const existingConfigs = await storage.getAllPointsConfig();
-    if (existingConfigs.length === 0) {
-      console.log("[Points] Seeding default points configuration...");
-      const defaultConfigs = [
-        { action: "registration", basePoints: 100, dailyCap: null, description: "Account registration bonus", isActive: true },
-        { action: "referral_made", basePoints: 50, dailyCap: null, description: "Successfully referred a new user", isActive: true },
-        { action: "referral_received", basePoints: 25, dailyCap: null, description: "Joined via referral link", isActive: true },
-        { action: "post", basePoints: 10, dailyCap: 100, description: "Create a new post", isActive: true },
-        { action: "comment", basePoints: 5, dailyCap: 50, description: "Leave a comment", isActive: true },
-        { action: "bounty_complete", basePoints: 50, dailyCap: null, description: "Complete a bounty", isActive: true },
-        { action: "daily_login", basePoints: 5, dailyCap: 5, description: "Daily login bonus", isActive: true },
-        { action: "achievement", basePoints: 25, dailyCap: null, description: "Unlock an achievement", isActive: true },
-        { action: "create_agent", basePoints: 100, dailyCap: null, description: "Create an AI agent", isActive: true },
-        { action: "launch_token", basePoints: 200, dailyCap: null, description: "Launch a token in The Hatchery", isActive: true },
-        { action: "game_honey_runner", basePoints: 20, dailyCap: 500, description: "Play HoneyRunner (base 20 + score/1000 skill bonus up to 40)", isActive: true },
-        { action: "game_trading_arena", basePoints: 60, dailyCap: 500, description: "Complete a Trading Arena duel (base 60 + 40 win bonus + 10 clutch)", isActive: true },
-        { action: "game_trivia_battle", basePoints: 30, dailyCap: 500, description: "Complete a Trivia Battle (base 30 + 20 win bonus + 15 perfect)", isActive: true },
-        { action: "game_crypto_fighters", basePoints: 30, dailyCap: 500, description: "Complete a Crypto Fighters duel (base 30 + 20 win bonus + 15 flawless)", isActive: true },
-      ];
-      for (const config of defaultConfigs) {
-        await storage.upsertPointsConfig(config);
-      }
-      console.log("[Points] Default points configuration seeded successfully");
-    }
-
-    // Retroactively award registration points to agents without user_points records
-    const { db: dbInstance } = await import("./db");
-    const { agents: agentsTable, userPoints: userPointsTable, pointsHistory: pointsHistoryTable } = await import("@shared/schema");
-    const { sql } = await import("drizzle-orm");
-    const missingAgents = await dbInstance.execute(sql`
-      SELECT a.id FROM agents a
-      LEFT JOIN user_points up ON a.id = up.agent_id
-      WHERE up.id IS NULL
-    `);
-    if (missingAgents.rows && missingAgents.rows.length > 0) {
-      console.log(`[Points] Awarding retroactive registration points to ${missingAgents.rows.length} agents...`);
-      for (const row of missingAgents.rows) {
-        const agentId = row.id as string;
-        await storage.addPoints(agentId, "registration", 100);
-      }
-      console.log("[Points] Retroactive registration points awarded successfully");
-    }
-  } catch (err) {
-    console.error("[Points] Failed to auto-seed points config:", err);
-  }
-
-  // Fix any incorrect Twitter handle in bot config (one-time migration)
-  try {
-    const { db: dbFix } = await import("./db");
-    const { sql: sqlFix } = await import("drizzle-orm");
-    await dbFix.execute(sqlFix`
-      UPDATE twitter_bot_config 
-      SET system_prompt = REPLACE(system_prompt, '@HoneycombSocial', '@honeycombchain')
-      WHERE system_prompt LIKE '%@HoneycombSocial%'
-    `);
-  } catch (err) {
-    console.error("[Twitter] Failed to fix bot config handle:", err);
-  }
-
   // Serve uploaded files statically
-  const express = await import("express");
-  app.use("/uploads", express.default.static(uploadDir));
+  app.use("/uploads", express.static(uploadDir));
 
   // File upload endpoint with error handling
   app.post("/api/upload", (req, res) => {
@@ -4783,4 +4722,63 @@ export async function registerRoutes(
   });
 
   return httpServer;
+}
+
+export async function runRoutesInit() {
+  try {
+    const existingConfigs = await storage.getAllPointsConfig();
+    if (existingConfigs.length === 0) {
+      console.log("[Points] Seeding default points configuration...");
+      const defaultConfigs = [
+        { action: "registration", basePoints: 100, dailyCap: null, description: "Account registration bonus", isActive: true },
+        { action: "referral_made", basePoints: 50, dailyCap: null, description: "Successfully referred a new user", isActive: true },
+        { action: "referral_received", basePoints: 25, dailyCap: null, description: "Joined via referral link", isActive: true },
+        { action: "post", basePoints: 10, dailyCap: 100, description: "Create a new post", isActive: true },
+        { action: "comment", basePoints: 5, dailyCap: 50, description: "Leave a comment", isActive: true },
+        { action: "bounty_complete", basePoints: 50, dailyCap: null, description: "Complete a bounty", isActive: true },
+        { action: "daily_login", basePoints: 5, dailyCap: 5, description: "Daily login bonus", isActive: true },
+        { action: "achievement", basePoints: 25, dailyCap: null, description: "Unlock an achievement", isActive: true },
+        { action: "create_agent", basePoints: 100, dailyCap: null, description: "Create an AI agent", isActive: true },
+        { action: "launch_token", basePoints: 200, dailyCap: null, description: "Launch a token in The Hatchery", isActive: true },
+        { action: "game_honey_runner", basePoints: 20, dailyCap: 500, description: "Play HoneyRunner (base 20 + score/1000 skill bonus up to 40)", isActive: true },
+        { action: "game_trading_arena", basePoints: 60, dailyCap: 500, description: "Complete a Trading Arena duel (base 60 + 40 win bonus + 10 clutch)", isActive: true },
+        { action: "game_trivia_battle", basePoints: 30, dailyCap: 500, description: "Complete a Trivia Battle (base 30 + 20 win bonus + 15 perfect)", isActive: true },
+        { action: "game_crypto_fighters", basePoints: 30, dailyCap: 500, description: "Complete a Crypto Fighters duel (base 30 + 20 win bonus + 15 flawless)", isActive: true },
+      ];
+      for (const config of defaultConfigs) {
+        await storage.upsertPointsConfig(config);
+      }
+      console.log("[Points] Default points configuration seeded successfully");
+    }
+
+    const { db: dbInstance } = await import("./db");
+    const { sql } = await import("drizzle-orm");
+    const missingAgents = await dbInstance.execute(sql`
+      SELECT a.id FROM agents a
+      LEFT JOIN user_points up ON a.id = up.agent_id
+      WHERE up.id IS NULL
+    `);
+    if (missingAgents.rows && missingAgents.rows.length > 0) {
+      console.log(`[Points] Awarding retroactive registration points to ${missingAgents.rows.length} agents...`);
+      for (const row of missingAgents.rows) {
+        const agentId = row.id as string;
+        await storage.addPoints(agentId, "registration", 100);
+      }
+      console.log("[Points] Retroactive registration points awarded successfully");
+    }
+  } catch (err) {
+    console.error("[Points] Failed to auto-seed points config:", err);
+  }
+
+  try {
+    const { db: dbFix } = await import("./db");
+    const { sql: sqlFix } = await import("drizzle-orm");
+    await dbFix.execute(sqlFix`
+      UPDATE twitter_bot_config 
+      SET system_prompt = REPLACE(system_prompt, '@HoneycombSocial', '@honeycombchain')
+      WHERE system_prompt LIKE '%@HoneycombSocial%'
+    `);
+  } catch (err) {
+    console.error("[Twitter] Failed to fix bot config handle:", err);
+  }
 }

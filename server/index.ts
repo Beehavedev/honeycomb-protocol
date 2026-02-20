@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { registerRoutes, runRoutesInit } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase, ensureChannelsExist, ensureTwitterBotExists, ensureNfaLearningModulesExist } from "./seed";
@@ -121,6 +121,7 @@ async function runBackgroundInit() {
     await ensureNfaLearningModulesExist();
     await storage.seedTradingDuels();
     await ensureArenaBots();
+    await runRoutesInit();
     await twitterService.updateBotForGiveawayPromotion();
     startTwitterScheduler();
     startAutoDuelSpawner();
