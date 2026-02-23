@@ -3452,8 +3452,8 @@ export async function registerRoutes(
     }
   }
 
-  setInterval(autoSettleExpiredDuels, 5000);
-  console.log("[AutoSettle] Started auto-settlement check every 5s");
+  setInterval(autoSettleExpiredDuels, 15000);
+  console.log("[AutoSettle] Started auto-settlement check every 15s");
 
   // ============ TRADING TOURNAMENTS ============
 
@@ -3938,11 +3938,11 @@ export async function registerRoutes(
     }
   }
 
-  setInterval(autoSettleTournaments, 10000);
-  console.log("[TournamentSettle] Started auto-settlement check every 10s");
+  setInterval(autoSettleTournaments, 30000);
+  console.log("[TournamentSettle] Started auto-settlement check every 30s");
 
-  setInterval(bracketAutoAdvanceLoop, 5000);
-  console.log("[BracketEngine] Started bracket auto-advance check every 5s");
+  setInterval(bracketAutoAdvanceLoop, 15000);
+  console.log("[BracketEngine] Started bracket auto-advance check every 15s");
 
   // ============ BRACKET TOURNAMENT ROUTES ============
 
