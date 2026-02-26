@@ -962,13 +962,13 @@ function AdminPanel() {
 
 function TokenomicsSection() {
   const allocations = [
-    { label: "Private Presale", pct: 10, color: "bg-amber-500" },
-    { label: "Public Presale", pct: 15, color: "bg-amber-400" },
-    { label: "Liquidity Pool", pct: 20, color: "bg-blue-500" },
-    { label: "Community & Rewards", pct: 25, color: "bg-emerald-500" },
+    { label: "Private Sale", pct: 2.5, color: "bg-amber-500" },
+    { label: "Public Sale", pct: 4.5, color: "bg-amber-400" },
+    { label: "Liquidity Pool", pct: 25, color: "bg-blue-500" },
+    { label: "Community & Rewards", pct: 30, color: "bg-emerald-500" },
     { label: "Team & Advisors", pct: 10, color: "bg-purple-500" },
-    { label: "Ecosystem Fund", pct: 10, color: "bg-cyan-500" },
-    { label: "Treasury", pct: 10, color: "bg-rose-500" },
+    { label: "Ecosystem Fund", pct: 13, color: "bg-cyan-500" },
+    { label: "Treasury", pct: 15, color: "bg-rose-500" },
   ];
 
   return (
@@ -1000,8 +1000,16 @@ function TokenomicsSection() {
             <span className="font-medium">1,000,000,000 $HONEY</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Listing Price</span>
-            <span className="font-medium">0.00001 BNB</span>
+            <span className="text-muted-foreground">Private Round FDV</span>
+            <span className="font-medium">$4M</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Public Round FDV</span>
+            <span className="font-medium">$7M</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">TGE FDV</span>
+            <span className="font-medium">$8M ($0.008/token)</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Team Vesting</span>

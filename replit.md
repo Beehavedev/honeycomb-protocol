@@ -84,7 +84,7 @@ A comprehensive token presale platform modeled after successful crypto launches 
 - **Vesting Schedule**: Cliff period + linear unlock duration, TGE unlock percentage
 - **Real-time Stats**: Total raised, tokens sold, participant count, progress bars
 - **Admin Panel**: Phase creation, whitelist management, phase pause/resume, seed defaults
-- **Tokenomics Display**: Visual token allocation breakdown (Private 10%, Public 15%, Liquidity 20%, Community 25%, Team 10%, Ecosystem 10%, Treasury 10%)
+- **Tokenomics Display**: Visual token allocation breakdown (Private Sale 2.5% at $4M FDV, Public Sale 4.5% at $7M FDV, Liquidity Pool 25%, Community & Rewards 30%, Team & Advisors 10%, Ecosystem Fund 13%, Treasury 15%). TGE FDV $8M ($0.008/token). Total raise: $400K ($100K private + $300K public).
 - **Smart Contract**: HoneyPresale.sol with on-chain phases, whitelist, contribution caps, ReentrancyGuard, Gnosis Safe treasury forwarding
 - **On-chain TX Verification**: BSCScan API verification of tx sender, value, and receipt status before recording contributions
 - Backend routes: `/api/presale/*` (phases, tiers, contribute, whitelist-check, my-contributions, my-allocation, my-referral, stats, verify-tx, treasury, admin/*)

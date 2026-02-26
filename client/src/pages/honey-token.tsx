@@ -255,13 +255,13 @@ export default function HoneyToken() {
   };
 
   const distribution = [
-    { label: "Community Rewards", pct: 35, color: "bg-amber-400" },
-    { label: "Points Conversion", pct: 10, color: "bg-amber-500" },
-    { label: "Team & Advisors", pct: 15, color: "bg-amber-600" },
-    { label: "Liquidity", pct: 15, color: "bg-amber-700" },
-    { label: "Treasury (DAO)", pct: 10, color: "bg-orange-400" },
-    { label: "Ecosystem Grants", pct: 10, color: "bg-orange-500" },
-    { label: "Strategic Sale", pct: 5, color: "bg-orange-600" },
+    { label: "Community & Rewards", pct: 30, color: "bg-amber-400" },
+    { label: "Liquidity Pool", pct: 25, color: "bg-amber-500" },
+    { label: "Treasury", pct: 15, color: "bg-amber-600" },
+    { label: "Ecosystem Fund", pct: 13, color: "bg-amber-700" },
+    { label: "Team & Advisors", pct: 10, color: "bg-orange-400" },
+    { label: "Public Sale", pct: 4.5, color: "bg-orange-500" },
+    { label: "Private Sale", pct: 2.5, color: "bg-orange-600" },
   ];
 
   return (
@@ -894,13 +894,13 @@ export default function HoneyToken() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { allocation: "Community Rewards (35%)", vesting: "Released over 4 years via staking/earning", progress: 5 },
-                  { allocation: "Points Conversion (10%)", vesting: "25% at launch, 6-month linear vest", progress: 0 },
-                  { allocation: "Team & Advisors (15%)", vesting: "12-month cliff, 24-month linear", progress: 0 },
-                  { allocation: "Liquidity (15%)", vesting: "Locked for 2 years", progress: 0 },
-                  { allocation: "Treasury (10%)", vesting: "Governed by HONEY holders", progress: 0 },
-                  { allocation: "Ecosystem Grants (10%)", vesting: "Developer applications", progress: 0 },
-                  { allocation: "Strategic Sale (5%)", vesting: "6-month cliff, 12-month linear", progress: 0 },
+                  { allocation: "Community & Rewards (30%)", vesting: "Released over 4 years via staking/earning", progress: 5 },
+                  { allocation: "Liquidity Pool (25%)", vesting: "Locked for 2 years on PancakeSwap", progress: 0 },
+                  { allocation: "Treasury (15%)", vesting: "Governed by HONEY holders", progress: 0 },
+                  { allocation: "Ecosystem Fund (13%)", vesting: "Developer grants & partnerships", progress: 0 },
+                  { allocation: "Team & Advisors (10%)", vesting: "12-month cliff, 24-month linear", progress: 0 },
+                  { allocation: "Public Sale (4.5%)", vesting: "25% TGE, 3-month linear vest", progress: 0 },
+                  { allocation: "Private Sale (2.5%)", vesting: "10% TGE, 6-month cliff, 12-month linear", progress: 0 },
                 ].map((item) => (
                   <div key={item.allocation} className="space-y-1">
                     <div className="flex justify-between text-sm">
