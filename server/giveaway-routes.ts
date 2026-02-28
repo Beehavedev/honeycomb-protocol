@@ -106,7 +106,8 @@ giveawayRouter.get("/active", async (_req: Request, res: Response) => {
       .select()
       .from(giveawayEntries)
       .where(eq(giveawayEntries.campaignId, campaign.id))
-      .orderBy(desc(giveawayEntries.createdAt));
+      .orderBy(desc(giveawayEntries.createdAt))
+      .limit(20);
 
     res.json({
       campaign,

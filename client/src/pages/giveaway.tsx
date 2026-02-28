@@ -117,6 +117,7 @@ export default function GiveawayPage() {
   const entries = data?.entries || [];
   const entryCount = data?.entryCount || 0;
 
+  const [showVerify, setShowVerify] = useState(false);
   const { data: verifyData, isLoading: verifyLoading } = useQuery<{ verifications: VerificationEntry[] }>({
     queryKey: ["/api/giveaways", campaign?.id, "verify"],
     queryFn: async () => {
@@ -125,8 +126,8 @@ export default function GiveawayPage() {
       if (!res.ok) throw new Error("Failed to verify");
       return res.json();
     },
-    enabled: !!campaign?.id,
-    staleTime: 60000,
+    enabled: !!campaign?.id && showVerify,
+    staleTime: 300000,
   });
 
   const verifications = verifyData?.verifications || [];
@@ -352,7 +353,14 @@ export default function GiveawayPage() {
         </Card>
       </div>
 
-      {verifications.length > 0 && (
+      {isAdmin && !showVerify && (
+        <Button variant="outline" size="sm" onClick={() => setShowVerify(true)} data-testid="button-load-verify">
+          <Shield className="h-4 w-4 mr-2" />
+          Load On-Chain Verification
+        </Button>
+      )}
+
+      {showVerify && verifications.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
