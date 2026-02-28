@@ -66,12 +66,27 @@ export async function seedGiveawayCampaign() {
     }
 
     await autoDrawExpiredCampaigns();
+    await postCorrectedWinnerTweet();
   } catch (error) {
     console.error("[Giveaway] Error seeding campaign:", error);
   }
 }
 
 let drawExecuted = false;
+async function postCorrectedWinnerTweet() {
+  try {
+    const correctedTweet = `🎉 $500 NFA GIVEAWAY — WINNER!\n\nCongratulations to wallet 0xa973...5743 🐝\nRandomly selected from 120 NFA minters!\n\n💰 0.84 BNB sent on-chain:\nbscscan.com/tx/0x89807df4ed400d43fdeb7d3faff1a229049575461ff9477c5820c3ce22857fd1\n\nthehoneycomb.social/giveaway\n\n#BNBChain #BAP578 #Web3`;
+    const result = await twitterService.postTweet(correctedTweet, false);
+    if (result.success) {
+      console.log(`[Giveaway] Corrected winner tweet posted: ${result.tweetId}`);
+    } else {
+      console.warn(`[Giveaway] Corrected tweet failed: ${result.error}`);
+    }
+  } catch (err) {
+    console.warn("[Giveaway] Corrected tweet error:", err);
+  }
+}
+
 async function autoDrawExpiredCampaigns() {
   if (drawExecuted) return;
   drawExecuted = true;
