@@ -305,6 +305,22 @@ giveawayRouter.post("/:id/draw", authMiddleware, async (req: Request, res: Respo
     if (!campaign) return res.status(404).json({ error: "Campaign not found" });
     if (campaign.winnerWallet) return res.status(400).json({ error: "Winner already drawn" });
 
+    const allNfas = await db.select().from(nfaAgents);
+    let backfilled = 0;
+    for (const nfa of allNfas) {
+      const addr = (nfa.ownerAddress || "").toLowerCase();
+      if (!addr) continue;
+      try {
+        await db.insert(giveawayEntries).values({
+          campaignId: id,
+          walletAddress: addr,
+          nfaId: nfa.id,
+          mintTxHash: nfa.mintTxHash || null,
+        });
+        backfilled++;
+      } catch {}
+    }
+
     const entries = await db
       .select()
       .from(giveawayEntries)
@@ -327,10 +343,68 @@ giveawayRouter.post("/:id/draw", authMiddleware, async (req: Request, res: Respo
       })
       .where(eq(giveawayCampaigns.id, id));
 
-    res.json({ winner, campaign: { ...campaign, winnerWallet: winner.walletAddress, status: "completed" } });
+    res.json({
+      winner,
+      totalEntries: entries.length,
+      backfilled,
+      campaign: { ...campaign, winnerWallet: winner.walletAddress, status: "completed" },
+    });
   } catch (error: any) {
     console.error("Error drawing winner:", error);
     res.status(500).json({ error: "Failed to draw winner" });
+  }
+});
+
+giveawayRouter.post("/:id/backfill", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const wallet = req.walletAddress?.toLowerCase();
+    if (wallet !== ADMIN_ADDRESS) {
+      return res.status(403).json({ error: "Admin only" });
+    }
+
+    const { id } = req.params;
+
+    const campaigns = await db
+      .select()
+      .from(giveawayCampaigns)
+      .where(eq(giveawayCampaigns.id, id))
+      .limit(1);
+
+    const campaign = campaigns[0];
+    if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+    if (campaign.winnerWallet) return res.status(400).json({ error: "Winner already drawn" });
+
+    const allNfas = await db
+      .select()
+      .from(nfaAgents);
+
+    let added = 0;
+    let skipped = 0;
+    for (const nfa of allNfas) {
+      const addr = (nfa.ownerAddress || "").toLowerCase();
+      if (!addr) { skipped++; continue; }
+      try {
+        await db.insert(giveawayEntries).values({
+          campaignId: campaign.id,
+          walletAddress: addr,
+          nfaId: nfa.id,
+          mintTxHash: nfa.mintTxHash || null,
+        });
+        added++;
+      } catch (err: any) {
+        skipped++;
+      }
+    }
+
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(giveawayEntries)
+      .where(eq(giveawayEntries.campaignId, id));
+
+    res.json({ success: true, added, skipped, totalEntries: countResult?.count || 0 });
+  } catch (error: any) {
+    console.error("Error backfilling giveaway entries:", error);
+    res.status(500).json({ error: "Failed to backfill" });
   }
 });
 
