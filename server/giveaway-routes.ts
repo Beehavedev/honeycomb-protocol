@@ -5,6 +5,7 @@ import { eq, desc, and, sql, lte, gte, count, inArray } from "drizzle-orm";
 import { authMiddleware } from "./auth";
 import { createPublicClient, http, parseAbiItem } from "viem";
 import { bsc } from "viem/chains";
+import { twitterService } from "./twitter-service";
 
 export const giveawayRouter = Router();
 
@@ -62,8 +63,69 @@ export async function seedGiveawayCampaign() {
     } else {
       console.log("[Giveaway] Campaign already exists, skipping seed");
     }
+
+    await autoDrawExpiredCampaigns();
   } catch (error) {
     console.error("[Giveaway] Error seeding campaign:", error);
+  }
+}
+
+async function autoDrawExpiredCampaigns() {
+  try {
+    const now = new Date();
+    const expiredCampaigns = await db
+      .select()
+      .from(giveawayCampaigns)
+      .where(
+        and(
+          eq(giveawayCampaigns.status, "active"),
+          lte(giveawayCampaigns.endAt, now)
+        )
+      );
+
+    for (const campaign of expiredCampaigns) {
+      if (campaign.winnerWallet) continue;
+
+      const entries = await db
+        .select()
+        .from(giveawayEntries)
+        .where(eq(giveawayEntries.campaignId, campaign.id));
+
+      if (entries.length === 0) {
+        console.log(`[Giveaway] Campaign ${campaign.name} expired with no entries, skipping draw`);
+        continue;
+      }
+
+      const winnerIndex = Math.floor(Math.random() * entries.length);
+      const winner = entries[winnerIndex];
+
+      await db
+        .update(giveawayCampaigns)
+        .set({
+          winnerEntryId: winner.id,
+          winnerWallet: winner.walletAddress,
+          drawnAt: new Date(),
+          status: "completed",
+        })
+        .where(eq(giveawayCampaigns.id, campaign.id));
+
+      console.log(`[Giveaway] AUTO-DRAW: Winner for "${campaign.name}" is ${winner.walletAddress} (from ${entries.length} entries)`);
+
+      const shortWallet = `${winner.walletAddress.slice(0, 6)}...${winner.walletAddress.slice(-4)}`;
+      const tweet = `🎉 $500 GIVEAWAY WINNER ANNOUNCED!\n\nCongratulations to wallet ${shortWallet} — randomly selected from ${entries.length} participants in our NFA Mint Giveaway! 🐝\n\nMint your own AI agent NFT at thehoneycomb.social/nfa\n\n#BNBChain #BAP578 #AI #Web3 #Giveaway`;
+      try {
+        const result = await twitterService.postTweet(tweet, false);
+        if (result.success) {
+          console.log(`[Giveaway] Winner announced on Twitter: ${result.tweetId}`);
+        } else {
+          console.warn(`[Giveaway] Twitter announcement failed: ${result.error}`);
+        }
+      } catch (tweetErr) {
+        console.warn("[Giveaway] Twitter announcement error:", tweetErr);
+      }
+    }
+  } catch (error) {
+    console.error("[Giveaway] Error in auto-draw:", error);
   }
 }
 
