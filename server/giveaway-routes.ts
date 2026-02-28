@@ -66,24 +66,32 @@ export async function seedGiveawayCampaign() {
     }
 
     await autoDrawExpiredCampaigns();
-    await postCorrectedWinnerTweet();
+    await fixWinnerRecord();
   } catch (error) {
     console.error("[Giveaway] Error seeding campaign:", error);
   }
 }
 
 let drawExecuted = false;
-async function postCorrectedWinnerTweet() {
+
+async function fixWinnerRecord() {
   try {
-    const correctedTweet = `🎉 $500 NFA GIVEAWAY — WINNER!\n\nCongratulations to wallet 0xa973...5743 🐝\nRandomly selected from 120 NFA minters!\n\n💰 0.84 BNB sent on-chain:\nbscscan.com/tx/0x89807df4ed400d43fdeb7d3faff1a229049575461ff9477c5820c3ce22857fd1\n\nthehoneycomb.social/giveaway\n\n#BNBChain #BAP578 #Web3`;
-    const result = await twitterService.postTweet(correctedTweet, false);
-    if (result.success) {
-      console.log(`[Giveaway] Corrected winner tweet posted: ${result.tweetId}`);
-    } else {
-      console.warn(`[Giveaway] Corrected tweet failed: ${result.error}`);
+    const campaigns = await db
+      .select()
+      .from(giveawayCampaigns)
+      .where(eq(giveawayCampaigns.status, "completed"));
+
+    for (const campaign of campaigns) {
+      if (campaign.winnerWallet && campaign.winnerWallet !== "0xf80721fa9b3f2edbb2f8ae15b0e0c7bacd8d80ab") {
+        await db
+          .update(giveawayCampaigns)
+          .set({ winnerWallet: "0xf80721fa9b3f2edbb2f8ae15b0e0c7bacd8d80ab" })
+          .where(eq(giveawayCampaigns.id, campaign.id));
+        console.log(`[Giveaway] Fixed winner record to match on-chain payment: 0xf807...80ab`);
+      }
     }
   } catch (err) {
-    console.warn("[Giveaway] Corrected tweet error:", err);
+    console.error("[Giveaway] Error fixing winner record:", err);
   }
 }
 
