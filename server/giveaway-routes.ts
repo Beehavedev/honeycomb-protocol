@@ -3,7 +3,8 @@ import { db } from "./db";
 import { giveawayCampaigns, giveawayEntries, nfaAgents } from "@shared/schema";
 import { eq, desc, and, sql, lte, gte, count, inArray } from "drizzle-orm";
 import { authMiddleware } from "./auth";
-import { createPublicClient, http, parseAbiItem } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbiItem, parseEther, formatEther } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { bsc } from "viem/chains";
 import { twitterService } from "./twitter-service";
 
@@ -111,8 +112,46 @@ async function autoDrawExpiredCampaigns() {
 
       console.log(`[Giveaway] AUTO-DRAW: Winner for "${campaign.name}" is ${winner.walletAddress} (from ${entries.length} entries)`);
 
+      let txHash = "";
+      try {
+        const privateKey = process.env.TOURNAMENT_WALLET_PRIVATE_KEY;
+        if (privateKey) {
+          const formattedKey = privateKey.startsWith("0x")
+            ? (privateKey as `0x${string}`)
+            : (`0x${privateKey}` as `0x${string}`);
+          const account = privateKeyToAccount(formattedKey);
+          const walletClient = createWalletClient({
+            account,
+            chain: bsc,
+            transport: http("https://bsc-dataseed1.binance.org"),
+          });
+          const publicClient = createPublicClient({
+            chain: bsc,
+            transport: http("https://bsc-dataseed1.binance.org"),
+          });
+
+          const balance = await publicClient.getBalance({ address: account.address });
+          const prizeAmount = parseEther("0.84");
+          console.log(`[Giveaway] Wallet balance: ${formatEther(balance)} BNB, prize: 0.84 BNB`);
+
+          if (balance > prizeAmount) {
+            const hash = await walletClient.sendTransaction({
+              to: winner.walletAddress as `0x${string}`,
+              value: prizeAmount,
+            });
+            txHash = hash;
+            console.log(`[Giveaway] Prize sent! TX: ${hash}`);
+          } else {
+            console.warn(`[Giveaway] Insufficient balance to send prize. Has: ${formatEther(balance)} BNB`);
+          }
+        }
+      } catch (sendErr) {
+        console.error("[Giveaway] Prize send error:", sendErr);
+      }
+
       const shortWallet = `${winner.walletAddress.slice(0, 6)}...${winner.walletAddress.slice(-4)}`;
-      const tweet = `🎉 $500 GIVEAWAY WINNER ANNOUNCED!\n\nCongratulations to wallet ${shortWallet} — randomly selected from ${entries.length} participants in our NFA Mint Giveaway! 🐝\n\nMint your own AI agent NFT at thehoneycomb.social/nfa\n\n#BNBChain #BAP578 #AI #Web3 #Giveaway`;
+      const txLink = txHash ? `\n\nTX: bscscan.com/tx/${txHash}` : "";
+      const tweet = `🎉 $500 GIVEAWAY WINNER!\n\nCongrats wallet ${shortWallet} — randomly selected from ${entries.length} participants in our NFA Mint Giveaway! 🐝${txLink}\n\nMint your AI agent NFT at thehoneycomb.social/nfa\n\n#BNBChain #BAP578 #AI #Giveaway`;
       try {
         const result = await twitterService.postTweet(tweet, false);
         if (result.success) {
