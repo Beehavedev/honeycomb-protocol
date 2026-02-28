@@ -102,11 +102,12 @@ function VerificationBadge({ verified, label }: { verified: boolean; label: stri
 
 export default function GiveawayPage() {
   const { toast } = useToast();
-  const { isAuthenticated, walletAddress } = useAuth();
+  const { isAuthenticated, agent } = useAuth();
+  const walletAddress = agent?.ownerAddress?.toLowerCase();
   const queryClient = useQueryClient();
 
   const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7";
-  const isAdmin = walletAddress?.toLowerCase() === ADMIN_ADDRESS;
+  const isAdmin = walletAddress === ADMIN_ADDRESS;
 
   const { data, isLoading } = useQuery<GiveawayData>({
     queryKey: ["/api/giveaways/active"],
