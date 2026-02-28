@@ -71,7 +71,10 @@ export async function seedGiveawayCampaign() {
   }
 }
 
+let drawExecuted = false;
 async function autoDrawExpiredCampaigns() {
+  if (drawExecuted) return;
+  drawExecuted = true;
   try {
     const now = new Date();
     const expiredCampaigns = await db
@@ -84,7 +87,9 @@ async function autoDrawExpiredCampaigns() {
         )
       );
 
-    for (const campaign of expiredCampaigns) {
+    const campaignToDraw = expiredCampaigns[0];
+    if (!campaignToDraw) return;
+    for (const campaign of [campaignToDraw]) {
       if (campaign.winnerWallet) continue;
 
       const entries = await db
