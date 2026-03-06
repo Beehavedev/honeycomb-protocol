@@ -67,6 +67,7 @@ import {
   Gauge,
   LogOut,
   CheckCircle,
+  Trash2,
 } from "lucide-react";
 import type { TradingDuel, TradingPosition } from "@shared/schema";
 import { ArenaChat } from "@/components/arena-chat";
@@ -4393,6 +4394,7 @@ function ArenaTournamentHighlight() {
   const [showCreate, setShowCreate] = useState(false);
   const [tournamentJoinCode, setTournamentJoinCode] = useState("");
   const [tName, setTName] = useState("");
+  const [tPrizePool, setTPrizePool] = useState("");
   const [tAsset] = useState("BNBUSDT");
   const [tDuration] = useState("300");
   const [tMaxPlayers] = useState("16");
@@ -4408,6 +4410,7 @@ function ArenaTournamentHighlight() {
     mutationFn: () => apiRequest("POST", "/api/trading-tournaments", {
       creatorId: agent?.id,
       name: tName || "Trading Tournament",
+      ...(tPrizePool ? { prizePool: tPrizePool } : {}),
     }),
     onSuccess: (data: any) => {
       toast({ title: "Tournament created!" });
@@ -4444,6 +4447,17 @@ function ArenaTournamentHighlight() {
       queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => { setDeletingId(id); return apiRequest("DELETE", `/api/trading-tournaments/${id}`); },
+    onSuccess: () => {
+      toast({ title: "Tournament deleted" });
+      setDeletingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
+    },
+    onError: (e: Error) => { setDeletingId(null); toast({ title: "Error", description: e.message, variant: "destructive" }); },
   });
 
   const activeTournaments = tournaments.filter(t => t.status === "active" || t.status === "bracket_ready");
@@ -4508,10 +4522,14 @@ function ArenaTournamentHighlight() {
 
           {showCreate && isAdmin && (
             <div className="mb-4 p-4 rounded-md border border-border/50 bg-card">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">Name</Label>
                   <Input value={tName} onChange={e => setTName(e.target.value)} placeholder="My Tournament" className="h-9" data-testid="input-tournament-name" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Prize Pool (BNB)</Label>
+                  <Input value={tPrizePool} onChange={e => setTPrizePool(e.target.value)} placeholder="0.05" type="number" step="0.001" className="h-9" data-testid="input-tournament-prize" />
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Asset</Label>
@@ -4519,7 +4537,7 @@ function ArenaTournamentHighlight() {
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Duration</Label>
-                  <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-duration">5 min</div>
+                  <div className="h-9 flex items-center px-3 rounded-md border border-border/50 bg-muted/30 text-sm text-muted-foreground" data-testid="display-tournament-duration">5 min / round</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Players</Label>
@@ -4530,9 +4548,9 @@ function ArenaTournamentHighlight() {
                 <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="text-xs text-amber-300">FREE ENTRY</span>
                 <span className="text-[10px] text-muted-foreground">|</span>
-                <span className="text-xs text-amber-200">1st <span className="font-bold">0.01 BNB</span></span>
-                <span className="text-xs text-amber-200">2nd <span className="font-bold">0.005 BNB</span></span>
-                <span className="text-xs text-amber-200">3rd <span className="font-bold">0.002 BNB</span></span>
+                <span className="text-xs text-amber-200">1st <span className="font-bold">{tPrizePool ? (parseFloat(tPrizePool) * 0.59).toFixed(3) : "0.010"} BNB</span></span>
+                <span className="text-xs text-amber-200">2nd <span className="font-bold">{tPrizePool ? (parseFloat(tPrizePool) * 0.29).toFixed(3) : "0.005"} BNB</span></span>
+                <span className="text-xs text-amber-200">3rd <span className="font-bold">{tPrizePool ? (parseFloat(tPrizePool) * 0.12).toFixed(3) : "0.002"} BNB</span></span>
               </div>
               <Button className="w-full bg-amber-600 border-amber-600" onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !agent} data-testid="button-submit-tournament">
                 {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
@@ -4620,15 +4638,25 @@ function ArenaTournamentHighlight() {
                         View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
                       </Button>
                     </div>
+                    {(() => { const pool = parseFloat(t.prizePool); return (
                     <div className="flex items-center gap-3 p-1.5 rounded bg-amber-500/5 border border-amber-500/10">
                       <span className="text-[10px] text-green-400 font-bold">FREE</span>
                       <span className="text-[10px] text-muted-foreground">|</span>
-                      <span className="text-[10px] text-amber-200">1st 0.01 BNB</span>
-                      <span className="text-[10px] text-amber-200/70">2nd 0.005</span>
-                      <span className="text-[10px] text-amber-200/50">3rd 0.002</span>
+                      <span className="text-[10px] text-amber-200">1st {pool > 0 ? (pool * t.prize1Pct / 100).toFixed(3) : "0.010"} BNB</span>
+                      <span className="text-[10px] text-amber-200/70">2nd {pool > 0 ? (pool * t.prize2Pct / 100).toFixed(3) : "0.005"}</span>
+                      <span className="text-[10px] text-amber-200/50">3rd {pool > 0 ? (pool * t.prize3Pct / 100).toFixed(3) : "0.002"}</span>
                     </div>
+                    ); })()}
                     {t.playerCount >= 12 && t.playerCount < 16 && (
                       <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
+                    )}
+                    {isAdmin && (
+                      <div className="flex justify-end pt-1">
+                        <Button size="sm" variant="destructive" className="text-[10px] h-6" onClick={() => { if (confirm("Delete this tournament?")) deleteMutation.mutate(t.id); }} disabled={deletingId === t.id} data-testid={`button-delete-tournament-${t.id}`}>
+                          {deletingId === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />}
+                          Delete
+                        </Button>
+                      </div>
                     )}
                   </div>
                 );
@@ -5976,6 +6004,17 @@ function TournamentLobbySection() {
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => { setDeletingId(id); return apiRequest("DELETE", `/api/trading-tournaments/${id}`); },
+    onSuccess: () => {
+      toast({ title: "Tournament deleted" });
+      setDeletingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/trading-tournaments"] });
+    },
+    onError: (e: Error) => { setDeletingId(null); toast({ title: "Error", description: e.message, variant: "destructive" }); },
+  });
+
   const openTournaments = tournaments.filter(t => t.status === "registration");
   const activeTournaments = tournaments.filter(t => t.status === "active" || t.status === "bracket_ready");
   const settledTournaments = tournaments.filter(t => t.status === "settled").slice(0, 5);
@@ -6122,15 +6161,25 @@ function TournamentLobbySection() {
                           View Bracket <ChevronRight className="w-3 h-3 ml-0.5" />
                         </Button>
                       </div>
+                      {(() => { const pool = parseFloat(t.prizePool); return (
                       <div className="flex items-center gap-3 p-1.5 rounded bg-amber-500/5 border border-amber-500/10">
                         <span className="text-[10px] text-green-400 font-bold">FREE</span>
                         <span className="text-[10px] text-muted-foreground">|</span>
-                        <span className="text-[10px] text-amber-200">1st 0.01 BNB</span>
-                        <span className="text-[10px] text-amber-200/70">2nd 0.005</span>
-                        <span className="text-[10px] text-amber-200/50">3rd 0.002</span>
+                        <span className="text-[10px] text-amber-200">1st {pool > 0 ? (pool * t.prize1Pct / 100).toFixed(3) : "0.010"} BNB</span>
+                        <span className="text-[10px] text-amber-200/70">2nd {pool > 0 ? (pool * t.prize2Pct / 100).toFixed(3) : "0.005"}</span>
+                        <span className="text-[10px] text-amber-200/50">3rd {pool > 0 ? (pool * t.prize3Pct / 100).toFixed(3) : "0.002"}</span>
                       </div>
+                      ); })()}
                       {t.playerCount >= 12 && t.playerCount < 16 && (
                         <p className="text-[10px] text-amber-400 font-medium">Only {16 - t.playerCount} spots left</p>
+                      )}
+                      {isAdmin && (
+                        <div className="flex justify-end pt-1">
+                          <Button size="sm" variant="destructive" className="text-[10px] h-6" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this tournament?")) deleteMutation.mutate(t.id); }} disabled={deletingId === t.id} data-testid={`button-delete-tournament-${t.id}`}>
+                            {deletingId === t.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1" />}
+                            Delete
+                          </Button>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -6148,7 +6197,7 @@ function TournamentLobbySection() {
                     <div className="flex items-center gap-2">
                       <Medal className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm">{t.name}</span>
-                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] gap-1"><Trophy className="w-3 h-3" />0.017 BNB</Badge>
+                      {parseFloat(t.prizePool) > 0 && <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] gap-1"><Trophy className="w-3 h-3" />{t.prizePool} BNB</Badge>}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">{t.playerCount} players</Badge>

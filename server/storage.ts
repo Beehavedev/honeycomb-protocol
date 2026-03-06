@@ -293,6 +293,7 @@ export interface IStorage {
   getTournamentByCode(code: string): Promise<TradingTournament | undefined>;
   listTournaments(status?: string): Promise<TradingTournament[]>;
   updateTournament(id: string, data: Partial<TradingTournament>): Promise<TradingTournament>;
+  deleteTournament(id: string): Promise<void>;
   joinTournament(data: InsertTournamentEntry): Promise<TournamentEntry>;
   leaveTournament(tournamentId: string, agentId: string): Promise<void>;
   getTournamentEntries(tournamentId: string): Promise<TournamentEntry[]>;
@@ -2485,6 +2486,14 @@ export class DatabaseStorage implements IStorage {
   async updateTournament(id: string, data: Partial<TradingTournament>): Promise<TradingTournament> {
     const [updated] = await db.update(tradingTournaments).set(data).where(eq(tradingTournaments.id, id)).returning();
     return updated;
+  }
+
+  async deleteTournament(id: string): Promise<void> {
+    await db.delete(tournamentMatches).where(eq(tournamentMatches.tournamentId, id));
+    await db.delete(tournamentRounds).where(eq(tournamentRounds.tournamentId, id));
+    await db.delete(tradingTournamentPositions).where(eq(tradingTournamentPositions.tournamentId, id));
+    await db.delete(tradingTournamentEntries).where(eq(tradingTournamentEntries.tournamentId, id));
+    await db.delete(tradingTournaments).where(eq(tradingTournaments.id, id));
   }
 
   async joinTournament(data: InsertTournamentEntry): Promise<TournamentEntry> {

@@ -3468,13 +3468,16 @@ export async function registerRoutes(
       const { creatorId, name, prizePool, prize1Pct, prize2Pct, prize3Pct, entryFeeBnb } = req.body;
       if (!creatorId || !name) return res.status(400).json({ message: "creatorId and name required" });
 
+      const parsedPool = prizePool ? parseFloat(prizePool) : 0;
+      const validPool = isNaN(parsedPool) || parsedPool < 0 ? 0 : parsedPool;
+
       const tournament = await storage.createTournament({
         name,
         assetSymbol: "BNBUSDT",
         durationSeconds: 300,
         maxPlayers: 16,
         entryFeeBnb: entryFeeBnb || "0",
-        prizePool: prizePool || "0",
+        prizePool: validPool.toString(),
         prize1Pct: prize1Pct ?? 59,
         prize2Pct: prize2Pct ?? 29,
         prize3Pct: prize3Pct ?? 12,
@@ -3879,6 +3882,7 @@ export async function registerRoutes(
     try {
       const activeTournaments = await storage.listTournaments("active");
       for (const t of activeTournaments) {
+        if (t.maxPlayers === 16) continue;
         if (t.endsAt && new Date() > new Date(t.endsAt)) {
           try {
             let settlementPrice: number;
@@ -3943,6 +3947,28 @@ export async function registerRoutes(
 
   setInterval(bracketAutoAdvanceLoop, 15000);
   console.log("[BracketEngine] Started bracket auto-advance check every 15s");
+
+  app.delete("/api/trading-tournaments/:id", authMiddleware, async (req, res) => {
+    try {
+      const ADMIN_ADDRESS = "0xed72f8286e28d4f2aeb52d59385d1ff3bc9d81d7".toLowerCase();
+      const userAddress = req.walletAddress?.toLowerCase();
+      if (userAddress !== ADMIN_ADDRESS) {
+        return res.status(403).json({ message: "Only admin can delete tournaments" });
+      }
+
+      const tournament = await storage.getTournament(req.params.id);
+      if (!tournament) return res.status(404).json({ message: "Tournament not found" });
+
+      if (tournament.status === "active") {
+        return res.status(400).json({ message: "Cannot delete an active tournament" });
+      }
+
+      await storage.deleteTournament(tournament.id);
+      res.json({ message: "Tournament deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
 
   // ============ BRACKET TOURNAMENT ROUTES ============
 
