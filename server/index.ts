@@ -8,6 +8,7 @@ import { twitterService } from "./twitter-service";
 import { storage } from "./storage";
 import { ensureArenaBots } from "./arena-bot-engine";
 import { startAutoDuelSpawner } from "./auto-duel-spawner";
+import { setupTelegramWebhook } from "./telegram-bot";
 import { setupArenaChatWS } from "./arena-chat";
 import path from "path";
 
@@ -125,6 +126,19 @@ async function runBackgroundInit() {
     await twitterService.updateBotForGiveawayPromotion();
     startTwitterScheduler();
     startAutoDuelSpawner();
+
+    if (process.env.TELEGRAM_BOT_TOKEN) {
+      const domain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
+      if (domain) {
+        const webhookUrl = `https://${domain}/api/telegram/webhook`;
+        setupTelegramWebhook(webhookUrl).then((result) => {
+          log(`Telegram webhook: ${result.message}`);
+        }).catch((err) => {
+          console.error("Telegram webhook setup failed:", err);
+        });
+      }
+    }
+
     log("Background initialization complete");
   } catch (err) {
     console.error("Background init failed:", err);
