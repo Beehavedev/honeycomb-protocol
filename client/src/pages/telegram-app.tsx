@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Clock,
   Coins,
+  Wallet,
 } from "lucide-react";
 
 declare global {
@@ -357,7 +358,7 @@ function LeaderboardTab() {
   );
 }
 
-function ProfileTab({ agent, loading }: { agent: TgAgent | null; loading: boolean }) {
+function ProfileTab({ agent, loading, needsWallet }: { agent: TgAgent | null; loading: boolean; needsWallet: boolean }) {
   const isAuthenticated = !!agent;
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
@@ -397,10 +398,10 @@ function ProfileTab({ agent, loading }: { agent: TgAgent | null; loading: boolea
           Profile
         </h2>
         <Card className="p-6 bg-[#242444] border-gray-700/50 text-center mt-4" data-testid="container-tg-connect">
-          <User className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-white mb-2">Connect to Honeycomb</h3>
+          <Wallet className="w-12 h-12 text-amber-500/60 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-white mb-2">Connect Your Wallet</h3>
           <p className="text-sm text-gray-400 mb-4">
-            Open the full site and connect your wallet to sync your profile with the Telegram app.
+            You need a BNB Chain wallet to create agents, join duels, and earn rewards. Connect your wallet on the full site to get started.
           </p>
           <Button
             className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
@@ -408,7 +409,7 @@ function ProfileTab({ agent, loading }: { agent: TgAgent | null; loading: boolea
             data-testid="button-tg-open-site-connect"
           >
             <ExternalLink className="w-4 h-4" />
-            Open Full Site
+            Connect Wallet on Site
           </Button>
         </Card>
       </div>
@@ -482,6 +483,8 @@ interface TgAgent {
 function useTelegramAuth() {
   const [agent, setAgent] = useState<TgAgent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsWallet, setNeedsWallet] = useState(false);
+  const [tgUser, setTgUser] = useState<{ first_name: string; username?: string } | null>(null);
 
   useEffect(() => {
     async function authenticate() {
@@ -502,6 +505,7 @@ function useTelegramAuth() {
 
         const initData = window.Telegram?.WebApp?.initData;
         if (!initData) {
+          setNeedsWallet(true);
           setLoading(false);
           return;
         }
@@ -513,9 +517,14 @@ function useTelegramAuth() {
         });
 
         if (authRes.ok) {
-          const { token, agent: agentData } = await authRes.json();
-          localStorage.setItem("tg_token", token);
-          setAgent(agentData);
+          const data = await authRes.json();
+          if (data.telegramUser) setTgUser(data.telegramUser);
+          if (data.needsWallet || !data.token) {
+            setNeedsWallet(true);
+          } else {
+            localStorage.setItem("tg_token", data.token);
+            setAgent(data.agent);
+          }
         }
       } catch (err) {
         console.error("Telegram auth error:", err);
@@ -526,12 +535,12 @@ function useTelegramAuth() {
     authenticate();
   }, []);
 
-  return { agent, loading };
+  return { agent, loading, needsWallet, tgUser };
 }
 
 export default function TelegramApp() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
-  const { agent: tgAgent, loading: authLoading } = useTelegramAuth();
+  const { agent: tgAgent, loading: authLoading, needsWallet } = useTelegramAuth();
 
   useEffect(() => {
     const webapp = window.Telegram?.WebApp;
@@ -547,7 +556,7 @@ export default function TelegramApp() {
         {activeTab === "home" && <HomeTab onSwitchTab={setActiveTab} />}
         {activeTab === "arena" && <ArenaTab />}
         {activeTab === "leaderboard" && <LeaderboardTab />}
-        {activeTab === "profile" && <ProfileTab agent={tgAgent} loading={authLoading} />}
+        {activeTab === "profile" && <ProfileTab agent={tgAgent} loading={authLoading} needsWallet={needsWallet} />}
       </div>
 
       <div
