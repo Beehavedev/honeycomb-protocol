@@ -3579,3 +3579,15 @@ export type TournamentEntry = typeof tradingTournamentEntries.$inferSelect;
 export type InsertTournamentEntry = z.infer<typeof insertTournamentEntrySchema>;
 export type TournamentPosition = typeof tradingTournamentPositions.$inferSelect;
 export type InsertTournamentPosition = z.infer<typeof insertTournamentPositionSchema>;
+
+export const agentCustodialWallets = pgTable("agent_custodial_wallets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  address: text("address").notNull(),
+  encryptedPrivateKey: text("encrypted_private_key").notNull(),
+  iv: text("iv").notNull(),
+  authTag: text("auth_tag").notNull().default(""),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AgentCustodialWallet = typeof agentCustodialWallets.$inferSelect;

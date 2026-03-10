@@ -66,7 +66,8 @@ import {
   developerAccounts, developerGames, gameSessions,
   openclawLinks, openclawWebhooks, openclawAlertSubscriptions, openclawAlertEvents,
   agentWallets, agentTransactions, agentSkills, skillPurchases, agentEvolutions, agentLineage, agentRuntimeProfiles,
-  agentSurvivalStatus, agentConstitution, agentSoulEntries, agentAuditLogs, agentMessages
+  agentSurvivalStatus, agentConstitution, agentSoulEntries, agentAuditLogs, agentMessages,
+  agentCustodialWallets
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, lt, lte, isNotNull } from "drizzle-orm";
@@ -84,6 +85,8 @@ export interface IStorage {
   getAgentByApiKey(hashedApiKey: string): Promise<Agent | undefined>;
   getAgentByTelegramId(telegramId: string): Promise<Agent | undefined>;
   updateAgentTelegramId(agentId: string, telegramId: string): Promise<void>;
+  saveCustodialWallet(agentId: string, address: string, encryptedPrivateKey: string, iv: string, authTag: string): Promise<void>;
+  getCustodialWallet(agentId: string): Promise<{ address: string; encryptedPrivateKey: string; iv: string; authTag: string } | undefined>;
   getAgentCount(): Promise<number>;
   getDuelCount(): Promise<number>;
   getAgentsByIds(ids: string[]): Promise<Agent[]>;
@@ -523,6 +526,20 @@ export class DatabaseStorage implements IStorage {
     await db.update(agents)
       .set({ telegramId })
       .where(eq(agents.id, agentId));
+  }
+
+  async saveCustodialWallet(agentId: string, address: string, encryptedPrivateKey: string, iv: string, authTag: string): Promise<void> {
+    await db.insert(agentCustodialWallets).values({ agentId, address, encryptedPrivateKey, iv, authTag });
+  }
+
+  async getCustodialWallet(agentId: string): Promise<{ address: string; encryptedPrivateKey: string; iv: string; authTag: string } | undefined> {
+    const [wallet] = await db.select({
+      address: agentCustodialWallets.address,
+      encryptedPrivateKey: agentCustodialWallets.encryptedPrivateKey,
+      iv: agentCustodialWallets.iv,
+      authTag: agentCustodialWallets.authTag,
+    }).from(agentCustodialWallets).where(eq(agentCustodialWallets.agentId, agentId)).limit(1);
+    return wallet;
   }
 
   async getAgentCount(): Promise<number> {

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { generateToken, verifyToken } from "./auth";
 import { validateTelegramWebAppData, handleTelegramUpdate, setupTelegramWebhook } from "./telegram-bot";
+import { generateCustodialWallet } from "./custodial-wallet";
 
 const router = Router();
 
@@ -35,15 +36,25 @@ router.post("/auth", async (req: Request, res: Response) => {
 
     const telegramId = result.user.id.toString();
 
-    const agent = await storage.getAgentByTelegramId(telegramId);
+    let agent = await storage.getAgentByTelegramId(telegramId);
 
     if (!agent) {
-      return res.json({
-        token: null,
-        agent: null,
-        telegramUser: result.user,
-        needsWallet: true,
+      const wallet = generateCustodialWallet();
+
+      const displayName = [result.user.first_name, result.user.last_name]
+        .filter(Boolean)
+        .join(" ") || `TG_${telegramId.slice(-6)}`;
+
+      agent = await storage.createAgent({
+        ownerAddress: wallet.address,
+        name: displayName,
+        bio: null,
+        avatarUrl: result.user.photo_url || null,
+        capabilities: [],
       });
+
+      await storage.updateAgentTelegramId(agent.id, telegramId);
+      await storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
     }
 
     const token = generateToken(agent.ownerAddress);
@@ -55,7 +66,7 @@ router.post("/auth", async (req: Request, res: Response) => {
         telegramId,
       },
       telegramUser: result.user,
-      needsWallet: false,
+      walletAddress: agent.ownerAddress,
     });
   } catch (error) {
     console.error("Telegram auth error:", error);
