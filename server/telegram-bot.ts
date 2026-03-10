@@ -14,8 +14,6 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 
 function getMiniAppUrl(): string {
   if (process.env.TELEGRAM_MINI_APP_URL) return process.env.TELEGRAM_MINI_APP_URL;
-  const domain = process.env.REPLIT_DOMAINS || process.env.REPLIT_DEV_DOMAIN;
-  if (domain) return `https://${domain}`;
   return "https://thehoneycomb.social";
 }
 
