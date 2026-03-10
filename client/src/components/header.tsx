@@ -10,10 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Menu, BarChart3, Bot, Shield, Trophy, ChevronDown, MessageSquare, Swords, Fingerprint } from "lucide-react";
+import { Plus, User, Coins, HelpCircle, Menu, BarChart3, Bot, Shield, Trophy, ChevronDown, MessageSquare, Swords, Fingerprint } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
+import beeLogoPath from "@assets/honeycomb-bee-logo.png";
 
 export function Header() {
   const [location] = useLocation();
@@ -48,7 +49,7 @@ export function Header() {
       <div className="container mx-auto flex h-14 items-center justify-between gap-2 px-3 md:px-4">
         <div className="flex items-center gap-1">
           <Link href="/" className="flex items-center gap-2 rounded-md px-2 py-1 hover-elevate" data-testid="link-home">
-            <Hexagon className="h-7 w-7 text-primary fill-primary/20" />
+            <img src={beeLogoPath} alt="Honeycomb" className="h-8 w-8" />
             <span className="text-lg font-bold bg-gradient-to-r from-amber-500 to-amber-600 bg-clip-text text-transparent">
               Honeycomb
             </span>

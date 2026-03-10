@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import beeLogoPath from "@assets/honeycomb-bee-logo.png";
 import {
   Hexagon,
   Home,
@@ -90,7 +91,7 @@ function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
   return (
     <div className="flex flex-col items-center px-4 pt-8 pb-4">
       <div className="flex items-center gap-3 mb-2">
-        <Hexagon className="w-10 h-10 text-amber-500 fill-amber-500/30" />
+        <img src={beeLogoPath} alt="Honeycomb" className="w-12 h-12" />
         <h1
           className="text-3xl font-bold bg-gradient-to-r from-amber-400 via-orange-500 to-amber-600 bg-clip-text text-transparent"
           data-testid="text-tg-title"
@@ -958,9 +959,7 @@ function CreateBeeView({ agent, onComplete }: { agent: TgAgent; onComplete: (upd
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
       <div className="flex-1 px-4 pt-8 pb-8 flex flex-col">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/20 mb-3">
-            <Hexagon className="w-8 h-8 text-amber-500 fill-amber-500/30" />
-          </div>
+          <img src={beeLogoPath} alt="Honeycomb Bee" className="w-16 h-16 mx-auto mb-3" />
           <h1 className="text-2xl font-bold text-white" data-testid="text-create-bee-title">
             Create Your Bee
           </h1>
