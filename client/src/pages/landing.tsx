@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Sparkles, Trophy, Crown, Medal, Target, TrendingUp, Flame, ChartCandlestick, Wallet, Cpu, Gamepad2, Zap, Radio, MessageSquare, Bell, Rocket } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { Hexagon, Swords, Shield, ArrowRight, Bot, Users, Trophy, Crown, Medal, Target, Flame, ChartCandlestick, Wallet, Cpu, Zap } from "lucide-react";
 
 function AnimatedBee({ style, delay }: { style: React.CSSProperties; delay: number }) {
   return (
@@ -55,8 +54,6 @@ function HexagonCell({ x, y, delay, size = 60 }: { x: number; y: number; delay: 
 }
 
 export default function Landing() {
-  const { t } = useI18n();
-  
   const { data: stats, isLoading: statsLoading } = useQuery<{ totalUsers: number; totalNfas: number; totalVolume: string }>({
     queryKey: ["/api/landing-stats"],
     staleTime: 30000,
@@ -174,117 +171,6 @@ export default function Landing() {
               </Button>
             </Link>
           </div>
-        </div>
-
-        <div className="mt-12 w-full max-w-3xl mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.6s', opacity: 0, animationFillMode: 'forwards' }}>
-          <Link href="/openclaw">
-            <div className="relative rounded-md overflow-hidden cursor-pointer group" data-testid="link-openclaw-announcement">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-900/80 via-orange-950/90 to-amber-900/80" />
-
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full bg-amber-500/20" style={{ animation: 'openclaw-glow 4s ease-in-out infinite' }} />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full bg-orange-500/10" style={{ animation: 'openclaw-glow 5s ease-in-out infinite 1s' }} />
-
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="w-3 h-3 rounded-full bg-amber-400/60" style={{ animation: 'openclaw-orbit 8s linear infinite' }} />
-              </div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                <div className="w-2 h-2 rounded-full bg-orange-400/50" style={{ animation: 'openclaw-orbit 12s linear infinite reverse' }} />
-              </div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 hidden sm:block">
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-300/40" style={{ animation: 'openclaw-orbit-sm 6s linear infinite' }} />
-              </div>
-
-              <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-0 left-[20%] w-px h-full bg-gradient-to-b from-transparent via-amber-500/30 to-transparent" style={{ animation: 'openclaw-scan 4s linear infinite' }} />
-                <div className="absolute top-0 left-[50%] w-px h-full bg-gradient-to-b from-transparent via-amber-500/20 to-transparent" style={{ animation: 'openclaw-scan 5s linear infinite 1.5s' }} />
-                <div className="absolute top-0 left-[80%] w-px h-full bg-gradient-to-b from-transparent via-amber-500/25 to-transparent" style={{ animation: 'openclaw-scan 6s linear infinite 3s' }} />
-              </div>
-
-              <div className="relative z-10 p-6 sm:p-8 md:p-10">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
-                    </span>
-                    <span className="text-xs font-bold text-amber-200 uppercase tracking-widest">Live Now</span>
-                  </div>
-                  <Badge className="bg-amber-500 text-white">New Feature</Badge>
-                </div>
-
-                <div className="flex flex-col md:flex-row md:items-center gap-6">
-                  <div className="flex-1">
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-3 leading-tight">
-                      OpenClaw
-                      <span className="block bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                        Integration is Live
-                      </span>
-                    </h2>
-                    <p className="text-amber-100/70 text-sm sm:text-base max-w-md mb-5">
-                      Honeycomb meets your messaging apps. Get real-time alerts for token launches, bounties, price movements & more, directly in WhatsApp, Telegram, and Discord.
-                    </p>
-
-                    <div className="flex flex-wrap gap-3 mb-5">
-                      {[
-                        { icon: Zap, label: "Token Alerts" },
-                        { icon: Bell, label: "Bounty Updates" },
-                        { icon: TrendingUp, label: "Price Signals" },
-                        { icon: Bot, label: "AI Agent Feed" },
-                      ].map((item) => (
-                        <div key={item.label} className="flex items-center gap-1.5 text-xs sm:text-sm text-amber-200/80">
-                          <item.icon className="w-3.5 h-3.5 text-amber-400" />
-                          <span>{item.label}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Button size="lg" className="gap-2 bg-gradient-to-r from-amber-400 to-amber-600 border-amber-500 text-black font-bold shadow-lg shadow-amber-500/30" data-testid="button-openclaw-cta">
-                      <Radio className="w-4 h-4" />
-                      Connect Now
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="hidden md:flex flex-col items-center gap-4 shrink-0">
-                    <div className="relative">
-                      <div className="w-28 h-28 rounded-full flex items-center justify-center" style={{ animation: 'openclaw-beacon 3s ease-in-out infinite', background: 'radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%)' }}>
-                        <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center">
-                          <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center">
-                            <Radio className="w-8 h-8 text-amber-400" />
-                          </div>
-                        </div>
-                        <div className="absolute inset-0 rounded-full" style={{ animation: 'openclaw-pulse-ring 3s ease-in-out infinite', border: '1px solid rgba(245,158,11,0.3)' }} />
-                        <div className="absolute inset-[-8px] rounded-full" style={{ animation: 'openclaw-pulse-ring 3s ease-in-out infinite 0.5s', border: '1px solid rgba(245,158,11,0.15)' }} />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      {[MessageSquare, Bell, Shield].map((Icon, i) => (
-                        <div key={i} className="w-10 h-10 rounded-md bg-amber-500/10 flex items-center justify-center" style={{ animation: `openclaw-float-up 3s ease-in-out infinite ${i * 0.4}s` }}>
-                          <Icon className="w-5 h-5 text-amber-400" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mt-6 pt-5 border-t border-amber-500/20">
-                  <div className="flex items-center gap-1.5 text-xs text-amber-200/50">
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>HMAC Secured</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-amber-200/50">
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Real-time Webhooks</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-amber-200/50">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Multi-platform</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Link>
         </div>
 
         <div className="grid grid-cols-3 gap-6 md:gap-10 mt-14 max-w-lg mx-auto px-4 animate-fade-in" style={{ animationDelay: '0.8s', opacity: 0, animationFillMode: 'forwards' }} data-testid="container-landing-stats">

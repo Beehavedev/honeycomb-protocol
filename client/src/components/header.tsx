@@ -8,10 +8,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Hexagon, Plus, User, Coins, HelpCircle, Zap, Target, Menu, BarChart3, Bot, Sparkles, Shield, Trophy, ChevronDown, MessageSquare, Swords, Gamepad2, Link2, Radio, Rocket, Fingerprint, ExternalLink } from "lucide-react";
+import { Hexagon, Plus, User, Coins, HelpCircle, Menu, BarChart3, Bot, Shield, Trophy, ChevronDown, MessageSquare, Swords, Fingerprint } from "lucide-react";
 import { useAccount } from "wagmi";
 import { useAuth } from "@/hooks/use-auth";
 import { LanguageSwitcher, useI18n } from "@/lib/i18n";
@@ -27,17 +26,11 @@ export function Header() {
   const isAdmin = agent?.ownerAddress?.toLowerCase() === ADMIN_ADDRESS;
 
   const isArenaActive = location.startsWith("/arena");
-  const isAgentsActive = location.startsWith("/agents") || location.startsWith("/erc8004") || location.startsWith("/hatchery") || location.startsWith("/nfa") || location.startsWith("/openclaw") || location.startsWith("/moltbook");
-  const isCommunityActive = location === "/feed" || location === "/create" || location === "/token";
+  const isAgentsActive = location.startsWith("/nfa");
 
   const mobileAgentItems = [
-    { href: "/openclaw", label: "OpenClaw", icon: Radio },
-    { href: "/moltbook", label: "Moltbook", icon: Link2 },
     { href: "/nfa", label: "NFA Showroom", icon: Shield },
-    { href: "/hatchery", label: "AI Hatchery", icon: Bot },
     { href: "/nfa/mint", label: "BAP-578", icon: Fingerprint },
-    { href: "/erc8004", label: "ERC-8004", icon: Shield },
-    { href: "https://paradigm.xyz/evmbench", label: "EVMbench", icon: ExternalLink, external: true },
   ];
   const mobileCompeteItems = [
     { href: "/arena", label: "Games Arena", icon: Swords },
@@ -83,29 +76,10 @@ export function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <Link href="/openclaw">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-openclaw">
-                    <Radio className="h-4 w-4" />
-                    OpenClaw
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/moltbook">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-moltbook">
-                    <Link2 className="h-4 w-4" />
-                    Moltbook
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuSeparator />
                 <Link href="/nfa">
                   <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-nfa-showroom">
                     <Shield className="h-4 w-4" />
                     NFA Showroom
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/hatchery">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-ai-hatchery">
-                    <Bot className="h-4 w-4" />
-                    AI Hatchery
                   </DropdownMenuItem>
                 </Link>
                 <Link href="/nfa/mint">
@@ -114,47 +88,32 @@ export function Header() {
                     BAP-578
                   </DropdownMenuItem>
                 </Link>
-                <DropdownMenuSeparator />
-                <Link href="/erc8004">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-erc-8004">
-                    <Shield className="h-4 w-4" />
-                    ERC-8004
-                  </DropdownMenuItem>
-                </Link>
-                <DropdownMenuSeparator />
-                <a href="https://paradigm.xyz/evmbench" target="_blank" rel="noopener noreferrer">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-evmbench">
-                    <ExternalLink className="h-4 w-4" />
-                    EVMbench
-                  </DropdownMenuItem>
-                </a>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant={isCommunityActive ? "secondary" : "ghost"} size="sm" className="gap-1" data-testid="dropdown-community">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  Community
-                  <ChevronDown className="h-3 w-3 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <Link href="/feed">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-feed">
-                    <MessageSquare className="h-4 w-4" />
-                    {t('nav.feed')}
-                  </DropdownMenuItem>
-                </Link>
-                <Link href="/token">
-                  <DropdownMenuItem className="gap-2 cursor-pointer" data-testid="link-honey-token">
-                    <Coins className="h-4 w-4" />
-                    $HONEY Token
-                  </DropdownMenuItem>
-                </Link>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Link href="/feed">
+              <Button
+                variant={location === "/feed" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-1"
+                data-testid="link-feed"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {t('nav.feed')}
+              </Button>
+            </Link>
 
+            <Link href="/token">
+              <Button
+                variant={location === "/token" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-1"
+                data-testid="link-honey-token"
+              >
+                <Coins className="h-3.5 w-3.5" />
+                $HONEY
+              </Button>
+            </Link>
 
             <Link href="/rewards">
               <Button
@@ -233,24 +192,15 @@ export function Header() {
               <nav className="flex flex-col gap-1">
                 <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Agents</div>
                 {mobileAgentItems.map((item) => (
-                  'external' in item && item.external ? (
-                    <a key={item.href} href={item.href} target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start gap-3">
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Button>
-                    </a>
-                  ) : (
-                    <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
-                      <Button
-                        variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
-                        className="w-full justify-start gap-3"
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Button>
-                    </Link>
-                  )
+                  <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      variant={location === item.href || location.startsWith(item.href + "/") ? "secondary" : "ghost"}
+                      className="w-full justify-start gap-3"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Button>
+                  </Link>
                 ))}
 
                 <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">Compete</div>
