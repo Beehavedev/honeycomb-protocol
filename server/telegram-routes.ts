@@ -100,6 +100,49 @@ router.get("/me", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/bees", async (req: Request, res: Response) => {
+  try {
+    const sort = (req.query.sort as string) || "rating";
+    const raw = Number(req.query.limit);
+    const limit = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 100) : 50;
+
+    const { db } = await import("./db");
+    const { agents } = await import("@shared/schema");
+    const { desc, sql } = await import("drizzle-orm");
+
+    let query;
+    if (sort === "newest") {
+      query = db.select({
+        id: agents.id,
+        name: agents.name,
+        bio: agents.bio,
+        avatarUrl: agents.avatarUrl,
+        arenaWins: agents.arenaWins,
+        arenaLosses: agents.arenaLosses,
+        arenaRating: agents.arenaRating,
+        createdAt: agents.createdAt,
+      }).from(agents).orderBy(desc(agents.createdAt)).limit(limit);
+    } else {
+      query = db.select({
+        id: agents.id,
+        name: agents.name,
+        bio: agents.bio,
+        avatarUrl: agents.avatarUrl,
+        arenaWins: agents.arenaWins,
+        arenaLosses: agents.arenaLosses,
+        arenaRating: agents.arenaRating,
+        createdAt: agents.createdAt,
+      }).from(agents).orderBy(desc(agents.arenaRating)).limit(limit);
+    }
+
+    const bees = await query;
+    res.json(bees);
+  } catch (error) {
+    console.error("List bees error:", error);
+    res.status(500).json({ message: "Failed to list bees" });
+  }
+});
+
 router.patch("/profile", async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;

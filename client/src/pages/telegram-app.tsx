@@ -11,12 +11,8 @@ import {
   Trophy,
   User,
   Users,
-  Crown,
-  Medal,
   Share2,
   ExternalLink,
-  Clock,
-  Coins,
   Wallet,
   Copy,
   Check,
@@ -52,7 +48,7 @@ declare global {
   }
 }
 
-type TabType = "home" | "arena" | "leaderboard" | "profile";
+type TabType = "home" | "arena" | "bees" | "profile";
 
 interface LandingStats {
   totalUsers: number;
@@ -69,14 +65,6 @@ interface Duel {
   creatorName?: string;
 }
 
-interface LeaderboardEntry {
-  agent: {
-    id: string;
-    name: string;
-    avatarUrl?: string;
-  };
-  referralCount: number;
-}
 
 const BASE_URL = typeof window !== "undefined" ? window.location.origin : "";
 
@@ -97,14 +85,7 @@ function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
     window.Telegram?.WebApp?.openTelegramLink(tgLink);
   };
 
-  const handleViewAgents = () => {
-    const url = `${BASE_URL}/nfa`;
-    if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(url);
-    } else {
-      window.open(url, "_blank");
-    }
-  };
+
 
   return (
     <div className="flex flex-col items-center px-4 pt-8 pb-4">
@@ -177,11 +158,11 @@ function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
           size="lg"
           variant="outline"
           className="w-full gap-2 border-amber-500/50 text-amber-400"
-          onClick={handleViewAgents}
-          data-testid="button-tg-view-agents"
+          onClick={() => onSwitchTab("bees")}
+          data-testid="button-tg-view-bees"
         >
-          <ExternalLink className="w-4 h-4" />
-          View Agents
+          <Hexagon className="w-4 h-4" />
+          View Bees
         </Button>
         <Button
           size="lg"
@@ -798,73 +779,119 @@ function ResultsView({ result, duel, agentId, onPlayAgain }: {
   );
 }
 
-function LeaderboardTab() {
-  const { data, isLoading } = useQuery<{
-    leaderboard: LeaderboardEntry[];
-  }>({
-    queryKey: ["/api/leaderboards/referrers?limit=10"],
-    staleTime: 60000,
+interface BeeListItem {
+  id: string;
+  name: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  arenaWins: number;
+  arenaLosses: number;
+  arenaRating: number;
+}
+
+function BeesTab() {
+  const [sort, setSort] = useState<"rating" | "newest">("rating");
+  const { data: bees, isLoading } = useQuery<BeeListItem[]>({
+    queryKey: ["/api/telegram/bees", sort],
+    queryFn: () => fetch(`/api/telegram/bees?sort=${sort}&limit=50`).then(r => {
+      if (!r.ok) throw new Error("Failed to load bees");
+      return r.json();
+    }).then(data => Array.isArray(data) ? data : []),
+    staleTime: 30000,
     refetchOnWindowFocus: false,
   });
 
   return (
     <div className="px-4 pt-6 pb-4">
-      <h2 className="text-xl font-bold text-white mb-1" data-testid="text-tg-leaderboard-title">
-        Top Competitors
-      </h2>
-      <p className="text-xs text-gray-400 mb-4">Community leaders by referrals</p>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-xl font-bold text-white" data-testid="text-tg-bees-title">
+          The Hive
+        </h2>
+        <div className="flex gap-1">
+          <button
+            onClick={() => setSort("rating")}
+            className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+              sort === "rating" ? "bg-amber-500/20 text-amber-400" : "text-gray-500"
+            }`}
+            data-testid="button-tg-bees-sort-rating"
+          >
+            Top Rated
+          </button>
+          <button
+            onClick={() => setSort("newest")}
+            className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+              sort === "newest" ? "bg-amber-500/20 text-amber-400" : "text-gray-500"
+            }`}
+            data-testid="button-tg-bees-sort-newest"
+          >
+            Newest
+          </button>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">
+        {bees ? `${bees.length} bees in the hive` : "Loading..."}
+      </p>
 
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex flex-wrap items-center gap-3">
-              <div className="w-6 h-6 bg-gray-700 animate-pulse rounded" />
-              <div className="w-8 h-8 bg-gray-700 animate-pulse rounded-full" />
-              <div className="flex-1 h-4 bg-gray-700 animate-pulse rounded" />
-              <div className="w-16 h-5 bg-gray-700 animate-pulse rounded" />
+            <div key={i} className="flex items-center gap-3 p-3 bg-[#242444] rounded-xl">
+              <div className="w-10 h-10 bg-gray-700 animate-pulse rounded-full" />
+              <div className="flex-1">
+                <div className="h-4 w-24 bg-gray-700 animate-pulse rounded mb-1" />
+                <div className="h-3 w-32 bg-gray-700 animate-pulse rounded" />
+              </div>
+              <div className="w-14 h-5 bg-gray-700 animate-pulse rounded" />
             </div>
           ))}
         </div>
-      ) : !data?.leaderboard || data.leaderboard.length === 0 ? (
-        <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-empty-leaderboard">
-          <Trophy className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">No competitors yet</p>
+      ) : !bees || bees.length === 0 ? (
+        <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-empty-bees">
+          <Hexagon className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">No bees yet. Be the first!</p>
         </Card>
       ) : (
         <div className="space-y-2">
-          {data.leaderboard.map((entry, index) => (
+          {bees.map((bee, index) => (
             <Card
-              key={entry.agent.id}
+              key={bee.id}
               className="p-3 bg-[#242444] border-gray-700/50"
-              data-testid={`row-tg-leaderboard-${entry.agent.id}`}
+              data-testid={`card-tg-bee-${bee.id}`}
             >
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="w-6 text-center shrink-0">
-                  {index === 0 ? (
-                    <Crown className="w-5 h-5 text-amber-500 mx-auto" />
-                  ) : index === 1 ? (
-                    <Medal className="w-5 h-5 text-gray-400 mx-auto" />
-                  ) : index === 2 ? (
-                    <Medal className="w-5 h-5 text-amber-700 mx-auto" />
-                  ) : (
-                    <span className="text-xs text-gray-500 font-medium">{index + 1}</span>
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-lg">
+                    {BEE_AVATARS.find((a) => a.id === bee.avatarUrl)?.emoji || "🐝"}
+                  </div>
+                  {index < 3 && sort === "rating" && (
+                    <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
+                      index === 0 ? "bg-amber-500 text-black" : index === 1 ? "bg-gray-400 text-black" : "bg-amber-700 text-white"
+                    }`}>
+                      {index + 1}
+                    </div>
                   )}
                 </div>
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={entry.agent.avatarUrl || undefined} />
-                  <AvatarFallback className="bg-amber-500/20 text-amber-500 text-xs">
-                    {entry.agent.name?.slice(0, 2).toUpperCase() || "??"}
-                  </AvatarFallback>
-                </Avatar>
-                <span
-                  className="flex-1 text-sm font-medium text-white truncate"
-                  data-testid={`text-tg-referrer-${entry.agent.id}`}
-                >
-                  {entry.agent.name}
-                </span>
-                <Badge variant="secondary" className="bg-amber-500/15 text-amber-400 border-amber-500/20">
-                  {entry.referralCount} refs
-                </Badge>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-white truncate" data-testid={`text-tg-bee-name-${bee.id}`}>
+                      {bee.name}
+                    </span>
+                    {bee.avatarUrl && BEE_AVATARS.find((a) => a.id === bee.avatarUrl) && (
+                      <span className="text-[9px] text-gray-500">
+                        {BEE_AVATARS.find((a) => a.id === bee.avatarUrl)?.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">
+                    {bee.bio || `${bee.arenaWins}W / ${bee.arenaLosses}L`}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-sm font-bold text-amber-400" data-testid={`text-tg-bee-rating-${bee.id}`}>
+                    {bee.arenaRating}
+                  </div>
+                  <div className="text-[9px] text-gray-500">ELO</div>
+                </div>
               </div>
             </Card>
           ))}
@@ -1240,7 +1267,7 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
 const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "arena", label: "Arena", icon: Swords },
-  { id: "leaderboard", label: "Leaders", icon: Trophy },
+  { id: "bees", label: "Bees", icon: Hexagon },
   { id: "profile", label: "Profile", icon: User },
 ];
 
@@ -1354,7 +1381,7 @@ export default function TelegramApp() {
       <div className="flex-1 overflow-y-auto pb-20">
         {activeTab === "home" && <HomeTab onSwitchTab={setActiveTab} />}
         {activeTab === "arena" && <ArenaTab agentId={tgAgent?.id} />}
-        {activeTab === "leaderboard" && <LeaderboardTab />}
+        {activeTab === "bees" && <BeesTab />}
         {activeTab === "profile" && (
           <ProfileTab
             agent={tgAgent}
