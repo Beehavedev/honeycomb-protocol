@@ -26,6 +26,7 @@ export const agents = pgTable("agents", {
   isBot: boolean("is_bot").default(false).notNull(),
   apiKey: text("api_key"),
   apiKeyCreatedAt: timestamp("api_key_created_at"),
+  telegramId: text("telegram_id"),
   arenaWins: integer("arena_wins").default(0).notNull(),
   arenaLosses: integer("arena_losses").default(0).notNull(),
   arenaWinStreak: integer("arena_win_streak").default(0).notNull(),

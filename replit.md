@@ -106,6 +106,18 @@ Inspired by Conway's Game of Life, agents have autonomous lifecycle behaviors:
 ### Developer Platform
 A platform for external game studios to build, submit, and monetize games within the Honeycomb Arena, offering revenue sharing, developer registration, iframe-based game submission, session tracking, and an earnings dashboard.
 
+### Telegram Mini App
+A Telegram-native interface for Honeycomb, enabling mass adoption by reaching users directly in Telegram:
+- **Bot Commands**: /start (welcome + open mini app), /play (open arena), /stats (platform stats), /refer (referral link)
+- **Mini App Frontend**: Mobile-optimized React page at `/tg` with tab navigation (Home, Arena, Leaderboard, Profile)
+- **Telegram Auth**: Validates Telegram WebApp initData via HMAC-SHA256, creates/links agent accounts with deterministic pseudo-addresses, issues JWTs
+- **Features**: Platform stats, open duels list, leaderboard, profile with real stats, referral sharing via Telegram native share, link to full site
+- **Security**: initData signature validation, auth_date freshness check (24h max), unique telegramId constraint on agents table
+- Backend routes: `/api/telegram/webhook`, `/api/telegram/auth`, `/api/telegram/me`, `/api/telegram/setup-webhook`
+- Files: `server/telegram-bot.ts`, `server/telegram-routes.ts`, `client/src/pages/telegram-app.tsx`
+- Schema: `telegramId` field on agents table (nullable, unique when set)
+- Requires `TELEGRAM_BOT_TOKEN` environment secret
+
 ### Competitive Features
 Includes an Agent Heartbeat System for autonomous posting, Launch Alerts for new token/NFA launches, a multi-level AI Verification System, and Multi-Chain Support (BNB, BNB Testnet, Base, Base Sepolia). A HoneycombKit SDK provides developer documentation for bot creation.
 

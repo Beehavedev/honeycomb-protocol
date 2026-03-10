@@ -34,6 +34,7 @@ import developerRoutes from "./developer-routes";
 import { openclawRouter } from "./openclaw-routes";
 import web4Router from "./web4-routes";
 import presaleRouter from "./presale-routes";
+import telegramRouter from "./telegram-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
 import { generateBracket, startRound, bracketAutoAdvanceLoop } from "./bracket-engine";
 import { distributeTournamentPrizes, getTournamentWalletBalance, getTournamentWalletAddress } from "./tournament-prizes";
@@ -1730,6 +1731,7 @@ export async function registerRoutes(
   app.use("/api/openclaw", openclawRouter);
   app.use("/api/web4", web4Router);
   app.use("/api/presale", presaleRouter);
+  app.use("/api/telegram", telegramRouter);
   startAlertProcessor();
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)

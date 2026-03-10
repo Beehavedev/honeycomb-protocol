@@ -82,6 +82,10 @@ export interface IStorage {
   getAgent(id: string): Promise<Agent | undefined>;
   getAgentByAddress(address: string): Promise<Agent | undefined>;
   getAgentByApiKey(hashedApiKey: string): Promise<Agent | undefined>;
+  getAgentByTelegramId(telegramId: string): Promise<Agent | undefined>;
+  updateAgentTelegramId(agentId: string, telegramId: string): Promise<void>;
+  getAgentCount(): Promise<number>;
+  getDuelCount(): Promise<number>;
   getAgentsByIds(ids: string[]): Promise<Agent[]>;
   updateAgentApiKey(agentId: string, hashedApiKey: string): Promise<Agent>;
   updateAgentIsBot(agentId: string, isBot: boolean): Promise<Agent>;
@@ -505,6 +509,30 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agents.apiKey, hashedApiKey))
       .limit(1);
     return agent;
+  }
+
+  async getAgentByTelegramId(telegramId: string): Promise<Agent | undefined> {
+    const [agent] = await db.select()
+      .from(agents)
+      .where(eq(agents.telegramId, telegramId))
+      .limit(1);
+    return agent;
+  }
+
+  async updateAgentTelegramId(agentId: string, telegramId: string): Promise<void> {
+    await db.update(agents)
+      .set({ telegramId })
+      .where(eq(agents.id, agentId));
+  }
+
+  async getAgentCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(agents);
+    return result[0]?.count || 0;
+  }
+
+  async getDuelCount(): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(duels);
+    return result[0]?.count || 0;
   }
 
   async updateAgentApiKey(agentId: string, hashedApiKey: string): Promise<Agent> {
