@@ -53,8 +53,10 @@ router.post("/auth", async (req: Request, res: Response) => {
         capabilities: [],
       });
 
-      await storage.updateAgentTelegramId(agent.id, telegramId);
-      await storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+      await Promise.all([
+        storage.updateAgentTelegramId(agent.id, telegramId),
+        storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag),
+      ]);
     }
 
     const token = generateToken(agent.ownerAddress);
