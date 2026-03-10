@@ -100,6 +100,50 @@ router.get("/me", async (req: Request, res: Response) => {
   }
 });
 
+router.patch("/profile", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload) {
+      return res.status(401).json({ message: "Invalid or expired token" });
+    }
+
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) {
+      return res.status(404).json({ message: "Agent not found" });
+    }
+
+    const { name, bio, avatarUrl } = req.body;
+    const updates: Record<string, any> = {};
+
+    if (name !== undefined) {
+      const trimmed = (name || "").trim();
+      if (trimmed.length < 2 || trimmed.length > 30) {
+        return res.status(400).json({ message: "Name must be 2-30 characters" });
+      }
+      updates.name = trimmed;
+    }
+    if (bio !== undefined) updates.bio = (bio || "").trim().slice(0, 160) || null;
+    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl || null;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No updates provided" });
+    }
+
+    const updated = await storage.updateAgentProfile(agent.id, updates);
+    const { apiKey, ...safeAgent } = updated;
+    res.json(safeAgent);
+  } catch (error) {
+    console.error("Telegram profile update error:", error);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
 router.post("/setup-webhook", async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;

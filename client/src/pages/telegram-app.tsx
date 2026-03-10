@@ -874,7 +874,225 @@ function LeaderboardTab() {
   );
 }
 
-function ProfileTab({ agent, loading }: { agent: TgAgent | null; loading: boolean }) {
+const BEE_AVATARS = [
+  { id: "queen", emoji: "👑", label: "Queen Bee" },
+  { id: "worker", emoji: "🐝", label: "Worker Bee" },
+  { id: "scout", emoji: "🔍", label: "Scout Bee" },
+  { id: "guard", emoji: "🛡️", label: "Guard Bee" },
+  { id: "builder", emoji: "🏗️", label: "Builder Bee" },
+  { id: "trader", emoji: "📈", label: "Trader Bee" },
+  { id: "warrior", emoji: "⚔️", label: "Warrior Bee" },
+  { id: "sage", emoji: "🧠", label: "Sage Bee" },
+];
+
+function CreateBeeView({ agent, onComplete }: { agent: TgAgent; onComplete: (updated: TgAgent) => void }) {
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState(agent.name || "");
+  const [bio, setBio] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (name.trim().length < 2) {
+      setError("Name must be at least 2 characters");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const token = localStorage.getItem("tg_token");
+      const res = await fetch("/api/telegram/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          bio: bio.trim() || null,
+          avatarUrl: selectedAvatar || null,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        onComplete(updated);
+      } else {
+        const data = await res.json();
+        setError(data.message || "Failed to save");
+      }
+    } catch {
+      setError("Network error, try again");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
+      <div className="flex-1 px-4 pt-8 pb-8 flex flex-col">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/20 mb-3">
+            <Hexagon className="w-8 h-8 text-amber-500 fill-amber-500/30" />
+          </div>
+          <h1 className="text-2xl font-bold text-white" data-testid="text-create-bee-title">
+            Create Your Bee
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">Set up your on-chain identity</p>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 mb-6">
+          {[0, 1, 2].map((s) => (
+            <div
+              key={s}
+              className={`h-1.5 rounded-full transition-all ${
+                s === step ? "w-8 bg-amber-500" : s < step ? "w-8 bg-amber-500/50" : "w-8 bg-gray-700"
+              }`}
+            />
+          ))}
+        </div>
+
+        {step === 0 && (
+          <div className="flex-1 flex flex-col" data-testid="container-bee-step-name">
+            <h2 className="text-lg font-semibold text-white mb-1">Name your Bee</h2>
+            <p className="text-xs text-gray-400 mb-4">This is how others will see you in the hive</p>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => { setName(e.target.value); setError(""); }}
+              placeholder="Enter your Bee name..."
+              maxLength={30}
+              className="w-full px-4 py-3 rounded-xl bg-[#242444] border border-gray-700/50 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 mb-2"
+              data-testid="input-bee-name"
+            />
+            <div className="flex justify-between text-[10px] text-gray-500 mb-4">
+              <span>{error && <span className="text-red-400">{error}</span>}</span>
+              <span>{name.length}/30</span>
+            </div>
+            <div className="mt-auto">
+              <Button
+                size="lg"
+                disabled={name.trim().length < 2}
+                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+                onClick={() => setStep(1)}
+                data-testid="button-bee-next-name"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="flex-1 flex flex-col" data-testid="container-bee-step-avatar">
+            <h2 className="text-lg font-semibold text-white mb-1">Choose your type</h2>
+            <p className="text-xs text-gray-400 mb-4">Pick a role that represents you</p>
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              {BEE_AVATARS.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setSelectedAvatar(a.id)}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
+                    selectedAvatar === a.id
+                      ? "border-amber-500 bg-amber-500/10"
+                      : "border-gray-700/50 bg-[#242444]"
+                  }`}
+                  data-testid={`button-bee-avatar-${a.id}`}
+                >
+                  <span className="text-2xl">{a.emoji}</span>
+                  <span className="text-[9px] text-gray-400">{a.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-auto flex gap-3">
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1 border-gray-600 text-gray-300"
+                onClick={() => setStep(0)}
+                data-testid="button-bee-back-avatar"
+              >
+                Back
+              </Button>
+              <Button
+                size="lg"
+                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+                onClick={() => setStep(2)}
+                data-testid="button-bee-next-avatar"
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="flex-1 flex flex-col" data-testid="container-bee-step-bio">
+            <h2 className="text-lg font-semibold text-white mb-1">Add a bio</h2>
+            <p className="text-xs text-gray-400 mb-4">Tell the hive about yourself (optional)</p>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Crypto trader, DeFi degen, BNB maxi..."
+              maxLength={160}
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl bg-[#242444] border border-gray-700/50 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 resize-none mb-2"
+              data-testid="input-bee-bio"
+            />
+            <div className="flex justify-between text-[10px] text-gray-500 mb-4">
+              <span>{error && <span className="text-red-400">{error}</span>}</span>
+              <span>{bio.length}/160</span>
+            </div>
+
+            <Card className="p-4 bg-[#242444] border-gray-700/50 mb-6" data-testid="card-bee-preview">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center text-2xl">
+                  {BEE_AVATARS.find((a) => a.id === selectedAvatar)?.emoji || "🐝"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-white truncate">{name || "Your Bee"}</div>
+                  <div className="text-xs text-gray-400 truncate">{bio || "No bio yet"}</div>
+                </div>
+                <Badge className="bg-amber-500/20 text-amber-400 border-0 text-[10px]">
+                  {BEE_AVATARS.find((a) => a.id === selectedAvatar)?.label || "Bee"}
+                </Badge>
+              </div>
+            </Card>
+
+            <div className="mt-auto flex gap-3">
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1 border-gray-600 text-gray-300"
+                onClick={() => setStep(1)}
+                data-testid="button-bee-back-bio"
+              >
+                Back
+              </Button>
+              <Button
+                size="lg"
+                disabled={saving}
+                className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+                onClick={handleSave}
+                data-testid="button-bee-create"
+              >
+                {saving ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    Create Bee
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void }) {
   const [copied, setCopied] = useState(false);
   const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
 
@@ -939,9 +1157,26 @@ function ProfileTab({ agent, loading }: { agent: TgAgent | null; loading: boolea
       <h2 className="text-xl font-bold text-white mb-1" data-testid="text-tg-profile-title">
         Profile
       </h2>
-      <p className="text-xs text-gray-400 mb-4">
-        {agent.name || (tgUser ? `@${tgUser.username || tgUser.first_name}` : "Telegram User")}
-      </p>
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-bee-identity">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-xl">
+            {BEE_AVATARS.find((a) => a.id === agent.avatarUrl)?.emoji || "🐝"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-white truncate">{agent.name}</div>
+            <div className="text-xs text-gray-400 truncate">{agent.bio || "No bio set"}</div>
+          </div>
+          {onEditBee && (
+            <button
+              onClick={onEditBee}
+              className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1"
+              data-testid="button-tg-edit-bee"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </Card>
 
       <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-wallet">
         <div className="flex items-center justify-between">
@@ -1017,11 +1252,18 @@ interface TgAgent {
   arenaLosses: number;
   arenaRating: number;
   avatarUrl?: string;
+  bio?: string;
+  isSetup?: boolean;
 }
 
 function useTelegramAuth() {
   const [agent, setAgent] = useState<TgAgent | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const markAgentSetup = (a: TgAgent): TgAgent => ({
+    ...a,
+    isSetup: !!(a.bio || localStorage.getItem("bee_setup_done")),
+  });
 
   useEffect(() => {
     async function authenticate() {
@@ -1033,7 +1275,7 @@ function useTelegramAuth() {
           });
           if (meRes.ok) {
             const data = await meRes.json();
-            setAgent(data);
+            setAgent(markAgentSetup(data));
             setLoading(false);
             return;
           }
@@ -1056,7 +1298,7 @@ function useTelegramAuth() {
           const data = await authRes.json();
           if (data.token) {
             localStorage.setItem("tg_token", data.token);
-            setAgent(data.agent);
+            setAgent(markAgentSetup(data.agent));
           }
         }
       } catch (err) {
@@ -1068,12 +1310,18 @@ function useTelegramAuth() {
     authenticate();
   }, []);
 
-  return { agent, loading };
+  const updateAgent = (updated: TgAgent) => {
+    localStorage.setItem("bee_setup_done", "1");
+    setAgent({ ...updated, isSetup: true });
+  };
+
+  return { agent, loading, updateAgent };
 }
 
 export default function TelegramApp() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
-  const { agent: tgAgent, loading: authLoading } = useTelegramAuth();
+  const [showCreateBee, setShowCreateBee] = useState(false);
+  const { agent: tgAgent, loading: authLoading, updateAgent } = useTelegramAuth();
 
   useEffect(() => {
     const webapp = window.Telegram?.WebApp;
@@ -1083,13 +1331,37 @@ export default function TelegramApp() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!authLoading && tgAgent && !tgAgent.isSetup) {
+      setShowCreateBee(true);
+    }
+  }, [authLoading, tgAgent]);
+
+  if (showCreateBee && tgAgent) {
+    return (
+      <CreateBeeView
+        agent={tgAgent}
+        onComplete={(updated) => {
+          updateAgent(updated);
+          setShowCreateBee(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
       <div className="flex-1 overflow-y-auto pb-20">
         {activeTab === "home" && <HomeTab onSwitchTab={setActiveTab} />}
         {activeTab === "arena" && <ArenaTab agentId={tgAgent?.id} />}
         {activeTab === "leaderboard" && <LeaderboardTab />}
-        {activeTab === "profile" && <ProfileTab agent={tgAgent} loading={authLoading} />}
+        {activeTab === "profile" && (
+          <ProfileTab
+            agent={tgAgent}
+            loading={authLoading}
+            onEditBee={() => setShowCreateBee(true)}
+          />
+        )}
       </div>
 
       <div
