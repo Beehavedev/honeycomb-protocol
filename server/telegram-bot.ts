@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { storage } from "./storage";
 
 export interface TelegramUser {
   id: number;
@@ -18,10 +19,7 @@ function getMiniAppUrl(): string {
 }
 
 function getBotToken(): string | null {
-  if (!BOT_TOKEN) {
-    console.warn("TELEGRAM_BOT_TOKEN not set, Telegram bot functions are no-op");
-    return null;
-  }
+  if (!BOT_TOKEN) return null;
   return BOT_TOKEN;
 }
 
@@ -81,6 +79,71 @@ export function validateTelegramWebAppData(
   }
 }
 
+const apiBase = `https://api.telegram.org/bot${BOT_TOKEN}`;
+
+async function reply(chatId: number, text: string, replyMarkup?: any): Promise<void> {
+  if (!BOT_TOKEN) return;
+  const body: any = { chat_id: chatId, text };
+  if (replyMarkup) body.reply_markup = replyMarkup;
+  fetch(`${apiBase}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {});
+}
+
+const miniAppButton = (label: string) => ({
+  inline_keyboard: [[{ text: label, web_app: { url: `${getMiniAppUrl()}/tg` } }]],
+});
+
+export function handleTelegramUpdate(update: any): void {
+  const message = update.message;
+  if (!message?.text) return;
+
+  const chatId = message.chat.id;
+  const command = message.text.trim().split(" ")[0].toLowerCase();
+
+  switch (command) {
+    case "/start":
+      reply(chatId, "Welcome to Honeycomb! Tap below to open the app.", miniAppButton("Open Honeycomb"));
+      break;
+
+    case "/play":
+      reply(chatId, "Ready to compete? Open the Arena!", miniAppButton("Open Arena"));
+      break;
+
+    case "/stats": {
+      Promise.all([storage.getAgentCount(), storage.getDuelCount()])
+        .then(([agents, duels]) => {
+          reply(chatId, `Honeycomb Stats:\n\nUsers: ${agents}\nDuels: ${duels}`, miniAppButton("View Stats"));
+        })
+        .catch(() => {
+          reply(chatId, "Could not fetch stats right now.");
+        });
+      break;
+    }
+
+    case "/refer": {
+      const telegramId = message.from?.id?.toString();
+      if (!telegramId) break;
+
+      storage.getAgentByTelegramId(telegramId)
+        .then((agent) => {
+          if (!agent) {
+            reply(chatId, "Open the app first to create your account!", miniAppButton("Open Honeycomb"));
+            return;
+          }
+          const code = `BEE${agent.id.substring(0, 11).toUpperCase().replace(/-/g, "")}`;
+          reply(chatId, `Your referral link:\n${getMiniAppUrl()}/r/${code}\n\nShare it to earn rewards!`);
+        })
+        .catch(() => {
+          reply(chatId, "Could not fetch your referral info.");
+        });
+      break;
+    }
+  }
+}
+
 export async function sendTelegramMessage(
   chatId: number,
   text: string,
@@ -89,143 +152,15 @@ export async function sendTelegramMessage(
   const token = getBotToken();
   if (!token) return;
 
-  try {
-    const body: any = {
-      chat_id: chatId,
-      text,
-    };
-    if (options?.parseMode) body.parse_mode = options.parseMode;
-    if (options?.replyMarkup) body.reply_markup = options.replyMarkup;
+  const body: any = { chat_id: chatId, text };
+  if (options?.parseMode) body.parse_mode = options.parseMode;
+  if (options?.replyMarkup) body.reply_markup = options.replyMarkup;
 
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const errData = await res.text();
-      console.error("Telegram sendMessage error:", errData);
-    }
-  } catch (error) {
-    console.error("Telegram sendMessage failed:", error);
-  }
-}
-
-export async function handleTelegramUpdate(update: any): Promise<void> {
-  const token = getBotToken();
-  if (!token) return;
-
-  const message = update.message;
-  if (!message?.text) return;
-
-  const chatId = message.chat.id;
-  const text = message.text.trim();
-  const command = text.split(" ")[0].toLowerCase();
-
-  switch (command) {
-    case "/start": {
-      await sendTelegramMessage(chatId, 
-        "Welcome to Honeycomb! The decentralized AI agent platform on BNB Chain.\n\nTap the button below to open the Mini App and start exploring.",
-        {
-          parseMode: "HTML",
-          replyMarkup: {
-            inline_keyboard: [[
-              {
-                text: "Open Honeycomb",
-                web_app: { url: `${getMiniAppUrl()}/tg` },
-              },
-            ]],
-          },
-        }
-      );
-      break;
-    }
-
-    case "/play": {
-      await sendTelegramMessage(chatId,
-        "Ready to compete? Open the Arena and challenge other players!",
-        {
-          replyMarkup: {
-            inline_keyboard: [[
-              {
-                text: "Open Arena",
-                web_app: { url: `${getMiniAppUrl()}/tg` },
-              },
-            ]],
-          },
-        }
-      );
-      break;
-    }
-
-    case "/stats": {
-      try {
-        const { storage } = await import("./storage");
-        const allAgents = await storage.getAgentCount();
-        const duelCount = await storage.getDuelCount();
-
-        await sendTelegramMessage(chatId,
-          `Honeycomb Platform Stats:\n\nTotal Users: ${allAgents}\nTotal Duels: ${duelCount}\n\nJoin the action now!`,
-          {
-            replyMarkup: {
-              inline_keyboard: [[
-                {
-                  text: "View Stats",
-                  web_app: { url: `${getMiniAppUrl()}/tg` },
-                },
-              ]],
-            },
-          }
-        );
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-        await sendTelegramMessage(chatId, "Could not fetch stats at this time. Please try again later.");
-      }
-      break;
-    }
-
-    case "/refer": {
-      try {
-        const { storage } = await import("./storage");
-        const telegramId = message.from?.id?.toString();
-        if (!telegramId) {
-          await sendTelegramMessage(chatId, "Could not identify your Telegram account.");
-          break;
-        }
-
-        const agent = await storage.getAgentByTelegramId(telegramId);
-        if (!agent) {
-          await sendTelegramMessage(chatId, "You haven't linked your account yet. Open the Mini App to get started!",
-            {
-              replyMarkup: {
-                inline_keyboard: [[
-                  {
-                    text: "Open Honeycomb",
-                    web_app: { url: `${getMiniAppUrl()}/tg` },
-                  },
-                ]],
-              },
-            }
-          );
-          break;
-        }
-
-        const referralCode = `BEE${agent.id.substring(0, 11).toUpperCase().replace(/-/g, "")}`;
-        const referralLink = `${getMiniAppUrl()}/r/${referralCode}`;
-        await sendTelegramMessage(chatId,
-          `Your referral link:\n${referralLink}\n\nShare it with friends to earn rewards!`
-        );
-      } catch (error) {
-        console.error("Error getting referral:", error);
-        await sendTelegramMessage(chatId, "Could not fetch your referral info. Please try again later.");
-      }
-      break;
-    }
-
-    default:
-      break;
-  }
+  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => {});
 }
 
 export async function setupTelegramWebhook(webhookUrl: string): Promise<{ success: boolean; message: string }> {
@@ -233,34 +168,31 @@ export async function setupTelegramWebhook(webhookUrl: string): Promise<{ succes
   if (!token) return { success: false, message: "TELEGRAM_BOT_TOKEN not set" };
 
   try {
-    const webhookRes = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: webhookUrl }),
-    });
+    const [webhookRes, commandsRes] = await Promise.all([
+      fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: webhookUrl }),
+      }),
+      fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commands: [
+            { command: "start", description: "Welcome & open Mini App" },
+            { command: "play", description: "Open the Arena" },
+            { command: "stats", description: "View platform stats" },
+            { command: "refer", description: "Get your referral link" },
+          ],
+        }),
+      }),
+    ]);
 
     const webhookData = await webhookRes.json() as any;
-    if (!webhookData.ok) {
-      return { success: false, message: `setWebhook failed: ${webhookData.description}` };
-    }
-
-    const commandsRes = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        commands: [
-          { command: "start", description: "Welcome & open Mini App" },
-          { command: "play", description: "Open the Arena" },
-          { command: "stats", description: "View platform stats" },
-          { command: "refer", description: "Get your referral link" },
-        ],
-      }),
-    });
-
     const commandsData = await commandsRes.json() as any;
 
     return {
-      success: true,
+      success: webhookData.ok,
       message: `Webhook set to ${webhookUrl}. Commands: ${commandsData.ok ? "set" : "failed"}`,
     };
   } catch (error) {

@@ -8,13 +8,13 @@ const router = Router();
 
 const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS || "";
 
-router.post("/webhook", async (req: Request, res: Response) => {
+router.post("/webhook", (req: Request, res: Response) => {
+  res.sendStatus(200);
   try {
-    await handleTelegramUpdate(req.body);
+    handleTelegramUpdate(req.body);
   } catch (error) {
     console.error("Telegram webhook error:", error);
   }
-  res.sendStatus(200);
 });
 
 router.post("/auth", async (req: Request, res: Response) => {

@@ -1775,22 +1775,32 @@ export async function registerRoutes(
     }
   });
 
-  // Public landing page stats (no auth required)
+  // Public landing page stats (no auth required) - cached for 30s
+  let landingStatsCache: { data: any; ts: number } | null = null;
   app.get("/api/landing-stats", async (req, res) => {
     try {
-      const usersResult = await db.execute(sql`SELECT COUNT(*) as count FROM agents`);
-      const nfasResult = await db.execute(sql`SELECT COUNT(*) as count FROM nfa_agents`);
-      const volumeResult = await db.execute(sql`SELECT COALESCE(SUM(CAST(price_wei AS DECIMAL) / 1e18), 0) as volume FROM nfa_listings WHERE active = false`);
-      
+      const now = Date.now();
+      if (landingStatsCache && now - landingStatsCache.ts < 30000) {
+        return res.json(landingStatsCache.data);
+      }
+
+      const [usersResult, nfasResult, volumeResult] = await Promise.all([
+        db.execute(sql`SELECT COUNT(*) as count FROM agents`),
+        db.execute(sql`SELECT COUNT(*) as count FROM nfa_agents`),
+        db.execute(sql`SELECT COALESCE(SUM(CAST(price_wei AS DECIMAL) / 1e18), 0) as volume FROM nfa_listings WHERE active = false`),
+      ]);
+
       const users = (usersResult as any).rows?.[0]?.count || (usersResult as any)[0]?.count || 0;
       const nfas = (nfasResult as any).rows?.[0]?.count || (nfasResult as any)[0]?.count || 0;
       const volume = (volumeResult as any).rows?.[0]?.volume || (volumeResult as any)[0]?.volume || "0";
       
-      res.json({
+      const data = {
         totalUsers: Number(users),
         totalNfas: Number(nfas),
         totalVolume: parseFloat(volume).toFixed(2),
-      });
+      };
+      landingStatsCache = { data, ts: now };
+      res.json(data);
     } catch (error: any) {
       console.error("Failed to get landing stats:", error);
       res.json({ totalUsers: 0, totalNfas: 0, totalVolume: "0" });

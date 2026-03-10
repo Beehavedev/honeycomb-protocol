@@ -75,7 +75,8 @@ const BASE_URL = typeof window !== "undefined" ? window.location.origin : "";
 function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
   const { data: stats, isLoading } = useQuery<LandingStats>({
     queryKey: ["/api/landing-stats"],
-    staleTime: 30000,
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   const BASE_USER_COUNT = 517;
@@ -197,7 +198,8 @@ function ArenaTab() {
       if (!res.ok) return [];
       return res.json();
     },
-    staleTime: 15000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
 
   const handleCreateDuel = () => {
@@ -291,6 +293,7 @@ function LeaderboardTab() {
   }>({
     queryKey: ["/api/leaderboards/referrers?limit=10"],
     staleTime: 60000,
+    refetchOnWindowFocus: false,
   });
 
   return (
