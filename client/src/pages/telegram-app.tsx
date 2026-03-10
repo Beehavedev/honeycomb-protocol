@@ -25,6 +25,11 @@ import {
   BarChart3,
   Target,
   Sparkles,
+  Eye,
+  EyeOff,
+  Key,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 declare global {
@@ -1120,7 +1125,13 @@ function CreateBeeView({ agent, onComplete }: { agent: TgAgent; onComplete: (upd
 
 function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void }) {
   const [copied, setCopied] = useState(false);
-  const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  const [balance, setBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
+  const [privateKey, setPrivateKey] = useState<string | null>(null);
+  const [keyLoading, setKeyLoading] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
+  const [confirmExport, setConfirmExport] = useState(false);
 
   const handleShareReferral = () => {
     const shareUrl = `${BASE_URL}/r/tg`;
@@ -1143,6 +1154,55 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
       navigator.clipboard.writeText(agent.ownerAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const fetchBalance = async () => {
+    setBalanceLoading(true);
+    try {
+      const token = localStorage.getItem("tg_token");
+      const res = await fetch("/api/telegram/wallet/balance", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBalance(data.balance);
+      }
+    } catch {}
+    setBalanceLoading(false);
+  };
+
+  useEffect(() => {
+    if (agent) fetchBalance();
+  }, [agent?.id]);
+
+  const handleExportKey = async () => {
+    if (!confirmExport) {
+      setConfirmExport(true);
+      return;
+    }
+    setKeyLoading(true);
+    try {
+      const token = localStorage.getItem("tg_token");
+      const res = await fetch("/api/telegram/wallet/export-key", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPrivateKey(data.privateKey);
+        setShowPrivateKey(true);
+        setConfirmExport(false);
+      }
+    } catch {}
+    setKeyLoading(false);
+  };
+
+  const handleCopyKey = () => {
+    if (privateKey) {
+      navigator.clipboard.writeText(privateKey);
+      setKeyCopied(true);
+      setTimeout(() => setKeyCopied(false), 2000);
     }
   };
 
@@ -1204,8 +1264,8 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
         </div>
       </Card>
 
-      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-wallet">
-        <div className="flex items-center justify-between">
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-3" data-testid="card-tg-wallet">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Wallet className="w-4 h-4 text-amber-500" />
             <span className="text-xs text-gray-400">BNB Wallet</span>
@@ -1223,7 +1283,107 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
             )}
           </button>
         </div>
+        <div className="flex items-center justify-between pt-2 border-t border-gray-700/30">
+          <span className="text-xs text-gray-400">Balance</span>
+          <div className="flex items-center gap-2">
+            {balanceLoading ? (
+              <div className="w-4 h-4 border border-amber-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="text-sm font-bold text-white" data-testid="text-tg-balance">
+                {balance !== null ? `${parseFloat(balance).toFixed(6)} BNB` : "—"}
+              </span>
+            )}
+            <button onClick={fetchBalance} className="text-gray-500 hover:text-amber-400 transition-colors" data-testid="button-tg-refresh-balance">
+              <RefreshCw className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
       </Card>
+
+      {!showPrivateKey ? (
+        <Card className={`p-3 border-gray-700/50 mb-4 ${confirmExport ? "bg-red-500/10 border-red-500/30" : "bg-[#242444]"}`} data-testid="card-tg-export-key">
+          {confirmExport ? (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <span className="text-xs font-semibold text-red-400">Security Warning</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-3">
+                Your private key gives full access to this wallet. Never share it with anyone. Make sure no one is watching your screen.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 border-gray-600 text-gray-300 text-xs"
+                  onClick={() => setConfirmExport(false)}
+                  data-testid="button-tg-cancel-export"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={keyLoading}
+                  className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 text-xs"
+                  onClick={handleExportKey}
+                  data-testid="button-tg-confirm-export"
+                >
+                  {keyLoading ? (
+                    <div className="w-4 h-4 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    "Show Private Key"
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleExportKey}
+              className="flex items-center justify-between w-full"
+              data-testid="button-tg-export-key"
+            >
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-gray-500" />
+                <span className="text-xs text-gray-400">Export Private Key</span>
+              </div>
+              <EyeOff className="w-3.5 h-3.5 text-gray-600" />
+            </button>
+          )}
+        </Card>
+      ) : (
+        <Card className="p-3 bg-red-500/5 border-red-500/20 mb-4" data-testid="card-tg-private-key">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Key className="w-4 h-4 text-red-400" />
+              <span className="text-xs font-semibold text-red-400">Private Key</span>
+            </div>
+            <button
+              onClick={() => { setShowPrivateKey(false); setPrivateKey(null); }}
+              className="text-xs text-gray-500 hover:text-gray-300"
+              data-testid="button-tg-hide-key"
+            >
+              Hide
+            </button>
+          </div>
+          <div
+            className="bg-black/30 rounded-lg p-2.5 font-mono text-[10px] text-red-300 break-all select-all mb-2"
+            data-testid="text-tg-private-key"
+          >
+            {privateKey}
+          </div>
+          <button
+            onClick={handleCopyKey}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-amber-400 transition-colors"
+            data-testid="button-tg-copy-key"
+          >
+            {keyCopied ? (
+              <><Check className="w-3 h-3 text-green-400" /> Copied</>
+            ) : (
+              <><Copy className="w-3 h-3" /> Copy to clipboard</>
+            )}
+          </button>
+        </Card>
+      )}
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         <Card className="p-4 bg-[#242444] border-gray-700/50 text-center" data-testid="card-tg-wins">

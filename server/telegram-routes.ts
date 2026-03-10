@@ -102,6 +102,58 @@ router.get("/me", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/wallet/balance", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload) return res.status(401).json({ message: "Invalid token" });
+
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+    const { createPublicClient, http, formatEther } = await import("viem");
+    const { bsc } = await import("viem/chains");
+
+    const client = createPublicClient({ chain: bsc, transport: http() });
+    const balance = await client.getBalance({ address: agent.ownerAddress as `0x${string}` });
+
+    res.json({ balance: formatEther(balance), balanceWei: balance.toString() });
+  } catch (error) {
+    console.error("Wallet balance error:", error);
+    res.status(500).json({ message: "Failed to fetch balance" });
+  }
+});
+
+router.post("/wallet/export-key", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload) return res.status(401).json({ message: "Invalid token" });
+
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(404).json({ message: "No custodial wallet found" });
+
+    const { decryptPrivateKey } = await import("./custodial-wallet");
+    const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    res.json({ privateKey });
+  } catch (error) {
+    console.error("Export key error:", error);
+    res.status(500).json({ message: "Failed to export key" });
+  }
+});
+
 router.get("/bees", async (req: Request, res: Response) => {
   try {
     const sort = (req.query.sort as string) || "rating";
