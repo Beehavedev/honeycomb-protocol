@@ -962,13 +962,11 @@ function AdminPanel() {
 
 function TokenomicsSection() {
   const allocations = [
-    { label: "Private Sale", pct: 2.5, color: "bg-amber-500" },
-    { label: "Public Sale", pct: 4.5, color: "bg-amber-400" },
-    { label: "Liquidity Pool", pct: 25, color: "bg-blue-500" },
-    { label: "Community & Rewards", pct: 30, color: "bg-emerald-500" },
-    { label: "Team & Advisors", pct: 10, color: "bg-purple-500" },
-    { label: "Ecosystem Fund", pct: 13, color: "bg-cyan-500" },
-    { label: "Treasury", pct: 15, color: "bg-rose-500" },
+    { label: "FourMeme Public Launch", pct: 35, color: "bg-amber-500" },
+    { label: "Community & Staking Rewards", pct: 25, color: "bg-emerald-500" },
+    { label: "Liquidity Pool", pct: 20, color: "bg-blue-500" },
+    { label: "Ecosystem & Development", pct: 15, color: "bg-cyan-500" },
+    { label: "Private Sale", pct: 5, color: "bg-amber-400" },
   ];
 
   return (
@@ -1000,20 +998,20 @@ function TokenomicsSection() {
             <span className="font-medium">1,000,000,000 $HONEY</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Private Round FDV</span>
-            <span className="font-medium">$4M</span>
+            <span className="text-muted-foreground">Private Sale FDV</span>
+            <span className="font-medium">$5M</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Public Round FDV</span>
-            <span className="font-medium">$7M</span>
+            <span className="text-muted-foreground">Private Sale Raise</span>
+            <span className="font-medium">$250K</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">TGE FDV</span>
-            <span className="font-medium">$8M ($0.008/token)</span>
+            <span className="text-muted-foreground">Public Launch</span>
+            <span className="font-medium">FourMeme Fair Launch</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Team Vesting</span>
-            <span className="font-medium">12-month cliff, 24-month linear</span>
+            <span className="text-muted-foreground">Team Tokens</span>
+            <span className="font-medium">None — 0%</span>
           </div>
         </div>
       </CardContent>

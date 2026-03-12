@@ -255,13 +255,11 @@ export default function HoneyToken() {
   };
 
   const distribution = [
-    { label: "Community & Rewards", pct: 30, color: "bg-amber-400" },
-    { label: "Liquidity Pool", pct: 25, color: "bg-amber-500" },
-    { label: "Treasury", pct: 15, color: "bg-amber-600" },
-    { label: "Ecosystem Fund", pct: 13, color: "bg-amber-700" },
-    { label: "Team & Advisors", pct: 10, color: "bg-orange-400" },
-    { label: "Public Sale", pct: 4.5, color: "bg-orange-500" },
-    { label: "Private Sale", pct: 2.5, color: "bg-orange-600" },
+    { label: "FourMeme Public Launch", pct: 35, color: "bg-amber-400" },
+    { label: "Community & Staking Rewards", pct: 25, color: "bg-amber-500" },
+    { label: "Liquidity Pool", pct: 20, color: "bg-amber-600" },
+    { label: "Ecosystem & Development", pct: 15, color: "bg-amber-700" },
+    { label: "Private Sale", pct: 5, color: "bg-orange-500" },
   ];
 
   return (
@@ -443,8 +441,8 @@ export default function HoneyToken() {
                   <p className="font-medium">18</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Initial Supply</p>
-                  <p className="font-medium">150,000,000 (15%)</p>
+                  <p className="text-muted-foreground">Initial Circulating</p>
+                  <p className="font-medium">400,000,000 (40%)</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Type</p>
@@ -817,7 +815,7 @@ export default function HoneyToken() {
                 const revLabel = feeSplit?.platformRevenue?.label ?? "Platform Revenue";
                 const burnLabel = feeSplit?.buybackBurn?.label ?? "Buyback & Burn";
                 const stakeLabel = feeSplit?.stakingRewards?.label ?? "Staking Rewards";
-                const revDesc = feeSplit?.platformRevenue?.description ?? "Direct revenue to the Honeycomb treasury for operations, growth, and team";
+                const revDesc = feeSplit?.platformRevenue?.description ?? "Direct revenue to the Honeycomb treasury for operations and growth";
                 const burnDesc = feeSplit?.buybackBurn?.description ?? "Used to buy HONEY on the open market and permanently burn it, reducing supply";
                 const stakeDesc = feeSplit?.stakingRewards?.description ?? "Distributed proportionally to HONEY stakers based on their tier and lock duration";
 
@@ -894,13 +892,11 @@ export default function HoneyToken() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { allocation: "Community & Rewards (30%)", vesting: "Released over 4 years via staking/earning", progress: 5 },
-                  { allocation: "Liquidity Pool (25%)", vesting: "Locked for 2 years on PancakeSwap", progress: 0 },
-                  { allocation: "Treasury (15%)", vesting: "Governed by HONEY holders", progress: 0 },
-                  { allocation: "Ecosystem Fund (13%)", vesting: "Developer grants & partnerships", progress: 0 },
-                  { allocation: "Team & Advisors (10%)", vesting: "12-month cliff, 24-month linear", progress: 0 },
-                  { allocation: "Public Sale (4.5%)", vesting: "25% TGE, 3-month linear vest", progress: 0 },
-                  { allocation: "Private Sale (2.5%)", vesting: "10% TGE, 6-month cliff, 12-month linear", progress: 0 },
+                  { allocation: "FourMeme Public Launch (35%)", vesting: "Fair launch via bonding curve, distributed proportionally", progress: 0 },
+                  { allocation: "Community & Staking Rewards (25%)", vesting: "Released over 4 years via staking/earning", progress: 5 },
+                  { allocation: "Liquidity Pool (20%)", vesting: "Locked for 2 years", progress: 0 },
+                  { allocation: "Ecosystem & Development (15%)", vesting: "Partnerships, dev grants, integrations", progress: 0 },
+                  { allocation: "Private Sale (5%)", vesting: "$250K raise at $5M FDV, 3-month linear vest", progress: 0 },
                 ].map((item) => (
                   <div key={item.allocation} className="space-y-1">
                     <div className="flex justify-between text-sm">

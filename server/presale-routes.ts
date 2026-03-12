@@ -683,41 +683,18 @@ router.post("/admin/seed-defaults", async (req: Request, res: Response) => {
         status: "upcoming",
         startTime: privateStart,
         endTime: privateEnd,
-        tokenPrice: "0.004",
-        totalTokens: "25000000",
-        hardCapBnb: "170",
-        softCapBnb: "50",
-        minContribution: "0.5",
-        maxContribution: "10",
-        vestingCliffDays: 180,
-        vestingDurationDays: 365,
-        tgeUnlockPercent: 10,
-        referralBonusPercent: 5,
-        description:
-          "Exclusive early access for whitelisted community members. $100K raise at $4M FDV ($0.004/token). 50% discount from TGE price.",
-      })
-      .returning();
-
-    const [publicPhase] = await db
-      .insert(presalePhases)
-      .values({
-        name: "Public Sale",
-        type: "public",
-        status: "upcoming",
-        startTime: publicStart,
-        endTime: publicEnd,
-        tokenPrice: "0.007",
-        totalTokens: "42857143",
-        hardCapBnb: "500",
+        tokenPrice: "0.005",
+        totalTokens: "50000000",
+        hardCapBnb: "420",
         softCapBnb: "100",
-        minContribution: "0.1",
-        maxContribution: "5",
+        minContribution: "0.5",
+        maxContribution: "20",
         vestingCliffDays: 0,
         vestingDurationDays: 90,
-        tgeUnlockPercent: 25,
-        referralBonusPercent: 3,
+        tgeUnlockPercent: 100,
+        referralBonusPercent: 5,
         description:
-          "Open to all participants. $300K raise at $7M FDV ($0.007/token). 12.5% discount from TGE price.",
+          "Exclusive early access for whitelisted community members. $250K raise at $5M FDV ($0.005/token). 5% of total supply. No team tokens.",
       })
       .returning();
 
@@ -725,48 +702,24 @@ router.post("/admin/seed-defaults", async (req: Request, res: Response) => {
       {
         phaseId: privatePhase.id,
         name: "Early Bee",
-        tokenPrice: "0.0035",
-        tokenAllocation: "10000000",
-        bonusPercent: 15,
+        tokenPrice: "0.0045",
+        tokenAllocation: "20000000",
+        bonusPercent: 10,
         sortOrder: 0,
       },
       {
         phaseId: privatePhase.id,
         name: "Worker Bee",
-        tokenPrice: "0.004",
-        tokenAllocation: "10000000",
-        bonusPercent: 10,
+        tokenPrice: "0.005",
+        tokenAllocation: "20000000",
+        bonusPercent: 5,
         sortOrder: 1,
       },
       {
         phaseId: privatePhase.id,
         name: "Guardian Bee",
-        tokenPrice: "0.0045",
-        tokenAllocation: "5000000",
-        bonusPercent: 5,
-        sortOrder: 2,
-      },
-      {
-        phaseId: publicPhase.id,
-        name: "Tier 1",
-        tokenPrice: "0.006",
-        tokenAllocation: "15000000",
-        bonusPercent: 10,
-        sortOrder: 0,
-      },
-      {
-        phaseId: publicPhase.id,
-        name: "Tier 2",
-        tokenPrice: "0.007",
-        tokenAllocation: "15000000",
-        bonusPercent: 5,
-        sortOrder: 1,
-      },
-      {
-        phaseId: publicPhase.id,
-        name: "Tier 3",
-        tokenPrice: "0.0075",
-        tokenAllocation: "12857143",
+        tokenPrice: "0.0055",
+        tokenAllocation: "10000000",
         bonusPercent: 0,
         sortOrder: 2,
       },
@@ -775,8 +728,7 @@ router.post("/admin/seed-defaults", async (req: Request, res: Response) => {
     res.json({
       success: true,
       privatePhase,
-      publicPhase,
-      message: "Default presale phases and tiers created",
+      message: "Private sale phase and tiers created. Public launch via FourMeme.",
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

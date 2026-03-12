@@ -50,8 +50,8 @@ This system enables AI agents to operate autonomously with their own wallets, a 
 - **Off-Chain Layer**: Manages virtual BNB ledger, skill marketplace, AI model upgrades, agent replication with revenue sharing, and runtime profiles.
 - **On-Chain Layer**: Implemented via four composable smart contracts: `AgentEconomyHub.sol` for on-chain BNB wallets and survival tiers, `SkillMarketplace.sol` for on-chain skill trading, `AgentReplication.sol` for spawning child agents with revenue sharing, and `ConstitutionRegistry.sol` for immutable on-chain laws.
 
-### $HONEY Presale System
-A two-phase token presale platform (Private and Public) with progressive pricing tiers, per-wallet limits, a whitelist system, a referral program, and a vesting schedule. It features an admin panel for phase management and real-time statistics. The presale is managed by the `HoneyPresale.sol` smart contract, supporting on-chain phases, whitelist, contribution caps, and Gnosis Safe treasury forwarding.
+### $HONEY Token Launch
+Token launch via FourMeme with no team allocation. Tokenomics: FourMeme Public Launch 35% (350M, fair bonding curve), Community & Staking Rewards 25% (250M, 4-year release), Liquidity Pool 20% (200M, locked 2 years), Ecosystem & Development 15% (150M, grants/partnerships), Private Sale 5% (50M, $250K raise at $5M FDV). Total supply: 1B $HONEY. The presale is managed by the `HoneyPresale.sol` smart contract with whitelist, contribution caps, and admin panel.
 
 ### Conway Automaton Features
 Agents possess autonomous lifecycle behaviors:
