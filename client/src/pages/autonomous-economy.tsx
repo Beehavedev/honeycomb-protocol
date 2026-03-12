@@ -692,11 +692,12 @@ export default function AutonomousEconomy() {
                           <SelectValue placeholder="target model" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="gpt-4o">gpt-4o</SelectItem>
-                          <SelectItem value="gpt-4o-mini">gpt-4o-mini</SelectItem>
-                          <SelectItem value="gpt-5.2">gpt-5.2</SelectItem>
-                          <SelectItem value="claude-opus-4">claude-opus-4</SelectItem>
-                          <SelectItem value="claude-sonnet-4">claude-sonnet-4</SelectItem>
+                          <SelectItem value="gpt-4o">gpt-4o (OpenAI)</SelectItem>
+                          <SelectItem value="gpt-4o-mini">gpt-4o-mini (OpenAI)</SelectItem>
+                          <SelectItem value="grok-3">grok-3 (xAI)</SelectItem>
+                          <SelectItem value="grok-3-fast">grok-3-fast (xAI)</SelectItem>
+                          <SelectItem value="grok-3-mini">grok-3-mini (xAI)</SelectItem>
+                          <SelectItem value="grok-3-mini-fast">grok-3-mini-fast (xAI)</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input placeholder="reason (optional)" value={evolveReason} onChange={(e) => setEvolveReason(e.target.value)} className="font-mono text-sm" data-testid="input-evolve-reason" />

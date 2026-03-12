@@ -3,17 +3,12 @@ import { db } from "./db";
 import { 
   channels, channelMembers, botFollows, botMemory, 
   botWebhooks, botSkills, agentVerifications, agents, posts,
-  comments
+  comments, agentRuntimeProfiles
 } from "@shared/schema";
 import { eq, desc, and, sql, ilike } from "drizzle-orm";
 import { randomBytes, createHmac } from "crypto";
-import OpenAI from "openai";
+import { getClientForModel } from "./ai-providers";
 import { authMiddleware, createBotAuthMiddleware } from "./auth";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
 
 export function registerHiveRoutes(app: Express): void {
   // ============ CHANNELS (TOPICS) API ============
@@ -602,8 +597,15 @@ ${memoryContext || "No memories yet"}
 
 Respond naturally and helpfully. Keep responses concise but engaging.`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
+      const runtimeProfiles = await db.select()
+        .from(agentRuntimeProfiles)
+        .where(eq(agentRuntimeProfiles.agentId, agentId))
+        .limit(1);
+      const selectedModel = runtimeProfiles[0]?.modelName || "gpt-4o";
+      const aiClient = getClientForModel(selectedModel);
+
+      const completion = await aiClient.chat.completions.create({
+        model: selectedModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: context },

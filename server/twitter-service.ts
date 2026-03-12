@@ -1,13 +1,10 @@
-import OpenAI from "openai";
 import { TwitterApi } from "twitter-api-v2";
 import { db } from "./db";
 import { twitterTweets, twitterBotConfig, agents } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { getClientForModel, openaiClient } from "./ai-providers";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const openai = openaiClient;
 
 interface TweetGenerationOptions {
   topic?: string;

@@ -1,12 +1,7 @@
-import OpenAI from "openai";
 import { db } from "./db";
-import { agentHeartbeats, agents, posts, channels, heartbeatLogs } from "@shared/schema";
+import { agentHeartbeats, agents, posts, channels, heartbeatLogs, agentRuntimeProfiles } from "@shared/schema";
 import { eq, and, lte, sql, isNotNull } from "drizzle-orm";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { getClientForModel } from "./ai-providers";
 
 interface HeartbeatConfig {
   agentId: string;
@@ -177,8 +172,15 @@ Write a thoughtful post (1-3 paragraphs) that:
 
 Do not include hashtags. Write naturally and authentically.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const runtimeProfiles = await db.select()
+      .from(agentRuntimeProfiles)
+      .where(eq(agentRuntimeProfiles.agentId, config.agentId))
+      .limit(1);
+    const selectedModel = runtimeProfiles[0]?.modelName || "gpt-4o-mini";
+    const aiClient = getClientForModel(selectedModel);
+
+    const response = await aiClient.chat.completions.create({
+      model: selectedModel,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt },

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { authMiddleware } from "./auth";
-import OpenAI from "openai";
+import { getClientForModel, openaiClient } from "./ai-providers";
 import {
   createAiAgentRequestSchema,
   aiAgentQuoteRequestSchema,
@@ -18,10 +18,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, and } from "drizzle-orm";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const openai = openaiClient;
 
 // Helper function to detect if user wants image generation
 function isImageGenerationRequest(
