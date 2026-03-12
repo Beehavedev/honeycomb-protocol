@@ -296,12 +296,12 @@ export default function HoneyToken() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <Coins className="h-4 w-4 text-amber-500" />
-              <p className="text-xs text-muted-foreground">Circulating Supply</p>
+              <p className="text-xs text-muted-foreground">Max Supply</p>
             </div>
             <p className="text-lg font-bold" data-testid="text-circulating-supply">
-              {statsLoading ? "..." : formatNumber(parseFloat(effectiveCirculating))}
+              1,000,000,000
             </p>
-            <p className="text-xs text-muted-foreground">of 1B max{isContractDeployed && <Badge variant="outline" className="ml-1 text-[10px] no-default-active-elevate">On-chain</Badge>}</p>
+            <p className="text-xs text-muted-foreground">1B $HONEY{isContractDeployed && <Badge variant="outline" className="ml-1 text-[10px] no-default-active-elevate">On-chain</Badge>}</p>
           </CardContent>
         </Card>
         <Card>
