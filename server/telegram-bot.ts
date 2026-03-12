@@ -81,14 +81,25 @@ export function validateTelegramWebAppData(
 const apiBase = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 async function reply(chatId: number, text: string, replyMarkup?: any): Promise<void> {
-  if (!BOT_TOKEN) return;
+  if (!BOT_TOKEN) {
+    console.error("[TelegramBot] BOT_TOKEN is empty, cannot reply");
+    return;
+  }
   const body: any = { chat_id: chatId, text };
   if (replyMarkup) body.reply_markup = replyMarkup;
-  fetch(`${apiBase}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).catch(() => {});
+  try {
+    const res = await fetch(`${apiBase}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[TelegramBot] sendMessage failed (${res.status}):`, errBody);
+    }
+  } catch (err) {
+    console.error("[TelegramBot] sendMessage error:", err);
+  }
 }
 
 const miniAppButton = (label: string) => ({
@@ -97,10 +108,14 @@ const miniAppButton = (label: string) => ({
 
 export function handleTelegramUpdate(update: any): void {
   const message = update.message;
-  if (!message?.text) return;
+  if (!message?.text) {
+    console.log("[TelegramBot] Received non-text update:", JSON.stringify(update).substring(0, 200));
+    return;
+  }
 
   const chatId = message.chat.id;
   const command = message.text.trim().split(" ")[0].toLowerCase();
+  console.log(`[TelegramBot] Received command: ${command} from chat ${chatId}`);
 
   switch (command) {
     case "/start":
