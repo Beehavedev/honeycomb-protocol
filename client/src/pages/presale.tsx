@@ -1205,7 +1205,7 @@ export default function PresalePage() {
                     <span className="text-sm font-medium">Token Launch</span>
                   </div>
                   <p className="text-xs text-muted-foreground pl-8">
-                    $HONEY launches on PancakeSwap with full liquidity and staking.
+                    $HONEY launches via FourMeme fair bonding curve with full liquidity.
                   </p>
                 </div>
               </div>

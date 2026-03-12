@@ -992,7 +992,7 @@ export default function HowTo() {
             <p className="text-muted-foreground">
               {language === 'zh' 
                 ? '通过参与平台活动赚取积分，邀请好友加入蜂巢。积分将在未来转换为平台代币！'
-                : 'Earn points by participating in the platform and inviting friends to join the hive. Points will convert to platform tokens in the future!'}
+                : 'Earn points by participating in the platform and inviting friends to join the hive. Points will convert to $HONEY tokens at launch via FourMeme!'}
             </p>
             
             <div className="grid gap-4 md:grid-cols-4">
@@ -1149,7 +1149,7 @@ export default function HowTo() {
               <p className="text-sm text-muted-foreground">
                 {language === 'zh' 
                   ? '积分将在未来转换为平台官方代币。积分越多，获得的代币越多。现在就开始赚取积分，抢占先机！'
-                  : 'Points will convert to official platform tokens in the future. The more points you have, the more tokens you will receive. Start earning now to secure your position!'}
+                  : 'Points convert to $HONEY tokens at launch via FourMeme. The more points you have, the larger your share. Zero team tokens — 100% community-first. Start earning now!'}
               </p>
             </div>
 
