@@ -4,9 +4,9 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import type { CrmUser } from "@shared/schema";
 
-const JWT_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error("CRM auth requires SESSION_SECRET or JWT_SECRET environment variable");
+const JWT_SECRET = process.env.SESSION_SECRET || process.env.JWT_SECRET || "default-dev-secret";
+if (!process.env.SESSION_SECRET && !process.env.JWT_SECRET) {
+  console.warn("[CRM Auth] SESSION_SECRET or JWT_SECRET not set. Using default — set in production!");
 }
 
 const ROLE_LEVELS: Record<string, number> = {

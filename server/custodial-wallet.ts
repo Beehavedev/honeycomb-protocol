@@ -2,9 +2,9 @@ import crypto from "crypto";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.CUSTODIAL_WALLET_KEY || process.env.SESSION_SECRET;
-  if (!secret) {
-    throw new Error("CUSTODIAL_WALLET_KEY or SESSION_SECRET must be set for wallet encryption");
+  const secret = process.env.CUSTODIAL_WALLET_KEY || process.env.SESSION_SECRET || "default-dev-secret";
+  if (!process.env.CUSTODIAL_WALLET_KEY && !process.env.SESSION_SECRET) {
+    console.warn("[Custodial Wallet] CUSTODIAL_WALLET_KEY or SESSION_SECRET not set. Using default — set in production!");
   }
   return crypto.createHash("sha256").update(secret).digest();
 }

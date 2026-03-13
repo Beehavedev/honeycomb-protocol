@@ -9,7 +9,8 @@ const BSC_RPC = "https://bsc-dataseed1.binance.org";
 function getTournamentWallet() {
   const privateKey = process.env.TOURNAMENT_WALLET_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error("TOURNAMENT_WALLET_PRIVATE_KEY not configured");
+    console.warn("[Tournament] TOURNAMENT_WALLET_PRIVATE_KEY not configured. Prize distribution disabled.");
+    return null;
   }
 
   const formattedKey = privateKey.startsWith("0x")
