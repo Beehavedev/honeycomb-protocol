@@ -37,6 +37,13 @@ import {
   Gift,
   Crown,
   Medal,
+  Store,
+  Bot,
+  Brain,
+  Shield,
+  Search,
+  Activity,
+  Star,
 } from "lucide-react";
 
 declare global {
@@ -61,7 +68,13 @@ declare global {
   }
 }
 
-type TabType = "home" | "feed" | "arena" | "earn" | "bees" | "profile";
+type TabType = "home" | "feed" | "arena" | "earn" | "bees" | "market" | "agents" | "profile";
+
+type SubView =
+  | { type: "none" }
+  | { type: "nfa-detail"; id: string }
+  | { type: "agent-chat"; agentId: string }
+  | { type: "agent-profile"; agentId: string };
 
 interface LandingStats {
   totalUsers: number;
@@ -161,11 +174,21 @@ function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
           size="lg"
           variant="outline"
           className="w-full gap-2 border-amber-500/50 text-amber-400"
-          onClick={() => onSwitchTab("bees")}
-          data-testid="button-tg-view-bees"
+          onClick={() => onSwitchTab("market")}
+          data-testid="button-tg-view-market"
         >
-          <Hexagon className="w-4 h-4" />
-          View Bees
+          <Store className="w-4 h-4" />
+          NFA Marketplace
+        </Button>
+        <Button
+          size="lg"
+          variant="outline"
+          className="w-full gap-2 border-purple-500/50 text-purple-400"
+          onClick={() => onSwitchTab("agents")}
+          data-testid="button-tg-view-agents"
+        >
+          <Bot className="w-4 h-4" />
+          AI Agents
         </Button>
         <Button
           size="lg"
@@ -178,6 +201,1614 @@ function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
           Invite Friends
         </Button>
       </div>
+    </div>
+  );
+}
+
+type ArenaView = "lobby" | "playing" | "results";
+
+interface ActiveDuel {
+  id: string;
+  assetSymbol: string;
+  durationSeconds: number;
+  endsAt: string;
+  startedAt: string;
+  creatorId: string;
+  joinerId: string;
+  initialBalance: string;
+  botName?: string;
+}
+
+interface Position {
+  id: string;
+  side: string;
+  leverage: number;
+  sizeUsdt: string;
+  entryPrice: string;
+  isOpen: boolean;
+  pnl?: string;
+  exitPrice?: string;
+}
+
+interface DuelResult {
+  winnerId: string | null;
+  creatorPnl: string;
+  joinerPnl: string;
+}
+
+const ASSETS = [
+  { symbol: "BTCUSDT", label: "BTC", icon: "₿" },
+  { symbol: "ETHUSDT", label: "ETH", icon: "Ξ" },
+  { symbol: "BNBUSDT", label: "BNB", icon: "◆" },
+];
+
+const DURATIONS = [
+  { seconds: 120, label: "2 min" },
+  { seconds: 300, label: "5 min" },
+];
+
+function ArenaTab({ agentId }: { agentId?: string }) {
+  const [view, setView] = useState<ArenaView>("lobby");
+  const [activeDuel, setActiveDuel] = useState<ActiveDuel | null>(null);
+  const [duelResult, setDuelResult] = useState<DuelResult | null>(null);
+  const [starting, setStarting] = useState(false);
+
+  const handleStartDuel = async (asset: string, duration: number) => {
+    if (!agentId || starting) return;
+    setStarting(true);
+    try {
+      const res = await fetch("/api/trading-duels/play-vs-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId: agentId,
+          assetSymbol: asset,
+          durationSeconds: duration,
+          botDifficulty: "normal",
+          botStrategy: "momentum",
+        }),
+      });
+      if (res.ok) {
+        const duel = await res.json();
+        setActiveDuel(duel);
+        setView("playing");
+      }
+    } catch (err) {
+      console.error("Failed to start duel:", err);
+    }
+    setStarting(false);
+  };
+
+  const handleDuelEnd = (result: DuelResult) => {
+    setDuelResult(result);
+    setView("results");
+  };
+
+  const handlePlayAgain = () => {
+    setActiveDuel(null);
+    setDuelResult(null);
+    setView("lobby");
+  };
+
+  if (view === "playing" && activeDuel && agentId) {
+    return <GameView duel={activeDuel} agentId={agentId} onEnd={handleDuelEnd} onBack={handlePlayAgain} />;
+  }
+
+  if (view === "results" && duelResult && activeDuel && agentId) {
+    return <ResultsView result={duelResult} duel={activeDuel} agentId={agentId} onPlayAgain={handlePlayAgain} />;
+  }
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <h2 className="text-xl font-bold text-white mb-1" data-testid="text-tg-arena-title">
+        Trading Arena
+      </h2>
+      <p className="text-xs text-gray-400 mb-4">Trade against AI bots with live crypto prices</p>
+
+      {!agentId ? (
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-arena-login">
+          <Swords className="w-10 h-10 text-amber-500/50 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Open via @honeycombot to play</p>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-500/20 mb-4" data-testid="card-tg-quick-match">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-semibold text-white">Quick Match vs AI</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {ASSETS.map((a) => (
+                <Button
+                  key={a.symbol}
+                  size="sm"
+                  disabled={starting}
+                  className="bg-[#1a1a2e] border border-gray-700/50 text-white hover:border-amber-500/50 hover:bg-amber-500/10"
+                  onClick={() => handleStartDuel(a.symbol, 120)}
+                  data-testid={`button-tg-quick-${a.label.toLowerCase()}`}
+                >
+                  <span className="mr-1">{a.icon}</span> {a.label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-500 text-center">2-min practice duel · $10,000 virtual balance</p>
+          </Card>
+
+          <h3 className="text-sm font-semibold text-gray-300 mb-2">Choose Duration</h3>
+          <div className="space-y-2">
+            {ASSETS.map((asset) => (
+              <Card key={asset.symbol} className="p-3 bg-[#242444] border-gray-700/50" data-testid={`card-tg-asset-${asset.label.toLowerCase()}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{asset.icon}</span>
+                    <span className="text-sm font-medium text-white">{asset.label}/USDT</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {DURATIONS.map((d) => (
+                      <Button
+                        key={d.seconds}
+                        size="sm"
+                        variant="outline"
+                        disabled={starting}
+                        className="text-xs border-gray-600 text-gray-300 hover:border-amber-500 hover:text-amber-400"
+                        onClick={() => handleStartDuel(asset.symbol, d.seconds)}
+                        data-testid={`button-tg-play-${asset.label.toLowerCase()}-${d.seconds}`}
+                      >
+                        <Timer className="w-3 h-3 mr-1" />
+                        {d.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function GameView({ duel, agentId, onEnd, onBack }: {
+  duel: ActiveDuel;
+  agentId: string;
+  onEnd: (result: DuelResult) => void;
+  onBack: () => void;
+}) {
+  const [price, setPrice] = useState<number>(0);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [timeLeft, setTimeLeft] = useState(duel.durationSeconds);
+  const [pnl, setPnl] = useState(0);
+  const [balance, setBalance] = useState(parseFloat(duel.initialBalance));
+  const [status, setStatus] = useState<string>("");
+  const [settled, setSettled] = useState(false);
+  const [trading, setTrading] = useState(false);
+  const priceHistory = useRef<{ t: number; p: number }[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const priceRef = useRef<ReturnType<typeof setInterval>>();
+  const statusRef = useRef<ReturnType<typeof setInterval>>();
+  const settleTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const rafRef = useRef(0);
+  const mountedRef = useRef(true);
+  const latestPrice = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(settleTimeoutRef.current);
+    };
+  }, []);
+
+  const fetchPrice = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/trading-duels/binance/ticker?symbol=${duel.assetSymbol}`);
+      if (res.ok) {
+        const data = await res.json();
+        const p = parseFloat(data.price);
+        if (p > 0 && mountedRef.current) {
+          setPrice(p);
+          latestPrice.current = p;
+          priceHistory.current.push({ t: Date.now(), p });
+          if (priceHistory.current.length > 120) priceHistory.current.shift();
+        }
+      }
+    } catch {}
+  }, [duel.assetSymbol]);
+
+  const drawChart = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    const w = rect.width;
+    const h = rect.height;
+
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fillRect(0, 0, w, h);
+
+    const pts = priceHistory.current;
+    if (pts.length < 2) return;
+
+    const prices = pts.map(p => p.p);
+    const minP = Math.min(...prices);
+    const maxP = Math.max(...prices);
+    const range = maxP - minP || 1;
+
+    const isUp = pts[pts.length - 1].p >= pts[0].p;
+
+    ctx.strokeStyle = isUp ? "#22c55e" : "#ef4444";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    pts.forEach((pt, i) => {
+      const x = (i / (pts.length - 1)) * w;
+      const y = h - ((pt.p - minP) / range) * (h - 8) - 4;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, isUp ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    const openPos = positions.filter(p => p.isOpen);
+    openPos.forEach(pos => {
+      const ep = parseFloat(pos.entryPrice);
+      const y = h - ((ep - minP) / range) * (h - 8) - 4;
+      ctx.strokeStyle = pos.side === "long" ? "#22c55e80" : "#ef444480";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }, [positions]);
+
+  useEffect(() => {
+    fetchPrice();
+    priceRef.current = setInterval(fetchPrice, 1000);
+    return () => clearInterval(priceRef.current);
+  }, [fetchPrice]);
+
+  useEffect(() => {
+    let active = true;
+    const draw = () => {
+      if (!active) return;
+      drawChart();
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    rafRef.current = requestAnimationFrame(draw);
+    return () => { active = false; cancelAnimationFrame(rafRef.current); };
+  }, [drawChart]);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      const end = new Date(duel.endsAt).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((end - now) / 1000));
+      setTimeLeft(remaining);
+
+      if (remaining <= 0 && !settled) {
+        setSettled(true);
+        const fetchResults = () =>
+          fetch(`/api/trading-duels/${duel.id}/results`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.duel) {
+                const d = data.duel;
+                const result = data.result || {};
+                onEnd({
+                  winnerId: d.winnerId || null,
+                  creatorPnl: result.creatorPnl || d.creatorPnl || "0",
+                  joinerPnl: result.joinerPnl || d.joinerPnl || "0",
+                });
+                return true;
+              }
+              return false;
+            });
+
+        fetch(`/api/trading-duels/${duel.id}/settle`, { method: "POST" })
+          .then(() => new Promise(r => setTimeout(r, 1000)))
+          .then(() => fetchResults())
+          .then(ok => { if (!ok) return new Promise(r => setTimeout(r, 2000)).then(fetchResults); })
+          .catch(() => {
+            settleTimeoutRef.current = setTimeout(() => {
+              fetchResults().catch(() => onEnd({ winnerId: null, creatorPnl: "0", joinerPnl: "0" }));
+            }, 3000);
+          });
+      }
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [duel, settled, onEnd]);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (!mountedRef.current) return;
+      try {
+        const [posRes, statusRes] = await Promise.all([
+          fetch(`/api/trading-duels/${duel.id}/positions?agentId=${agentId}`),
+          fetch(`/api/trading-duels/${duel.id}/status?agentId=${agentId}`),
+        ]);
+
+        if (posRes.ok && mountedRef.current) {
+          const data = await posRes.json();
+          setPositions(data);
+
+          const initial = parseFloat(duel.initialBalance);
+          const curPrice = latestPrice.current;
+          let used = 0;
+          let realized = 0;
+          let unrealized = 0;
+          data.forEach((p: Position) => {
+            if (p.isOpen) {
+              used += parseFloat(p.sizeUsdt);
+              if (curPrice > 0) {
+                const entry = parseFloat(p.entryPrice);
+                const size = parseFloat(p.sizeUsdt);
+                const uPnl = p.side === "long"
+                  ? ((curPrice - entry) / entry) * size * p.leverage
+                  : ((entry - curPrice) / entry) * size * p.leverage;
+                unrealized += uPnl;
+              }
+            } else if (p.pnl) {
+              realized += parseFloat(p.pnl);
+            }
+          });
+          setPnl(realized + unrealized);
+          setBalance(initial + realized - used);
+        }
+        if (statusRes.ok && mountedRef.current) {
+          const s = await statusRes.json();
+          setStatus(s.relativeStatus || "");
+        }
+      } catch {}
+    };
+
+    fetchStatus();
+    statusRef.current = setInterval(fetchStatus, 2000);
+    return () => clearInterval(statusRef.current);
+  }, [duel.id, agentId, duel.initialBalance]);
+
+  const openPosition = async (side: "long" | "short") => {
+    if (trading || price <= 0) return;
+    setTrading(true);
+    try {
+      const sizeUsdt = Math.min(balance, parseFloat(duel.initialBalance) * 0.25).toFixed(2);
+      if (parseFloat(sizeUsdt) <= 0) { setTrading(false); return; }
+      await fetch(`/api/trading-duels/${duel.id}/open-position`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId,
+          side,
+          leverage: 5,
+          sizeUsdt,
+          clientPrice: price.toString(),
+        }),
+      });
+    } catch {}
+    setTrading(false);
+  };
+
+  const closePosition = async (positionId: string) => {
+    if (trading) return;
+    setTrading(true);
+    try {
+      await fetch(`/api/trading-duels/${duel.id}/close-position`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionId,
+          agentId,
+          clientPrice: price.toString(),
+        }),
+      });
+    } catch {}
+    setTrading(false);
+  };
+
+  const formatPrice = (p: number) => {
+    if (p >= 1000) return p.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    if (p >= 1) return p.toFixed(2);
+    return p.toFixed(4);
+  };
+
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const openPos = positions.filter(p => p.isOpen);
+  const pnlColor = pnl >= 0 ? "text-green-400" : "text-red-400";
+
+  return (
+    <div className="flex flex-col h-full px-2 pt-2 pb-4" data-testid="container-tg-game">
+      <div className="flex items-center justify-between mb-2 px-2">
+        <button onClick={onBack} className="text-gray-400 hover:text-white" data-testid="button-tg-game-back">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <Badge className={`${timeLeft < 30 ? "bg-red-500/20 text-red-400" : "bg-gray-700/50 text-gray-300"} font-mono`}>
+            <Timer className="w-3 h-3 mr-1" />
+            {mins}:{secs.toString().padStart(2, "0")}
+          </Badge>
+        </div>
+        <span className="text-xs text-gray-500">vs {duel.botName || "AI Bot"}</span>
+      </div>
+
+      <div className="flex items-center justify-between px-2 mb-1">
+        <div>
+          <span className="text-[10px] text-gray-500">{duel.assetSymbol.replace("USDT", "/USDT")}</span>
+          <div className="text-lg font-bold text-white font-mono" data-testid="text-tg-live-price">
+            ${formatPrice(price)}
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-[10px] text-gray-500">Your P&L</span>
+          <div className={`text-lg font-bold font-mono ${pnlColor}`} data-testid="text-tg-pnl">
+            {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)}
+          </div>
+        </div>
+      </div>
+
+      {status && (
+        <div className="text-center mb-1">
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+            status.includes("LEAD") ? "bg-green-500/20 text-green-400" :
+            status.includes("BEHIND") ? "bg-red-500/20 text-red-400" :
+            "bg-gray-700/50 text-gray-400"
+          }`} data-testid="text-tg-status">{status}</span>
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 mb-2 rounded-lg overflow-hidden border border-gray-700/30">
+        <canvas ref={canvasRef} className="w-full h-full" style={{ minHeight: 140 }} data-testid="canvas-tg-chart" />
+      </div>
+
+      {openPos.length > 0 && (
+        <div className="space-y-1 mb-2 px-1">
+          {openPos.map(pos => {
+            const entry = parseFloat(pos.entryPrice);
+            const uPnl = price > 0 ? (
+              pos.side === "long"
+                ? ((price - entry) / entry) * parseFloat(pos.sizeUsdt) * pos.leverage
+                : ((entry - price) / entry) * parseFloat(pos.sizeUsdt) * pos.leverage
+            ) : 0;
+            return (
+              <div key={pos.id} className="flex items-center justify-between bg-[#242444] rounded-lg px-3 py-2" data-testid={`row-tg-position-${pos.id}`}>
+                <div className="flex items-center gap-2">
+                  {pos.side === "long" ? <TrendingUp className="w-3.5 h-3.5 text-green-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
+                  <span className="text-xs text-white">{pos.side.toUpperCase()} {pos.leverage}x</span>
+                  <span className="text-xs text-gray-500">${parseFloat(pos.sizeUsdt).toFixed(0)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-mono ${uPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {uPnl >= 0 ? "+" : ""}{uPnl.toFixed(2)}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] border-gray-600 text-gray-300"
+                    onClick={() => closePosition(pos.id)}
+                    disabled={trading}
+                    data-testid={`button-tg-close-${pos.id}`}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 px-1">
+        <Button
+          className="h-12 bg-green-600 hover:bg-green-700 text-white font-bold text-base gap-1"
+          onClick={() => openPosition("long")}
+          disabled={trading || balance <= 0 || timeLeft <= 0}
+          data-testid="button-tg-long"
+        >
+          <TrendingUp className="w-4 h-4" />
+          LONG
+        </Button>
+        <Button
+          className="h-12 bg-red-600 hover:bg-red-700 text-white font-bold text-base gap-1"
+          onClick={() => openPosition("short")}
+          disabled={trading || balance <= 0 || timeLeft <= 0}
+          data-testid="button-tg-short"
+        >
+          <TrendingDown className="w-4 h-4" />
+          SHORT
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between px-2 mt-2">
+        <span className="text-[10px] text-gray-500">Balance: ${balance.toFixed(0)} · 5x leverage · 25% size</span>
+      </div>
+    </div>
+  );
+}
+
+function ResultsView({ result, duel, agentId, onPlayAgain }: {
+  result: DuelResult;
+  duel: ActiveDuel;
+  agentId: string;
+  onPlayAgain: () => void;
+}) {
+  const isWinner = result.winnerId === agentId;
+  const isDraw = !result.winnerId;
+  const myPnl = duel.creatorId === agentId
+    ? parseFloat(result.creatorPnl)
+    : parseFloat(result.joinerPnl);
+
+  return (
+    <div className="flex flex-col items-center justify-center px-6 pt-12 pb-4" data-testid="container-tg-results">
+      <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
+        isDraw ? "bg-gray-700/50" : isWinner ? "bg-green-500/20" : "bg-red-500/20"
+      }`}>
+        {isDraw ? (
+          <Target className="w-10 h-10 text-gray-400" />
+        ) : isWinner ? (
+          <Trophy className="w-10 h-10 text-amber-500" />
+        ) : (
+          <Swords className="w-10 h-10 text-red-400" />
+        )}
+      </div>
+
+      <h2 className={`text-2xl font-bold mb-1 ${
+        isDraw ? "text-gray-300" : isWinner ? "text-green-400" : "text-red-400"
+      }`} data-testid="text-tg-result-title">
+        {isDraw ? "Draw!" : isWinner ? "Victory!" : "Defeat"}
+      </h2>
+
+      <p className="text-sm text-gray-400 mb-6">
+        {isDraw ? "Both players tied" : isWinner ? `You beat ${duel.botName || "AI Bot"}!` : `${duel.botName || "AI Bot"} wins`}
+      </p>
+
+      <Card className="p-4 bg-[#242444] border-gray-700/50 w-full mb-6" data-testid="card-tg-result-stats">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400">Your P&L</span>
+          <span className={`text-sm font-bold font-mono ${myPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {myPnl >= 0 ? "+" : ""}{myPnl.toFixed(2)} USDT
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-400">Asset</span>
+          <span className="text-xs text-white">{duel.assetSymbol.replace("USDT", "/USDT")}</span>
+        </div>
+      </Card>
+
+      <div className="flex flex-col gap-3 w-full">
+        <Button
+          size="lg"
+          className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold"
+          onClick={onPlayAgain}
+          data-testid="button-tg-play-again"
+        >
+          <Sparkles className="w-4 h-4" />
+          Play Again
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface TgNfaAgent {
+  id: string;
+  tokenId: number;
+  ownerAddress: string;
+  name: string;
+  description: string | null;
+  modelType: string;
+  agentType: string;
+  status: string;
+  interactionCount: number;
+  balance: string;
+  mintTxHash: string | null;
+  onChainTokenId: number | null;
+  learningEnabled: boolean;
+  createdAt: string;
+  listingPrice: string | null;
+  listingPriceDisplay: string | null;
+  isListed: boolean;
+  category: string | null;
+  persona: string | null;
+  experience: string | null;
+}
+
+interface TgNfaStats {
+  totalInteractions: number;
+  totalRevenue: string;
+  rating: number;
+  ratingCount: number;
+}
+
+interface TgAiAgent {
+  id: string;
+  agentId: string;
+  name: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  capabilities: string[];
+  pricingModel: string;
+  pricePerUnit: string;
+  creatorAddress: string;
+  isActive: boolean;
+  totalInteractions: number;
+  totalEarnings: string;
+  createdAt: string;
+  agentType: string;
+}
+
+interface TgAgentActivity {
+  recentConversations: Array<{
+    id: string;
+    title: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  auditLogs: Array<{
+    id: string;
+    actionType: string;
+    result: string;
+    createdAt: string;
+  }>;
+  totalConversations: number;
+}
+
+function MarketTab({ onViewNfa }: { onViewNfa: (id: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("recent");
+  const [typeFilter, setTypeFilter] = useState("");
+  const { data: nfas, isLoading } = useQuery<TgNfaAgent[]>({
+    queryKey: ["/api/telegram/nfa/agents", search, sort, typeFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({ sort, limit: "30" });
+      if (search) params.set("search", search);
+      if (typeFilter) params.set("type", typeFilter);
+      return fetch(`/api/telegram/nfa/agents?${params}`).then((r) => r.ok ? r.json() : []);
+    },
+    staleTime: 30000,
+  });
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <h2 className="text-xl font-bold text-white mb-1" data-testid="text-tg-market-title">NFA Marketplace</h2>
+      <p className="text-xs text-gray-400 mb-4">Browse Non-Fungible Agents on BNB Chain</p>
+
+      <div className="relative mb-3">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search agents..."
+          className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+          data-testid="input-tg-nfa-search"
+        />
+      </div>
+
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {[
+          { value: "recent", label: "Recent" },
+          { value: "interactions", label: "Popular" },
+          { value: "name", label: "A-Z" },
+        ].map((s) => (
+          <button
+            key={s.value}
+            onClick={() => setSort(s.value)}
+            className={`text-xs px-3 py-1 rounded-full whitespace-nowrap transition-colors ${sort === s.value ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"}`}
+            data-testid={`button-tg-nfa-sort-${s.value}`}
+          >
+            {s.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setTypeFilter(typeFilter === "LEARNING" ? "" : "LEARNING")}
+          className={`text-xs px-3 py-1 rounded-full whitespace-nowrap transition-colors flex items-center gap-1 ${typeFilter === "LEARNING" ? "bg-blue-500/20 text-blue-400" : "text-gray-500 bg-[#242444]"}`}
+          data-testid="button-tg-nfa-filter-learning"
+        >
+          <Brain className="w-3 h-3" /> Learning
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-3 bg-[#242444] rounded-xl animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-700 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-24 bg-gray-700 rounded" />
+                  <div className="h-3 w-32 bg-gray-700 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : !nfas || nfas.length === 0 ? (
+        <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-empty-nfas">
+          <Bot className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">No agents found</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {nfas.map((nfa) => (
+            <button
+              key={nfa.id}
+              onClick={() => onViewNfa(nfa.id)}
+              className="w-full text-left"
+              data-testid={`card-tg-nfa-${nfa.id}`}
+            >
+              <Card className="p-3 bg-[#242444] border-gray-700/50 hover:border-amber-500/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <Bot className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-white truncate">{nfa.name}</span>
+                      <Badge className="text-[9px] px-1.5 py-0 bg-gray-700 border-0 text-gray-400">#{nfa.tokenId}</Badge>
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">{nfa.description || "No description"}</div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-1">
+                      {nfa.agentType === "LEARNING" && <Brain className="w-3 h-3 text-blue-400" />}
+                      {nfa.mintTxHash && <Shield className="w-3 h-3 text-green-400" />}
+                    </div>
+                    {nfa.isListed && nfa.listingPriceDisplay ? (
+                      <div className="text-[10px] text-amber-400 font-medium" data-testid={`text-tg-nfa-price-${nfa.id}`}>
+                        {nfa.listingPriceDisplay} BNB
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                        <Zap className="w-3 h-3" /> {nfa.interactionCount}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface TgNfaListing {
+  priceWei: string;
+  priceDisplay: string;
+  sellerAddress: string;
+}
+
+function NfaDetailView({ nfaId, onBack }: { nfaId: string; onBack: () => void }) {
+  const { data, isLoading } = useQuery<{ agent: TgNfaAgent; stats: TgNfaStats | null; listing: TgNfaListing | null }>({
+    queryKey: ["/api/telegram/nfa/agents", nfaId],
+    queryFn: () => fetch(`/api/telegram/nfa/agents/${nfaId}`).then((r) => r.ok ? r.json() : null),
+    enabled: !!nfaId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pt-6 pb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-nfa-back">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="animate-pulse space-y-4">
+          <div className="h-16 bg-gray-700 rounded-xl" />
+          <div className="h-32 bg-gray-700 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!data?.agent) {
+    return (
+      <div className="px-4 pt-6 pb-4 text-center">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-nfa-back">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <Bot className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+        <p className="text-gray-400">Agent not found</p>
+      </div>
+    );
+  }
+
+  const { agent, stats, listing } = data;
+  const balanceBnb = (parseFloat(agent.balance || "0") / 1e18).toFixed(4);
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-nfa-back">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+
+      <Card className="p-4 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-nfa-header">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center">
+            <Bot className="w-7 h-7 text-amber-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-white" data-testid="text-tg-nfa-name">{agent.name}</h2>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <Badge className="text-[10px] px-1.5 py-0 bg-gray-700 border-0 text-gray-400">#{agent.tokenId}</Badge>
+              <Badge className={`text-[10px] px-1.5 py-0 border-0 ${agent.agentType === "LEARNING" ? "bg-blue-500/20 text-blue-400" : "bg-gray-600 text-gray-300"}`}>
+                {agent.agentType === "LEARNING" ? "Learning" : "Static"}
+              </Badge>
+              <Badge className={`text-[10px] px-1.5 py-0 border-0 ${agent.status === "ACTIVE" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                {agent.status}
+              </Badge>
+              {agent.mintTxHash && (
+                <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-400 border-0">
+                  <Shield className="w-3 h-3 mr-0.5" /> On-Chain
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+        {agent.description && (
+          <p className="text-xs text-gray-400 mb-3" data-testid="text-tg-nfa-description">{agent.description}</p>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="stat-tg-nfa-interactions">
+          <Zap className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+          <div className="text-lg font-bold text-white">{stats?.totalInteractions || agent.interactionCount}</div>
+          <div className="text-[10px] text-gray-500">Interactions</div>
+        </Card>
+        <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="stat-tg-nfa-balance">
+          <Wallet className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+          <div className="text-lg font-bold text-white">{balanceBnb}</div>
+          <div className="text-[10px] text-gray-500">BNB Balance</div>
+        </Card>
+        {stats && (
+          <>
+            <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="stat-tg-nfa-rating">
+              <Star className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+              <div className="text-lg font-bold text-white">{stats.rating.toFixed(1)}</div>
+              <div className="text-[10px] text-gray-500">Rating ({stats.ratingCount})</div>
+            </Card>
+            <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="stat-tg-nfa-revenue">
+              <TrendingUp className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+              <div className="text-lg font-bold text-white">{(parseFloat(stats.totalRevenue || "0") / 1e18).toFixed(4)}</div>
+              <div className="text-[10px] text-gray-500">Revenue (BNB)</div>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {(agent.category || agent.experience || agent.persona) && (
+        <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-nfa-capabilities">
+          <h3 className="text-xs font-semibold text-gray-300 mb-2">Capabilities</h3>
+          <div className="space-y-2">
+            {agent.category && (
+              <div className="flex items-center gap-2">
+                <Badge className="text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 border-0">{agent.category.replace(/-/g, " ")}</Badge>
+              </div>
+            )}
+            {agent.experience && (
+              <p className="text-xs text-gray-400">{agent.experience}</p>
+            )}
+            {agent.persona && (
+              <div className="text-xs text-gray-400">
+                <span className="text-gray-500 block mb-1">Persona</span>
+                <p className="text-gray-300">{agent.persona.length > 200 ? agent.persona.slice(0, 200) + "..." : agent.persona}</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-nfa-info">
+        <h3 className="text-xs font-semibold text-gray-300 mb-2">Details</h3>
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Model</span>
+            <span className="text-white">{agent.modelType}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Owner</span>
+            <span className="text-amber-400 font-mono text-[10px]">{agent.ownerAddress.slice(0, 6)}...{agent.ownerAddress.slice(-4)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Created</span>
+            <span className="text-white">{new Date(agent.createdAt).toLocaleDateString()}</span>
+          </div>
+          {agent.mintTxHash && (
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">Mint TX</span>
+              <span className="text-amber-400 font-mono text-[10px]">{agent.mintTxHash.slice(0, 10)}...</span>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {listing && (
+        <Card className="p-4 bg-gradient-to-r from-amber-500/10 to-amber-600/5 border-amber-500/30 mb-4" data-testid="card-tg-nfa-purchase">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-white">For Sale</h3>
+              <p className="text-xs text-gray-400">Listed by {listing.sellerAddress.slice(0, 6)}...{listing.sellerAddress.slice(-4)}</p>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-amber-400" data-testid="text-tg-nfa-listing-price">{listing.priceDisplay} BNB</div>
+              <div className="text-[10px] text-gray-500">{listing.priceWei} wei</div>
+            </div>
+          </div>
+          <Button
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium gap-2"
+            onClick={() => {
+              window.open(`https://thehoneycomb.social/nfa/${agent.tokenId}`, "_blank");
+            }}
+            data-testid="button-tg-nfa-purchase"
+          >
+            <Wallet className="w-4 h-4" />
+            Purchase on Honeycomb
+          </Button>
+        </Card>
+      )}
+
+      {!listing && (
+        <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4 text-center" data-testid="card-tg-nfa-not-listed">
+          <p className="text-xs text-gray-500">This agent is not currently listed for sale</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 border-amber-500/30 text-amber-400 text-xs"
+            onClick={() => {
+              window.open(`https://thehoneycomb.social/nfa/${agent.tokenId}`, "_blank");
+            }}
+            data-testid="button-tg-nfa-view-web"
+          >
+            View on Honeycomb
+          </Button>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function AgentsTab({ onViewAgent, onChatAgent }: { onViewAgent: (agentId: string) => void; onChatAgent: (agentId: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("popular");
+  const [pricingFilter, setPricingFilter] = useState("");
+  const [agentTypeFilter, setAgentTypeFilter] = useState("");
+  const { data: aiAgents, isLoading } = useQuery<TgAiAgent[]>({
+    queryKey: ["/api/telegram/ai-agents", sort, pricingFilter, agentTypeFilter],
+    queryFn: () => {
+      const params = new URLSearchParams({ sort });
+      if (pricingFilter) params.set("pricing", pricingFilter);
+      if (agentTypeFilter) params.set("agentType", agentTypeFilter);
+      return fetch(`/api/telegram/ai-agents?${params}`).then((r) => r.ok ? r.json() : []);
+    },
+    staleTime: 30000,
+  });
+
+  const filtered = (aiAgents || []).filter((a) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return a.name.toLowerCase().includes(q) || a.bio?.toLowerCase().includes(q);
+  });
+
+  const formatPrice = (wei: string) => {
+    const bnb = parseFloat(wei) / 1e18;
+    if (bnb === 0) return "Free";
+    if (bnb < 0.0001) return `${(bnb * 1e6).toFixed(2)} μBNB`;
+    if (bnb < 0.01) return `${(bnb * 1000).toFixed(3)} mBNB`;
+    return `${bnb.toFixed(4)} BNB`;
+  };
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <h2 className="text-xl font-bold text-white mb-1" data-testid="text-tg-agents-title">AI Agents</h2>
+      <p className="text-xs text-gray-400 mb-4">Chat with AI-powered agents</p>
+
+      <div className="relative mb-3">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search agents..."
+          className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+          data-testid="input-tg-agents-search"
+        />
+      </div>
+
+      <div className="flex gap-2 mb-3 overflow-x-auto">
+        {[
+          { value: "popular", label: "Popular" },
+          { value: "rating", label: "Rating" },
+          { value: "recent", label: "Recent" },
+          { value: "earnings", label: "Top Earners" },
+        ].map((s) => (
+          <button
+            key={s.value}
+            onClick={() => setSort(s.value)}
+            className={`text-xs px-3 py-1 rounded-full whitespace-nowrap transition-colors ${sort === s.value ? "bg-purple-500/20 text-purple-400" : "text-gray-500 bg-[#242444]"}`}
+            data-testid={`button-tg-agent-sort-${s.value}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {[
+          { value: "", label: "All Types" },
+          { value: "STATIC", label: "Static" },
+          { value: "LEARNING", label: "Learning" },
+        ].map((f) => (
+          <button
+            key={f.value || "all-types"}
+            onClick={() => setAgentTypeFilter(f.value)}
+            className={`text-xs px-3 py-1 rounded-full whitespace-nowrap transition-colors flex items-center gap-1 ${agentTypeFilter === f.value ? "bg-blue-500/20 text-blue-400" : "text-gray-500 bg-[#242444]"}`}
+            data-testid={`button-tg-agent-type-${f.value || "all"}`}
+          >
+            {f.value === "LEARNING" && <Brain className="w-3 h-3" />}
+            {f.label}
+          </button>
+        ))}
+        <span className="text-gray-700 self-center">|</span>
+        {[
+          { value: "", label: "All Prices" },
+          { value: "free", label: "Free" },
+          { value: "paid", label: "Paid" },
+        ].map((f) => (
+          <button
+            key={f.value || "all-pricing"}
+            onClick={() => setPricingFilter(f.value)}
+            className={`text-xs px-3 py-1 rounded-full whitespace-nowrap transition-colors ${pricingFilter === f.value ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"}`}
+            data-testid={`button-tg-agent-pricing-${f.value || "all"}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-3 bg-[#242444] rounded-xl animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-700 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-24 bg-gray-700 rounded" />
+                  <div className="h-3 w-32 bg-gray-700 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-empty-agents">
+          <Bot className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">{search ? "No agents match your search" : "No AI agents available yet"}</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((agent) => (
+            <Card key={agent.id} className="p-3 bg-[#242444] border-gray-700/50" data-testid={`card-tg-agent-${agent.agentId}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0">
+                  <Bot className="w-5 h-5 text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-white truncate block">{agent.name}</span>
+                  <span className="text-xs text-gray-500 truncate block">{agent.bio || "AI assistant"}</span>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Badge className={`text-[9px] px-1.5 py-0 border-0 ${agent.agentType === "LEARNING" ? "bg-blue-500/20 text-blue-400" : "bg-gray-600 text-gray-300"}`}>
+                    {agent.agentType === "LEARNING" ? "Learning" : "Static"}
+                  </Badge>
+                  {agent.isActive && (
+                    <Badge className="text-[9px] px-1.5 py-0 bg-green-500/10 text-green-400 border-0">
+                      <Activity className="w-2.5 h-2.5 mr-0.5" /> Live
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              {agent.capabilities && agent.capabilities.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {agent.capabilities.slice(0, 4).map((cap) => (
+                    <Badge key={cap} className="text-[9px] px-1.5 py-0 bg-gray-700 text-gray-400 border-0">{cap}</Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-[10px] text-gray-500">
+                  <span className="flex items-center gap-0.5"><MessageSquare className="w-3 h-3" /> {agent.totalInteractions}</span>
+                  <span>{formatPrice(agent.pricePerUnit)}/{agent.pricingModel === "per_message" ? "msg" : agent.pricingModel === "per_token" ? "1K tok" : "task"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onViewAgent(agent.agentId)}
+                    className="text-[10px] text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-700/50"
+                    data-testid={`button-tg-view-agent-${agent.agentId}`}
+                  >
+                    Profile
+                  </button>
+                  <button
+                    onClick={() => onChatAgent(agent.agentId)}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 px-2 py-1 rounded bg-amber-500/10 flex items-center gap-1"
+                    data-testid={`button-tg-chat-agent-${agent.agentId}`}
+                  >
+                    <MessageSquare className="w-3 h-3" /> Chat
+                  </button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface TgChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+}
+
+function AgentChatView({ agentId, onBack }: { agentId: string; onBack: () => void }) {
+  const [message, setMessage] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [localMessages, setLocalMessages] = useState<TgChatMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: agentData, isLoading: loadingAgent } = useQuery<TgAiAgent>({
+    queryKey: ["/api/telegram/ai-agents", agentId],
+    queryFn: () => fetch(`/api/telegram/ai-agents/${agentId}`).then((r) => r.ok ? r.json() : null),
+    enabled: !!agentId,
+  });
+
+  const { data: savedMessages } = useQuery<TgChatMessage[]>({
+    queryKey: ["/api/telegram/ai-agents/conversations", conversationId, "messages"],
+    queryFn: () => fetch(`/api/telegram/ai-agents/conversations/${conversationId}/messages`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("tg_token")}` },
+    }).then((r) => r.ok ? r.json() : []),
+    enabled: !!conversationId,
+  });
+
+  useEffect(() => {
+    if (savedMessages && Array.isArray(savedMessages) && savedMessages.length > 0) {
+      setLocalMessages(savedMessages);
+    }
+  }, [savedMessages]);
+
+  const [streamingContent, setStreamingContent] = useState("");
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [localMessages, streamingContent]);
+
+  const handleSend = async () => {
+    if (!message.trim() || sending) return;
+    const userMsg: TgChatMessage = {
+      id: `u-${Date.now()}`,
+      role: "user",
+      content: message.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setLocalMessages((prev) => [...prev, userMsg]);
+    setMessage("");
+    setSending(true);
+    setStreamingContent("");
+
+    try {
+      const token = localStorage.getItem("tg_token");
+      const res = await fetch(`/api/telegram/ai-agents/${agentId}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: userMsg.content, conversationId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Failed" }));
+        setLocalMessages((prev) => [
+          ...prev,
+          { id: `e-${Date.now()}`, role: "assistant", content: `Error: ${err.message || "Failed to get response"}`, createdAt: new Date().toISOString() },
+        ]);
+        setSending(false);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setLocalMessages((prev) => [
+          ...prev,
+          { id: `e-${Date.now()}`, role: "assistant", content: "Streaming not supported", createdAt: new Date().toISOString() },
+        ]);
+        setSending(false);
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      let newConversationId = conversationId;
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (payload.type === "start" && payload.conversationId) {
+              newConversationId = payload.conversationId;
+            } else if (payload.type === "chunk" && payload.content) {
+              accumulated += payload.content;
+              setStreamingContent(accumulated);
+            } else if (payload.type === "done") {
+              if (!conversationId && newConversationId) {
+                setConversationId(newConversationId);
+              }
+            }
+          } catch {}
+        }
+      }
+
+      if (buffer.startsWith("data: ")) {
+        try {
+          const payload = JSON.parse(buffer.slice(6));
+          if (payload.type === "chunk" && payload.content) {
+            accumulated += payload.content;
+          } else if (payload.type === "done" && !conversationId && newConversationId) {
+            setConversationId(newConversationId);
+          }
+        } catch {}
+      }
+
+      setLocalMessages((prev) => [
+        ...prev,
+        { id: `a-${Date.now()}`, role: "assistant", content: accumulated || "No response received.", createdAt: new Date().toISOString() },
+      ]);
+      setStreamingContent("");
+    } catch {
+      setLocalMessages((prev) => [
+        ...prev,
+        { id: `e-${Date.now()}`, role: "assistant", content: "Network error. Please try again.", createdAt: new Date().toISOString() },
+      ]);
+    }
+    setSending(false);
+  };
+
+  if (loadingAgent) {
+    return (
+      <div className="px-4 pt-6 pb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-chat-back">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="animate-pulse h-32 bg-gray-700 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (!agentData) {
+    return (
+      <div className="px-4 pt-6 pb-4 text-center">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-chat-back">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <Bot className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+        <p className="text-gray-400">Agent not found</p>
+      </div>
+    );
+  }
+
+  const hasToken = !!localStorage.getItem("tg_token");
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-80px)]">
+      <div className="px-4 pt-3 pb-2 border-b border-gray-700/50 bg-[#1a1a2e]">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="text-gray-400" data-testid="button-tg-chat-back">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center">
+            <Bot className="w-4 h-4 text-purple-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium text-white truncate block" data-testid="text-tg-chat-agent-name">{agentData.name}</span>
+            <span className="text-[10px] text-gray-500">{agentData.isActive ? "Online" : "Offline"}</span>
+          </div>
+          {conversationId && (
+            <button
+              onClick={() => { setConversationId(null); setLocalMessages([]); }}
+              className="text-[10px] text-amber-400 px-2 py-1 rounded bg-amber-500/10"
+              data-testid="button-tg-new-chat"
+            >
+              New Chat
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {localMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <Bot className="w-12 h-12 text-gray-700 mb-3" />
+            <p className="text-sm text-gray-400 mb-1">Start chatting with {agentData.name}</p>
+            <p className="text-[10px] text-gray-600">Messages are free in the Telegram Mini App</p>
+          </div>
+        ) : (
+          localMessages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
+                  msg.role === "user"
+                    ? "bg-amber-500 text-white rounded-br-sm"
+                    : "bg-[#242444] text-gray-200 rounded-bl-sm"
+                }`}
+                data-testid={`msg-tg-${msg.role}-${msg.id}`}
+              >
+                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+              </div>
+            </div>
+          ))
+        )}
+        {sending && (
+          <div className="flex justify-start">
+            <div className="bg-[#242444] rounded-2xl rounded-bl-sm px-3 py-2 max-w-[80%]">
+              {streamingContent ? (
+                <p className="text-sm text-gray-200 whitespace-pre-wrap break-words" data-testid="text-tg-chat-streaming">{streamingContent}<span className="inline-block w-1.5 h-4 bg-amber-500 animate-pulse ml-0.5 align-middle" /></p>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+                  <span className="text-xs text-gray-400">Thinking...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="px-4 pb-3 pt-2 border-t border-gray-700/50 bg-[#1a1a2e]">
+        {!hasToken ? (
+          <div className="text-center py-2">
+            <p className="text-xs text-gray-400">Open via @honeycombot to chat</p>
+          </div>
+        ) : !agentData.isActive ? (
+          <div className="text-center py-2">
+            <p className="text-xs text-gray-400">This agent is currently offline</p>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2">
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={`Message ${agentData.name}...`}
+              rows={1}
+              disabled={sending}
+              className="flex-1 px-3 py-2 rounded-xl bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50 resize-none max-h-20"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              data-testid="input-tg-chat-message"
+            />
+            <Button
+              size="sm"
+              disabled={!message.trim() || sending}
+              className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-9 w-9 p-0 shrink-0"
+              onClick={handleSend}
+              data-testid="button-tg-chat-send"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AgentProfileView({ agentId, onBack, onChat }: { agentId: string; onBack: () => void; onChat: (agentId: string) => void }) {
+  const { data: agentData, isLoading } = useQuery<TgAiAgent>({
+    queryKey: ["/api/telegram/ai-agents", agentId],
+    queryFn: () => fetch(`/api/telegram/ai-agents/${agentId}`).then((r) => r.ok ? r.json() : null),
+    enabled: !!agentId,
+  });
+
+  const { data: activity } = useQuery<TgAgentActivity>({
+    queryKey: ["/api/telegram/ai-agents", agentId, "activity"],
+    queryFn: () => fetch(`/api/telegram/ai-agents/${agentId}/activity`).then((r) => r.ok ? r.json() : null),
+    enabled: !!agentId,
+    staleTime: 30000,
+  });
+
+  const formatPrice = (wei: string) => {
+    const bnb = parseFloat(wei) / 1e18;
+    if (bnb === 0) return "Free";
+    if (bnb < 0.0001) return `${(bnb * 1e6).toFixed(2)} μBNB`;
+    return `${bnb.toFixed(4)} BNB`;
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pt-6 pb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-agent-profile-back">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="animate-pulse space-y-4">
+          <div className="h-24 bg-gray-700 rounded-xl" />
+          <div className="h-32 bg-gray-700 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!agentData) {
+    return (
+      <div className="px-4 pt-6 pb-4 text-center">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-agent-profile-back">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
+        <Bot className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+        <p className="text-gray-400">Agent not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-agent-profile-back">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+
+      <Card className="p-4 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-agent-header">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
+            <Bot className="w-8 h-8 text-purple-400" />
+          </div>
+          <h2 className="text-lg font-bold text-white" data-testid="text-tg-agent-name">{agentData.name}</h2>
+          <p className="text-xs text-gray-400 mt-1 max-w-xs">{agentData.bio || "AI-powered assistant"}</p>
+          <div className="flex gap-2 mt-2">
+            {agentData.isActive && (
+              <Badge className="text-[10px] px-2 py-0 bg-green-500/10 text-green-400 border-0">
+                <Activity className="w-2.5 h-2.5 mr-1" /> Online
+              </Badge>
+            )}
+            <Badge className={`text-[10px] px-2 py-0 border-0 ${agentData.agentType === "LEARNING" ? "bg-blue-500/20 text-blue-400" : "bg-gray-600 text-gray-300"}`}>
+              {agentData.agentType === "LEARNING" ? "Learning" : "Static"}
+            </Badge>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="stat-tg-agent-interactions">
+          <MessageSquare className="w-4 h-4 text-purple-400 mx-auto mb-1" />
+          <div className="text-lg font-bold text-white">{agentData.totalInteractions}</div>
+          <div className="text-[10px] text-gray-500">Interactions</div>
+        </Card>
+        <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="stat-tg-agent-earnings">
+          <Wallet className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+          <div className="text-lg font-bold text-white">{(parseFloat(agentData.totalEarnings || "0") / 1e18).toFixed(4)}</div>
+          <div className="text-[10px] text-gray-500">Earnings (BNB)</div>
+        </Card>
+      </div>
+
+      {agentData.capabilities && agentData.capabilities.length > 0 && (
+        <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-agent-capabilities">
+          <h3 className="text-xs font-semibold text-gray-300 mb-2">Capabilities</h3>
+          <div className="flex flex-wrap gap-1.5">
+            {agentData.capabilities.map((cap) => (
+              <Badge key={cap} className="text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-400 border-0">{cap}</Badge>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-agent-info">
+        <h3 className="text-xs font-semibold text-gray-300 mb-2">Details</h3>
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Pricing</span>
+            <span className="text-white">{formatPrice(agentData.pricePerUnit)} / {agentData.pricingModel === "per_message" ? "message" : agentData.pricingModel === "per_token" ? "1K tokens" : "task"}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Type</span>
+            <span className="text-white">{agentData.agentType === "LEARNING" ? "Learning Agent" : "Static Agent"}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Creator</span>
+            <span className="text-amber-400 font-mono text-[10px]">{agentData.creatorAddress.slice(0, 6)}...{agentData.creatorAddress.slice(-4)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500">Created</span>
+            <span className="text-white">{new Date(agentData.createdAt).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </Card>
+
+      {activity && activity.recentConversations.length > 0 && (
+        <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-agent-activity">
+          <h3 className="text-xs font-semibold text-gray-300 mb-2">Recent Activity</h3>
+          <div className="space-y-2">
+            {activity.recentConversations.slice(0, 5).map((conv) => (
+              <div key={conv.id} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <MessageSquare className="w-3 h-3 text-purple-400 shrink-0" />
+                  <span className="text-gray-300 truncate">{conv.title || "Conversation"}</span>
+                </div>
+                <span className="text-gray-600 text-[10px] shrink-0 ml-2">{formatTimeAgo(conv.updatedAt)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {activity && activity.auditLogs.length > 0 && (
+        <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-agent-memory">
+          <h3 className="text-xs font-semibold text-gray-300 mb-2">Agent Memory & Actions</h3>
+          <div className="space-y-2">
+            {activity.auditLogs.slice(0, 5).map((log) => (
+              <div key={log.id} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <Brain className="w-3 h-3 text-blue-400 shrink-0" />
+                  <span className="text-gray-300 truncate">{log.actionType.replace(/_/g, " ")}</span>
+                  <Badge className={`text-[8px] px-1 py-0 border-0 shrink-0 ${log.result === "success" ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+                    {log.result}
+                  </Badge>
+                </div>
+                <span className="text-gray-600 text-[10px] shrink-0 ml-2">{formatTimeAgo(log.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Button
+        size="lg"
+        className="w-full gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+        onClick={() => onChat(agentId)}
+        disabled={!agentData.isActive}
+        data-testid="button-tg-agent-start-chat"
+      >
+        <MessageSquare className="w-4 h-4" />
+        {agentData.isActive ? "Start Chat" : "Agent Offline"}
+      </Button>
     </div>
   );
 }
@@ -2765,6 +4396,8 @@ const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "arena", label: "Arena", icon: Swords },
   { id: "earn", label: "Earn", icon: Coins },
   { id: "bees", label: "Bees", icon: Hexagon },
+  { id: "market", label: "Market", icon: Store },
+  { id: "agents", label: "Agents", icon: Bot },
   { id: "profile", label: "Profile", icon: User },
 ];
 
@@ -2844,6 +4477,7 @@ function useTelegramAuth() {
 
 export default function TelegramApp() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
+  const [subView, setSubView] = useState<SubView>({ type: "none" });
   const [showCreateBee, setShowCreateBee] = useState(false);
   const { agent: tgAgent, loading: authLoading, updateAgent } = useTelegramAuth();
 
@@ -2861,6 +4495,11 @@ export default function TelegramApp() {
     }
   }, [authLoading, tgAgent]);
 
+  const handleSwitchTab = (tab: TabType) => {
+    setActiveTab(tab);
+    setSubView({ type: "none" });
+  };
+
   if (showCreateBee && tgAgent) {
     return (
       <CreateBeeView
@@ -2873,21 +4512,60 @@ export default function TelegramApp() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
-      <div className="flex-1 overflow-y-auto pb-20">
-        {activeTab === "home" && <HomeTab onSwitchTab={setActiveTab} />}
-        {activeTab === "feed" && <FeedTab agentId={tgAgent?.id} />}
-        {activeTab === "arena" && <TgArenaTab agent={tgAgent ? { id: tgAgent.id, name: tgAgent.name, ownerAddress: tgAgent.ownerAddress } : undefined} />}
-        {activeTab === "earn" && <EarnTab agentId={tgAgent?.id} />}
-        {activeTab === "bees" && <BeesTab />}
-        {activeTab === "profile" && (
+  const renderContent = () => {
+    if (subView.type === "nfa-detail") {
+      return <NfaDetailView nfaId={subView.id} onBack={() => setSubView({ type: "none" })} />;
+    }
+    if (subView.type === "agent-chat") {
+      return <AgentChatView agentId={subView.agentId} onBack={() => setSubView({ type: "none" })} />;
+    }
+    if (subView.type === "agent-profile") {
+      return (
+        <AgentProfileView
+          agentId={subView.agentId}
+          onBack={() => setSubView({ type: "none" })}
+          onChat={(id) => setSubView({ type: "agent-chat", agentId: id })}
+        />
+      );
+    }
+
+    switch (activeTab) {
+      case "home":
+        return <HomeTab onSwitchTab={handleSwitchTab} />;
+      case "feed":
+        return <FeedTab agentId={tgAgent?.id} />;
+      case "arena":
+        return <TgArenaTab agent={tgAgent ? { id: tgAgent.id, name: tgAgent.name, ownerAddress: tgAgent.ownerAddress } : undefined} />;
+      case "earn":
+        return <EarnTab agentId={tgAgent?.id} />;
+      case "bees":
+        return <BeesTab />;
+      case "market":
+        return <MarketTab onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />;
+      case "agents":
+        return (
+          <AgentsTab
+            onViewAgent={(agentId) => setSubView({ type: "agent-profile", agentId })}
+            onChatAgent={(agentId) => setSubView({ type: "agent-chat", agentId })}
+          />
+        );
+      case "profile":
+        return (
           <ProfileTab
             agent={tgAgent}
             loading={authLoading}
             onEditBee={() => setShowCreateBee(true)}
           />
-        )}
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
+      <div className="flex-1 overflow-y-auto pb-20">
+        {renderContent()}
       </div>
 
       <div
@@ -2895,15 +4573,15 @@ export default function TelegramApp() {
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         data-testid="container-tg-tab-bar"
       >
-        <div className="flex items-center justify-around gap-1 px-2 py-2">
+        <div className="flex items-center justify-around gap-1 px-1 py-2">
           {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
+            const isActive = activeTab === tab.id && subView.type === "none";
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
+                onClick={() => handleSwitchTab(tab.id)}
+                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
                   isActive
                     ? "text-amber-500"
                     : "text-gray-500"
@@ -2911,7 +4589,7 @@ export default function TelegramApp() {
                 data-testid={`button-tg-tab-${tab.id}`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="text-[10px] font-medium">{tab.label}</span>
+                <span className="text-[9px] font-medium">{tab.label}</span>
               </button>
             );
           })}
