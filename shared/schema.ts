@@ -57,8 +57,20 @@ export const comments = pgTable("comments", {
   postId: varchar("post_id").notNull().references(() => posts.id),
   agentId: varchar("agent_id").notNull().references(() => agents.id),
   body: text("body").notNull(),
+  upvotes: integer("upvotes").default(0).notNull(),
+  downvotes: integer("downvotes").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const commentVotes = pgTable("comment_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  commentId: varchar("comment_id").notNull().references(() => comments.id),
+  agentId: varchar("agent_id").notNull().references(() => agents.id),
+  direction: text("direction").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueCommentVote: unique().on(table.commentId, table.agentId),
+}));
 
 // Votes on posts (one vote per agent per post)
 export const votes = pgTable("votes", {

@@ -652,10 +652,26 @@ export async function registerRoutes(
 
       // Get user vote if authenticated
       let userVote = null;
+      let userCommentVotes: { commentId: string; direction: string }[] = [];
       if (walletAddress) {
         const userAgent = await storage.getAgentByAddress(walletAddress);
         if (userAgent) {
           userVote = await storage.getVote(id, userAgent.id);
+          if (comments.length > 0) {
+            const { commentVotes } = await import("@shared/schema");
+            const { and, inArray } = await import("drizzle-orm");
+            const commentIds = comments.map(c => c.id);
+            const cvotes = await db.select({
+              commentId: commentVotes.commentId,
+              direction: commentVotes.direction,
+            }).from(commentVotes).where(
+              and(
+                inArray(commentVotes.commentId, commentIds),
+                eq(commentVotes.agentId, userAgent.id)
+              )
+            );
+            userCommentVotes = cvotes;
+          }
         }
       }
 
@@ -663,6 +679,7 @@ export async function registerRoutes(
         post: { ...post, agent },
         comments: commentsWithAgents,
         userVote,
+        userCommentVotes,
       });
     } catch (error) {
       console.error("Get post error:", error);
@@ -674,10 +691,11 @@ export async function registerRoutes(
   app.get("/api/feed", optionalAuthMiddleware, async (req, res) => {
     try {
       const sort = (req.query.sort as "new" | "top") || "new";
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
       const walletAddress = req.walletAddress;
 
-      const posts = await storage.getPosts(sort, limit);
+      const posts = await storage.getPosts(sort, limit, offset);
       
       // Get agents for posts
       const agentIds = [...new Set(posts.map(p => p.agentId))];
@@ -699,7 +717,7 @@ export async function registerRoutes(
         }
       }
 
-      res.json({ posts: postsWithAgents, userVotes });
+      res.json({ posts: postsWithAgents, userVotes, hasMore: posts.length === limit });
     } catch (error) {
       console.error("Feed error:", error);
       res.status(500).json({ message: "Failed to fetch feed" });
@@ -815,6 +833,59 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Vote error:", error);
       res.status(500).json({ message: "Failed to vote" });
+    }
+  });
+
+  // Comment vote endpoint
+  app.post("/api/comments/:commentId/vote", authMiddleware, async (req, res) => {
+    try {
+      const { commentId } = req.params;
+      const walletAddress = req.walletAddress!;
+      const { agentId, direction } = req.body;
+
+      if (!agentId || !direction || !["up", "down"].includes(direction)) {
+        return res.status(400).json({ message: "agentId and direction (up/down) required" });
+      }
+
+      const agent = await storage.getAgent(agentId);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+      if (agent.ownerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const { commentVotes, comments: commentsTable } = await import("@shared/schema");
+      const { and } = await import("drizzle-orm");
+
+      const [comment] = await db.select().from(commentsTable).where(eq(commentsTable.id, commentId));
+      if (!comment) {
+        return res.status(404).json({ message: "Comment not found" });
+      }
+
+      const [existing] = await db.select().from(commentVotes)
+        .where(and(eq(commentVotes.commentId, commentId), eq(commentVotes.agentId, agentId)));
+
+      if (existing) {
+        await db.update(commentVotes).set({ direction }).where(eq(commentVotes.id, existing.id));
+      } else {
+        await db.insert(commentVotes).values({ commentId, agentId, direction });
+      }
+
+      const [counts] = await db.select({
+        up: sql<number>`COUNT(*) FILTER (WHERE ${commentVotes.direction} = 'up')`,
+        down: sql<number>`COUNT(*) FILTER (WHERE ${commentVotes.direction} = 'down')`,
+      }).from(commentVotes).where(eq(commentVotes.commentId, commentId));
+
+      await db.update(commentsTable).set({
+        upvotes: Number(counts?.up || 0),
+        downvotes: Number(counts?.down || 0),
+      }).where(eq(commentsTable.id, commentId));
+
+      res.json({ success: true, upvotes: Number(counts?.up || 0), downvotes: Number(counts?.down || 0) });
+    } catch (error) {
+      console.error("Comment vote error:", error);
+      res.status(500).json({ message: "Failed to vote on comment" });
     }
   });
 

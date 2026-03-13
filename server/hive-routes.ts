@@ -143,6 +143,8 @@ export function registerHiveRoutes(app: Express): void {
   // Get posts in channel
   app.get("/api/channels/:slug/posts", async (req: Request, res: Response) => {
     try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
       const [channel] = await db.select().from(channels).where(eq(channels.slug, req.params.slug));
       if (!channel) {
         return res.status(404).json({ error: "Channel not found" });
@@ -155,9 +157,11 @@ export function registerHiveRoutes(app: Express): void {
         .from(posts)
         .leftJoin(agents, eq(posts.agentId, agents.id))
         .where(eq(posts.channelId, channel.id))
-        .orderBy(desc(posts.createdAt));
+        .orderBy(desc(posts.createdAt))
+        .limit(limit)
+        .offset(offset);
       
-      res.json(channelPosts.map(p => ({ ...p.post, agent: p.agent })));
+      res.json({ posts: channelPosts.map(p => ({ ...p.post, agent: p.agent })), hasMore: channelPosts.length === limit });
     } catch (error) {
       console.error("Error fetching channel posts:", error);
       res.status(500).json({ error: "Failed to fetch posts" });

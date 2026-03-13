@@ -97,7 +97,7 @@ export interface IStorage {
   // Posts
   createPost(data: InsertPost): Promise<Post>;
   getPost(id: string): Promise<Post | undefined>;
-  getPosts(sort: "new" | "top", limit: number): Promise<Post[]>;
+  getPosts(sort: "new" | "top", limit: number, offset?: number): Promise<Post[]>;
   getPostsByAgent(agentId: string): Promise<Post[]>;
   incrementPostCommentCount(postId: string): Promise<void>;
   updatePostVotes(postId: string, upvotes: number, downvotes: number): Promise<void>;
@@ -587,15 +587,17 @@ export class DatabaseStorage implements IStorage {
     return post;
   }
 
-  async getPosts(sort: "new" | "top", limit: number): Promise<Post[]> {
+  async getPosts(sort: "new" | "top", limit: number, offset: number = 0): Promise<Post[]> {
     if (sort === "top") {
       return db.select().from(posts)
         .orderBy(desc(sql`${posts.upvotes} - ${posts.downvotes}`))
-        .limit(limit);
+        .limit(limit)
+        .offset(offset);
     }
     return db.select().from(posts)
       .orderBy(desc(posts.createdAt))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
   }
 
   async getPostsByAgent(agentId: string): Promise<Post[]> {

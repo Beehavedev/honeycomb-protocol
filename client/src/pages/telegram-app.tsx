@@ -30,6 +30,15 @@ import {
   Key,
   AlertTriangle,
   RefreshCw,
+  MessageSquare,
+  ArrowUp,
+  ArrowDown,
+  Plus,
+  Send,
+  Hash,
+  Clock,
+  Loader2,
+  ChevronRight,
 } from "lucide-react";
 
 declare global {
@@ -54,7 +63,7 @@ declare global {
   }
 }
 
-type TabType = "home" | "arena" | "bees" | "profile";
+type TabType = "home" | "feed" | "arena" | "bees" | "profile";
 
 interface LandingStats {
   totalUsers: number;
@@ -907,6 +916,1071 @@ function BeesTab() {
   );
 }
 
+interface TgPost {
+  id: string;
+  title: string;
+  body: string;
+  agentId: string;
+  channelId?: string | null;
+  upvotes: number;
+  downvotes: number;
+  commentCount: number;
+  tags: string[];
+  createdAt: string;
+  agent?: {
+    id: string;
+    name: string;
+    avatarUrl?: string | null;
+    isBot?: boolean;
+  };
+}
+
+interface TgComment {
+  id: string;
+  postId: string;
+  agentId: string;
+  body: string;
+  upvotes: number;
+  downvotes: number;
+  createdAt: string;
+  agent?: {
+    id: string;
+    name: string;
+    avatarUrl?: string | null;
+    isBot?: boolean;
+  };
+}
+
+interface TgChannel {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  memberCount: number;
+  postCount: number;
+}
+
+type FeedView = "list" | "post-detail" | "create" | "channels" | "channel-posts";
+
+function formatTimeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
+function TgPostCard({
+  post,
+  userVote,
+  onVote,
+  onTap,
+  isVoting,
+}: {
+  post: TgPost;
+  userVote?: "up" | "down" | null;
+  onVote: (direction: "up" | "down") => void;
+  onTap: () => void;
+  isVoting?: boolean;
+}) {
+  const score = post.upvotes - post.downvotes;
+  const bodyText = post.body.replace(/!\[[^\]]*\]\([^)]+\)\n*/g, "").trim();
+
+  return (
+    <Card
+      className="p-3 bg-[#242444] border-gray-700/50 mb-2"
+      data-testid={`card-tg-post-${post.id}`}
+    >
+      <div className="flex gap-2">
+        <div className="flex flex-col items-center gap-0.5 min-w-[32px]">
+          <button
+            onClick={(e) => { e.stopPropagation(); onVote("up"); }}
+            disabled={isVoting}
+            className={`p-1 rounded transition-colors ${
+              userVote === "up" ? "text-amber-400 bg-amber-500/20" : "text-gray-500"
+            }`}
+            data-testid={`button-tg-upvote-${post.id}`}
+          >
+            <ArrowUp className="w-4 h-4" />
+          </button>
+          <span
+            className={`text-xs font-bold ${
+              score > 0 ? "text-amber-400" : score < 0 ? "text-red-400" : "text-gray-500"
+            }`}
+            data-testid={`text-tg-score-${post.id}`}
+          >
+            {score}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onVote("down"); }}
+            disabled={isVoting}
+            className={`p-1 rounded transition-colors ${
+              userVote === "down" ? "text-red-400 bg-red-500/20" : "text-gray-500"
+            }`}
+            data-testid={`button-tg-downvote-${post.id}`}
+          >
+            <ArrowDown className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={onTap}>
+          <h3 className="text-sm font-semibold text-white line-clamp-2 mb-1" data-testid={`text-tg-post-title-${post.id}`}>
+            {post.title}
+          </h3>
+          <p className="text-xs text-gray-400 line-clamp-2 mb-2">
+            {bodyText.slice(0, 150)}
+            {bodyText.length > 150 && "..."}
+          </p>
+          <div className="flex items-center gap-3 text-[10px] text-gray-500">
+            {post.agent && (
+              <span className="flex items-center gap-1">
+                <div className="w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center text-[8px]">
+                  {post.agent.name.slice(0, 1).toUpperCase()}
+                </div>
+                <span className="truncate max-w-[80px]">{post.agent.name}</span>
+              </span>
+            )}
+            <span className="flex items-center gap-0.5">
+              <MessageSquare className="w-3 h-3" />
+              {post.commentCount}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <Clock className="w-3 h-3" />
+              {formatTimeAgo(post.createdAt)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TgPostDetailView({
+  postId,
+  agentId,
+  onBack,
+}: {
+  postId: string;
+  agentId?: string;
+  onBack: () => void;
+}) {
+  const [commentBody, setCommentBody] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [voting, setVoting] = useState(false);
+  const [postData, setPostData] = useState<{
+    post: TgPost;
+    comments: TgComment[];
+    userVote: { direction: string } | null;
+    userCommentVotes?: { commentId: string; direction: string }[];
+  } | null>(null);
+  const [votingCommentId, setVotingCommentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPost = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("tg_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/posts/${postId}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPostData(data);
+      }
+    } catch {}
+    setLoading(false);
+  }, [postId]);
+
+  useEffect(() => {
+    fetchPost();
+  }, [fetchPost]);
+
+  const handleVote = async (direction: "up" | "down") => {
+    const token = localStorage.getItem("tg_token");
+    if (!agentId || !token || voting) return;
+    setVoting(true);
+    try {
+      await fetch(`/api/posts/${postId}/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId, direction }),
+      });
+      await fetchPost();
+    } catch {}
+    setVoting(false);
+  };
+
+  const handleSubmitComment = async () => {
+    const token = localStorage.getItem("tg_token");
+    if (!agentId || !token || !commentBody.trim() || submittingComment) return;
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/posts/${postId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId, body: commentBody.trim() }),
+      });
+      if (res.ok) {
+        setCommentBody("");
+        await fetchPost();
+      }
+    } catch {}
+    setSubmittingComment(false);
+  };
+
+  const handleCommentVote = async (commentId: string, direction: "up" | "down") => {
+    const token = localStorage.getItem("tg_token");
+    if (!agentId || !token || votingCommentId) return;
+    setVotingCommentId(commentId);
+    try {
+      const res = await fetch(`/api/comments/${commentId}/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId, direction }),
+      });
+      if (res.ok) {
+        await fetchPost();
+      }
+    } catch {}
+    setVotingCommentId(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="px-4 pt-4 pb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-post-back">
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-xs">Back</span>
+        </button>
+        <div className="space-y-3">
+          <div className="h-6 w-3/4 bg-gray-700 animate-pulse rounded" />
+          <div className="h-4 w-full bg-gray-700 animate-pulse rounded" />
+          <div className="h-4 w-1/2 bg-gray-700 animate-pulse rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!postData) {
+    return (
+      <div className="px-4 pt-4 pb-4">
+        <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-4" data-testid="button-tg-post-back">
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-xs">Back</span>
+        </button>
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+          <p className="text-sm text-gray-400">Post not found</p>
+        </Card>
+      </div>
+    );
+  }
+
+  const { post, comments, userVote } = postData;
+  const score = post.upvotes - post.downvotes;
+  const bodyText = post.body.replace(/!\[[^\]]*\]\([^)]+\)\n*/g, "").trim();
+  const imgMatch = post.body.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+  const imgSrc = imgMatch ? imgMatch[2] : null;
+
+  return (
+    <div className="px-4 pt-4 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-3" data-testid="button-tg-post-back">
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-xs">Back</span>
+      </button>
+
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-3" data-testid="card-tg-post-detail">
+        <div className="flex items-center gap-2 mb-2">
+          {post.agent && (
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center text-xs">
+                {post.agent.name.slice(0, 1).toUpperCase()}
+              </div>
+              <span className="text-xs font-medium text-white">{post.agent.name}</span>
+            </div>
+          )}
+          <span className="text-[10px] text-gray-500">{formatTimeAgo(post.createdAt)}</span>
+        </div>
+
+        <h2 className="text-base font-bold text-white mb-2" data-testid="text-tg-post-detail-title">
+          {post.title}
+        </h2>
+
+        {imgSrc && (
+          <div className="mb-2 rounded-lg overflow-hidden">
+            <img src={imgSrc} alt="" className="w-full max-h-[200px] object-cover" />
+          </div>
+        )}
+
+        <p className="text-sm text-gray-300 whitespace-pre-wrap mb-3" data-testid="text-tg-post-detail-body">
+          {bodyText}
+        </p>
+
+        {post.tags && post.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {post.tags.map((tag) => (
+              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-2 border-t border-gray-700/30">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleVote("up")}
+              disabled={voting}
+              className={`p-1.5 rounded transition-colors ${
+                userVote?.direction === "up" ? "text-amber-400 bg-amber-500/20" : "text-gray-500"
+              }`}
+              data-testid="button-tg-detail-upvote"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+            <span className={`text-sm font-bold ${
+              score > 0 ? "text-amber-400" : score < 0 ? "text-red-400" : "text-gray-500"
+            }`}>
+              {score}
+            </span>
+            <button
+              onClick={() => handleVote("down")}
+              disabled={voting}
+              className={`p-1.5 rounded transition-colors ${
+                userVote?.direction === "down" ? "text-red-400 bg-red-500/20" : "text-gray-500"
+              }`}
+              data-testid="button-tg-detail-downvote"
+            >
+              <ArrowDown className="w-4 h-4" />
+            </button>
+          </div>
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <MessageSquare className="w-3.5 h-3.5" />
+            {comments.length} comments
+          </span>
+        </div>
+      </Card>
+
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-white mb-2" data-testid="text-tg-comments-header">
+          Comments ({comments.length})
+        </h3>
+
+        {agentId ? (
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={commentBody}
+              onChange={(e) => setCommentBody(e.target.value)}
+              placeholder="Write a comment..."
+              className="flex-1 px-3 py-2 rounded-lg bg-[#1a1a2e] border border-gray-700/50 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+              onKeyDown={(e) => { if (e.key === "Enter") handleSubmitComment(); }}
+              data-testid="input-tg-comment"
+            />
+            <button
+              onClick={handleSubmitComment}
+              disabled={!commentBody.trim() || submittingComment}
+              className="px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 disabled:opacity-40 transition-colors"
+              data-testid="button-tg-submit-comment"
+            >
+              {submittingComment ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 mb-3">Open via @honeycombot to comment</p>
+        )}
+
+        {comments.length === 0 ? (
+          <p className="text-xs text-gray-500 text-center py-4">No comments yet</p>
+        ) : (
+          <div className="space-y-2">
+            {comments.map((comment) => {
+              const commentScore = (comment.upvotes || 0) - (comment.downvotes || 0);
+              const myCommentVote = postData?.userCommentVotes?.find(v => v.commentId === comment.id);
+              return (
+                <div key={comment.id} className="p-2 bg-[#1a1a2e] rounded-lg" data-testid={`comment-tg-${comment.id}`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {comment.agent && (
+                      <>
+                        <div className="w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center text-[8px]">
+                          {comment.agent.name.slice(0, 1).toUpperCase()}
+                        </div>
+                        <span className="text-[11px] font-medium text-white">{comment.agent.name}</span>
+                      </>
+                    )}
+                    <span className="text-[10px] text-gray-500">{formatTimeAgo(comment.createdAt)}</span>
+                  </div>
+                  <p className="text-xs text-gray-300 whitespace-pre-wrap mb-1.5">{comment.body}</p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCommentVote(comment.id, "up")}
+                      disabled={!agentId || votingCommentId === comment.id}
+                      className={`p-0.5 rounded transition-colors ${
+                        myCommentVote?.direction === "up" ? "text-amber-400" : "text-gray-600"
+                      }`}
+                      data-testid={`button-tg-comment-upvote-${comment.id}`}
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+                    <span className={`text-[10px] font-bold ${
+                      commentScore > 0 ? "text-amber-400" : commentScore < 0 ? "text-red-400" : "text-gray-600"
+                    }`} data-testid={`text-tg-comment-score-${comment.id}`}>
+                      {commentScore}
+                    </span>
+                    <button
+                      onClick={() => handleCommentVote(comment.id, "down")}
+                      disabled={!agentId || votingCommentId === comment.id}
+                      className={`p-0.5 rounded transition-colors ${
+                        myCommentVote?.direction === "down" ? "text-red-400" : "text-gray-600"
+                      }`}
+                      data-testid={`button-tg-comment-downvote-${comment.id}`}
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TgCreatePostView({
+  agentId,
+  onBack,
+  onCreated,
+}: {
+  agentId: string;
+  onBack: () => void;
+  onCreated: (postId: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!title.trim() || !body.trim()) {
+      setError("Title and content are required");
+      return;
+    }
+    const token = localStorage.getItem("tg_token");
+    if (!token) {
+      setError("Not authenticated");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          agentId,
+          title: title.trim(),
+          body: body.trim(),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onCreated(data.post.id);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || "Failed to create post");
+      }
+    } catch {
+      setError("Network error, try again");
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="px-4 pt-4 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-3" data-testid="button-tg-create-back">
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-xs">Back</span>
+      </button>
+
+      <h2 className="text-lg font-bold text-white mb-4" data-testid="text-tg-create-title">New Post</h2>
+
+      <div className="space-y-3">
+        <div>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => { setTitle(e.target.value); setError(""); }}
+            placeholder="Post title..."
+            maxLength={200}
+            className="w-full px-3 py-2.5 rounded-lg bg-[#242444] border border-gray-700/50 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+            data-testid="input-tg-post-title"
+          />
+          <div className="text-[10px] text-gray-500 text-right mt-1">{title.length}/200</div>
+        </div>
+
+        <div>
+          <textarea
+            value={body}
+            onChange={(e) => { setBody(e.target.value); setError(""); }}
+            placeholder="What's on your mind?"
+            rows={6}
+            maxLength={10000}
+            className="w-full px-3 py-2.5 rounded-lg bg-[#242444] border border-gray-700/50 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 resize-none"
+            data-testid="input-tg-post-body"
+          />
+          <div className="text-[10px] text-gray-500 text-right mt-1">{body.length}/10000</div>
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-400" data-testid="text-tg-create-error">{error}</p>
+        )}
+
+        <Button
+          className="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+          disabled={!title.trim() || !body.trim() || submitting}
+          onClick={handleSubmit}
+          data-testid="button-tg-submit-post"
+        >
+          {submitting ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+          ) : (
+            <Send className="w-4 h-4 mr-2" />
+          )}
+          Publish Post
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TgChannelListView({
+  onSelectChannel,
+  onBack,
+}: {
+  onSelectChannel: (slug: string) => void;
+  onBack: () => void;
+}) {
+  const [channels, setChannels] = useState<TgChannel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/channels")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setChannels(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="px-4 pt-4 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-3" data-testid="button-tg-channels-back">
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-xs">Back</span>
+      </button>
+
+      <h2 className="text-lg font-bold text-white mb-1" data-testid="text-tg-channels-title">Channels</h2>
+      <p className="text-xs text-gray-400 mb-4">Browse topic-based channels</p>
+
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 bg-gray-700/30 animate-pulse rounded-xl" />
+          ))}
+        </div>
+      ) : channels.length === 0 ? (
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+          <Hash className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">No channels yet</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {channels.map((channel) => (
+            <button
+              key={channel.id}
+              onClick={() => onSelectChannel(channel.slug)}
+              className="w-full p-3 bg-[#242444] border border-gray-700/50 rounded-xl flex items-center gap-3 text-left transition-colors hover:border-amber-500/30"
+              data-testid={`button-tg-channel-${channel.slug}`}
+            >
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                <Hash className="w-5 h-5 text-amber-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white truncate">{channel.name}</div>
+                <div className="text-[10px] text-gray-500 truncate">
+                  {channel.description || `${channel.memberCount} members · ${channel.postCount} posts`}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TgChannelPostsView({
+  channelSlug,
+  agentId,
+  onBack,
+  onViewPost,
+}: {
+  channelSlug: string;
+  agentId?: string;
+  onBack: () => void;
+  onViewPost: (postId: string) => void;
+}) {
+  const [channel, setChannel] = useState<TgChannel | null>(null);
+  const [posts, setPosts] = useState<TgPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [voting, setVoting] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchChannel = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/channels/${channelSlug}`);
+      if (res.ok) setChannel(await res.json());
+    } catch {}
+  }, [channelSlug]);
+
+  const fetchPosts = useCallback(async (offset = 0, append = false) => {
+    try {
+      const res = await fetch(`/api/channels/${channelSlug}/posts?sort=new&limit=20&offset=${offset}`);
+      if (res.ok) {
+        const data = await res.json();
+        const postsList = data.posts || data;
+        if (append) {
+          setPosts(prev => [...prev, ...postsList]);
+        } else {
+          setPosts(postsList);
+        }
+        setHasMore(data.hasMore ?? false);
+      }
+    } catch {}
+    setLoading(false);
+    setLoadingMore(false);
+  }, [channelSlug]);
+
+  useEffect(() => {
+    fetchChannel();
+    fetchPosts(0, false);
+  }, [fetchChannel, fetchPosts]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetchPosts(posts.length, true);
+  }, [loadingMore, hasMore, posts.length, fetchPosts]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200 && hasMore && !loadingMore) {
+      handleLoadMore();
+    }
+  }, [hasMore, loadingMore, handleLoadMore]);
+
+  const handleVote = async (postId: string, direction: "up" | "down") => {
+    const token = localStorage.getItem("tg_token");
+    if (!agentId || !token || voting) return;
+    setVoting(true);
+    try {
+      const res = await fetch(`/api/posts/${postId}/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId, direction }),
+      });
+      if (res.ok) {
+        await fetchPosts(0, false);
+      }
+    } catch {}
+    setVoting(false);
+  };
+
+  return (
+    <div className="px-4 pt-4 pb-4 h-full overflow-y-auto" onScroll={handleScroll}>
+      <button onClick={onBack} className="flex items-center gap-1 text-gray-400 mb-3" data-testid="button-tg-channel-back">
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-xs">Back to Channels</span>
+      </button>
+
+      {channel && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Hash className="w-5 h-5 text-amber-500" />
+            <h2 className="text-lg font-bold text-white" data-testid="text-tg-channel-name">{channel.name}</h2>
+          </div>
+          {channel.description && (
+            <p className="text-xs text-gray-400 mb-1">{channel.description}</p>
+          )}
+          <div className="flex gap-3 text-[10px] text-gray-500">
+            <span>{channel.memberCount} members</span>
+            <span>{channel.postCount} posts</span>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 bg-gray-700/30 animate-pulse rounded-xl" />
+          ))}
+        </div>
+      ) : posts.length === 0 ? (
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+          <p className="text-sm text-gray-400">No posts in this channel yet</p>
+        </Card>
+      ) : (
+        <>
+          {posts.map((post) => (
+            <TgPostCard
+              key={post.id}
+              post={post}
+              onVote={(dir) => handleVote(post.id, dir)}
+              onTap={() => onViewPost(post.id)}
+              isVoting={voting}
+            />
+          ))}
+          {loadingMore && (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+            </div>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <p className="text-[10px] text-gray-600 text-center py-3">End of posts</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FeedTab({ agentId }: { agentId?: string }) {
+  const [view, setView] = useState<FeedView>("list");
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedChannelSlug, setSelectedChannelSlug] = useState<string | null>(null);
+  const [sort, setSort] = useState<"new" | "top">("new");
+  const [posts, setPosts] = useState<TgPost[]>([]);
+  const [userVotes, setUserVotes] = useState<Record<string, "up" | "down">>({});
+  const [loading, setLoading] = useState(true);
+  const [votingPostId, setVotingPostId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const touchStartY = useRef(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const fetchFeed = useCallback(async (offset = 0, append = false) => {
+    try {
+      const token = localStorage.getItem("tg_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch(`/api/feed?sort=${sort}&limit=20&offset=${offset}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (append) {
+          setPosts(prev => [...prev, ...(data.posts || [])]);
+        } else {
+          setPosts(data.posts || []);
+        }
+        setHasMore(data.hasMore ?? false);
+        if (data.userVotes) {
+          const voteMap: Record<string, "up" | "down"> = {};
+          data.userVotes.forEach((v: { postId: string; direction: string }) => {
+            voteMap[v.postId] = v.direction as "up" | "down";
+          });
+          setUserVotes(prev => append ? { ...prev, ...voteMap } : voteMap);
+        }
+      }
+    } catch {}
+    setLoading(false);
+    setRefreshing(false);
+    setLoadingMore(false);
+  }, [sort]);
+
+  useEffect(() => {
+    setLoading(true);
+    setPosts([]);
+    setHasMore(true);
+    fetchFeed(0, false);
+  }, [fetchFeed]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setHasMore(true);
+    fetchFeed(0, false);
+  }, [fetchFeed]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    fetchFeed(posts.length, true);
+  }, [loadingMore, hasMore, posts.length, fetchFeed]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.currentTarget;
+    if (target.scrollTop <= 0) {
+      touchStartY.current = e.touches[0].clientY;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartY.current > 0 && e.currentTarget.scrollTop <= 0) {
+      const diff = e.touches[0].clientY - touchStartY.current;
+      if (diff > 0) {
+        setPullDistance(Math.min(diff * 0.5, 60));
+      }
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance > 40) {
+      handleRefresh();
+    }
+    setPullDistance(0);
+    touchStartY.current = 0;
+  }, [pullDistance, handleRefresh]);
+
+  const handleVote = async (postId: string, direction: "up" | "down") => {
+    const token = localStorage.getItem("tg_token");
+    if (!agentId || !token || votingPostId) return;
+    setVotingPostId(postId);
+    try {
+      const res = await fetch(`/api/posts/${postId}/vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId, direction }),
+      });
+
+      if (res.ok) {
+        const prevVote = userVotes[postId];
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (p.id !== postId) return p;
+            let { upvotes, downvotes } = p;
+            if (prevVote === direction) return p;
+            if (prevVote === "up") upvotes--;
+            if (prevVote === "down") downvotes--;
+            if (direction === "up") upvotes++;
+            if (direction === "down") downvotes++;
+            return { ...p, upvotes, downvotes };
+          })
+        );
+        setUserVotes((prev) => ({ ...prev, [postId]: direction }));
+      }
+    } catch {}
+    setVotingPostId(null);
+  };
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 200 && hasMore && !loadingMore) {
+      handleLoadMore();
+    }
+  }, [hasMore, loadingMore, handleLoadMore]);
+
+  if (view === "post-detail" && selectedPostId) {
+    return (
+      <TgPostDetailView
+        postId={selectedPostId}
+        agentId={agentId}
+        onBack={() => { setView("list"); setSelectedPostId(null); }}
+      />
+    );
+  }
+
+  if (view === "create" && agentId) {
+    return (
+      <TgCreatePostView
+        agentId={agentId}
+        onBack={() => setView("list")}
+        onCreated={(postId) => {
+          setView("post-detail");
+          setSelectedPostId(postId);
+          handleRefresh();
+        }}
+      />
+    );
+  }
+
+  if (view === "channels") {
+    return (
+      <TgChannelListView
+        onSelectChannel={(slug) => {
+          setSelectedChannelSlug(slug);
+          setView("channel-posts");
+        }}
+        onBack={() => setView("list")}
+      />
+    );
+  }
+
+  if (view === "channel-posts" && selectedChannelSlug) {
+    return (
+      <TgChannelPostsView
+        channelSlug={selectedChannelSlug}
+        agentId={agentId}
+        onBack={() => { setView("channels"); setSelectedChannelSlug(null); }}
+        onViewPost={(postId) => {
+          setSelectedPostId(postId);
+          setView("post-detail");
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      className="flex flex-col h-full overflow-y-auto"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onScroll={handleScroll}
+    >
+      {pullDistance > 0 && (
+        <div
+          className="flex items-center justify-center transition-all"
+          style={{ height: pullDistance }}
+        >
+          <RefreshCw className={`w-5 h-5 text-amber-500 ${pullDistance > 40 ? "animate-spin" : ""}`} />
+        </div>
+      )}
+
+      {refreshing && pullDistance === 0 && (
+        <div className="flex items-center justify-center py-2">
+          <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+        </div>
+      )}
+
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl font-bold text-white" data-testid="text-tg-feed-title">Feed</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setView("channels")}
+              className="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 transition-colors"
+              data-testid="button-tg-channels"
+            >
+              <Hash className="w-3 h-3 inline mr-0.5" />
+              Channels
+            </button>
+            {agentId && (
+              <button
+                onClick={() => setView("create")}
+                className="w-8 h-8 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center"
+                data-testid="button-tg-new-post"
+              >
+                <Plus className="w-4 h-4 text-white" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-1 mb-3">
+          <button
+            onClick={() => setSort("new")}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              sort === "new" ? "bg-amber-500/20 text-amber-400" : "text-gray-500"
+            }`}
+            data-testid="button-tg-feed-sort-new"
+          >
+            <Clock className="w-3 h-3 inline mr-0.5" />
+            New
+          </button>
+          <button
+            onClick={() => setSort("top")}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              sort === "top" ? "bg-amber-500/20 text-amber-400" : "text-gray-500"
+            }`}
+            data-testid="button-tg-feed-sort-top"
+          >
+            <TrendingUp className="w-3 h-3 inline mr-0.5" />
+            Trending
+          </button>
+        </div>
+      </div>
+
+      <div className="px-4 flex-1">
+        {loading && posts.length === 0 ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-gray-700/30 animate-pulse rounded-xl" />
+            ))}
+          </div>
+        ) : posts.length === 0 ? (
+          <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-empty-feed">
+            <MessageSquare className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-400 mb-2">No posts yet</p>
+            {agentId && (
+              <Button
+                size="sm"
+                className="bg-gradient-to-r from-amber-500 to-orange-600 text-white"
+                onClick={() => setView("create")}
+                data-testid="button-tg-first-post"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Create the first post
+              </Button>
+            )}
+          </Card>
+        ) : (
+          <>
+            {posts.map((post) => (
+              <TgPostCard
+                key={post.id}
+                post={post}
+                userVote={userVotes[post.id]}
+                onVote={(dir) => handleVote(post.id, dir)}
+                onTap={() => {
+                  setSelectedPostId(post.id);
+                  setView("post-detail");
+                }}
+                isVoting={votingPostId === post.id}
+              />
+            ))}
+            {loadingMore && (
+              <div className="flex items-center justify-center py-3" data-testid="container-tg-feed-loading-more">
+                <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+              </div>
+            )}
+            {!hasMore && posts.length > 0 && (
+              <p className="text-[10px] text-gray-600 text-center py-3">End of feed</p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const BEE_AVATARS = [
   { id: "queen", emoji: "👑", label: "Queen Bee" },
   { id: "worker", emoji: "🐝", label: "Worker Bee" },
@@ -1425,6 +2499,7 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
 
 const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
+  { id: "feed", label: "Feed", icon: MessageSquare },
   { id: "arena", label: "Arena", icon: Swords },
   { id: "bees", label: "Bees", icon: Hexagon },
   { id: "profile", label: "Profile", icon: User },
@@ -1539,6 +2614,7 @@ export default function TelegramApp() {
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
       <div className="flex-1 overflow-y-auto pb-20">
         {activeTab === "home" && <HomeTab onSwitchTab={setActiveTab} />}
+        {activeTab === "feed" && <FeedTab agentId={tgAgent?.id} />}
         {activeTab === "arena" && <ArenaTab agentId={tgAgent?.id} />}
         {activeTab === "bees" && <BeesTab />}
         {activeTab === "profile" && (

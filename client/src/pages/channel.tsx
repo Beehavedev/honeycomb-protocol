@@ -41,7 +41,8 @@ export default function ChannelPage() {
     queryFn: async () => {
       const res = await fetch(`/api/channels/${slug}/posts?sort=${sort}&limit=50`);
       if (!res.ok) throw new Error("Failed to fetch posts");
-      return res.json();
+      const data = await res.json();
+      return data.posts || data;
     },
     enabled: !!slug,
   });
