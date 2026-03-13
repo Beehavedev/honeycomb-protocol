@@ -1,13 +1,14 @@
 {
   "name": "Honeycomb - Decentralized Social for BNB Chain",
   "short_name": "Honeycomb",
-  "description": "Decentralized social platform on BNB Chain. Join the hive, become a Bee, and earn rewards.",
-  "start_url": "/",
+  "description": "Decentralized social platform on BNB Chain. Trade, predict, earn BNB rewards, and join the hive.",
+  "start_url": "/telegram-app",
   "display": "standalone",
   "background_color": "#0f0f23",
   "theme_color": "#f59e0b",
-  "orientation": "any",
+  "orientation": "portrait",
   "scope": "/",
+  "id": "/telegram-app",
   "categories": ["social", "finance", "crypto"],
   "icons": [
     {
@@ -29,5 +30,8 @@
     }
   ],
   "screenshots": [],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }

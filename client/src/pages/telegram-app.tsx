@@ -4797,6 +4797,38 @@ function useTelegramAuth() {
     isSetup: !!(a.bio || localStorage.getItem("bee_setup_done")),
   });
 
+  const [needsStandaloneLogin, setNeedsStandaloneLogin] = useState(false);
+
+  const standaloneLogin = async (username: string) => {
+    try {
+      let deviceId = localStorage.getItem("hc_device_id");
+      if (!deviceId) {
+        deviceId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        localStorage.setItem("hc_device_id", deviceId);
+      }
+
+      const authRes = await fetch("/api/telegram/auth/standalone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Device-Id": deviceId,
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      if (authRes.ok) {
+        const data = await authRes.json();
+        if (data.token) {
+          localStorage.setItem("tg_token", data.token);
+          setAgent(markAgentSetup(data.agent));
+          setNeedsStandaloneLogin(false);
+        }
+      }
+    } catch (err) {
+      console.error("Standalone auth error:", err);
+    }
+  };
+
   useEffect(() => {
     async function authenticate() {
       try {
@@ -4815,26 +4847,51 @@ function useTelegramAuth() {
         }
 
         const initData = window.Telegram?.WebApp?.initData;
-        if (!initData) {
-          setLoading(false);
-          return;
-        }
+        if (initData) {
+          const authRes = await fetch("/api/telegram/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ initData }),
+          });
 
-        const authRes = await fetch("/api/telegram/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData }),
-        });
-
-        if (authRes.ok) {
-          const data = await authRes.json();
-          if (data.token) {
-            localStorage.setItem("tg_token", data.token);
-            setAgent(markAgentSetup(data.agent));
+          if (authRes.ok) {
+            const data = await authRes.json();
+            if (data.token) {
+              localStorage.setItem("tg_token", data.token);
+              setAgent(markAgentSetup(data.agent));
+              setLoading(false);
+              return;
+            }
           }
         }
+
+        const deviceId = localStorage.getItem("hc_device_id");
+        if (deviceId) {
+          const authRes = await fetch("/api/telegram/auth/standalone", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Device-Id": deviceId,
+            },
+            body: JSON.stringify({ username: "returning" }),
+          });
+          if (authRes.ok) {
+            const data = await authRes.json();
+            if (data.returning && data.token) {
+              localStorage.setItem("tg_token", data.token);
+              setAgent(markAgentSetup(data.agent));
+              setLoading(false);
+              return;
+            }
+          }
+        }
+
+        const isInTelegram = !!window.Telegram?.WebApp?.initData;
+        if (!isInTelegram) {
+          setNeedsStandaloneLogin(true);
+        }
       } catch (err) {
-        console.error("Telegram auth error:", err);
+        console.error("Auth error:", err);
       }
       setLoading(false);
     }
@@ -4847,7 +4904,7 @@ function useTelegramAuth() {
     setAgent({ ...updated, isSetup: true });
   };
 
-  return { agent, loading, updateAgent };
+  return { agent, loading, updateAgent, needsStandaloneLogin, standaloneLogin };
 }
 
 export default function TelegramApp() {
@@ -4855,7 +4912,8 @@ export default function TelegramApp() {
   const [subView, setSubView] = useState<SubView>({ type: "none" });
   const [showCreateBee, setShowCreateBee] = useState(false);
   const [showBees, setShowBees] = useState(false);
-  const { agent: tgAgent, loading: authLoading, updateAgent } = useTelegramAuth();
+  const { agent: tgAgent, loading: authLoading, updateAgent, needsStandaloneLogin, standaloneLogin } = useTelegramAuth();
+  const [loginName, setLoginName] = useState("");
   const prevTabRef = useRef<TabType>("home");
 
   useEffect(() => {
@@ -4899,6 +4957,54 @@ export default function TelegramApp() {
   }, []);
 
   useTelegramBackButton(showBees || subView.type !== "none", showBees ? handleBackFromBees : handleBackFromSubView);
+
+  if (needsStandaloneLogin && !tgAgent) {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center px-6">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+              <span className="text-4xl">🐝</span>
+            </div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+              Honeycomb
+            </h1>
+            <p className="text-sm text-gray-400">
+              Trade, predict, and earn BNB rewards
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <input
+              type="text"
+              placeholder="Choose a username"
+              value={loginName}
+              onChange={(e) => setLoginName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && loginName.trim().length >= 2) standaloneLogin(loginName.trim());
+              }}
+              className="w-full px-4 py-3 rounded-xl bg-[#242444] border border-gray-700/50 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50 text-center"
+              maxLength={30}
+              autoFocus
+              data-testid="input-standalone-username"
+            />
+            <button
+              onClick={() => loginName.trim().length >= 2 && standaloneLogin(loginName.trim())}
+              disabled={loginName.trim().length < 2}
+              className="w-full py-3 rounded-xl font-bold text-base transition-all bg-gradient-to-r from-amber-500 to-orange-600 text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              data-testid="button-standalone-login"
+            >
+              Join the Hive
+            </button>
+          </div>
+
+          <p className="text-[10px] text-gray-600 text-center">
+            A BNB wallet will be created for you automatically
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (showCreateBee && tgAgent) {
     return (

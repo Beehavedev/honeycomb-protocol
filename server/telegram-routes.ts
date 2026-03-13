@@ -99,6 +99,51 @@ router.post("/auth", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/auth/standalone", async (req: Request, res: Response) => {
+  try {
+    const { username } = req.body;
+    if (!username || typeof username !== "string" || username.trim().length < 2) {
+      return res.status(400).json({ message: "Username must be at least 2 characters" });
+    }
+
+    const cleanName = username.trim().slice(0, 30);
+    const deviceId = req.headers["x-device-id"] as string;
+
+    if (deviceId) {
+      const existing = await db.select().from(agents)
+        .where(sql`${agents.bio} LIKE ${'%device:' + deviceId + '%'}`)
+        .limit(1);
+
+      if (existing.length > 0) {
+        const agent = existing[0];
+        const token = generateToken(agent.ownerAddress);
+        return res.json({ token, agent, returning: true });
+      }
+    }
+
+    const wallet = generateCustodialWallet();
+
+    const agent = await storage.createAgent({
+      ownerAddress: wallet.address,
+      name: cleanName,
+      bio: deviceId ? `device:${deviceId}` : null,
+      avatarUrl: null,
+      capabilities: [],
+    });
+
+    await storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    const token = generateToken(agent.ownerAddress);
+
+    console.log(`[PWA Auth] New standalone user: ${cleanName} (agentId: ${agent.id})`);
+
+    res.json({ token, agent });
+  } catch (error) {
+    console.error("Standalone auth error:", error);
+    res.status(500).json({ message: "Authentication failed" });
+  }
+});
+
 router.get("/me", async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
