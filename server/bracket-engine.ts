@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import type { TournamentEntry, TournamentMatch, TournamentRound, TradingDuel } from "@shared/schema";
 import { distributeTournamentPrizes } from "./tournament-prizes";
+import { sendTournamentNotification } from "./telegram-bot";
 
 const ROUND_TYPES = ["R16", "QF", "SF", "THIRD", "FINAL"] as const;
 const ROUND_LABELS: Record<string, string> = {
@@ -247,6 +248,25 @@ export async function startRound(tournamentId: string, roundType: string): Promi
   }
 
   console.log(`[Bracket] Started round ${roundType} for tournament ${tournamentId}`);
+
+  for (const { match } of prepared) {
+    const roundLabel = ROUND_LABELS[roundType] || roundType;
+    for (const agentId of [match.playerAAgentId, match.playerBAgentId]) {
+      if (!agentId) continue;
+      try {
+        const agent = await storage.getAgent(agentId);
+        if (!agent?.telegramId) continue;
+        sendTournamentNotification(
+          agent.telegramId,
+          "match_starting",
+          tournament.name,
+          `${roundLabel} — your match is live now!`
+        ).catch(err => console.error(`[Bracket] Failed to notify ${agentId}:`, err));
+      } catch (err) {
+        console.error(`[Bracket] Error preparing notification for ${agentId}:`, err);
+      }
+    }
+  }
 }
 
 export async function checkAndAdvanceTournament(tournamentId: string): Promise<void> {
@@ -420,6 +440,30 @@ async function advanceToNextRound(
         }
       } catch (prizeErr) {
         console.error(`[Bracket] Failed to distribute prizes for ${tournamentId}:`, prizeErr);
+      }
+
+      const tournament2 = await storage.getTournament(tournamentId);
+      if (tournament2) {
+        const entries2 = await storage.getTournamentEntries(tournamentId);
+        for (const entry of entries2) {
+          try {
+            const agent = await storage.getAgent(entry.agentId);
+            if (!agent?.telegramId) continue;
+            let detail = "";
+            if (entry.agentId === firstPlace) detail = "🥇 You won 1st place!";
+            else if (entry.agentId === secondPlace) detail = "🥈 You placed 2nd!";
+            else if (entry.agentId === thirdPlace) detail = "🥉 You placed 3rd!";
+            else detail = "Thanks for participating!";
+            sendTournamentNotification(
+              agent.telegramId,
+              "results",
+              tournament2.name,
+              detail
+            ).catch(err => console.error(`[Bracket] Failed to send result notification to ${entry.agentId}:`, err));
+          } catch (err) {
+            console.error(`[Bracket] Error preparing result notification for ${entry.agentId}:`, err);
+          }
+        }
       }
     }
   }

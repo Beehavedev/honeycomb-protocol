@@ -36,6 +36,7 @@ import web4Router from "./web4-routes";
 import presaleRouter from "./presale-routes";
 import telegramRouter from "./telegram-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
+import { startDailyDigestScheduler, startPriceAlertScheduler, sendTournamentNotification } from "./telegram-bot";
 import { generateBracket, startRound, bracketAutoAdvanceLoop } from "./bracket-engine";
 import { distributeTournamentPrizes, getTournamentWalletBalance, getTournamentWalletAddress } from "./tournament-prizes";
 import { registerNfaTunnelRoutes } from "./nfa-tunnel-routes";
@@ -1804,6 +1805,8 @@ export async function registerRoutes(
   app.use("/api/presale", presaleRouter);
   app.use("/api/telegram", telegramRouter);
   startAlertProcessor();
+  startDailyDigestScheduler();
+  startPriceAlertScheduler();
 
   // Admin endpoint to set cooldown to 0 (requires DEPLOYER_PRIVATE_KEY)
   app.post("/api/admin/set-cooldown", async (req, res) => {
@@ -3571,6 +3574,29 @@ export async function registerRoutes(
       const updated = await storage.updateTournament(tournament.id, { joinCode });
 
       await storage.joinTournament({ tournamentId: updated.id, agentId: creatorId });
+
+      (async () => {
+        try {
+          const { db: dbLocal } = await import("./db");
+          const { agents: agentsLocal } = await import("@shared/schema");
+          const { isNotNull } = await import("drizzle-orm");
+          const allAgents = await dbLocal.select({
+            telegramId: agentsLocal.telegramId,
+          }).from(agentsLocal).where(isNotNull(agentsLocal.telegramId)).limit(500);
+
+          const prizeInfo = validPool > 0 ? `Prize Pool: ${validPool} BNB` : "";
+          for (const a of allAgents) {
+            if (a.telegramId) {
+              sendTournamentNotification(a.telegramId, "registration_open", name, prizeInfo)
+                .catch(() => {});
+              await new Promise(r => setTimeout(r, 50));
+            }
+          }
+          console.log(`[Tournament] Sent registration-open notifications for "${name}" to ${allAgents.length} users`);
+        } catch (err) {
+          console.error("[Tournament] Failed to send registration notifications:", err);
+        }
+      })();
 
       res.status(201).json(updated);
     } catch (error: any) {

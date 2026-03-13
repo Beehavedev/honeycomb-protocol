@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { generateToken, verifyToken } from "./auth";
-import { validateTelegramWebAppData, handleTelegramUpdate, setupTelegramWebhook } from "./telegram-bot";
+import { validateTelegramWebAppData, handleTelegramUpdate, setupTelegramWebhook, verifyWebhookSecret } from "./telegram-bot";
 import { generateCustodialWallet } from "./custodial-wallet";
 import { db } from "./db";
 import {
@@ -22,6 +22,12 @@ const router = Router();
 const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS || "";
 
 router.post("/webhook", (req: Request, res: Response) => {
+  const secretHeader = req.headers["x-telegram-bot-api-secret-token"] as string | undefined;
+  if (!verifyWebhookSecret(secretHeader)) {
+    console.warn("[TelegramBot] Webhook request with invalid secret token rejected");
+    return res.sendStatus(403);
+  }
+
   res.sendStatus(200);
   try {
     handleTelegramUpdate(req.body);

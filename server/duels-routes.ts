@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { authMiddleware } from "./auth";
 import { createDuelRequestSchema, joinDuelRequestSchema } from "@shared/schema";
 import { z } from "zod";
+import { sendDuelJoinedNotification, sendDuelCreatedNotification, checkAndFirePriceAlerts } from "./telegram-bot";
 
 // Zod schema for HouseBot config updates
 const housebotConfigUpdateSchema = z.object({
@@ -473,8 +474,9 @@ export function registerDuelsRoutes(app: Express) {
       }
       
       if (price !== null) {
-        // Update cache
         priceCache.set(assetId, { price, timestamp: now });
+
+        checkAndFirePriceAlerts(assetId, price);
         
         res.json({ 
           symbol, 
@@ -538,6 +540,15 @@ export function registerDuelsRoutes(app: Express) {
         joinCode,
       });
 
+      if (agent?.telegramId) {
+        sendDuelCreatedNotification(
+          agent.telegramId,
+          duel.id,
+          assetId,
+          stakeDisplay || stakeWei
+        ).catch(err => console.error("[DuelNotify] Failed to send creation notice:", err));
+      }
+
       res.status(201).json(serializeDuel(duel));
     } catch (error) {
       console.error("Error syncing on-chain duel creation:", error);
@@ -583,6 +594,24 @@ export function registerDuelsRoutes(app: Express) {
         status: "live",
         joinTxHash: txHash,
       });
+
+      try {
+        if (duel.creatorAgentId) {
+          const creator = await storage.getAgent(duel.creatorAgentId);
+          if (creator?.telegramId) {
+            const joinerName = agent?.name || walletAddress.slice(0, 10);
+            sendDuelJoinedNotification(
+              creator.telegramId,
+              duelId,
+              joinerName,
+              duel.assetId,
+              duel.stakeDisplay || duel.stakeWei
+            ).catch(err => console.error(`[DuelNotify] Failed to notify creator ${duel.creatorAgentId}:`, err));
+          }
+        }
+      } catch (err) {
+        console.error("[DuelNotify] Error preparing notification:", err);
+      }
 
       res.json(serializeDuel(updatedDuel));
     } catch (error) {
