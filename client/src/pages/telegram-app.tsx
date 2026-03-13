@@ -3369,6 +3369,12 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent 
   const [keyLoading, setKeyLoading] = useState(false);
   const [keyCopied, setKeyCopied] = useState(false);
   const [confirmExport, setConfirmExport] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [withdrawAddress, setWithdrawAddress] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawResult, setWithdrawResult] = useState<{ success: boolean; txHash?: string; explorerUrl?: string; error?: string } | null>(null);
+  const [withdrawStep, setWithdrawStep] = useState<"form" | "confirm">("form");
 
   const handleShareReferral = () => {
     const shareUrl = `${BASE_URL}/r/tg`;
@@ -3440,6 +3446,69 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent 
       navigator.clipboard.writeText(privateKey);
       setKeyCopied(true);
       setTimeout(() => setKeyCopied(false), 2000);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (withdrawStep === "form") {
+      if (!withdrawAddress || !/^0x[a-fA-F0-9]{40}$/.test(withdrawAddress)) {
+        setWithdrawResult({ success: false, error: "Enter a valid BNB address (0x...)" });
+        return;
+      }
+      const amt = parseFloat(withdrawAmount);
+      if (!withdrawAmount || isNaN(amt) || amt <= 0) {
+        setWithdrawResult({ success: false, error: "Enter a valid amount" });
+        return;
+      }
+      if (balance && amt > parseFloat(balance)) {
+        setWithdrawResult({ success: false, error: "Amount exceeds your balance" });
+        return;
+      }
+      setWithdrawResult(null);
+      setWithdrawStep("confirm");
+      return;
+    }
+
+    setWithdrawLoading(true);
+    setWithdrawResult(null);
+    try {
+      const token = localStorage.getItem("tg_token");
+      const res = await fetch("/api/telegram/wallet/withdraw", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ toAddress: withdrawAddress, amount: withdrawAmount }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWithdrawResult({ success: true, txHash: data.txHash, explorerUrl: data.explorerUrl });
+        setBalance(data.newBalance);
+        setWithdrawAddress("");
+        setWithdrawAmount("");
+        setWithdrawStep("form");
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+        }
+      } else {
+        setWithdrawResult({ success: false, error: data.message || "Transaction failed" });
+        setWithdrawStep("form");
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+        }
+      }
+    } catch {
+      setWithdrawResult({ success: false, error: "Network error. Please try again." });
+      setWithdrawStep("form");
+    }
+    setWithdrawLoading(false);
+  };
+
+  const handleMaxAmount = () => {
+    if (balance) {
+      const maxAmt = Math.max(0, parseFloat(balance) - 0.001);
+      setWithdrawAmount(maxAmt > 0 ? maxAmt.toFixed(6) : "0");
     }
   };
 
@@ -3535,6 +3604,151 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent 
             </button>
           </div>
         </div>
+      </Card>
+
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-3" data-testid="card-tg-withdraw">
+        {!showWithdraw ? (
+          <button
+            onClick={() => { setShowWithdraw(true); setWithdrawResult(null); setWithdrawStep("form"); }}
+            className="flex items-center justify-between w-full"
+            data-testid="button-tg-open-withdraw"
+          >
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4 text-amber-500" />
+              <span className="text-xs text-gray-300">Send BNB</span>
+            </div>
+            <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        ) : withdrawStep === "confirm" ? (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-semibold text-amber-400">Confirm Transaction</span>
+            </div>
+            <div className="bg-black/30 rounded-lg p-3 mb-3 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-[11px] text-gray-500">To</span>
+                <span className="text-[11px] font-mono text-white">{withdrawAddress.slice(0, 8)}...{withdrawAddress.slice(-6)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[11px] text-gray-500">Amount</span>
+                <span className="text-[11px] font-bold text-amber-400">{withdrawAmount} BNB</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-red-400/80 mb-3">This transaction cannot be reversed. Double-check the address.</p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 border-gray-600 text-gray-300 text-xs"
+                onClick={() => { setWithdrawStep("form"); setWithdrawResult(null); }}
+                disabled={withdrawLoading}
+                data-testid="button-tg-withdraw-back"
+              >
+                Back
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 text-xs"
+                onClick={handleWithdraw}
+                disabled={withdrawLoading}
+                data-testid="button-tg-withdraw-confirm"
+              >
+                {withdrawLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Confirm & Send"
+                )}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-semibold text-white">Send BNB</span>
+              </div>
+              <button
+                onClick={() => { setShowWithdraw(false); setWithdrawResult(null); setWithdrawAddress(""); setWithdrawAmount(""); }}
+                className="text-xs text-gray-500 hover:text-gray-300"
+                data-testid="button-tg-close-withdraw"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-gray-500 mb-1 block">Destination Address</label>
+                <input
+                  type="text"
+                  placeholder="0x..."
+                  value={withdrawAddress}
+                  onChange={(e) => setWithdrawAddress(e.target.value.trim())}
+                  className="w-full bg-black/30 border border-gray-700/50 rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-gray-600 focus:border-amber-500/50 focus:outline-none"
+                  data-testid="input-tg-withdraw-address"
+                />
+              </div>
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-[10px] text-gray-500">Amount (BNB)</label>
+                  <button
+                    onClick={handleMaxAmount}
+                    className="text-[10px] text-amber-400 hover:text-amber-300"
+                    data-testid="button-tg-withdraw-max"
+                  >
+                    MAX
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  placeholder="0.00"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  className="w-full bg-black/30 border border-gray-700/50 rounded-lg px-3 py-2 text-xs text-white font-mono placeholder-gray-600 focus:border-amber-500/50 focus:outline-none"
+                  data-testid="input-tg-withdraw-amount"
+                />
+              </div>
+              {withdrawResult && !withdrawResult.success && (
+                <div className="flex items-center gap-2 text-red-400 bg-red-500/10 rounded-lg px-3 py-2" data-testid="text-tg-withdraw-error">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="text-[11px]">{withdrawResult.error}</span>
+                </div>
+              )}
+              {withdrawResult?.success && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2" data-testid="text-tg-withdraw-success">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-[11px] font-semibold text-green-400">Sent successfully!</span>
+                  </div>
+                  {withdrawResult.explorerUrl && (
+                    <a
+                      href={withdrawResult.explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300"
+                      data-testid="link-tg-withdraw-explorer"
+                    >
+                      View on BscScan <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              )}
+              <Button
+                size="sm"
+                className="w-full bg-amber-500 text-black hover:bg-amber-400 text-xs font-semibold"
+                onClick={handleWithdraw}
+                disabled={!withdrawAddress || !withdrawAmount}
+                data-testid="button-tg-withdraw-send"
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                Review Transaction
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       {!showPrivateKey ? (

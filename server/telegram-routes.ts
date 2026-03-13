@@ -173,6 +173,108 @@ router.post("/wallet/export-key", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/wallet/withdraw", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload) return res.status(401).json({ message: "Invalid token" });
+
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+    const { toAddress, amount } = req.body;
+
+    if (!toAddress || typeof toAddress !== "string") {
+      return res.status(400).json({ message: "Destination address is required" });
+    }
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(toAddress)) {
+      return res.status(400).json({ message: "Invalid BNB address format" });
+    }
+
+    if (toAddress.toLowerCase() === agent.ownerAddress?.toLowerCase()) {
+      return res.status(400).json({ message: "Cannot send to your own address" });
+    }
+
+    const amountNum = parseFloat(amount);
+    if (!amount || isNaN(amountNum) || amountNum <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+
+    if (amountNum > 100) {
+      return res.status(400).json({ message: "Maximum withdrawal is 100 BNB per transaction" });
+    }
+
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(404).json({ message: "No custodial wallet found" });
+
+    const { decryptPrivateKey } = await import("./custodial-wallet");
+    const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    const { createWalletClient, createPublicClient, http, parseEther, formatEther } = await import("viem");
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const { bsc } = await import("viem/chains");
+
+    const account = privateKeyToAccount(privateKey);
+    const BSC_RPC = "https://bsc-dataseed1.binance.org";
+
+    const publicClient = createPublicClient({ chain: bsc, transport: http(BSC_RPC) });
+    const walletClient = createWalletClient({ account, chain: bsc, transport: http(BSC_RPC) });
+
+    const currentBalance = await publicClient.getBalance({ address: account.address });
+    const sendAmountWei = parseEther(amount.toString());
+
+    const gasEstimate = await publicClient.estimateGas({
+      account: account.address,
+      to: toAddress as `0x${string}`,
+      value: sendAmountWei,
+    });
+    const gasPrice = await publicClient.getGasPrice();
+    const gasCost = gasEstimate * gasPrice;
+
+    if (currentBalance < sendAmountWei + gasCost) {
+      const availableBnb = formatEther(currentBalance - gasCost > 0n ? currentBalance - gasCost : 0n);
+      return res.status(400).json({
+        message: `Insufficient balance. Available: ${parseFloat(availableBnb).toFixed(6)} BNB (after gas fees)`,
+      });
+    }
+
+    const txHash = await walletClient.sendTransaction({
+      to: toAddress as `0x${string}`,
+      value: sendAmountWei,
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      timeout: 60_000,
+    });
+
+    if (receipt.status !== "success") {
+      return res.status(500).json({ message: "Transaction failed on-chain", txHash });
+    }
+
+    const newBalance = await publicClient.getBalance({ address: account.address });
+
+    console.log(`[Withdraw] ${agent.name} sent ${amount} BNB to ${toAddress} (tx: ${txHash})`);
+
+    res.json({
+      success: true,
+      txHash,
+      amount,
+      toAddress,
+      newBalance: formatEther(newBalance),
+      explorerUrl: `https://bscscan.com/tx/${txHash}`,
+    });
+  } catch (error: any) {
+    console.error("Withdraw error:", error);
+    res.status(500).json({ message: error.message || "Failed to send transaction" });
+  }
+});
+
 router.get("/bees", async (req: Request, res: Response) => {
   try {
     const sort = (req.query.sort as string) || "rating";

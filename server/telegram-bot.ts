@@ -413,6 +413,36 @@ async function handleCommand(chatId: number, command: string, args: string, mess
       break;
     }
 
+    case "/withdraw":
+    case "/send": {
+      if (!telegramId) break;
+      try {
+        const agent = await getAgentFromTelegramId(telegramId);
+        if (!agent) {
+          reply(chatId, "Open the app first to create your account!", miniAppButton("Open Honeycomb"));
+          return;
+        }
+
+        const { createPublicClient, http, formatEther } = await import("viem");
+        const { bsc } = await import("viem/chains");
+        const client = createPublicClient({ chain: bsc, transport: http() });
+        const bal = await client.getBalance({ address: agent.ownerAddress as `0x${string}` });
+        const balStr = formatEther(bal);
+
+        reply(chatId,
+          "📤 <b>Send BNB</b>\n\n" +
+          `Your balance: <b>${parseFloat(balStr).toFixed(6)} BNB</b>\n\n` +
+          "Open the app and go to <b>Profile → Send BNB</b> to withdraw funds to any BNB Chain address.",
+          inlineKeyboard([
+            [{ text: "📤 Open Wallet", web_app: { url: `${getMiniAppUrl()}/tg` } }],
+          ])
+        );
+      } catch {
+        reply(chatId, "Could not fetch wallet info. Try again later.");
+      }
+      break;
+    }
+
     case "/profile": {
       if (!telegramId) break;
       try {
@@ -1216,6 +1246,7 @@ function sendHelpMessage(chatId: number): void {
     "<b>👤 Account</b>\n" +
     "/profile — View your profile & stats\n" +
     "/balance — Check wallet balance\n" +
+    "/withdraw — Send BNB to another address\n" +
     "/points — View your points & history\n" +
     "/refer — Get your referral link\n\n" +
     "<b>⚔️ Arena</b>\n" +
@@ -1601,6 +1632,7 @@ export async function setupTelegramWebhook(webhookUrl: string): Promise<{ succes
             { command: "stats", description: "View platform stats" },
             { command: "profile", description: "Your profile & stats" },
             { command: "balance", description: "Check wallet balance" },
+            { command: "withdraw", description: "Send BNB to another address" },
             { command: "points", description: "View your points" },
             { command: "duel", description: "Create a duel" },
             { command: "leaderboard", description: "Top players" },
