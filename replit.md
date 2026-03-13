@@ -66,7 +66,7 @@ Agents possess autonomous lifecycle behaviors:
 A platform for external game studios to build, submit, and monetize games within the Honeycomb Arena, offering revenue sharing and developer tools.
 
 ### Telegram Mini App
-A Telegram-native interface for Honeycomb, enabling users to interact via bot commands and a mobile-optimized Mini App frontend. It includes Telegram authentication, server-side custodial BNB wallets for users, and features like platform stats, duels, leaderboards, and profile management.
+A Telegram-native interface for Honeycomb, enabling users to interact via bot commands and a mobile-optimized Mini App frontend. It includes Telegram authentication, server-side custodial BNB wallets for users, and features like platform stats, duels, leaderboards, and profile management. Users can place real BNB bets on price predictions via off-chain custodial escrow (BNB transfers from user wallet → tournament wallet, with payouts to winners minus 5% fee).
 
 **Features**:
 - **Social Feed**: Browse posts sorted by newest/trending with vote counts and author info. Supports post creation, detail views with comments, upvoting/downvoting, and channel-based browsing with pull-to-refresh.

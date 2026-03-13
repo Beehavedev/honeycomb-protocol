@@ -841,4 +841,350 @@ router.post("/setup-webhook", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/duels/create-staked", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload) return res.status(401).json({ message: "Invalid token" });
+
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+    const { assetSymbol, durationSeconds, direction, stakeAmount } = req.body;
+
+    const stake = parseFloat(stakeAmount);
+    if (!stakeAmount || isNaN(stake) || stake <= 0) {
+      return res.status(400).json({ message: "Stake amount must be greater than 0" });
+    }
+    if (stake < 0.001) {
+      return res.status(400).json({ message: "Minimum stake is 0.001 BNB" });
+    }
+    if (stake > 10) {
+      return res.status(400).json({ message: "Maximum stake is 10 BNB" });
+    }
+
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(404).json({ message: "No custodial wallet found" });
+
+    const tournamentKey = process.env.TOURNAMENT_WALLET_PRIVATE_KEY;
+    if (!tournamentKey) {
+      return res.status(503).json({ message: "BNB duels are temporarily unavailable" });
+    }
+
+    const { decryptPrivateKey } = await import("./custodial-wallet");
+    const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    const { createWalletClient, createPublicClient, http, parseEther, formatEther } = await import("viem");
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const { bsc } = await import("viem/chains");
+
+    const userAccount = privateKeyToAccount(privateKey);
+    const formattedTournamentKey = tournamentKey.startsWith("0x")
+      ? (tournamentKey as `0x${string}`)
+      : (`0x${tournamentKey}` as `0x${string}`);
+    const tournamentAccount = privateKeyToAccount(formattedTournamentKey);
+    const BSC_RPC = "https://bsc-dataseed1.binance.org";
+
+    const publicClient = createPublicClient({ chain: bsc, transport: http(BSC_RPC) });
+    const userWalletClient = createWalletClient({ account: userAccount, chain: bsc, transport: http(BSC_RPC) });
+
+    const stakeWei = parseEther(stakeAmount.toString());
+    const userBalance = await publicClient.getBalance({ address: userAccount.address });
+
+    const gasEstimate = await publicClient.estimateGas({
+      account: userAccount.address,
+      to: tournamentAccount.address,
+      value: stakeWei,
+    });
+    const gasPrice = await publicClient.getGasPrice();
+    const gasCost = gasEstimate * gasPrice;
+
+    if (userBalance < stakeWei + gasCost) {
+      const available = formatEther(userBalance - gasCost > 0n ? userBalance - gasCost : 0n);
+      return res.status(400).json({
+        message: `Insufficient balance. You have ${parseFloat(available).toFixed(6)} BNB available (after gas)`,
+      });
+    }
+
+    const escrowTxHash = await userWalletClient.sendTransaction({
+      to: tournamentAccount.address,
+      value: stakeWei,
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: escrowTxHash,
+      timeout: 60_000,
+    });
+
+    if (receipt.status !== "success") {
+      return res.status(500).json({ message: "Escrow transaction failed on-chain", txHash: escrowTxHash });
+    }
+
+    let duelCreated = false;
+    try {
+      const { getRandomArenaBot, startBot } = await import("./arena-bot-engine");
+
+      const bot = await getRandomArenaBot();
+      const joinCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+      const duel = await storage.createTradingDuel({
+        creatorId: agent.id,
+        assetSymbol: assetSymbol || "BTCUSDT",
+        potAmount: stakeAmount.toString(),
+        durationSeconds: durationSeconds || 300,
+        matchType: "staked",
+        botDifficulty: "normal",
+        botStrategy: direction === "up" ? "bearish" : "bullish",
+      });
+      duelCreated = true;
+
+      await storage.updateTradingDuel(duel.id, {
+        joinCode,
+        txHash: escrowTxHash,
+        creatorWallet: userAccount.address,
+      });
+
+      const joined = await storage.joinTradingDuel(duel.id, bot.id);
+      const started = await storage.startTradingDuel(joined.id);
+
+      startBot(started.id, bot.id, bot.style || "momentum", started.durationSeconds, "normal", direction === "up" ? "bearish" : "bullish");
+
+      console.log(`[StakedDuel] ${agent.name} staked ${stakeAmount} BNB on ${assetSymbol} (duel: ${duel.id}, tx: ${escrowTxHash})`);
+
+      res.status(201).json({
+        ...started,
+        stakeAmount: stakeAmount.toString(),
+        escrowTxHash,
+        direction,
+        botName: bot.name,
+        joinCode,
+      });
+    } catch (duelError: any) {
+      console.error("[StakedDuel] Duel creation failed after escrow, refunding:", duelError);
+      try {
+        const tournamentWalletClient = createWalletClient({
+          account: tournamentAccount,
+          chain: bsc,
+          transport: http(BSC_RPC),
+        });
+        const refundTx = await tournamentWalletClient.sendTransaction({
+          to: userAccount.address,
+          value: stakeWei,
+        });
+        await publicClient.waitForTransactionReceipt({ hash: refundTx, timeout: 60_000 });
+        console.log(`[StakedDuel] Refunded ${stakeAmount} BNB to ${userAccount.address} (tx: ${refundTx})`);
+      } catch (refundErr) {
+        console.error("[StakedDuel] CRITICAL: Refund failed after duel creation error:", refundErr);
+      }
+      throw duelError;
+    }
+  } catch (error: any) {
+    console.error("[StakedDuel] Create error:", error);
+    res.status(500).json({ message: error.message || "Failed to create staked duel" });
+  }
+});
+
+const settlingDuels = new Set<string>();
+
+router.post("/duels/:id/settle-staked", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Authorization required" });
+    }
+    const token = authHeader.split(" ")[1];
+    const payload = verifyToken(token);
+    if (!payload) return res.status(401).json({ message: "Invalid token" });
+
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+    const duelId = req.params.id;
+    const duel = await storage.getTradingDuel(duelId);
+    if (!duel) return res.status(404).json({ message: "Duel not found" });
+    if (duel.status === "settled") return res.json({ alreadySettled: true, winnerId: duel.winnerId });
+    if (duel.status !== "active") return res.status(400).json({ message: "Duel not active" });
+    if (duel.matchType !== "staked") return res.status(400).json({ message: "Not a staked duel" });
+
+    if (duel.creatorId !== agent.id) {
+      return res.status(403).json({ message: "Only the duel creator can settle" });
+    }
+
+    if (settlingDuels.has(duelId)) {
+      return res.status(409).json({ message: "Settlement already in progress" });
+    }
+    settlingDuels.add(duelId);
+
+    if (duel.endsAt && new Date() < new Date(duel.endsAt)) {
+      settlingDuels.delete(duelId);
+      return res.status(400).json({ message: "Duel timer has not expired yet" });
+    }
+
+    const { stopBot } = await import("./arena-bot-engine");
+    stopBot(duelId);
+
+    let settlementPrice: string;
+    try {
+      const base = duel.assetSymbol.replace("USDT", "");
+      const priceRes = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${base}&tsyms=USD`);
+      const priceData = await priceRes.json();
+      if (!priceData?.USD) throw new Error("No price");
+      settlementPrice = priceData.USD.toString();
+    } catch {
+      try {
+        const binRes = await fetch(`https://api.binance.us/api/v3/ticker/price?symbol=${duel.assetSymbol}`);
+        const binData = await binRes.json();
+        if (!binData?.price) throw new Error("No price");
+        settlementPrice = binData.price;
+      } catch {
+        return res.status(500).json({ message: "Failed to fetch settlement price" });
+      }
+    }
+
+    const calcBalance = async (agentId: string) => {
+      const positions = await storage.getTradingPositions(duelId, agentId);
+      const initialBal = parseFloat(duel.initialBalance);
+      let total = initialBal;
+      for (const p of positions) {
+        if (p.isOpen) {
+          const entry = parseFloat(p.entryPrice);
+          const curr = parseFloat(settlementPrice);
+          const size = parseFloat(p.sizeUsdt);
+          let pnl: number;
+          if (p.side === "long") {
+            pnl = ((curr - entry) / entry) * size * p.leverage;
+          } else {
+            pnl = ((entry - curr) / entry) * size * p.leverage;
+          }
+          total += pnl;
+          await storage.closeTradingPosition(p.id, settlementPrice, pnl.toFixed(2));
+        } else if (p.pnl) {
+          total += parseFloat(p.pnl);
+        }
+      }
+      return total;
+    };
+
+    const creatorFinal = await calcBalance(duel.creatorId);
+    const joinerFinal = duel.joinerId ? await calcBalance(duel.joinerId) : 0;
+
+    let winnerId: string | null = null;
+    if (creatorFinal > joinerFinal) winnerId = duel.creatorId;
+    else if (joinerFinal > creatorFinal && duel.joinerId) winnerId = duel.joinerId;
+
+    const settled = await storage.settleTradingDuel(duelId, winnerId, creatorFinal.toFixed(2), joinerFinal.toFixed(2));
+
+    await storage.updateAgentArenaStats(duel.creatorId, winnerId === duel.creatorId);
+
+    let payoutTxHash: string | null = null;
+    const stakeAmount = parseFloat(duel.potAmount);
+
+    if (winnerId === duel.creatorId && stakeAmount > 0) {
+      try {
+        const tournamentKey = process.env.TOURNAMENT_WALLET_PRIVATE_KEY;
+        if (tournamentKey) {
+          const { createWalletClient, createPublicClient, http, parseEther, formatEther } = await import("viem");
+          const { privateKeyToAccount } = await import("viem/accounts");
+          const { bsc } = await import("viem/chains");
+
+          const formattedKey = tournamentKey.startsWith("0x")
+            ? (tournamentKey as `0x${string}`)
+            : (`0x${tournamentKey}` as `0x${string}`);
+          const tournamentAccount = privateKeyToAccount(formattedKey);
+          const BSC_RPC = "https://bsc-dataseed1.binance.org";
+
+          const publicClient = createPublicClient({ chain: bsc, transport: http(BSC_RPC) });
+          const walletClient = createWalletClient({ account: tournamentAccount, chain: bsc, transport: http(BSC_RPC) });
+
+          const feePct = 5;
+          const winnings = stakeAmount * 2 * (1 - feePct / 100);
+          const payoutWei = parseEther(winnings.toFixed(18));
+
+          const tournamentBalance = await publicClient.getBalance({ address: tournamentAccount.address });
+          if (tournamentBalance >= payoutWei) {
+            const creatorWallet = duel.creatorWallet as `0x${string}`;
+            if (creatorWallet) {
+              const tx = await walletClient.sendTransaction({
+                to: creatorWallet,
+                value: payoutWei,
+              });
+              await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 });
+              payoutTxHash = tx;
+              console.log(`[StakedDuel] Paid ${winnings.toFixed(6)} BNB to ${creatorWallet} (tx: ${tx})`);
+            }
+          } else {
+            console.error(`[StakedDuel] Tournament wallet insufficient for payout: ${formatEther(tournamentBalance)} < ${winnings}`);
+          }
+        }
+      } catch (payoutErr) {
+        console.error("[StakedDuel] Payout error:", payoutErr);
+      }
+    } else if (winnerId === null && stakeAmount > 0) {
+      try {
+        const tournamentKey = process.env.TOURNAMENT_WALLET_PRIVATE_KEY;
+        if (tournamentKey) {
+          const { createWalletClient, createPublicClient, http, parseEther } = await import("viem");
+          const { privateKeyToAccount } = await import("viem/accounts");
+          const { bsc } = await import("viem/chains");
+
+          const formattedKey = tournamentKey.startsWith("0x")
+            ? (tournamentKey as `0x${string}`)
+            : (`0x${tournamentKey}` as `0x${string}`);
+          const tournamentAccount = privateKeyToAccount(formattedKey);
+          const BSC_RPC = "https://bsc-dataseed1.binance.org";
+
+          const publicClient = createPublicClient({ chain: bsc, transport: http(BSC_RPC) });
+          const walletClient = createWalletClient({ account: tournamentAccount, chain: bsc, transport: http(BSC_RPC) });
+
+          const refundWei = parseEther(stakeAmount.toFixed(18));
+          const creatorWallet = duel.creatorWallet as `0x${string}`;
+          if (creatorWallet) {
+            const tx = await walletClient.sendTransaction({
+              to: creatorWallet,
+              value: refundWei,
+            });
+            await publicClient.waitForTransactionReceipt({ hash: tx, timeout: 60_000 });
+            payoutTxHash = tx;
+            console.log(`[StakedDuel] Draw refund ${stakeAmount} BNB to ${creatorWallet} (tx: ${tx})`);
+          }
+        }
+      } catch (refundErr) {
+        console.error("[StakedDuel] Refund error:", refundErr);
+      }
+    }
+
+    try {
+      const { awardGamePoints } = await import("./points-engine");
+      await awardGamePoints({
+        gameType: "trading_arena",
+        agentId: duel.creatorId,
+        won: winnerId === duel.creatorId,
+        isBotMatch: true,
+        metadata: { staked: true, stakeAmount: duel.potAmount, duelId: duel.id },
+      });
+    } catch (pointsErr) {
+      console.error("[StakedDuel] Points error:", pointsErr);
+    }
+
+    settlingDuels.delete(duelId);
+
+    res.json({
+      ...settled,
+      winnerId,
+      stakeAmount: duel.potAmount,
+      payoutTxHash,
+      userWon: winnerId === duel.creatorId,
+      payout: winnerId === duel.creatorId ? (stakeAmount * 2 * 0.95).toFixed(6) : "0",
+    });
+  } catch (error: any) {
+    settlingDuels.delete(req.params.id);
+    console.error("[StakedDuel] Settle error:", error);
+    res.status(500).json({ message: error.message || "Failed to settle staked duel" });
+  }
+});
+
 export default router;
