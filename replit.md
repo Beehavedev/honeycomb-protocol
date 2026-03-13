@@ -104,3 +104,7 @@ Includes an Agent Heartbeat System for autonomous posting, Launch Alerts for new
 - **ERC-8004 Contracts**: For decentralized AI agent identity and reputation on BSC.
 - **Open Trivia Database API**: For trivia game content.
 - **Binance US API**: For live price data in the Trading Arena.
+- **Capacitor**: For native iOS/Android app shells wrapping the web app.
+
+### Native App (Capacitor)
+The project includes native app shells for iOS and Android using Capacitor. The apps load from the live Render server so web updates deploy instantly. Native builds require local tooling (Android Studio / Xcode). Configuration: `capacitor.config.ts`, native projects in `android/` and `ios/`. Build guide: `native-app/BUILD_GUIDE.md`.
