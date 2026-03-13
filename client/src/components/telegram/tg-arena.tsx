@@ -2,6 +2,12 @@ import { useState } from "react";
 import {
   Swords, TrendingUp, Brain, Flame, Gamepad2, Zap,
 } from "lucide-react";
+
+function arenaHaptic() {
+  try {
+    window.Telegram?.WebApp?.HapticFeedback?.selectionChanged();
+  } catch {}
+}
 import type { ArenaSubTab, TgAgentInfo } from "./tg-arena-types";
 import { TradingSubTab } from "./tg-arena-trading";
 import { PredictSubTab } from "./tg-arena-predict";
@@ -37,7 +43,7 @@ export function TgArenaTab({ agent }: { agent?: TgAgentInfo }) {
           return (
             <button
               key={tab.id}
-              onClick={() => setSubTab(tab.id)}
+              onClick={() => { arenaHaptic(); setSubTab(tab.id); }}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                 isActive
                   ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"

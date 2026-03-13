@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef, Component, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,11 @@ import {
   Search,
   Activity,
   Star,
+  AlertCircle,
+  ArrowLeft,
+  TrendingUp,
+  Target,
+  Zap,
 } from "lucide-react";
 
 declare global {
@@ -54,6 +59,8 @@ declare global {
         expand: () => void;
         openLink: (url: string) => void;
         openTelegramLink: (url: string) => void;
+        setHeaderColor: (color: string) => void;
+        setBackgroundColor: (color: string) => void;
         initData?: string;
         initDataUnsafe?: {
           user?: {
@@ -63,12 +70,161 @@ declare global {
             username?: string;
           };
         };
+        HapticFeedback?: {
+          impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
+          notificationOccurred: (type: "error" | "success" | "warning") => void;
+          selectionChanged: () => void;
+        };
+        BackButton?: {
+          show: () => void;
+          hide: () => void;
+          onClick: (cb: () => void) => void;
+          offClick: (cb: () => void) => void;
+          isVisible?: boolean;
+        };
       };
     };
   }
 }
 
-type TabType = "home" | "feed" | "arena" | "earn" | "bees" | "market" | "agents" | "profile";
+function haptic(style: "light" | "medium" | "heavy" = "light") {
+  try {
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
+  } catch {}
+}
+
+function hapticNotify(type: "success" | "error" | "warning" = "success") {
+  try {
+    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(type);
+  } catch {}
+}
+
+class TgErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback || (
+          <div className="flex flex-col items-center justify-center p-8 text-center" data-testid="container-tg-error">
+            <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
+            <p className="text-sm font-medium text-white mb-1">Something went wrong</p>
+            <p className="text-xs text-gray-400 mb-4">{this.state.error?.message || "An unexpected error occurred"}</p>
+            <Button
+              size="sm"
+              className="bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30"
+              onClick={() => this.setState({ hasError: false, error: null })}
+              data-testid="button-tg-error-retry"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Try Again
+            </Button>
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function useTelegramBackButton(isSubView: boolean, onBack: () => void) {
+  useEffect(() => {
+    const backButton = window.Telegram?.WebApp?.BackButton;
+    if (!backButton) return;
+
+    if (isSubView) {
+      backButton.show();
+      backButton.onClick(onBack);
+      return () => {
+        backButton.offClick(onBack);
+        backButton.hide();
+      };
+    } else {
+      backButton.hide();
+    }
+  }, [isSubView, onBack]);
+}
+
+function PullToRefresh({
+  onRefresh,
+  refreshing,
+  children,
+  className,
+  onScroll,
+}: {
+  onRefresh: () => void;
+  refreshing: boolean;
+  children: ReactNode;
+  className?: string;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+}) {
+  const touchStartY = useRef(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.currentTarget;
+    if (target.scrollTop <= 0) {
+      touchStartY.current = e.touches[0].clientY;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartY.current > 0 && e.currentTarget.scrollTop <= 0) {
+      const diff = e.touches[0].clientY - touchStartY.current;
+      if (diff > 0) {
+        setPullDistance(Math.min(diff * 0.5, 60));
+      }
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (pullDistance > 40) {
+      haptic("medium");
+      onRefresh();
+    }
+    setPullDistance(0);
+    touchStartY.current = 0;
+  }, [pullDistance, onRefresh]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onScroll={onScroll}
+    >
+      {pullDistance > 0 && (
+        <div
+          className="flex items-center justify-center transition-all"
+          style={{ height: pullDistance }}
+        >
+          <RefreshCw className={`w-5 h-5 text-amber-500 ${pullDistance > 40 ? "animate-spin" : ""}`} />
+        </div>
+      )}
+      {refreshing && pullDistance === 0 && (
+        <div className="flex items-center justify-center py-2">
+          <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+type TabType = "home" | "feed" | "arena" | "earn" | "market" | "agents" | "profile";
 
 type SubView =
   | { type: "none" }
@@ -84,7 +240,7 @@ interface LandingStats {
 
 const BASE_URL = typeof window !== "undefined" ? window.location.origin : "";
 
-function HomeTab({ onSwitchTab }: { onSwitchTab: (tab: TabType) => void }) {
+function HomeTab({ onSwitchTab, onViewBees }: { onSwitchTab: (tab: TabType) => void; onViewBees: () => void }) {
   const { data: stats, isLoading } = useQuery<LandingStats>({
     queryKey: ["/api/landing-stats"],
     staleTime: 60000,
@@ -1823,9 +1979,10 @@ interface BeeListItem {
   arenaRating: number;
 }
 
-function BeesTab() {
+function BeesTab({ onBack }: { onBack?: () => void }) {
   const [sort, setSort] = useState<"rating" | "newest">("rating");
-  const { data: bees, isLoading } = useQuery<BeeListItem[]>({
+  const [refreshing, setRefreshing] = useState(false);
+  const { data: bees, isLoading, refetch } = useQuery<BeeListItem[]>({
     queryKey: ["/api/telegram/bees", sort],
     queryFn: () => fetch(`/api/telegram/bees?sort=${sort}&limit=50`).then(r => {
       if (!r.ok) throw new Error("Failed to load bees");
@@ -1835,12 +1992,24 @@ function BeesTab() {
     refetchOnWindowFocus: false,
   });
 
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch().finally(() => setRefreshing(false));
+  }, [refetch]);
+
   return (
-    <div className="px-4 pt-6 pb-4">
+    <PullToRefresh onRefresh={handleRefresh} refreshing={refreshing} className="px-4 pt-6 pb-4">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-xl font-bold text-white" data-testid="text-tg-bees-title">
-          The Hive
-        </h2>
+        <div className="flex items-center gap-2">
+          {onBack && (
+            <button onClick={onBack} className="text-gray-400 hover:text-white" data-testid="button-tg-bees-back">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <h2 className="text-xl font-bold text-white" data-testid="text-tg-bees-title">
+            The Hive
+          </h2>
+        </div>
         <div className="flex gap-1">
           <button
             onClick={() => setSort("rating")}
@@ -1931,7 +2100,7 @@ function BeesTab() {
           ))}
         </div>
       )}
-    </div>
+    </PullToRefresh>
   );
 }
 
@@ -2019,7 +2188,7 @@ function TgPostCard({
           <button
             onClick={(e) => { e.stopPropagation(); onVote("up"); }}
             disabled={isVoting}
-            className={`p-1 rounded transition-colors ${
+            className={`p-1 rounded transition-colors active:scale-90 ${
               userVote === "up" ? "text-amber-400 bg-amber-500/20" : "text-gray-500"
             }`}
             data-testid={`button-tg-upvote-${post.id}`}
@@ -2037,7 +2206,7 @@ function TgPostCard({
           <button
             onClick={(e) => { e.stopPropagation(); onVote("down"); }}
             disabled={isVoting}
-            className={`p-1 rounded transition-colors ${
+            className={`p-1 rounded transition-colors active:scale-90 ${
               userVote === "down" ? "text-red-400 bg-red-500/20" : "text-gray-500"
             }`}
             data-testid={`button-tg-downvote-${post.id}`}
@@ -2709,9 +2878,23 @@ function FeedTab({ agentId }: { agentId?: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const touchStartY = useRef(0);
-  const [pullDistance, setPullDistance] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleFeedBack = useCallback(() => {
+    haptic("light");
+    if (view === "post-detail") {
+      setView(selectedChannelSlug ? "channel-posts" : "list");
+      setSelectedPostId(null);
+    } else if (view === "create") {
+      setView("list");
+    } else if (view === "channel-posts") {
+      setView("channels");
+      setSelectedChannelSlug(null);
+    } else if (view === "channels") {
+      setView("list");
+    }
+  }, [view, selectedChannelSlug]);
+
+  useTelegramBackButton(view !== "list", handleFeedBack);
 
   const fetchFeed = useCallback(async (offset = 0, append = false) => {
     try {
@@ -2760,33 +2943,10 @@ function FeedTab({ agentId }: { agentId?: string }) {
     fetchFeed(posts.length, true);
   }, [loadingMore, hasMore, posts.length, fetchFeed]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const target = e.currentTarget;
-    if (target.scrollTop <= 0) {
-      touchStartY.current = e.touches[0].clientY;
-    }
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartY.current > 0 && e.currentTarget.scrollTop <= 0) {
-      const diff = e.touches[0].clientY - touchStartY.current;
-      if (diff > 0) {
-        setPullDistance(Math.min(diff * 0.5, 60));
-      }
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (pullDistance > 40) {
-      handleRefresh();
-    }
-    setPullDistance(0);
-    touchStartY.current = 0;
-  }, [pullDistance, handleRefresh]);
-
   const handleVote = async (postId: string, direction: "up" | "down") => {
     const token = localStorage.getItem("tg_token");
     if (!agentId || !token || votingPostId) return;
+    haptic("light");
     setVotingPostId(postId);
     try {
       const res = await fetch(`/api/posts/${postId}/vote`, {
@@ -2799,6 +2959,7 @@ function FeedTab({ agentId }: { agentId?: string }) {
       });
 
       if (res.ok) {
+        hapticNotify("success");
         const prevVote = userVotes[postId];
         setPosts((prev) =>
           prev.map((p) => {
@@ -2876,29 +3037,12 @@ function FeedTab({ agentId }: { agentId?: string }) {
   }
 
   return (
-    <div
-      ref={scrollRef}
+    <PullToRefresh
+      onRefresh={handleRefresh}
+      refreshing={refreshing}
       className="flex flex-col h-full overflow-y-auto"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       onScroll={handleScroll}
     >
-      {pullDistance > 0 && (
-        <div
-          className="flex items-center justify-center transition-all"
-          style={{ height: pullDistance }}
-        >
-          <RefreshCw className={`w-5 h-5 text-amber-500 ${pullDistance > 40 ? "animate-spin" : ""}`} />
-        </div>
-      )}
-
-      {refreshing && pullDistance === 0 && (
-        <div className="flex items-center justify-center py-2">
-          <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
-        </div>
-      )}
-
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold text-white" data-testid="text-tg-feed-title">Feed</h2>
@@ -2996,7 +3140,7 @@ function FeedTab({ agentId }: { agentId?: string }) {
           </>
         )}
       </div>
-    </div>
+    </PullToRefresh>
   );
 }
 
@@ -3216,7 +3360,7 @@ function CreateBeeView({ agent, onComplete }: { agent: TgAgent; onComplete: (upd
   );
 }
 
-function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void }) {
+function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void; onViewBees?: () => void }) {
   const [copied, setCopied] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -3494,6 +3638,17 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
       </div>
 
       <div className="flex flex-col gap-3">
+        {onViewBees && (
+          <Button
+            variant="outline"
+            className="w-full gap-2 border-amber-500/50 text-amber-400"
+            onClick={onViewBees}
+            data-testid="button-tg-profile-view-bees"
+          >
+            <Hexagon className="w-4 h-4" />
+            View The Hive
+          </Button>
+        )}
         <Button
           className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
           onClick={handleShareReferral}
@@ -3615,11 +3770,18 @@ const TIER_STYLES: Record<string, string> = {
 function EarnTab({ agentId }: { agentId?: string }) {
   const [earnView, setEarnView] = useState<EarnView>("main");
 
-  if (earnView === "bounties") return <BountyBrowser agentId={agentId} onBack={() => setEarnView("main")} />;
-  if (earnView === "referrals") return <ReferralView agentId={agentId} onBack={() => setEarnView("main")} />;
-  if (earnView === "leaderboards") return <LeaderboardView onBack={() => setEarnView("main")} />;
+  const handleEarnBack = useCallback(() => {
+    haptic("light");
+    setEarnView("main");
+  }, []);
 
-  return <EarnMain agentId={agentId} onNavigate={setEarnView} />;
+  useTelegramBackButton(earnView !== "main", handleEarnBack);
+
+  if (earnView === "bounties") return <BountyBrowser agentId={agentId} onBack={handleEarnBack} />;
+  if (earnView === "referrals") return <ReferralView agentId={agentId} onBack={handleEarnBack} />;
+  if (earnView === "leaderboards") return <LeaderboardView onBack={handleEarnBack} />;
+
+  return <EarnMain agentId={agentId} onNavigate={(view) => { haptic("light"); setEarnView(view); }} />;
 }
 
 function EarnMain({ agentId, onNavigate }: { agentId?: string; onNavigate: (view: EarnView) => void }) {
@@ -4392,10 +4554,9 @@ function LeaderboardView({ onBack }: { onBack: () => void }) {
 
 const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
-  { id: "feed", label: "Feed", icon: MessageSquare },
   { id: "arena", label: "Arena", icon: Swords },
+  { id: "feed", label: "Feed", icon: MessageSquare },
   { id: "earn", label: "Earn", icon: Coins },
-  { id: "bees", label: "Bees", icon: Hexagon },
   { id: "market", label: "Market", icon: Store },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "profile", label: "Profile", icon: User },
@@ -4479,13 +4640,19 @@ export default function TelegramApp() {
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [subView, setSubView] = useState<SubView>({ type: "none" });
   const [showCreateBee, setShowCreateBee] = useState(false);
+  const [showBees, setShowBees] = useState(false);
   const { agent: tgAgent, loading: authLoading, updateAgent } = useTelegramAuth();
+  const prevTabRef = useRef<TabType>("home");
 
   useEffect(() => {
     const webapp = window.Telegram?.WebApp;
     if (webapp) {
       webapp.ready();
       webapp.expand();
+      try {
+        webapp.setHeaderColor("#1a1a2e");
+        webapp.setBackgroundColor("#1a1a2e");
+      } catch {}
     }
   }, []);
 
@@ -4495,101 +4662,117 @@ export default function TelegramApp() {
     }
   }, [authLoading, tgAgent]);
 
-  const handleSwitchTab = (tab: TabType) => {
-    setActiveTab(tab);
+  const handleTabChange = useCallback((tab: TabType) => {
+    if (tab !== activeTab) {
+      haptic("light");
+      prevTabRef.current = activeTab;
+      setActiveTab(tab);
+      setSubView({ type: "none" });
+      setShowBees(false);
+    }
+  }, [activeTab]);
+
+  const handleSwitchTab = handleTabChange;
+
+  const handleBackFromBees = useCallback(() => {
+    haptic("light");
+    setShowBees(false);
+  }, []);
+
+  const handleBackFromSubView = useCallback(() => {
+    haptic("light");
     setSubView({ type: "none" });
-  };
+  }, []);
+
+  useTelegramBackButton(showBees || subView.type !== "none", showBees ? handleBackFromBees : handleBackFromSubView);
 
   if (showCreateBee && tgAgent) {
     return (
-      <CreateBeeView
-        agent={tgAgent}
-        onComplete={(updated) => {
-          updateAgent(updated);
-          setShowCreateBee(false);
-        }}
-      />
+      <TgErrorBoundary>
+        <CreateBeeView
+          agent={tgAgent}
+          onComplete={(updated) => {
+            hapticNotify("success");
+            updateAgent(updated);
+            setShowCreateBee(false);
+          }}
+        />
+      </TgErrorBoundary>
     );
   }
-
-  const renderContent = () => {
-    if (subView.type === "nfa-detail") {
-      return <NfaDetailView nfaId={subView.id} onBack={() => setSubView({ type: "none" })} />;
-    }
-    if (subView.type === "agent-chat") {
-      return <AgentChatView agentId={subView.agentId} onBack={() => setSubView({ type: "none" })} />;
-    }
-    if (subView.type === "agent-profile") {
-      return (
-        <AgentProfileView
-          agentId={subView.agentId}
-          onBack={() => setSubView({ type: "none" })}
-          onChat={(id) => setSubView({ type: "agent-chat", agentId: id })}
-        />
-      );
-    }
-
-    switch (activeTab) {
-      case "home":
-        return <HomeTab onSwitchTab={handleSwitchTab} />;
-      case "feed":
-        return <FeedTab agentId={tgAgent?.id} />;
-      case "arena":
-        return <TgArenaTab agent={tgAgent ? { id: tgAgent.id, name: tgAgent.name, ownerAddress: tgAgent.ownerAddress } : undefined} />;
-      case "earn":
-        return <EarnTab agentId={tgAgent?.id} />;
-      case "bees":
-        return <BeesTab />;
-      case "market":
-        return <MarketTab onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />;
-      case "agents":
-        return (
-          <AgentsTab
-            onViewAgent={(agentId) => setSubView({ type: "agent-profile", agentId })}
-            onChatAgent={(agentId) => setSubView({ type: "agent-chat", agentId })}
-          />
-        );
-      case "profile":
-        return (
-          <ProfileTab
-            agent={tgAgent}
-            loading={authLoading}
-            onEditBee={() => setShowCreateBee(true)}
-          />
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col">
       <div className="flex-1 overflow-y-auto pb-20">
-        {renderContent()}
+        <TgErrorBoundary>
+          <div className="transition-opacity duration-200 ease-in-out">
+            {subView.type === "nfa-detail" ? (
+              <NfaDetailView nfaId={subView.id} onBack={handleBackFromSubView} />
+            ) : subView.type === "agent-chat" ? (
+              <AgentChatView agentId={subView.agentId} onBack={handleBackFromSubView} />
+            ) : subView.type === "agent-profile" ? (
+              <AgentProfileView
+                agentId={subView.agentId}
+                onBack={handleBackFromSubView}
+                onChat={(id) => setSubView({ type: "agent-chat", agentId: id })}
+              />
+            ) : showBees ? (
+              <BeesTab onBack={handleBackFromBees} />
+            ) : (
+              <>
+                {activeTab === "home" && (
+                  <HomeTab onSwitchTab={handleTabChange} onViewBees={() => { haptic("light"); setShowBees(true); }} />
+                )}
+                {activeTab === "feed" && <FeedTab agentId={tgAgent?.id} />}
+                {activeTab === "arena" && (
+                  <TgArenaTab agent={tgAgent ? { id: tgAgent.id, name: tgAgent.name, ownerAddress: tgAgent.ownerAddress } : undefined} />
+                )}
+                {activeTab === "earn" && <EarnTab agentId={tgAgent?.id} />}
+                {activeTab === "market" && (
+                  <MarketTab onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />
+                )}
+                {activeTab === "agents" && (
+                  <AgentsTab
+                    onViewAgent={(agentId) => setSubView({ type: "agent-profile", agentId })}
+                    onChatAgent={(agentId) => setSubView({ type: "agent-chat", agentId })}
+                  />
+                )}
+                {activeTab === "profile" && (
+                  <ProfileTab
+                    agent={tgAgent}
+                    loading={authLoading}
+                    onEditBee={() => { haptic("light"); setShowCreateBee(true); }}
+                    onViewBees={() => { haptic("light"); setShowBees(true); }}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </TgErrorBoundary>
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 bg-[#12122a] border-t border-gray-700/50 z-50"
+        className="fixed bottom-0 left-0 right-0 bg-[#12122a]/95 backdrop-blur-md border-t border-gray-700/50 z-50"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         data-testid="container-tg-tab-bar"
       >
-        <div className="flex items-center justify-around gap-1 px-1 py-2">
+        <div className="flex items-center justify-around px-1 py-1.5">
           {tabs.map((tab) => {
-            const isActive = activeTab === tab.id && subView.type === "none";
+            const isActive = activeTab === tab.id && !showBees && subView.type === "none";
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => handleSwitchTab(tab.id)}
-                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? "text-amber-500"
-                    : "text-gray-500"
+                    ? "text-amber-500 bg-amber-500/10"
+                    : "text-gray-500 active:scale-95"
                 }`}
                 data-testid={`button-tg-tab-${tab.id}`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[9px] font-medium">{tab.label}</span>
+                <Icon className={`w-4 h-4 transition-transform duration-200 ${isActive ? "scale-110" : ""}`} />
+                <span className={`text-[9px] font-medium transition-colors duration-200 ${isActive ? "text-amber-400" : ""}`}>{tab.label}</span>
               </button>
             );
           })}
