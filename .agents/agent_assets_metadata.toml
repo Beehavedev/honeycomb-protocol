@@ -5,4 +5,10 @@ generated = []
 id = "l9XHpMif-uOQam3tmMbax"
 uri = "file://honeycomb-project.zip"
 type = "unspecified"
-title = "Honeycomb - Complete Project Download"
+title = "Honeycomb - Complete Project (with Self-Hosting Guide)"
+
+[[outputs]]
+id = "Ldm8h3EK8YN5ZAHpnGWxE"
+uri = "file://SELF_HOSTING_GUIDE.md"
+type = "text"
+title = "Self-Hosting Guide"
