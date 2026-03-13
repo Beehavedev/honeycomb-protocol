@@ -72,10 +72,14 @@ router.post("/auth", async (req: Request, res: Response) => {
         capabilities: [],
       });
 
-      await Promise.all([
-        storage.updateAgentTelegramId(agent.id, telegramId),
-        storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag),
-      ]);
+      await db.update(agents)
+        .set({ telegramId })
+        .where(eq(agents.id, agent.id));
+      agent = { ...agent, telegramId };
+
+      await storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+      console.log(`[TG Auth] New user created: ${displayName} (tgId: ${telegramId}, agentId: ${agent.id})`);
     }
 
     const token = generateToken(agent.ownerAddress);
