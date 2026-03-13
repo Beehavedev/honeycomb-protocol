@@ -4,3 +4,11 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+*.zip
+.env
+.env.*
+.local/
+.cache/
+.config/
+.upm/
+.agents/
