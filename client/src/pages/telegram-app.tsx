@@ -39,6 +39,11 @@ import {
   Clock,
   Loader2,
   ChevronRight,
+  Coins,
+  Flame,
+  Gift,
+  Crown,
+  Medal,
 } from "lucide-react";
 
 declare global {
@@ -63,7 +68,7 @@ declare global {
   }
 }
 
-type TabType = "home" | "feed" | "arena" | "bees" | "profile";
+type TabType = "home" | "feed" | "arena" | "earn" | "bees" | "profile";
 
 interface LandingStats {
   totalUsers: number;
@@ -2497,10 +2502,885 @@ function ProfileTab({ agent, loading, onEditBee }: { agent: TgAgent | null; load
   );
 }
 
+type EarnView = "main" | "bounties" | "referrals" | "leaderboards";
+
+interface UserPointsData {
+  totalPoints: number;
+  lifetimePoints: number;
+  dailyEarned: number;
+  dailyCapResetAt: string | null;
+  lastEarnedAt: string | null;
+}
+
+interface PointsHistoryItem {
+  action: string;
+  points: number;
+  multiplier: number;
+  finalPoints: number;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+interface BountyItem {
+  id: string;
+  title: string;
+  body: string;
+  status: string;
+  rewardDisplay: string;
+  deadline: string;
+  solutionCount: number;
+  tags: string[];
+  isExpired?: boolean;
+  agent?: { id: string; name: string; avatarUrl: string | null };
+}
+
+interface ReferralData {
+  referrerAgentId: string;
+  referralCode: string;
+  referralCount: number;
+  tier: string;
+  totalRewardsEarned: string;
+}
+
+interface PointsLeaderEntry {
+  rank: number;
+  agentId: string;
+  name: string;
+  avatarUrl: string | null;
+  totalPoints: number;
+  lifetimePoints: number;
+}
+
+interface ReferrerLeaderEntry {
+  id: string;
+  referrerAgentId: string;
+  referralCode: string;
+  referralCount: number;
+  tier: string;
+  agent: { id: string; name: string; avatarUrl: string | null } | null;
+}
+
+function tgFetch(url: string, options?: RequestInit) {
+  const token = localStorage.getItem("tg_token");
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options?.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
+
+function getEarnActionLabel(action: string): string {
+  if (action.includes("honey_runner") || action.includes("runner")) return "Honey Runner";
+  if (action.includes("trading_arena") || action.includes("trading")) return "Trading Arena";
+  if (action.includes("trivia_battle") || action.includes("trivia")) return "Trivia Battle";
+  if (action.includes("crypto_fighters") || action.includes("fighter")) return "Crypto Fighters";
+  if (action.includes("referral")) return "Referral Bonus";
+  if (action.includes("daily")) return "Daily Bonus";
+  if (action.includes("bot") || action.includes("practice")) return "Practice";
+  return action.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const TOKENOMICS_DATA = [
+  { label: "FourMeme Public Launch", pct: "35%", amount: "350M", highlight: true },
+  { label: "Community & Staking", pct: "25%", amount: "250M", highlight: true },
+  { label: "Liquidity Pool", pct: "20%", amount: "200M", highlight: false },
+  { label: "Ecosystem & Dev", pct: "15%", amount: "150M", highlight: false },
+  { label: "Private Sale", pct: "5%", amount: "50M", highlight: false },
+];
+
+const TIER_STYLES: Record<string, string> = {
+  newcomer: "text-gray-400",
+  bronze: "text-amber-600",
+  silver: "text-slate-400",
+  gold: "text-yellow-500",
+  queen: "text-purple-400",
+};
+
+function EarnTab({ agentId }: { agentId?: string }) {
+  const [earnView, setEarnView] = useState<EarnView>("main");
+
+  if (earnView === "bounties") return <BountyBrowser agentId={agentId} onBack={() => setEarnView("main")} />;
+  if (earnView === "referrals") return <ReferralView agentId={agentId} onBack={() => setEarnView("main")} />;
+  if (earnView === "leaderboards") return <LeaderboardView onBack={() => setEarnView("main")} />;
+
+  return <EarnMain agentId={agentId} onNavigate={setEarnView} />;
+}
+
+function EarnMain({ agentId, onNavigate }: { agentId?: string; onNavigate: (view: EarnView) => void }) {
+  const { data: pointsData, isLoading: pointsLoading } = useQuery<{ points: UserPointsData }>({
+    queryKey: ["/api/points/my"],
+    queryFn: () => tgFetch("/api/points/my").then(r => r.ok ? r.json() : { points: null }),
+    enabled: !!agentId,
+    staleTime: 30000,
+  });
+
+  const { data: historyData } = useQuery<{ history: PointsHistoryItem[] }>({
+    queryKey: ["/api/points/history", "?limit=60"],
+    queryFn: () => tgFetch("/api/points/history?limit=60").then(r => r.ok ? r.json() : { history: [] }),
+    enabled: !!agentId,
+    staleTime: 30000,
+  });
+
+  const { data: rewardsData } = useQuery<{
+    caps?: { dailyCap?: number; preTge?: boolean };
+    tokenomics?: {
+      totalSupply: number;
+      allocations: Record<string, { amount: number; pct: number; description: string }>;
+      totalPointsPool: number;
+    };
+  }>({
+    queryKey: ["/api/points/game-rewards"],
+    staleTime: 60000,
+  });
+
+  const points = pointsData?.points;
+  const dailyCap = rewardsData?.caps?.dailyCap || 500;
+  const isUnlimited = !rewardsData?.caps?.dailyCap || dailyCap >= 999999999;
+
+  const streakDays = (() => {
+    const history = historyData?.history;
+    if (!history || history.length === 0) return 0;
+    const toDayNum = (d: Date) => Math.floor(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) / 86400000);
+    const uniqueDayNums = [...new Set(history.map(h => toDayNum(new Date(h.createdAt))))].sort((a, b) => b - a);
+    if (uniqueDayNums.length === 0) return 0;
+    const todayNum = toDayNum(new Date());
+    if (uniqueDayNums[0] !== todayNum && uniqueDayNums[0] !== todayNum - 1) return 0;
+    let streak = 0;
+    let expected = uniqueDayNums[0];
+    for (const dayNum of uniqueDayNums) {
+      if (dayNum === expected) {
+        streak++;
+        expected--;
+      } else if (dayNum < expected) {
+        break;
+      }
+    }
+    return streak;
+  })();
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <div className="flex items-center gap-2 mb-1">
+        <Coins className="w-5 h-5 text-amber-500" />
+        <h2 className="text-xl font-bold text-white" data-testid="text-tg-earn-title">Earn</h2>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">Earn points, track rewards, and grow your hive</p>
+
+      {!agentId ? (
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-earn-login">
+          <Coins className="w-10 h-10 text-amber-500/50 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Open via @honeycombot to earn points</p>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-500/20 mb-4" data-testid="card-tg-points-balance">
+            {pointsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider">Your Points</p>
+                    <p className="text-3xl font-bold text-amber-500" data-testid="text-tg-points-total">
+                      {(points?.totalPoints || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-amber-500/10">
+                    <Coins className="w-6 h-6 text-amber-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-black/20 rounded-lg p-2.5">
+                    <p className="text-[10px] text-gray-500">Lifetime Earned</p>
+                    <p className="text-sm font-semibold text-white" data-testid="text-tg-points-lifetime">
+                      {(points?.lifetimePoints || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-black/20 rounded-lg p-2.5">
+                    <p className="text-[10px] text-gray-500">Daily Earned</p>
+                    <p className="text-sm font-semibold text-white" data-testid="text-tg-points-daily">
+                      {(points?.dailyEarned || 0).toLocaleString()}
+                      {!isUnlimited && <span className="text-gray-500 text-[10px] ml-1">/ {dailyCap}</span>}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </Card>
+
+          <Card className="p-4 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-daily-rewards">
+            <div className="flex items-center gap-2 mb-3">
+              <Flame className="w-4 h-4 text-orange-500" />
+              <p className="text-sm font-semibold text-white">Daily Rewards</p>
+            </div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Recent Activity Streak</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-2xl font-bold text-orange-500" data-testid="text-tg-streak-count">{streakDays}</span>
+                  <span className="text-xs text-gray-400">day{streakDays !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+                  const isActive = day <= streakDays;
+                  return (
+                    <div
+                      key={day}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                        isActive ? "bg-orange-500/20 text-orange-400 border border-orange-500/50" : "bg-gray-800 text-gray-600 border border-gray-700/50"
+                      }`}
+                      data-testid={`indicator-tg-streak-day-${day}`}
+                    >
+                      {day}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-black/20 rounded-lg p-2 text-center">
+                <Zap className="w-3 h-3 text-amber-500 mx-auto mb-0.5" />
+                <p className="text-[9px] text-gray-500">Play Games</p>
+                <p className="text-[10px] text-amber-400 font-semibold">20-110 pts</p>
+              </div>
+              <div className="bg-black/20 rounded-lg p-2 text-center">
+                <Gift className="w-3 h-3 text-green-500 mx-auto mb-0.5" />
+                <p className="text-[9px] text-gray-500">Refer Friends</p>
+                <p className="text-[10px] text-green-400 font-semibold">50+ pts</p>
+              </div>
+              <div className="bg-black/20 rounded-lg p-2 text-center">
+                <Target className="w-3 h-3 text-purple-500 mx-auto mb-0.5" />
+                <p className="text-[9px] text-gray-500">Bounties</p>
+                <p className="text-[10px] text-purple-400 font-semibold">Varies</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-token-info">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                <Coins className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">$HONEY Token</p>
+                <p className="text-[10px] text-gray-500">BEP-20 on BNB Smart Chain</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="bg-black/20 rounded-lg p-2">
+                <p className="text-[10px] text-gray-500">Max Supply</p>
+                <p className="text-xs font-bold text-white" data-testid="text-tg-token-supply">
+                  {rewardsData?.tokenomics?.totalSupply
+                    ? (rewardsData.tokenomics.totalSupply / 1e9).toFixed(0) + "B"
+                    : "1B"}
+                </p>
+              </div>
+              <div className="bg-black/20 rounded-lg p-2">
+                <p className="text-[10px] text-gray-500">Type</p>
+                <p className="text-xs font-bold text-white">Deflationary</p>
+              </div>
+              <div className="bg-black/20 rounded-lg p-2">
+                <p className="text-[10px] text-gray-500">Phase</p>
+                <p className="text-xs font-bold text-amber-400" data-testid="text-tg-token-phase">
+                  {rewardsData?.caps?.preTge ? "Pre-TGE" : "Live"}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {(() => {
+                const tokenomics = rewardsData?.tokenomics;
+                if (tokenomics?.allocations) {
+                  return Object.entries(tokenomics.allocations).map(([key, alloc]) => {
+                    const isHighlight = alloc.pct >= 20;
+                    const amountStr = alloc.amount >= 1e9
+                      ? (alloc.amount / 1e9).toFixed(0) + "B"
+                      : (alloc.amount / 1e6).toFixed(0) + "M";
+                    return (
+                      <div
+                        key={key}
+                        className={`flex items-center justify-between px-2 py-1.5 rounded ${isHighlight ? "bg-amber-500/5 border border-amber-500/20" : "bg-black/10"}`}
+                        data-testid={`text-tg-alloc-${key}`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${isHighlight ? "bg-amber-500" : "bg-gray-600"}`} />
+                          <span className="text-[11px] text-gray-300">{alloc.description.split("(")[0].trim()}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Badge className="text-[9px] px-1.5 py-0 bg-transparent border-gray-600 text-gray-400">{amountStr}</Badge>
+                          <span className="text-[11px] font-medium text-white w-7 text-right">{alloc.pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  });
+                }
+                return TOKENOMICS_DATA.map((item) => (
+                  <div
+                    key={item.label}
+                    className={`flex items-center justify-between px-2 py-1.5 rounded ${item.highlight ? "bg-amber-500/5 border border-amber-500/20" : "bg-black/10"}`}
+                    data-testid={`text-tg-alloc-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${item.highlight ? "bg-amber-500" : "bg-gray-600"}`} />
+                      <span className="text-[11px] text-gray-300">{item.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="text-[9px] px-1.5 py-0 bg-transparent border-gray-600 text-gray-400">{item.amount}</Badge>
+                      <span className="text-[11px] font-medium text-white w-7 text-right">{item.pct}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div className="mt-3 p-2 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+              <p className="text-[10px] text-gray-400">
+                Your $HONEY = (Your Points / Total Points) x {rewardsData?.tokenomics?.totalPointsPool
+                  ? (rewardsData.tokenomics.totalPointsPool / 1e6).toFixed(0) + "M"
+                  : "Community"} Pool
+              </p>
+            </div>
+          </Card>
+
+          <div className="space-y-2 mb-4">
+            <button
+              onClick={() => onNavigate("bounties")}
+              className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl"
+              data-testid="button-tg-nav-bounties"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-amber-500/10">
+                  <Target className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-white">Bounties</p>
+                  <p className="text-[10px] text-gray-500">Complete tasks, earn rewards</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            </button>
+            <button
+              onClick={() => onNavigate("referrals")}
+              className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl"
+              data-testid="button-tg-nav-referrals"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-500/10">
+                  <Gift className="w-4 h-4 text-green-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-white">Referrals</p>
+                  <p className="text-[10px] text-gray-500">Invite friends, earn points</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            </button>
+            <button
+              onClick={() => onNavigate("leaderboards")}
+              className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl"
+              data-testid="button-tg-nav-leaderboards"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-purple-500/10">
+                  <Trophy className="w-4 h-4 text-purple-500" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-white">Leaderboards</p>
+                  <p className="text-[10px] text-gray-500">Top earners & referrers</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+
+          {historyData?.history && historyData.history.length > 0 && (
+            <Card className="p-4 bg-[#242444] border-gray-700/50" data-testid="card-tg-recent-activity">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-gray-400" />
+                <p className="text-sm font-semibold text-white">Recent Activity</p>
+              </div>
+              <div className="space-y-2">
+                {historyData.history.slice(0, 5).map((entry, i) => {
+                  const isBotMatch = entry.finalPoints === 0 || entry.action.includes("bot") || entry.action.includes("practice");
+                  return (
+                    <div key={i} className="flex items-center justify-between py-1.5" data-testid={`row-tg-history-${i}`}>
+                      <div>
+                        <p className="text-xs text-white">{isBotMatch ? "Practice" : getEarnActionLabel(entry.action)}</p>
+                        <p className="text-[10px] text-gray-500">{formatTimeAgo(entry.createdAt)}</p>
+                      </div>
+                      <span className={`text-xs font-bold ${isBotMatch ? "text-gray-500" : "text-amber-500"}`}>
+                        {isBotMatch ? "0" : `+${entry.finalPoints.toLocaleString()}`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function BountyBrowser({ agentId, onBack }: { agentId?: string; onBack: () => void }) {
+  const [status, setStatus] = useState<"open" | "awarded" | "expired">("open");
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set());
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  const { data, isLoading, refetch } = useQuery<{ bounties: BountyItem[] }>({
+    queryKey: ["/api/bounties", status],
+    queryFn: () => fetch(`/api/bounties?status=${status}`).then(r => r.ok ? r.json() : { bounties: [] }),
+    staleTime: 30000,
+  });
+
+  const handleClaim = async (bountyId: string) => {
+    if (!agentId || claimingId !== null) return;
+    setClaimingId(bountyId);
+    setClaimError(null);
+    try {
+      const res = await tgFetch(`/api/bounties/${bountyId}/solutions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId,
+          body: "Claimed via Telegram Mini App",
+        }),
+      });
+      if (res.ok) {
+        setClaimedIds(prev => new Set(prev).add(bountyId));
+        refetch();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setClaimError(err.message || "Failed to claim bounty");
+      }
+    } catch {
+      setClaimError("Network error, try again");
+    }
+    setClaimingId(null);
+  };
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={onBack} className="text-gray-400 hover:text-white" data-testid="button-tg-bounties-back">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-white" data-testid="text-tg-bounties-title">Bounties</h2>
+          <p className="text-xs text-gray-400">Complete tasks to earn rewards</p>
+        </div>
+      </div>
+
+      <div className="flex gap-1 mb-4">
+        {(["open", "awarded", "expired"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatus(s)}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors capitalize ${
+              status === s ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"
+            }`}
+            data-testid={`button-tg-bounty-filter-${s}`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {claimError && (
+        <div className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400" data-testid="text-tg-bounty-error">
+          {claimError}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 bg-[#242444] animate-pulse rounded-xl" />
+          ))}
+        </div>
+      ) : !data?.bounties || data.bounties.length === 0 ? (
+        <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-empty-bounties">
+          <Target className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">No {status} bounties</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {data.bounties.map((bounty) => {
+            const isExpired = bounty.isExpired || new Date(bounty.deadline) < new Date();
+            const statusBadge =
+              bounty.status === "awarded" ? "bg-green-500/20 text-green-400" :
+              isExpired ? "bg-orange-500/20 text-orange-400" :
+              "bg-amber-500/20 text-amber-400";
+            const isClaimed = claimedIds.has(bounty.id);
+            const isClaiming = claimingId === bounty.id;
+            const canClaim = agentId && bounty.status === "open" && !isExpired && !isClaimed;
+            return (
+              <Card
+                key={bounty.id}
+                className="p-3 bg-[#242444] border-gray-700/50"
+                data-testid={`card-tg-bounty-${bounty.id}`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge className={`text-[9px] px-1.5 py-0 ${statusBadge}`}>
+                      {bounty.status === "awarded" ? "Awarded" : isExpired ? "Expired" : "Open"}
+                    </Badge>
+                    <Badge className="text-[9px] px-1.5 py-0 bg-transparent border-gray-600 text-gray-300 font-mono">
+                      {bounty.rewardDisplay}
+                    </Badge>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-white mb-1 line-clamp-1">{bounty.title}</p>
+                <p className="text-[11px] text-gray-400 line-clamp-2 mb-2">{bounty.body.slice(0, 100)}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-[10px] text-gray-500">
+                    {bounty.agent && <span>{bounty.agent.name}</span>}
+                    <span>{bounty.solutionCount} solution{bounty.solutionCount !== 1 ? "s" : ""}</span>
+                  </div>
+                  {canClaim && (
+                    <Button
+                      size="sm"
+                      disabled={isClaiming}
+                      className="h-7 text-[11px] bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30"
+                      onClick={() => handleClaim(bounty.id)}
+                      data-testid={`button-tg-claim-bounty-${bounty.id}`}
+                    >
+                      {isClaiming ? (
+                        <div className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin mr-1" />
+                      ) : (
+                        <Zap className="w-3 h-3 mr-1" />
+                      )}
+                      Claim
+                    </Button>
+                  )}
+                  {isClaimed && (
+                    <Badge className="text-[9px] bg-green-500/20 text-green-400">
+                      <Check className="w-3 h-3 mr-0.5" /> Claimed
+                    </Badge>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReferralView({ agentId, onBack }: { agentId?: string; onBack: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const { data: referralLink, isLoading: linkLoading } = useQuery<ReferralData | null>({
+    queryKey: ["/api/referrals/my-link"],
+    queryFn: () => tgFetch("/api/referrals/my-link").then(r => r.ok ? r.json() : null),
+    enabled: !!agentId,
+    staleTime: 30000,
+  });
+
+  const { data: stats } = useQuery<ReferralData | null>({
+    queryKey: ["/api/referrals/stats"],
+    queryFn: () => tgFetch("/api/referrals/stats").then(r => r.ok ? r.json() : null),
+    enabled: !!agentId,
+    staleTime: 30000,
+  });
+
+  const shortCode = referralLink?.referralCode?.replace("BEE", "") || "";
+  const referralUrl = referralLink ? `${BASE_URL}/r/${shortCode}` : "";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(referralUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleTelegramShare = () => {
+    const text = "Join me on Honeycomb - the AI Trading Arena on BNB Chain! Earn points and compete in duels!";
+    const tgLink = `https://t.me/share/url?url=${encodeURIComponent(referralUrl)}&text=${encodeURIComponent(text)}`;
+    window.Telegram?.WebApp?.openTelegramLink(tgLink);
+  };
+
+  const tierName = stats?.tier || "newcomer";
+  const tierStyle = TIER_STYLES[tierName] || TIER_STYLES.newcomer;
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={onBack} className="text-gray-400 hover:text-white" data-testid="button-tg-referrals-back">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-white" data-testid="text-tg-referrals-title">Referrals</h2>
+          <p className="text-xs text-gray-400">Invite friends and earn together</p>
+        </div>
+      </div>
+
+      {!agentId ? (
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+          <Users className="w-10 h-10 text-amber-500/50 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Open via @honeycombot to use referrals</p>
+        </Card>
+      ) : linkLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="card-tg-ref-count">
+              <div className="text-xl font-bold text-amber-500">{stats?.referralCount || 0}</div>
+              <div className="text-[10px] text-gray-500">Invites</div>
+            </Card>
+            <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="card-tg-ref-tier">
+              <div className={`text-sm font-bold capitalize ${tierStyle}`}>{tierName}</div>
+              <div className="text-[10px] text-gray-500">Tier</div>
+            </Card>
+            <Card className="p-3 bg-[#242444] border-gray-700/50 text-center" data-testid="card-tg-ref-earned">
+              <div className="text-xl font-bold text-green-400">{stats?.totalRewardsEarned || "0"}</div>
+              <div className="text-[10px] text-gray-500">Earned</div>
+            </Card>
+          </div>
+
+          <Card className="p-4 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-ref-link">
+            <p className="text-xs text-gray-400 mb-2">Your Referral Link</p>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex-1 bg-black/30 rounded-lg px-3 py-2 font-mono text-[11px] text-amber-400 truncate" data-testid="text-tg-ref-url">
+                {referralUrl || "Loading..."}
+              </div>
+              <button
+                onClick={handleCopy}
+                className="p-2 bg-amber-500/10 rounded-lg text-amber-400 hover:bg-amber-500/20"
+                data-testid="button-tg-copy-ref"
+              >
+                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+            <Button
+              className="w-full gap-2 bg-[#0088cc] text-white hover:bg-[#0077b5]"
+              onClick={handleTelegramShare}
+              data-testid="button-tg-share-telegram"
+            >
+              <Share2 className="w-4 h-4" />
+              Share via Telegram
+            </Button>
+          </Card>
+
+          {referralLink?.referralCode && (
+            <div className="text-center">
+              <p className="text-[10px] text-gray-500">
+                Code: <code className="text-amber-400/70">{referralLink.referralCode}</code>
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function LeaderboardView({ onBack }: { onBack: () => void }) {
+  const [tab, setTab] = useState<"earners" | "referrers" | "duel">("earners");
+
+  const { data: pointsLb, isLoading: plLoading } = useQuery<{ leaderboard: PointsLeaderEntry[] }>({
+    queryKey: ["/api/points/leaderboard"],
+    queryFn: () => fetch("/api/points/leaderboard?limit=20").then(r => r.ok ? r.json() : { leaderboard: [] }),
+    staleTime: 30000,
+  });
+
+  const { data: referrerLb, isLoading: rlLoading } = useQuery<{ leaderboard: ReferrerLeaderEntry[] }>({
+    queryKey: ["/api/leaderboards/referrers"],
+    queryFn: () => fetch("/api/leaderboards/referrers?limit=20").then(r => r.ok ? r.json() : { leaderboard: [] }),
+    staleTime: 30000,
+  });
+
+  const { data: duelLb, isLoading: dlLoading } = useQuery<BeeListItem[]>({
+    queryKey: ["/api/telegram/bees", "rating"],
+    queryFn: () => fetch("/api/telegram/bees?sort=rating&limit=20").then(r => r.ok ? r.json() : []).then(d => Array.isArray(d) ? d : []),
+    staleTime: 30000,
+  });
+
+  function RankIcon({ rank }: { rank: number }) {
+    if (rank === 1) return <Crown className="w-4 h-4 text-yellow-500" />;
+    if (rank === 2) return <Medal className="w-4 h-4 text-slate-400" />;
+    if (rank === 3) return <Medal className="w-4 h-4 text-amber-700" />;
+    return <span className="text-xs text-gray-500 w-4 text-center">{rank}</span>;
+  }
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={onBack} className="text-gray-400 hover:text-white" data-testid="button-tg-leaderboards-back">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-white" data-testid="text-tg-leaderboards-title">Leaderboards</h2>
+          <p className="text-xs text-gray-400">Top performers in the hive</p>
+        </div>
+      </div>
+
+      <div className="flex gap-1 mb-4">
+        {([
+          { id: "earners" as const, label: "Top Earners" },
+          { id: "referrers" as const, label: "Top Referrers" },
+          { id: "duel" as const, label: "Duel Champions" },
+        ]).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              tab === t.id ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"
+            }`}
+            data-testid={`button-tg-lb-tab-${t.id}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "earners" && (
+        <div className="space-y-2">
+          {plLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-14 bg-[#242444] animate-pulse rounded-xl" />)}
+            </div>
+          ) : !pointsLb?.leaderboard || pointsLb.leaderboard.length === 0 ? (
+            <Card className="p-8 bg-[#242444] border-gray-700/50 text-center">
+              <Coins className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">No earners yet</p>
+            </Card>
+          ) : (
+            pointsLb.leaderboard.map((entry) => (
+              <Card
+                key={entry.agentId}
+                className={`p-3 border-gray-700/50 ${entry.rank <= 3 ? "bg-amber-500/5 border-amber-500/20" : "bg-[#242444]"}`}
+                data-testid={`card-tg-lb-earner-${entry.rank}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a2e]">
+                    <RankIcon rank={entry.rank} />
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-sm">
+                    {entry.avatarUrl && entry.avatarUrl.startsWith("http") ? (
+                      <img src={entry.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      BEE_AVATARS.find(a => a.id === (entry.avatarUrl || ""))?.emoji || "🐝"
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{entry.name || "Unknown Bee"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-amber-500">{entry.totalPoints.toLocaleString()}</p>
+                    <p className="text-[9px] text-gray-500">pts</p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === "referrers" && (
+        <div className="space-y-2">
+          {rlLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-14 bg-[#242444] animate-pulse rounded-xl" />)}
+            </div>
+          ) : !referrerLb?.leaderboard || referrerLb.leaderboard.length === 0 ? (
+            <Card className="p-8 bg-[#242444] border-gray-700/50 text-center">
+              <Users className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">No referrers yet</p>
+            </Card>
+          ) : (
+            referrerLb.leaderboard.map((entry, index) => (
+              <Card
+                key={entry.id}
+                className={`p-3 border-gray-700/50 ${index < 3 ? "bg-amber-500/5 border-amber-500/20" : "bg-[#242444]"}`}
+                data-testid={`card-tg-lb-referrer-${index}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a2e]">
+                    <RankIcon rank={index + 1} />
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-sm">
+                    {entry.agent?.avatarUrl && entry.agent.avatarUrl.startsWith("http") ? (
+                      <img src={entry.agent.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      BEE_AVATARS.find(a => a.id === (entry.agent?.avatarUrl || ""))?.emoji || "🐝"
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{entry.agent?.name || "Unknown"}</p>
+                    <Badge className={`text-[9px] px-1 py-0 bg-transparent border-gray-600 capitalize ${TIER_STYLES[entry.tier] || "text-gray-400"}`}>
+                      {entry.tier}
+                    </Badge>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-white">{entry.referralCount}</p>
+                    <p className="text-[9px] text-gray-500">refs</p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {tab === "duel" && (
+        <div className="space-y-2">
+          {dlLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-14 bg-[#242444] animate-pulse rounded-xl" />)}
+            </div>
+          ) : !duelLb || duelLb.length === 0 ? (
+            <Card className="p-8 bg-[#242444] border-gray-700/50 text-center">
+              <Swords className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">No duel champions yet</p>
+            </Card>
+          ) : (
+            duelLb.map((bee, index) => (
+              <Card
+                key={bee.id}
+                className={`p-3 border-gray-700/50 ${index < 3 ? "bg-amber-500/5 border-amber-500/20" : "bg-[#242444]"}`}
+                data-testid={`card-tg-lb-duel-${index}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#1a1a2e]">
+                    <RankIcon rank={index + 1} />
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-sm">
+                    {BEE_AVATARS.find(a => a.id === bee.avatarUrl)?.emoji || "🐝"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{bee.name}</p>
+                    <p className="text-[10px] text-gray-500">{bee.arenaWins}W / {bee.arenaLosses}L</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-amber-400">{bee.arenaRating}</p>
+                    <p className="text-[9px] text-gray-500">ELO</p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "feed", label: "Feed", icon: MessageSquare },
   { id: "arena", label: "Arena", icon: Swords },
+  { id: "earn", label: "Earn", icon: Coins },
   { id: "bees", label: "Bees", icon: Hexagon },
   { id: "profile", label: "Profile", icon: User },
 ];
@@ -2616,6 +3496,7 @@ export default function TelegramApp() {
         {activeTab === "home" && <HomeTab onSwitchTab={setActiveTab} />}
         {activeTab === "feed" && <FeedTab agentId={tgAgent?.id} />}
         {activeTab === "arena" && <ArenaTab agentId={tgAgent?.id} />}
+        {activeTab === "earn" && <EarnTab agentId={tgAgent?.id} />}
         {activeTab === "bees" && <BeesTab />}
         {activeTab === "profile" && (
           <ProfileTab
