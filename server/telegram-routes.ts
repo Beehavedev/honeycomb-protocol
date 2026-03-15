@@ -1232,4 +1232,184 @@ router.post("/duels/:id/settle-staked", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/fourmeme/trending", async (_req, res) => {
+  try {
+    const { getTrendingTokens } = await import("./fourmeme-integration");
+    const tokens = await getTrendingTokens();
+    res.json({ tokens });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/fourmeme/new", async (_req, res) => {
+  try {
+    const { getNewTokens } = await import("./fourmeme-integration");
+    const tokens = await getNewTokens();
+    res.json({ tokens });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/fourmeme/search", async (req, res) => {
+  const q = req.query.q as string;
+  if (!q) return res.status(400).json({ error: "Query 'q' required" });
+  try {
+    const { searchTokens } = await import("./fourmeme-integration");
+    const tokens = await searchTokens(q);
+    res.json({ tokens });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/fourmeme/token/:address", async (req, res) => {
+  try {
+    const { getTokenDetail } = await import("./fourmeme-integration");
+    const detail = await getTokenDetail(req.params.address);
+    res.json(detail);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/fourmeme/token/:address/balance", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Auth required" });
+    const payload = verifyToken(authHeader.split(" ")[1]);
+    if (!payload) return res.status(401).json({ error: "Invalid token" });
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(400).json({ error: "No wallet" });
+    const { getTokenBalance } = await import("./fourmeme-integration");
+    const balance = await getTokenBalance(req.params.address, wallet.address);
+    res.json({ balance, token: req.params.address });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/fourmeme/estimate-buy", async (req, res) => {
+  const { tokenAddress, bnbAmount } = req.body;
+  if (!tokenAddress || !bnbAmount) return res.status(400).json({ error: "tokenAddress and bnbAmount required" });
+  try {
+    const { estimateBuy } = await import("./fourmeme-integration");
+    const estimate = await estimateBuy(tokenAddress, bnbAmount);
+    res.json(estimate);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/fourmeme/estimate-sell", async (req, res) => {
+  const { tokenAddress, tokenAmount } = req.body;
+  if (!tokenAddress || !tokenAmount) return res.status(400).json({ error: "tokenAddress and tokenAmount required" });
+  try {
+    const { estimateSell } = await import("./fourmeme-integration");
+    const estimate = await estimateSell(tokenAddress, tokenAmount);
+    res.json(estimate);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/fourmeme/launch", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Auth required" });
+    const payload = verifyToken(authHeader.split(" ")[1]);
+    if (!payload) return res.status(401).json({ error: "Invalid token" });
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(400).json({ error: "Wallet not configured" });
+
+    const { name, symbol, description, imageUrl, imageBase64, webUrl, twitterUrl, telegramUrl, presaleBNB } = req.body;
+    if (!name || !symbol) return res.status(400).json({ error: "name and symbol required" });
+    if (name.length > 50) return res.status(400).json({ error: "Name too long (max 50)" });
+    if (symbol.length > 10) return res.status(400).json({ error: "Symbol too long (max 10)" });
+    if (parseFloat(presaleBNB || "0") > 1) return res.status(400).json({ error: "Presale capped at 1 BNB" });
+
+    const { decryptPrivateKey } = await import("./custodial-wallet");
+    const { createToken } = await import("./fourmeme-integration");
+    const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    console.log(`[FourMeme-TG] User ${agent.id} launching token: ${symbol}`);
+    const result = await createToken(privateKey, {
+      name, symbol, description: description || `${name} — launched via Honeycomb`,
+      imageUrl, imageBase64, webUrl, twitterUrl, telegramUrl, presaleBNB: presaleBNB || "0",
+    });
+
+    res.json({ success: true, ...result, bscScanUrl: `https://bscscan.com/tx/${result.txHash}` });
+  } catch (err: any) {
+    console.error("[FourMeme-TG] Launch error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/fourmeme/buy", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Auth required" });
+    const payload = verifyToken(authHeader.split(" ")[1]);
+    if (!payload) return res.status(401).json({ error: "Invalid token" });
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(400).json({ error: "Wallet not configured" });
+
+    const { tokenAddress, bnbAmount, slippage } = req.body;
+    if (!tokenAddress || !bnbAmount) return res.status(400).json({ error: "tokenAddress and bnbAmount required" });
+    if (!/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) return res.status(400).json({ error: "Invalid token address" });
+    const bnbNum = parseFloat(bnbAmount);
+    if (isNaN(bnbNum) || bnbNum <= 0 || bnbNum > 10) return res.status(400).json({ error: "BNB must be between 0 and 10" });
+    const slippagePct = Math.min(Math.max(parseInt(slippage) || 10, 1), 50);
+
+    const { decryptPrivateKey } = await import("./custodial-wallet");
+    const { buyToken } = await import("./fourmeme-integration");
+    const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    console.log(`[FourMeme-TG] User ${agent.id} buying ${bnbAmount} BNB of ${tokenAddress}`);
+    const result = await buyToken(privateKey, tokenAddress, bnbAmount, slippagePct);
+    res.json({ success: true, ...result, bscScanUrl: `https://bscscan.com/tx/${result.txHash}` });
+  } catch (err: any) {
+    console.error("[FourMeme-TG] Buy error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/fourmeme/sell", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Auth required" });
+    const payload = verifyToken(authHeader.split(" ")[1]);
+    if (!payload) return res.status(401).json({ error: "Invalid token" });
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(400).json({ error: "Wallet not configured" });
+
+    const { tokenAddress, tokenAmount, slippage } = req.body;
+    if (!tokenAddress || !tokenAmount) return res.status(400).json({ error: "tokenAddress and tokenAmount required" });
+    if (!/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) return res.status(400).json({ error: "Invalid token address" });
+    const amountNum = parseFloat(tokenAmount);
+    if (isNaN(amountNum) || amountNum <= 0) return res.status(400).json({ error: "Token amount must be positive" });
+    const slippagePct = Math.min(Math.max(parseInt(slippage) || 10, 1), 50);
+
+    const { decryptPrivateKey } = await import("./custodial-wallet");
+    const { sellToken } = await import("./fourmeme-integration");
+    const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
+
+    console.log(`[FourMeme-TG] User ${agent.id} selling ${tokenAmount} of ${tokenAddress}`);
+    const result = await sellToken(privateKey, tokenAddress, tokenAmount, slippagePct);
+    res.json({ success: true, ...result, bscScanUrl: `https://bscscan.com/tx/${result.txHash}` });
+  } catch (err: any) {
+    console.error("[FourMeme-TG] Sell error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

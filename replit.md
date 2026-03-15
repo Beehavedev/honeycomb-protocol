@@ -108,3 +108,31 @@ Includes an Agent Heartbeat System for autonomous posting, Launch Alerts for new
 
 ### Native App (Capacitor)
 The project includes native app shells for iOS and Android using Capacitor. The apps load from the live Render server so web updates deploy instantly. Native builds require local tooling (Android Studio / Xcode). Configuration: `capacitor.config.ts`, native projects in `android/` and `ios/`. Build guide: `native-app/BUILD_GUIDE.md`.
+
+### FourMeme Protocol Integration
+Full integration with FourMeme (four.meme) token launchpad on BNB Chain. Core module: `server/fourmeme-integration.ts`. Routes: `server/fourmeme-routes.ts` (standalone API at `/api/fourmeme/*`) and embedded in `server/telegram-routes.ts` (at `/api/telegram/fourmeme/*`).
+
+**Capabilities:**
+- **Token Launch**: Create new tokens on FourMeme with bonding curve (0.01 BNB fee + optional presale). Handles FourMeme auth (wallet nonce signing), image upload, and on-chain `createToken` call.
+- **Buy Tokens**: Buy FourMeme tokens with BNB via `buyTokenAMAP` with slippage protection and price estimation via `TokenManagerHelper3.tryBuy`.
+- **Sell Tokens**: Sell tokens back on the bonding curve via `sellToken` with auto-approval and slippage protection via `TokenManagerHelper3.trySell`.
+- **Token Info**: On-chain bonding curve data (progress %, funds raised, max funds, price) via `TokenManagerHelper3.getTokenInfo`.
+- **Token Discovery**: BSC token search/trending via DexScreener API, on-chain metadata via ERC20 calls.
+- **Price Estimation**: Pre-trade cost/receive estimates for buys and sells.
+- **Token Balances**: Check ERC20 balances for any token in user's custodial wallet.
+
+**Key Contracts:**
+- TokenManager2 (Proxy): `0x5c952063c7fc8610FFDB798152D69F0B9550762b`
+- TokenManagerHelper3: `0xF251F83e40a78868FcfA3FA4599Dad6494E46034`
+
+**API Endpoints (both `/api/fourmeme` and `/api/telegram/fourmeme`):**
+- `GET /tokens/trending` — Trending BSC tokens
+- `GET /tokens/new` — Newest BSC tokens
+- `GET /tokens/search?q=` — Search tokens
+- `GET /token/:address` — Full token detail (on-chain + market data)
+- `GET /token/:address/balance` — User's token balance (auth required)
+- `POST /estimate-buy` — Estimate buy cost
+- `POST /estimate-sell` — Estimate sell proceeds
+- `POST /launch` — Launch new token on FourMeme (auth required)
+- `POST /buy` — Buy token with BNB (auth required)
+- `POST /sell` — Sell token for BNB (auth required)

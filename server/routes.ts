@@ -34,6 +34,7 @@ import developerRoutes from "./developer-routes";
 import { openclawRouter } from "./openclaw-routes";
 import web4Router from "./web4-routes";
 import presaleRouter from "./presale-routes";
+import fourmemeRouter from "./fourmeme-routes";
 import telegramRouter from "./telegram-routes";
 import { startAlertProcessor } from "./alert-dispatcher";
 import { startDailyDigestScheduler, startPriceAlertScheduler, sendTournamentNotification } from "./telegram-bot";
@@ -1803,6 +1804,7 @@ export async function registerRoutes(
   app.use("/api/openclaw", openclawRouter);
   app.use("/api/web4", web4Router);
   app.use("/api/presale", presaleRouter);
+  app.use("/api/fourmeme", fourmemeRouter);
   app.use("/api/telegram", telegramRouter);
   startAlertProcessor();
   startDailyDigestScheduler();
