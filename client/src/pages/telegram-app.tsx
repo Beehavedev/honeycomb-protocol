@@ -50,6 +50,10 @@ import {
   TrendingUp,
   Target,
   Zap,
+  Rocket,
+  DollarSign,
+  BarChart3,
+  ArrowLeftRight,
 } from "lucide-react";
 
 declare global {
@@ -1021,7 +1025,535 @@ interface TgAgentActivity {
   totalConversations: number;
 }
 
-function MarketTab({ onViewNfa }: { onViewNfa: (id: string) => void }) {
+interface FourMemeToken {
+  address: string;
+  name: string;
+  symbol: string;
+  priceUsd?: string;
+  volume24h?: number;
+  marketCap?: number;
+  liquidity?: number;
+  priceChange24h?: number;
+  url?: string;
+}
+
+interface TokenDetail {
+  address: string;
+  name: string;
+  symbol: string;
+  totalSupply?: string;
+  bondingCurve?: { progressPercent: number; fundsRaised: string; maxFunds: string; price: string };
+  market?: { priceUsd: string; volume24h: number; marketCap: number; liquidity: number; priceChange24h: number };
+}
+
+function FourMemeTab({ agentId }: { agentId?: string }) {
+  const [view, setView] = useState<"browse" | "detail" | "launch">("browse");
+  const [selectedToken, setSelectedToken] = useState<string>("");
+  const [browseTab, setBrowseTab] = useState<"trending" | "new" | "search">("trending");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  if (view === "detail" && selectedToken) {
+    return <TokenDetailView address={selectedToken} agentId={agentId} onBack={() => { setView("browse"); setSelectedToken(""); }} />;
+  }
+  if (view === "launch") {
+    return <TokenLaunchView agentId={agentId} onBack={() => setView("browse")} />;
+  }
+
+  return <TokenBrowseView
+    browseTab={browseTab}
+    setBrowseTab={setBrowseTab}
+    searchQuery={searchQuery}
+    setSearchQuery={setSearchQuery}
+    onSelectToken={(addr) => { setSelectedToken(addr); setView("detail"); }}
+    onLaunch={() => setView("launch")}
+  />;
+}
+
+function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery, onSelectToken, onLaunch }: {
+  browseTab: "trending" | "new" | "search";
+  setBrowseTab: (t: "trending" | "new" | "search") => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  onSelectToken: (addr: string) => void;
+  onLaunch: () => void;
+}) {
+  const endpoint = browseTab === "search" && searchQuery
+    ? `/api/telegram/fourmeme/tokens/search?q=${encodeURIComponent(searchQuery)}`
+    : `/api/telegram/fourmeme/tokens/${browseTab === "search" ? "trending" : browseTab}`;
+
+  const { data, isLoading, refetch } = useQuery<{ tokens: FourMemeToken[] }>({
+    queryKey: ["/api/telegram/fourmeme/tokens", browseTab, searchQuery],
+    queryFn: () => fetch(endpoint).then(r => r.json()),
+    staleTime: 30000,
+  });
+
+  const tokens = data?.tokens || [];
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-xl font-bold text-white" data-testid="text-fourmeme-title">FourMeme Tokens</h2>
+        <Button size="sm" onClick={onLaunch} className="bg-amber-500 hover:bg-amber-600 text-black text-xs h-8" data-testid="button-fourmeme-launch">
+          <Rocket className="w-3 h-3 mr-1" /> Launch
+        </Button>
+      </div>
+      <p className="text-xs text-gray-400 mb-4">Trade tokens on BNB Chain via FourMeme</p>
+
+      <div className="flex gap-2 mb-3">
+        {([["trending", "Trending", Flame], ["new", "New", Sparkles], ["search", "Search", Search]] as const).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => setBrowseTab(id)}
+            className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors flex items-center gap-1 ${browseTab === id ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"}`}
+            data-testid={`button-fourmeme-tab-${id}`}
+          >
+            <Icon className="w-3 h-3" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {browseTab === "search" && (
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name or symbol..."
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+            data-testid="input-fourmeme-search"
+          />
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="p-3 bg-[#242444] rounded-xl animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gray-700 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-20 bg-gray-700 rounded" />
+                  <div className="h-3 w-28 bg-gray-700 rounded" />
+                </div>
+                <div className="h-5 w-16 bg-gray-700 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : tokens.length === 0 ? (
+        <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-fourmeme-empty">
+          <BarChart3 className="w-10 h-10 text-gray-600 mx-auto mb-3" />
+          <p className="text-sm text-gray-400">{browseTab === "search" ? "No tokens found" : "No tokens available"}</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {tokens.map((token, idx) => (
+            <button
+              key={`${token.address}-${idx}`}
+              onClick={() => onSelectToken(token.address)}
+              className="w-full text-left"
+              data-testid={`card-fourmeme-token-${idx}`}
+            >
+              <Card className="p-3 bg-[#242444] border-gray-700/50 hover:border-amber-500/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-500 font-bold text-sm">
+                    {token.symbol?.slice(0, 2) || "??"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-white truncate">{token.name}</span>
+                      <Badge className="text-[9px] px-1.5 py-0 bg-gray-700 border-0 text-gray-400">{token.symbol}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                      {token.priceUsd && <span>${parseFloat(token.priceUsd) < 0.01 ? parseFloat(token.priceUsd).toExponential(2) : parseFloat(token.priceUsd).toFixed(4)}</span>}
+                      {token.volume24h !== undefined && <span>Vol: ${token.volume24h >= 1000 ? (token.volume24h / 1000).toFixed(1) + "K" : token.volume24h.toFixed(0)}</span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    {token.priceChange24h !== undefined && (
+                      <span className={`text-xs font-medium ${token.priceChange24h >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h.toFixed(1)}%
+                      </span>
+                    )}
+                    {token.marketCap !== undefined && token.marketCap > 0 && (
+                      <span className="text-[10px] text-gray-500">MCap: ${token.marketCap >= 1e6 ? (token.marketCap / 1e6).toFixed(1) + "M" : (token.marketCap / 1000).toFixed(0) + "K"}</span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TokenDetailView({ address, agentId, onBack }: { address: string; agentId?: string; onBack: () => void }) {
+  const [tradeMode, setTradeMode] = useState<"buy" | "sell">("buy");
+  const [amount, setAmount] = useState("");
+  const [trading, setTrading] = useState(false);
+  const [tradeResult, setTradeResult] = useState<{ success: boolean; message: string } | null>(null);
+  const token = localStorage.getItem("tg_token");
+
+  const { data: detail, isLoading } = useQuery<TokenDetail>({
+    queryKey: ["/api/telegram/fourmeme/token", address],
+    queryFn: () => fetch(`/api/telegram/fourmeme/token/${address}`).then(r => r.json()),
+    staleTime: 15000,
+  });
+
+  const { data: balanceData } = useQuery<{ balance: string }>({
+    queryKey: ["/api/telegram/fourmeme/token", address, "balance"],
+    queryFn: () => fetch(`/api/telegram/fourmeme/token/${address}/balance`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.ok ? r.json() : { balance: "0" }),
+    enabled: !!token,
+    staleTime: 10000,
+  });
+
+  const handleTrade = async () => {
+    if (!amount || !token) return;
+    setTrading(true);
+    setTradeResult(null);
+    try {
+      const endpoint = tradeMode === "buy" ? "/api/telegram/fourmeme/buy" : "/api/telegram/fourmeme/sell";
+      const body = tradeMode === "buy"
+        ? { tokenAddress: address, bnbAmount: amount, slippage: 10 }
+        : { tokenAddress: address, tokenAmount: amount, slippage: 10 };
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTradeResult({ success: true, message: `${tradeMode === "buy" ? "Bought" : "Sold"} successfully! TX: ${data.txHash?.slice(0, 10)}...` });
+        setAmount("");
+        nativeHaptic("success");
+      } else {
+        setTradeResult({ success: false, message: data.error || "Trade failed" });
+        nativeHaptic("error");
+      }
+    } catch (err: any) {
+      setTradeResult({ success: false, message: err.message || "Network error" });
+      nativeHaptic("error");
+    } finally {
+      setTrading(false);
+    }
+  };
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-amber-400 text-sm mb-4" data-testid="button-fourmeme-back">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+
+      {isLoading ? (
+        <div className="space-y-3 animate-pulse">
+          <div className="h-8 w-40 bg-gray-700 rounded" />
+          <div className="h-4 w-60 bg-gray-700 rounded" />
+          <div className="h-32 bg-gray-700 rounded-xl" />
+        </div>
+      ) : detail ? (
+        <>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-bold text-lg">
+              {detail.symbol?.slice(0, 2) || "??"}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white" data-testid="text-token-name">{detail.name}</h2>
+              <div className="flex items-center gap-2">
+                <Badge className="text-xs bg-amber-500/10 text-amber-400 border-0">{detail.symbol}</Badge>
+                <span className="text-[10px] text-gray-500 font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
+              </div>
+            </div>
+          </div>
+
+          {detail.market && (
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <Card className="p-3 bg-[#242444] border-gray-700/50">
+                <p className="text-[10px] text-gray-500 mb-0.5">Price</p>
+                <p className="text-sm font-medium text-white" data-testid="text-token-price">${parseFloat(detail.market.priceUsd) < 0.01 ? parseFloat(detail.market.priceUsd).toExponential(2) : parseFloat(detail.market.priceUsd).toFixed(4)}</p>
+                {detail.market.priceChange24h !== undefined && (
+                  <p className={`text-[10px] ${detail.market.priceChange24h >= 0 ? "text-green-400" : "text-red-400"}`}>
+                    {detail.market.priceChange24h >= 0 ? "+" : ""}{detail.market.priceChange24h.toFixed(2)}%
+                  </p>
+                )}
+              </Card>
+              <Card className="p-3 bg-[#242444] border-gray-700/50">
+                <p className="text-[10px] text-gray-500 mb-0.5">Market Cap</p>
+                <p className="text-sm font-medium text-white">${detail.market.marketCap >= 1e6 ? (detail.market.marketCap / 1e6).toFixed(2) + "M" : (detail.market.marketCap / 1000).toFixed(0) + "K"}</p>
+              </Card>
+              <Card className="p-3 bg-[#242444] border-gray-700/50">
+                <p className="text-[10px] text-gray-500 mb-0.5">Volume 24h</p>
+                <p className="text-sm font-medium text-white">${detail.market.volume24h >= 1000 ? (detail.market.volume24h / 1000).toFixed(1) + "K" : detail.market.volume24h.toFixed(0)}</p>
+              </Card>
+              <Card className="p-3 bg-[#242444] border-gray-700/50">
+                <p className="text-[10px] text-gray-500 mb-0.5">Liquidity</p>
+                <p className="text-sm font-medium text-white">${detail.market.liquidity >= 1000 ? (detail.market.liquidity / 1000).toFixed(1) + "K" : detail.market.liquidity.toFixed(0)}</p>
+              </Card>
+            </div>
+          )}
+
+          {detail.bondingCurve && (
+            <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-400">Bonding Curve</span>
+                <span className="text-xs font-medium text-amber-400">{detail.bondingCurve.progressPercent.toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(detail.bondingCurve.progressPercent, 100)}%` }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-gray-500">
+                <span>{detail.bondingCurve.fundsRaised} BNB raised</span>
+                <span>{detail.bondingCurve.maxFunds} BNB max</span>
+              </div>
+            </Card>
+          )}
+
+          {balanceData && parseFloat(balanceData.balance) > 0 && (
+            <Card className="p-3 bg-amber-500/5 border-amber-500/20 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">Your Balance</span>
+                <span className="text-sm font-medium text-amber-400" data-testid="text-token-balance">{parseFloat(balanceData.balance).toLocaleString()} {detail.symbol}</span>
+              </div>
+            </Card>
+          )}
+
+          <Card className="p-4 bg-[#242444] border-gray-700/50 mb-4">
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => { setTradeMode("buy"); setAmount(""); setTradeResult(null); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tradeMode === "buy" ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-[#1a1a2e] text-gray-500"}`}
+                data-testid="button-trade-buy"
+              >
+                Buy
+              </button>
+              <button
+                onClick={() => { setTradeMode("sell"); setAmount(""); setTradeResult(null); }}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${tradeMode === "sell" ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-[#1a1a2e] text-gray-500"}`}
+                data-testid="button-trade-sell"
+              >
+                Sell
+              </button>
+            </div>
+
+            <div className="relative mb-3">
+              <input
+                type="number"
+                step="any"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={tradeMode === "buy" ? "BNB amount" : "Token amount"}
+                className="w-full px-3 py-2.5 rounded-lg bg-[#1a1a2e] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+                data-testid="input-trade-amount"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                {tradeMode === "buy" ? "BNB" : detail.symbol}
+              </span>
+            </div>
+
+            {tradeMode === "buy" && (
+              <div className="flex gap-2 mb-3">
+                {["0.01", "0.05", "0.1", "0.5"].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setAmount(v)}
+                    className="flex-1 py-1 text-[10px] rounded bg-[#1a1a2e] text-gray-400 hover:text-amber-400 transition-colors"
+                    data-testid={`button-preset-${v}`}
+                  >
+                    {v} BNB
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <Button
+              onClick={handleTrade}
+              disabled={!amount || trading || !token}
+              className={`w-full ${tradeMode === "buy" ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"} text-white font-medium`}
+              data-testid="button-trade-execute"
+            >
+              {trading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ArrowLeftRight className="w-4 h-4 mr-1" />}
+              {trading ? "Processing..." : tradeMode === "buy" ? `Buy ${detail.symbol}` : `Sell ${detail.symbol}`}
+            </Button>
+
+            {tradeResult && (
+              <div className={`mt-3 p-2 rounded-lg text-xs ${tradeResult.success ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`} data-testid="text-trade-result">
+                {tradeResult.message}
+              </div>
+            )}
+          </Card>
+
+          <a
+            href={`https://bscscan.com/address/${address}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1 text-xs text-amber-400 hover:text-amber-300"
+            data-testid="link-bscscan"
+          >
+            <ExternalLink className="w-3 h-3" /> View on BscScan
+          </a>
+        </>
+      ) : (
+        <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+          <AlertCircle className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-sm text-gray-400">Failed to load token details</p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function TokenLaunchView({ agentId, onBack }: { agentId?: string; onBack: () => void }) {
+  const [name, setName] = useState("");
+  const [symbol, setSymbol] = useState("");
+  const [description, setDescription] = useState("");
+  const [presaleBNB, setPresaleBNB] = useState("0");
+  const [launching, setLaunching] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string; txHash?: string; tokenAddress?: string } | null>(null);
+  const token = localStorage.getItem("tg_token");
+
+  const handleLaunch = async () => {
+    if (!name || !symbol || !token) return;
+    setLaunching(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/telegram/fourmeme/launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name, symbol, description, presaleBNB }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: `Token ${symbol} launched!`, txHash: data.txHash, tokenAddress: data.tokenAddress });
+        nativeHaptic("success");
+      } else {
+        setResult({ success: false, message: data.error || "Launch failed" });
+        nativeHaptic("error");
+      }
+    } catch (err: any) {
+      setResult({ success: false, message: err.message || "Network error" });
+      nativeHaptic("error");
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <button onClick={onBack} className="flex items-center gap-1 text-amber-400 text-sm mb-4" data-testid="button-launch-back">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+
+      <h2 className="text-xl font-bold text-white mb-1" data-testid="text-launch-title">Launch Token</h2>
+      <p className="text-xs text-gray-400 mb-4">Create a new token on FourMeme (0.01 BNB fee)</p>
+
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-gray-400 mb-1 block">Token Name *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Honeycomb Token"
+            maxLength={50}
+            className="w-full px-3 py-2.5 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+            data-testid="input-launch-name"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 mb-1 block">Symbol *</label>
+          <input
+            type="text"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+            placeholder="e.g. HONEY"
+            maxLength={10}
+            className="w-full px-3 py-2.5 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+            data-testid="input-launch-symbol"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 mb-1 block">Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe your token..."
+            rows={3}
+            className="w-full px-3 py-2.5 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50 resize-none"
+            data-testid="input-launch-description"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 mb-1 block">Presale BNB (optional, max 1)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={presaleBNB}
+            onChange={(e) => setPresaleBNB(e.target.value)}
+            placeholder="0"
+            className="w-full px-3 py-2.5 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+            data-testid="input-launch-presale"
+          />
+        </div>
+
+        <Button
+          onClick={handleLaunch}
+          disabled={!name || !symbol || launching || !token}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-black font-medium"
+          data-testid="button-launch-submit"
+        >
+          {launching ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Rocket className="w-4 h-4 mr-1" />}
+          {launching ? "Launching..." : "Launch Token"}
+        </Button>
+
+        {result && (
+          <div className={`p-3 rounded-lg text-sm ${result.success ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`} data-testid="text-launch-result">
+            <p className="font-medium mb-1">{result.message}</p>
+            {result.txHash && (
+              <a href={`https://bscscan.com/tx/${result.txHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-amber-400 flex items-center gap-1">
+                <ExternalLink className="w-3 h-3" /> View Transaction
+              </a>
+            )}
+            {result.tokenAddress && (
+              <p className="text-xs mt-1 font-mono text-gray-400">Token: {result.tokenAddress}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MarketTab({ onViewNfa, agentId }: { onViewNfa: (id: string) => void; agentId?: string }) {
+  const [marketSection, setMarketSection] = useState<"tokens" | "nfa">("tokens");
+
+  if (marketSection === "tokens") {
+    return (
+      <div>
+        <div className="px-4 pt-4 pb-2 flex gap-2">
+          <button onClick={() => setMarketSection("tokens")} className="text-xs px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-400" data-testid="button-market-tokens">Tokens</button>
+          <button onClick={() => setMarketSection("nfa")} className="text-xs px-3 py-1.5 rounded-full bg-[#242444] text-gray-500" data-testid="button-market-nfa">NFAs</button>
+        </div>
+        <FourMemeTab agentId={agentId} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="px-4 pt-4 pb-2 flex gap-2">
+        <button onClick={() => setMarketSection("tokens")} className="text-xs px-3 py-1.5 rounded-full bg-[#242444] text-gray-500" data-testid="button-market-tokens">Tokens</button>
+        <button onClick={() => setMarketSection("nfa")} className="text-xs px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-400" data-testid="button-market-nfa">NFAs</button>
+      </div>
+      <NfaMarketContent onViewNfa={onViewNfa} />
+    </div>
+  );
+}
+
+function NfaMarketContent({ onViewNfa }: { onViewNfa: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
   const [typeFilter, setTypeFilter] = useState("");
@@ -5049,7 +5581,7 @@ export default function TelegramApp() {
                 )}
                 {activeTab === "earn" && <EarnTab agentId={tgAgent?.id} />}
                 {activeTab === "market" && (
-                  <MarketTab onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />
+                  <MarketTab agentId={tgAgent?.id} onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />
                 )}
                 {activeTab === "agents" && (
                   <AgentsTab
