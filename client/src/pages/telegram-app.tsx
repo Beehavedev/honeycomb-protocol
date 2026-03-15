@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import beeLogoPath from "@assets/honeycomb-bee-logo.png";
 import { TgArenaTab } from "@/components/telegram/tg-arena";
+import { getPlatform, isNative, initNativeApp, nativeHaptic, nativeNotify } from "@/lib/native-bridge";
 import {
   Hexagon,
   Home,
@@ -88,15 +89,11 @@ declare global {
 }
 
 function haptic(style: "light" | "medium" | "heavy" = "light") {
-  try {
-    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred(style);
-  } catch {}
+  nativeHaptic(style);
 }
 
 function hapticNotify(type: "success" | "error" | "warning" = "success") {
-  try {
-    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred(type);
-  } catch {}
+  nativeNotify(type);
 }
 
 class TgErrorBoundary extends Component<
@@ -4925,6 +4922,9 @@ export default function TelegramApp() {
         webapp.setHeaderColor("#1a1a2e");
         webapp.setBackgroundColor("#1a1a2e");
       } catch {}
+    }
+    if (isNative()) {
+      initNativeApp();
     }
   }, []);
 
