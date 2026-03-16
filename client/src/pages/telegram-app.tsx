@@ -58,6 +58,7 @@ import {
   Upload,
   ImagePlus,
   Wand2,
+  Download,
 } from "lucide-react";
 
 declare global {
@@ -4111,15 +4112,15 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
   const [sharing, setSharing] = useState(false);
   const [shareResult, setShareResult] = useState<string | null>(null);
 
-  const baseUrl = "https://thehoneycomb.social";
-  const cardUrl = `${baseUrl}/api/share/card/${agent.id}`;
-  const imageUrl = `/api/share/card/${agent.id}/image.svg`;
+  const cardImageUrl = `/api/share/card/${agent.id}/image.png`;
+  const svgPreviewUrl = `/api/share/card/${agent.id}/image.svg`;
 
   const tier = agent.arenaRating >= 5000 ? "APEX" : agent.arenaRating >= 3000 ? "DIAMOND" : agent.arenaRating >= 2000 ? "PLATINUM" : agent.arenaRating >= 1500 ? "GOLD" : agent.arenaRating >= 1200 ? "SILVER" : "BRONZE";
 
   const handleShareTwitter = async () => {
     setSharing(true);
     setShareResult(null);
+    let referralUrl = "https://thehoneycomb.social";
     try {
       const token = localStorage.getItem("tg_auth_token");
       if (token) {
@@ -4130,14 +4131,30 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
         if (res.ok) {
           const data = await res.json();
           setShareResult(data.message);
+          if (data.referralUrl) referralUrl = data.referralUrl;
         }
       }
     } catch {}
 
     const tweetText = `Check out my ${tier} tier agent card on @honeycombchain!\n\nArena Rating: ${agent.arenaRating} | ${agent.arenaWins}W / ${agent.arenaLosses}L\n\nJoin the hive and challenge me! #Honeycomb #BNBChain #Web3`;
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(cardUrl)}`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(referralUrl)}`;
     window.open(twitterUrl, "_blank");
     setSharing(false);
+  };
+
+  const handleDownloadCard = async () => {
+    try {
+      const res = await fetch(cardImageUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${agent.name || "agent"}-honeycomb-card.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {}
   };
 
   return (
@@ -4146,22 +4163,32 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
       <Card className="bg-[#0d0d24] border-gray-700/50 overflow-hidden" data-testid="card-tg-share-preview">
         <div className="relative">
           <img
-            src={imageUrl}
+            src={svgPreviewUrl}
             alt={`${agent.name}'s Agent Card`}
             className="w-full rounded-t-xl"
             loading="lazy"
           />
         </div>
         <div className="p-3 space-y-2">
-          <button
-            onClick={handleShareTwitter}
-            disabled={sharing}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-black hover:bg-gray-900 text-white rounded-xl font-medium text-sm transition-all border border-gray-700/50 hover:border-gray-600"
-            data-testid="button-tg-share-twitter"
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            {sharing ? "Sharing..." : "Share on X (Twitter)"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDownloadCard}
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-medium text-sm transition-all border border-gray-700/50"
+              data-testid="button-tg-download-card"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleShareTwitter}
+              disabled={sharing}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-black hover:bg-gray-900 text-white rounded-xl font-medium text-sm transition-all border border-gray-700/50 hover:border-gray-600"
+              data-testid="button-tg-share-twitter"
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              {sharing ? "Sharing..." : "Share on X (Twitter)"}
+            </button>
+          </div>
+          <p className="text-center text-[9px] text-gray-500">Download the card, then attach it to your X post as an image</p>
           <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-400">
             <Sparkles className="w-3 h-3" />
             <span>Earn 250 bonus points on your first share!</span>

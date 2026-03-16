@@ -1,11 +1,12 @@
 import { Request, Response, Router } from "express";
 import { storage } from "./storage";
 import { db } from "./db";
-import { agents, pointsHistory } from "@shared/schema";
+import { agents, pointsHistory, referrals } from "@shared/schema";
 import { eq, sql, sum } from "drizzle-orm";
 import { verifyToken } from "./auth";
 import * as fs from "fs";
 import * as path from "path";
+import sharp from "sharp";
 
 const router = Router();
 
@@ -40,10 +41,25 @@ function tierFromRating(rating: number): { name: string; color: string; bg: stri
   return { name: "BRONZE", color: "#cd7f32", bg: "#cd7f3220" };
 }
 
-function loadAvatarBase64(avatarUrl: string | null): string | null {
-  if (!avatarUrl) return null;
-  if (!avatarUrl.startsWith("/uploads/")) return null;
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const buffer = await res.arrayBuffer();
+    const resized = await sharp(Buffer.from(buffer))
+      .resize(150, 150, { fit: "cover" })
+      .png()
+      .toBuffer();
+    return `data:image/png;base64,${resized.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
+function loadLocalAvatarBase64(avatarUrl: string): string | null {
   try {
     const filePath = path.join(process.cwd(), "public", avatarUrl);
     if (!fs.existsSync(filePath)) return null;
@@ -56,14 +72,22 @@ function loadAvatarBase64(avatarUrl: string | null): string | null {
   }
 }
 
-function generateAvatarSVG(agent: any, accent: string): string {
+async function resolveAvatarBase64(avatarUrl: string | null): Promise<string | null> {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith("/uploads/")) return loadLocalAvatarBase64(avatarUrl);
+  if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+    return await fetchImageAsBase64(avatarUrl);
+  }
+  return null;
+}
+
+function generateAvatarSVG(agent: any, accent: string, photoBase64: string | null): string {
   const avatarUrl = agent.avatarUrl;
   const cx = 75;
   const cy = 100;
   const r = 36;
 
-  const base64 = loadAvatarBase64(avatarUrl);
-  if (base64) {
+  if (photoBase64) {
     return `
     <defs>
       <clipPath id="avatar-clip">
@@ -72,7 +96,7 @@ function generateAvatarSVG(agent: any, accent: string): string {
     </defs>
     <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
     <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
-    <image href="${base64}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice"/>
+    <image href="${photoBase64}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice"/>
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>`;
   }
 
@@ -96,7 +120,7 @@ function generateAvatarSVG(agent: any, accent: string): string {
     <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="bold" fill="${accent}">${initial}</text>`;
 }
 
-function generateHoneycombLogo(accent: string): string {
+function generateHoneycombLogo(): string {
   const cx = 46;
   const cy = 265;
   const s = 10;
@@ -117,8 +141,8 @@ function generateHoneycombLogo(accent: string): string {
     <polygon points="${hexPoints(cx, cy, s * 0.5)}" fill="#0a0a1a" opacity="0.6"/>`;
 }
 
-function generateCardSVG(agent: any, totalPoints: number) {
-  const { accent, glow, h } = agentColorFromId(agent.id);
+function generateCardSVG(agent: any, totalPoints: number, photoBase64: string | null) {
+  const { accent, glow } = agentColorFromId(agent.id);
   const tier = tierFromRating(agent.arenaRating || 1000);
   const wins = agent.arenaWins || 0;
   const losses = agent.arenaLosses || 0;
@@ -140,8 +164,8 @@ function generateCardSVG(agent: any, totalPoints: number) {
     return `<line x1="0" y1="${y}" x2="600" y2="${y}" stroke="${accent}" stroke-width="0.3" opacity="0.04" />`;
   }).join("\n");
 
-  const avatarSvg = generateAvatarSVG(agent, accent);
-  const logoSvg = generateHoneycombLogo(accent);
+  const avatarSvg = generateAvatarSVG(agent, accent, photoBase64);
+  const logoSvg = generateHoneycombLogo();
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 315" width="1200" height="630">
   <defs>
@@ -245,13 +269,42 @@ router.get("/card/:agentId/image.svg", async (req: Request, res: Response) => {
       .where(eq(pointsHistory.agentId, agent.id));
     const totalPoints = Number(pointsResult?.total || 0);
 
-    const svg = generateCardSVG(agent, totalPoints);
+    const photoBase64 = await resolveAvatarBase64(agent.avatarUrl);
+    const svg = generateCardSVG(agent, totalPoints, photoBase64);
     res.setHeader("Content-Type", "image/svg+xml");
     res.setHeader("Cache-Control", "public, max-age=300");
     res.send(svg);
   } catch (error) {
     console.error("Card image error:", error);
     res.status(500).send("Failed to generate card");
+  }
+});
+
+router.get("/card/:agentId/image.png", async (req: Request, res: Response) => {
+  try {
+    const agent = await storage.getAgent(req.params.agentId);
+    if (!agent) return res.status(404).send("Agent not found");
+
+    const [pointsResult] = await db
+      .select({ total: sql<number>`COALESCE(SUM(${pointsHistory.finalPoints}), 0)` })
+      .from(pointsHistory)
+      .where(eq(pointsHistory.agentId, agent.id));
+    const totalPoints = Number(pointsResult?.total || 0);
+
+    const photoBase64 = await resolveAvatarBase64(agent.avatarUrl);
+    const svg = generateCardSVG(agent, totalPoints, photoBase64);
+
+    const pngBuffer = await sharp(Buffer.from(svg))
+      .resize(1200, 630)
+      .png()
+      .toBuffer();
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(pngBuffer);
+  } catch (error) {
+    console.error("Card PNG error:", error);
+    res.status(500).send("Failed to generate card image");
   }
 });
 
@@ -276,7 +329,7 @@ router.get("/card/:agentId", async (req: Request, res: Response) => {
       ? "https://thehoneycomb.social"
       : `http://localhost:${process.env.PORT || 5000}`;
 
-    const imageUrl = `${baseUrl}/api/share/card/${agent.id}/image.svg`;
+    const imageUrl = `${baseUrl}/api/share/card/${agent.id}/image.png`;
     const pageUrl = `${baseUrl}/api/share/card/${agent.id}`;
 
     const html = `<!DOCTYPE html>
@@ -290,6 +343,7 @@ router.get("/card/:agentId", async (req: Request, res: Response) => {
   <meta property="og:title" content="${name} — ${tier.name} Tier on Honeycomb 🐝" />
   <meta property="og:description" content="Arena Rating: ${rating} | ${wins}W / ${losses}L | ${totalPoints.toLocaleString()} Points | Decentralized Social on BNB Chain" />
   <meta property="og:image" content="${imageUrl}" />
+  <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -358,10 +412,24 @@ router.post("/card/track-share", async (req: Request, res: Response) => {
       pointsAwarded = result.finalPoints;
     }
 
+    let referralCode = "";
+    try {
+      let referral = await storage.getReferralByAgent(agent.id);
+      if (!referral) {
+        const code = `BEE${agent.id.slice(0, 8).toUpperCase()}`;
+        referral = await storage.createReferral({ referrerAgentId: agent.id, referralCode: code });
+      }
+      referralCode = referral.referralCode;
+    } catch {}
+
+    const shortCode = referralCode.replace("BEE", "");
+    const referralUrl = shortCode ? `https://thehoneycomb.social/r/${shortCode}` : "https://thehoneycomb.social";
+
     res.json({
       success: true,
       pointsAwarded,
       isFirstShare,
+      referralUrl,
       message: isFirstShare
         ? `+${pointsAwarded} points! First share bonus!`
         : `+${pointsAwarded} points for sharing!`,
