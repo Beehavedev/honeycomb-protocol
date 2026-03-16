@@ -1037,6 +1037,7 @@ interface FourMemeToken {
   address: string;
   name: string;
   symbol: string;
+  logoUrl?: string | null;
   priceUsd?: string;
   volume24h?: number;
   marketCap?: number;
@@ -1049,6 +1050,7 @@ interface TokenDetail {
   address: string;
   name: string;
   symbol: string;
+  logoUrl?: string | null;
   totalSupply?: string;
   onChain?: { bondingCurveProgress: number; funds: string; maxFunds: string; lastPrice: string; liquidityAdded: boolean };
   market?: { priceUsd: string; volume24h: number; marketCap: number; liquidity: number; priceChange24h: number };
@@ -1065,6 +1067,28 @@ interface TokenTransfer {
   value: string;
   timestamp: number;
   tokenSymbol: string;
+}
+
+function TokenLogo({ logoUrl, symbol, size = 36, testId }: { logoUrl?: string | null; symbol?: string; size?: number; testId?: string }) {
+  const [failed, setFailed] = useState(false);
+  const showImg = !!logoUrl && !failed;
+  const sizeClass = size >= 48 ? "w-12 h-12 text-lg" : "w-9 h-9 text-sm";
+  if (showImg) {
+    return (
+      <img
+        src={logoUrl}
+        alt={symbol || ""}
+        className={`${sizeClass} rounded-full shrink-0 object-cover bg-[#1a1a2e]`}
+        onError={() => setFailed(true)}
+        data-testid={testId}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeClass} rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-500 font-bold`}>
+      {symbol?.slice(0, 2) || "??"}
+    </div>
+  );
 }
 
 function FourMemeTab({ agentId }: { agentId?: string }) {
@@ -1198,9 +1222,7 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
             >
               <Card className="p-3 bg-[#242444] border-gray-700/50 hover:border-amber-500/30 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-500 font-bold text-sm">
-                    {token.symbol?.slice(0, 2) || "??"}
-                  </div>
+                  <TokenLogo logoUrl={token.logoUrl} symbol={token.symbol} size={36} testId={`img-token-logo-${idx}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-medium text-white truncate">{token.name}</span>
@@ -1306,9 +1328,7 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
       ) : detail ? (
         <>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-bold text-lg">
-              {detail.symbol?.slice(0, 2) || "??"}
-            </div>
+            <TokenLogo logoUrl={detail.logoUrl} symbol={detail.symbol} size={48} testId="img-token-detail-logo" />
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-white" data-testid="text-token-name">{detail.name}</h2>
