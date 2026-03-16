@@ -715,30 +715,42 @@ export async function sellToken(
   return { txHash, estimatedBNB: estimate.funds };
 }
 
+function mapDexPairToToken(p: any) {
+  return {
+    address: p.baseToken?.address,
+    name: p.baseToken?.name,
+    symbol: p.baseToken?.symbol,
+    logoUrl: p.info?.imageUrl || null,
+    priceUsd: p.priceUsd,
+    volume24h: p.volume?.h24,
+    marketCap: p.marketCap,
+    liquidity: p.liquidity?.usd,
+    priceChange24h: p.priceChange?.h24,
+    pairCreatedAt: p.pairCreatedAt,
+    dexId: p.dexId,
+    url: p.url,
+  };
+}
+
 export async function getTrendingTokens(): Promise<any[]> {
   try {
-    const res = await fetch("https://api.dexscreener.com/latest/dex/search?q=four.meme%20BSC", {
+    const res = await fetch("https://api.dexscreener.com/latest/dex/search?q=fourmeme", {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return [];
     const data = await res.json();
+    const seen = new Set<string>();
     const pairs = (data.pairs || [])
-      .filter((p: any) => p.chainId === "bsc")
+      .filter((p: any) => p.chainId === "bsc" && p.dexId === "fourmeme")
       .sort((a: any, b: any) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0))
+      .filter((p: any) => {
+        const addr = p.baseToken?.address?.toLowerCase();
+        if (!addr || seen.has(addr)) return false;
+        seen.add(addr);
+        return true;
+      })
       .slice(0, 20)
-      .map((p: any) => ({
-        address: p.baseToken?.address,
-        name: p.baseToken?.name,
-        symbol: p.baseToken?.symbol,
-        logoUrl: p.info?.imageUrl || null,
-        priceUsd: p.priceUsd,
-        volume24h: p.volume?.h24,
-        marketCap: p.marketCap,
-        liquidity: p.liquidity?.usd,
-        priceChange24h: p.priceChange?.h24,
-        dexId: p.dexId,
-        url: p.url,
-      }));
+      .map(mapDexPairToToken);
     return pairs;
   } catch {
     return [];
@@ -747,28 +759,23 @@ export async function getTrendingTokens(): Promise<any[]> {
 
 export async function getNewTokens(): Promise<any[]> {
   try {
-    const res = await fetch("https://api.dexscreener.com/latest/dex/search?q=BSC%20meme", {
+    const res = await fetch("https://api.dexscreener.com/latest/dex/search?q=fourmeme", {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return [];
     const data = await res.json();
+    const seen = new Set<string>();
     const pairs = (data.pairs || [])
-      .filter((p: any) => p.chainId === "bsc")
+      .filter((p: any) => p.chainId === "bsc" && p.dexId === "fourmeme")
       .sort((a: any, b: any) => (b.pairCreatedAt || 0) - (a.pairCreatedAt || 0))
+      .filter((p: any) => {
+        const addr = p.baseToken?.address?.toLowerCase();
+        if (!addr || seen.has(addr)) return false;
+        seen.add(addr);
+        return true;
+      })
       .slice(0, 20)
-      .map((p: any) => ({
-        address: p.baseToken?.address,
-        name: p.baseToken?.name,
-        symbol: p.baseToken?.symbol,
-        logoUrl: p.info?.imageUrl || null,
-        priceUsd: p.priceUsd,
-        volume24h: p.volume?.h24,
-        marketCap: p.marketCap,
-        liquidity: p.liquidity?.usd,
-        pairCreatedAt: p.pairCreatedAt,
-        dexId: p.dexId,
-        url: p.url,
-      }));
+      .map(mapDexPairToToken);
     return pairs;
   } catch {
     return [];
