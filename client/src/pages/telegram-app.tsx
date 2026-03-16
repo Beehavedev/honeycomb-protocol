@@ -225,7 +225,7 @@ function PullToRefresh({
   );
 }
 
-type TabType = "home" | "feed" | "arena" | "earn" | "market" | "agents" | "profile";
+type TabType = "home" | "feed" | "arena" | "earn" | "fourmeme" | "market" | "agents" | "profile";
 
 type SubView =
   | { type: "none" }
@@ -1533,33 +1533,7 @@ function TokenLaunchView({ agentId, onBack }: { agentId?: string; onBack: () => 
   );
 }
 
-function MarketTab({ onViewNfa, agentId }: { onViewNfa: (id: string) => void; agentId?: string }) {
-  const [marketSection, setMarketSection] = useState<"tokens" | "nfa">("tokens");
-
-  if (marketSection === "tokens") {
-    return (
-      <div>
-        <div className="px-4 pt-4 pb-2 flex gap-2">
-          <button onClick={() => setMarketSection("tokens")} className="text-xs px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-400" data-testid="button-market-tokens">Tokens</button>
-          <button onClick={() => setMarketSection("nfa")} className="text-xs px-3 py-1.5 rounded-full bg-[#242444] text-gray-500" data-testid="button-market-nfa">NFAs</button>
-        </div>
-        <FourMemeTab agentId={agentId} />
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="px-4 pt-4 pb-2 flex gap-2">
-        <button onClick={() => setMarketSection("tokens")} className="text-xs px-3 py-1.5 rounded-full bg-[#242444] text-gray-500" data-testid="button-market-tokens">Tokens</button>
-        <button onClick={() => setMarketSection("nfa")} className="text-xs px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-400" data-testid="button-market-nfa">NFAs</button>
-      </div>
-      <NfaMarketContent onViewNfa={onViewNfa} />
-    </div>
-  );
-}
-
-function NfaMarketContent({ onViewNfa }: { onViewNfa: (id: string) => void }) {
+function MarketTab({ onViewNfa }: { onViewNfa: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
   const [typeFilter, setTypeFilter] = useState("");
@@ -5306,6 +5280,7 @@ const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "arena", label: "Arena", icon: Swords },
   { id: "feed", label: "Feed", icon: MessageSquare },
   { id: "earn", label: "Earn", icon: Coins },
+  { id: "fourmeme", label: "4Meme", icon: Rocket },
   { id: "market", label: "Market", icon: Store },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "profile", label: "Profile", icon: User },
@@ -5586,8 +5561,9 @@ export default function TelegramApp() {
                   <TgArenaTab agent={tgAgent ? { id: tgAgent.id, name: tgAgent.name, ownerAddress: tgAgent.ownerAddress } : undefined} />
                 )}
                 {activeTab === "earn" && <EarnTab agentId={tgAgent?.id} />}
+                {activeTab === "fourmeme" && <FourMemeTab agentId={tgAgent?.id} />}
                 {activeTab === "market" && (
-                  <MarketTab agentId={tgAgent?.id} onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />
+                  <MarketTab onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />
                 )}
                 {activeTab === "agents" && (
                   <AgentsTab
