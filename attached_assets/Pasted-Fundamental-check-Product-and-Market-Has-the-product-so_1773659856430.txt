@@ -1,0 +1,92 @@
+Fundamental check
+● Product and Market
+○ Has the product / solution(or BETA) been launched?
+○ If yes, please provide more details (please highlight the competitive/innovative features of the project).
+○ If no, please provide the roadmap leading towards product launch.
+○ What is the product trying to fundamentally solve?
+■ Pain point(s) identified (how pressing are these?)
+■ Solution(s) and the relevance (how relevant to the pain point(s)?):
+○ What is the product-market fit for your product?
+○ What target market / audience is your product addressing?
+● Rough stats
+● Please provide on-chain proof/reference sites like Dune dashboards etc  / screenshots for verification purposes
+○ Key tractions:
+■ If applicable:
+● Website traffic / daily users/ monthly users
+● Number of users / connected wallets
+● Total Value Locked (TVL)
+● Total Volume
+● NFT Sales (if applicable)
+● Revenue generated since inception and annualized
+● Or any metrics that the project team deems important for consideration
+● Business model
+○ Current and planned revenue streams and usage
+○ If there are any innovations, please share more details.
+● Team
+○ What is the size of the team?
+○ Who are the founders? (include experiences and LinkedIn profiles or other links)
+○ Is the team working on multiple projects at the same time?
+○ Please specify if the founding team has a track record that can benefit the project?
+● Tokenomics
+○ Please describe the utilities of your token. What are the major drivers of demand for the token?​
+○ What standard is your token officially releasing on? ERC-20, BEP-20, SPL etc
+○ Please share token metrics and token release schedule?
+○ Please share the total funding amount the project has raised?
+○ Please share the FDV of each round of funding (including equity round if any).
+● Community
+○ Size and activeness of your community(Twitter/Telegram/Discord et al.)
+○ What is the geographical demographic of your community
+● Investors & Partners
+○ Please share a list of your key incubators/advisors and major investors/partners. (Tokens and equity)
+● Major Competitors
+○ Who are your major competitors?
+○ Main innovation / differentiation over competitors?
+ 
+Listing Strategy & Business Partnership Check
+● Timeline
+○ What is the GTM / launch plan for TGE (potentially for Pre-TGE Binance Wallet Booster / Exclusive TGE (aka IDO) or Prime Sale/ Alpha Initial Airdrops /Launchpool/Megadrop / Prime Sale*) and timeline?
+○ Is the project open to launch on BNB chain and if so, what is the timeline?
+○ What is the roadmap after TGE / Listing and timeline?
+● Tokenomics & Valuation adjustments
+○ Is the project open to extend the vesting schedule of investors/advisors?
+○ Is the project open to extend the vesting schedule of the team?
+○ For Exclusive TGE (aka IDO) / Alpha Initial Airdrops / Binance Web3Wallet Booster, are you open to lower the valuation of the project?
+○ For Binance Launchpool, are you open to lower the valuation of the project?
+○ For Binance Megadrop, are you open to lower the valuation of the project?
+○ What is the estimated % airdrops are you planning to offer to the community?
+What is the estimated % airdrops are you planning to offer to the Binance users in total?
+○ What is the estimated % of circulating supply at TGE and breakdown of the TGE circulation amongst recipients?
+● Exchanges
+○ What are some of the centralised exchanges are you in talks with beside Binance and what are the offers?
+Legal
+● Please create a google drive link with all these legal / corporate materials to be placed in and give access to your respective BD’s email address.
+● Legal Opinion
+○ Have you seek any legal opinion?
+○ Do your project’s tokens qualify as a security under any jurisdictions including but not limited to the US (both federal and state), UK, EU or Singapore? Please attach any legal opinion (required for the US) documents advising or stating that the token/coin is not a security or otherwise a regulated product or instrument under applicable laws (US/UK/EU/Singapore law applicable will be preferred).
+● KYC and KYB materials. KYC for all key team members (passport copy). e.g. CEO, CFO, COO, CTO, etc.
+○ Full structure chart detailing all entities, and pass through to UBO
+○ Require full and complete company documents for all foundations, issuer, development and holding companies in the corporate structure:
+■ Certificate of Incorporation
+■ Articles of Association/Incorporation
+■ Director's Register
+■ Shareholder Register or equivalent.  
+■ Certificate of Incumbency
+■ Register of Beneficial Owners (if available)
+■ If any of the companies are held by proxy directors (eg Panama, BVI, Cayman) or holding companies, we require the same documentation for the holding companies and a power of attorney document outlining who the proxy(ies) represent.
+ 
+Others
+● Benefits
+○ How will Binance users benefit from having your project listed?
+○ How can our users use your token once purchased on Binance? (user journey)
+● Risks
+○ Is there any lawsuit going on?
+○ Are there any 3rd party entity assisting project team to fill up this questionnaire and/or future Binance documents as well as on listing?
+● Privacy Features
+○ Is the project’s native token a privacy token or does it have privacy options for users?
+ 
+Referral Info
+Who introduce/ refer you to apply for Binance listing ?(please select the category below and leave the name of your referral)  
+A. Research BD managers
+B. Labs portfolio
+C. BNBchain Grants project
+D. Others
