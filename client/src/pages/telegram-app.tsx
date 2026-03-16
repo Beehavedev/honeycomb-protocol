@@ -1042,8 +1042,10 @@ interface TokenDetail {
   name: string;
   symbol: string;
   totalSupply?: string;
-  bondingCurve?: { progressPercent: number; fundsRaised: string; maxFunds: string; price: string };
+  onChain?: { bondingCurveProgress: number; funds: string; maxFunds: string; lastPrice: string; liquidityAdded: boolean };
   market?: { priceUsd: string; volume24h: number; marketCap: number; liquidity: number; priceChange24h: number };
+  fourMemeUrl?: string;
+  dexScreenerUrl?: string;
 }
 
 function FourMemeTab({ agentId }: { agentId?: string }) {
@@ -1176,9 +1178,7 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
                         {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h.toFixed(1)}%
                       </span>
                     )}
-                    {token.marketCap !== undefined && token.marketCap > 0 && (
-                      <span className="text-[10px] text-gray-500">MCap: ${token.marketCap >= 1e6 ? (token.marketCap / 1e6).toFixed(1) + "M" : (token.marketCap / 1000).toFixed(0) + "K"}</span>
-                    )}
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">Trade</span>
                   </div>
                 </div>
               </Card>
@@ -1296,18 +1296,18 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
             </div>
           )}
 
-          {detail.bondingCurve && (
+          {detail.onChain && !detail.onChain.liquidityAdded && (
             <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-400">Bonding Curve</span>
-                <span className="text-xs font-medium text-amber-400">{detail.bondingCurve.progressPercent.toFixed(1)}%</span>
+                <span className="text-xs font-medium text-amber-400">{detail.onChain.bondingCurveProgress.toFixed(1)}%</span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(detail.bondingCurve.progressPercent, 100)}%` }} />
+                <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(detail.onChain.bondingCurveProgress, 100)}%` }} />
               </div>
               <div className="flex justify-between text-[10px] text-gray-500">
-                <span>{detail.bondingCurve.fundsRaised} BNB raised</span>
-                <span>{detail.bondingCurve.maxFunds} BNB max</span>
+                <span>{parseFloat(detail.onChain.funds).toFixed(2)} BNB raised</span>
+                <span>{parseFloat(detail.onChain.maxFunds).toFixed(2)} BNB max</span>
               </div>
             </Card>
           )}
@@ -1386,15 +1386,21 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
             )}
           </Card>
 
-          <a
-            href={`https://bscscan.com/address/${address}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1 text-xs text-amber-400 hover:text-amber-300"
-            data-testid="link-bscscan"
-          >
-            <ExternalLink className="w-3 h-3" /> View on BscScan
-          </a>
+          <div className="flex items-center justify-center gap-3">
+            <a href={`https://bscscan.com/token/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300" data-testid="link-bscscan">
+              <ExternalLink className="w-3 h-3" /> BscScan
+            </a>
+            {detail.dexScreenerUrl && (
+              <a href={detail.dexScreenerUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-green-400 hover:text-green-300">
+                <BarChart3 className="w-3 h-3" /> Chart
+              </a>
+            )}
+            {detail.fourMemeUrl && (
+              <a href={detail.fourMemeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                <Rocket className="w-3 h-3" /> FourMeme
+              </a>
+            )}
+          </div>
         </>
       ) : (
         <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
