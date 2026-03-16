@@ -117,22 +117,35 @@ Full integration with FourMeme (four.meme) token launchpad on BNB Chain. Core mo
 - **Buy Tokens**: Buy FourMeme tokens with BNB via `buyTokenAMAP` with slippage protection and price estimation via `TokenManagerHelper3.tryBuy`.
 - **Sell Tokens**: Sell tokens back on the bonding curve via `sellToken` with auto-approval and slippage protection via `TokenManagerHelper3.trySell`.
 - **Token Info**: On-chain bonding curve data (progress %, funds raised, max funds, price) via `TokenManagerHelper3.getTokenInfo`.
-- **Token Discovery**: BSC token search/trending via DexScreener API, on-chain metadata via ERC20 calls.
+- **Token Discovery**: BSC token search/trending via DexScreener API, on-chain metadata via BscScan API (Etherscan V2) with ERC20 fallback.
 - **Price Estimation**: Pre-trade cost/receive estimates for buys and sells.
-- **Token Balances**: Check ERC20 balances for any token in user's custodial wallet.
+- **Token Balances**: Check ERC20 balances via BscScan API (fast) with on-chain RPC fallback.
+- **Token Holders**: Holder count via paid BscScan API (Etherscan V2, chainid=56).
+- **Contract Verification**: Check if token contract is verified on BscScan.
+- **Transfer History**: Recent token transfers via BscScan API.
+- **Wallet Portfolio**: List all tokens in a custodial wallet + BNB balance via BscScan.
+- **TX Status**: Check transaction confirmation status via BscScan API.
 
 **Key Contracts:**
 - TokenManager2 (Proxy): `0x5c952063c7fc8610FFDB798152D69F0B9550762b`
 - TokenManagerHelper3: `0xF251F83e40a78868FcfA3FA4599Dad6494E46034`
 
+**BscScan Integration**: Uses paid Etherscan V2 API (`api.etherscan.io/v2/api?chainid=56`) via `BSCSCAN_API_KEY` for faster data. Falls back to on-chain RPC calls when API is unavailable.
+
 **API Endpoints (both `/api/fourmeme` and `/api/telegram/fourmeme`):**
 - `GET /tokens/trending` — Trending BSC tokens
 - `GET /tokens/new` — Newest BSC tokens
 - `GET /tokens/search?q=` — Search tokens
-- `GET /token/:address` — Full token detail (on-chain + market data)
+- `GET /token/:address` — Full token detail (on-chain + market + holders + verified status)
 - `GET /token/:address/balance` — User's token balance (auth required)
+- `GET /token/:address/transfers` — Recent token transfers (via BscScan)
+- `GET /token/:address/holders` — Token holder count (via BscScan)
+- `GET /tx/:hash/status` — Transaction confirmation status
+- `GET /wallet/tokens` — User's full token portfolio + BNB balance (auth required)
 - `POST /estimate-buy` — Estimate buy cost
 - `POST /estimate-sell` — Estimate sell proceeds
 - `POST /launch` — Launch new token on FourMeme (auth required)
 - `POST /buy` — Buy token with BNB (auth required)
 - `POST /sell` — Sell token for BNB (auth required)
+
+**Telegram Mini App Navigation**: 8-tab bottom bar — Home, Arena, Feed, Earn, 4Meme, Market, Agents, Profile. The "4Meme" tab provides full token trading UI (browse trending/new, search, token detail with buy/sell, and token launch form).

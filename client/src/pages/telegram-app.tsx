@@ -1044,8 +1044,19 @@ interface TokenDetail {
   totalSupply?: string;
   onChain?: { bondingCurveProgress: number; funds: string; maxFunds: string; lastPrice: string; liquidityAdded: boolean };
   market?: { priceUsd: string; volume24h: number; marketCap: number; liquidity: number; priceChange24h: number };
+  holders?: number | null;
+  verified?: boolean;
   fourMemeUrl?: string;
   dexScreenerUrl?: string;
+}
+
+interface TokenTransfer {
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  timestamp: number;
+  tokenSymbol: string;
 }
 
 function FourMemeTab({ agentId }: { agentId?: string }) {
@@ -1212,6 +1223,12 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
     staleTime: 10000,
   });
 
+  const { data: transfersData } = useQuery<{ transfers: TokenTransfer[] }>({
+    queryKey: ["/api/telegram/fourmeme/token", address, "transfers"],
+    queryFn: () => fetch(`/api/telegram/fourmeme/token/${address}/transfers`).then(r => r.ok ? r.json() : { transfers: [] }),
+    staleTime: 30000,
+  });
+
   const handleTrade = async () => {
     if (!amount || !token) return;
     setTrading(true);
@@ -1261,11 +1278,21 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 font-bold text-lg">
               {detail.symbol?.slice(0, 2) || "??"}
             </div>
-            <div>
-              <h2 className="text-lg font-bold text-white" data-testid="text-token-name">{detail.name}</h2>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white" data-testid="text-token-name">{detail.name}</h2>
+                {detail.verified && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 flex items-center gap-0.5" data-testid="badge-verified">
+                    <Shield className="w-2.5 h-2.5" /> Verified
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Badge className="text-xs bg-amber-500/10 text-amber-400 border-0">{detail.symbol}</Badge>
                 <span className="text-[10px] text-gray-500 font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
+                {detail.holders != null && detail.holders > 0 && (
+                  <span className="text-[10px] text-gray-500" data-testid="text-holders">{detail.holders.toLocaleString()} holders</span>
+                )}
               </div>
             </div>
           </div>
@@ -1385,6 +1412,28 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
               </div>
             )}
           </Card>
+
+          {transfersData?.transfers && transfersData.transfers.length > 0 && (
+            <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4">
+              <h3 className="text-xs font-medium text-gray-400 mb-2">Recent Transfers</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {transfersData.transfers.slice(0, 10).map((tx, i) => (
+                  <a key={`${tx.hash}-${i}`} href={`https://bscscan.com/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between text-[10px] py-1 border-b border-gray-700/30 last:border-0">
+                    <div className="flex items-center gap-1.5">
+                      <ArrowLeftRight className="w-3 h-3 text-gray-500" />
+                      <span className="text-gray-400 font-mono">{tx.from.slice(0, 6)}...{tx.from.slice(-4)}</span>
+                      <span className="text-gray-600">→</span>
+                      <span className="text-gray-400 font-mono">{tx.to.slice(0, 6)}...{tx.to.slice(-4)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-white">{parseFloat(tx.value) > 1000 ? (parseFloat(tx.value) / 1000).toFixed(1) + "K" : parseFloat(tx.value).toFixed(2)}</span>
+                      <span className="text-gray-500 ml-1">{new Date(tx.timestamp).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </Card>
+          )}
 
           <div className="flex items-center justify-center gap-3">
             <a href={`https://bscscan.com/token/${address}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300" data-testid="link-bscscan">

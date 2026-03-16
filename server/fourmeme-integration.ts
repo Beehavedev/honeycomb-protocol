@@ -12,6 +12,8 @@ import { bsc } from "viem/chains";
 
 const FOURMEME_API = "https://four.meme/meme-api/v1";
 const BSC_RPC = "https://bsc-dataseed1.binance.org";
+const BSCSCAN_API = "https://api.etherscan.io/v2/api";
+const BSCSCAN_KEY = process.env.BSCSCAN_API_KEY || "";
 const TOKEN_MANAGER = "0x5c952063c7fc8610FFDB798152D69F0B9550762b" as Address;
 const TOKEN_MANAGER_HELPER = "0xF251F83e40a78868FcfA3FA4599Dad6494E46034" as Address;
 
@@ -358,6 +360,16 @@ export async function estimateSell(
 }
 
 export async function getTokenBalance(tokenAddress: string, walletAddress: string): Promise<string> {
+  const bscResult = await bscscanFetch({
+    module: "account",
+    action: "tokenbalance",
+    contractaddress: tokenAddress,
+    address: walletAddress,
+    tag: "latest",
+  });
+  if (bscResult) {
+    try { return formatEther(BigInt(bscResult)); } catch {}
+  }
   const client = getPublicClient();
   const balance = await client.readContract({
     address: tokenAddress as Address,
@@ -369,16 +381,136 @@ export async function getTokenBalance(tokenAddress: string, walletAddress: strin
 }
 
 export async function getTokenMetadata(tokenAddress: string) {
+  const [supplyResult, infoResult] = await Promise.all([
+    bscscanFetch({ module: "stats", action: "tokensupply", contractaddress: tokenAddress }),
+    bscscanFetch({ module: "token", action: "tokeninfo", contractaddress: tokenAddress }),
+  ]);
+  const info = Array.isArray(infoResult) ? infoResult[0] : infoResult;
+  if (info?.tokenName) {
+    return {
+      name: info.tokenName,
+      symbol: info.symbol,
+      decimals: Number(info.divisor || 18),
+      totalSupply: formatEther(BigInt(supplyResult || "0")),
+    };
+  }
   const client = getPublicClient();
-
   const [name, symbol, decimals, totalSupply] = await Promise.all([
     client.readContract({ address: tokenAddress as Address, abi: ERC20_ABI, functionName: "name" }),
     client.readContract({ address: tokenAddress as Address, abi: ERC20_ABI, functionName: "symbol" }),
     client.readContract({ address: tokenAddress as Address, abi: ERC20_ABI, functionName: "decimals" }),
     client.readContract({ address: tokenAddress as Address, abi: ERC20_ABI, functionName: "totalSupply" }),
   ]);
-
   return { name, symbol, decimals: Number(decimals), totalSupply: formatEther(totalSupply) };
+}
+
+async function bscscanFetch(params: Record<string, string>): Promise<any> {
+  if (!BSCSCAN_KEY) return null;
+  const qs = new URLSearchParams({ chainid: "56", ...params, apikey: BSCSCAN_KEY }).toString();
+  const res = await fetch(`${BSCSCAN_API}?${qs}`);
+  const data = await res.json();
+  return data.status === "1" ? data.result : null;
+}
+
+export async function getTokenHolders(tokenAddress: string): Promise<number | null> {
+  const result = await bscscanFetch({
+    module: "token",
+    action: "tokenholdercount",
+    contractaddress: tokenAddress,
+  });
+  return result ? parseInt(result) : null;
+}
+
+export async function getTokenTransfers(tokenAddress: string, page = 1, limit = 20): Promise<any[]> {
+  const result = await bscscanFetch({
+    module: "account",
+    action: "tokentx",
+    contractaddress: tokenAddress,
+    page: String(page),
+    offset: String(limit),
+    sort: "desc",
+  });
+  return Array.isArray(result) ? result.map((tx: any) => ({
+    hash: tx.hash,
+    from: tx.from,
+    to: tx.to,
+    value: formatEther(BigInt(tx.value || "0")),
+    timestamp: Number(tx.timeStamp) * 1000,
+    tokenSymbol: tx.tokenSymbol,
+  })) : [];
+}
+
+export async function getContractVerified(tokenAddress: string): Promise<boolean> {
+  const result = await bscscanFetch({
+    module: "contract",
+    action: "getabi",
+    address: tokenAddress,
+  });
+  return result !== null;
+}
+
+export async function getWalletBnbBalance(walletAddress: string): Promise<string> {
+  if (BSCSCAN_KEY) {
+    try {
+      const result = await bscscanFetch({
+        module: "account",
+        action: "balance",
+        address: walletAddress,
+        tag: "latest",
+      });
+      if (result) return formatEther(BigInt(result));
+    } catch {}
+  }
+  const client = getPublicClient();
+  const balance = await client.getBalance({ address: walletAddress as Address });
+  return formatEther(balance);
+}
+
+export async function getWalletTokenList(walletAddress: string): Promise<any[]> {
+  const result = await bscscanFetch({
+    module: "account",
+    action: "tokentx",
+    address: walletAddress,
+    page: "1",
+    offset: "100",
+    sort: "desc",
+  });
+  if (!Array.isArray(result)) return [];
+  const tokenMap = new Map<string, { address: string; name: string; symbol: string; decimals: number; lastTx: number }>();
+  for (const tx of result) {
+    if (!tokenMap.has(tx.contractAddress)) {
+      tokenMap.set(tx.contractAddress, {
+        address: tx.contractAddress,
+        name: tx.tokenName,
+        symbol: tx.tokenSymbol,
+        decimals: Number(tx.tokenDecimal),
+        lastTx: Number(tx.timeStamp) * 1000,
+      });
+    }
+  }
+  return Array.from(tokenMap.values());
+}
+
+export async function getTxStatus(txHash: string): Promise<{ status: boolean; blockNumber?: string; gasUsed?: string }> {
+  if (BSCSCAN_KEY) {
+    try {
+      const result = await bscscanFetch({
+        module: "transaction",
+        action: "gettxreceiptstatus",
+        txhash: txHash,
+      });
+      if (result) {
+        return { status: result.status === "1", blockNumber: result.blockNumber, gasUsed: result.gasUsed };
+      }
+    } catch {}
+  }
+  const client = getPublicClient();
+  try {
+    const receipt = await client.getTransactionReceipt({ hash: txHash as Hex });
+    return { status: receipt.status === "success" };
+  } catch {
+    return { status: false };
+  }
 }
 
 export async function createToken(
@@ -643,7 +775,7 @@ export async function searchTokens(query: string): Promise<any[]> {
 
 export async function getTokenDetail(tokenAddress: string): Promise<any> {
   try {
-    const [onChain, dexData, metadata] = await Promise.all([
+    const [onChain, dexData, metadata, holders, verified] = await Promise.all([
       getTokenInfo(tokenAddress).catch(() => null),
       fetch(`https://api.dexscreener.com/tokens/v1/bsc/${tokenAddress}`, {
         headers: { Accept: "application/json" },
@@ -651,6 +783,8 @@ export async function getTokenDetail(tokenAddress: string): Promise<any> {
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null),
       getTokenMetadata(tokenAddress).catch(() => null),
+      getTokenHolders(tokenAddress).catch(() => null),
+      getContractVerified(tokenAddress).catch(() => false),
     ]);
 
     const pair = Array.isArray(dexData) ? dexData[0] : dexData?.pairs?.[0] || null;
@@ -675,6 +809,8 @@ export async function getTokenDetail(tokenAddress: string): Promise<any> {
             pairAddress: pair.pairAddress,
           }
         : null,
+      holders,
+      verified,
       fourMemeUrl: `https://four.meme/token/${tokenAddress}`,
       bscScanUrl: `https://bscscan.com/token/${tokenAddress}`,
       dexScreenerUrl: `https://dexscreener.com/bsc/${tokenAddress}`,
