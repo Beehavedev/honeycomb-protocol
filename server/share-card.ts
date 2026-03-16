@@ -4,8 +4,21 @@ import { db } from "./db";
 import { agents, pointsHistory } from "@shared/schema";
 import { eq, sql, sum } from "drizzle-orm";
 import { verifyToken } from "./auth";
+import * as fs from "fs";
+import * as path from "path";
 
 const router = Router();
+
+const BEE_AVATARS: Record<string, { emoji: string; label: string }> = {
+  queen: { emoji: "👑", label: "Queen Bee" },
+  worker: { emoji: "🐝", label: "Worker Bee" },
+  scout: { emoji: "🔍", label: "Scout Bee" },
+  guard: { emoji: "🛡️", label: "Guard Bee" },
+  builder: { emoji: "🏗️", label: "Builder Bee" },
+  trader: { emoji: "📈", label: "Trader Bee" },
+  warrior: { emoji: "⚔️", label: "Warrior Bee" },
+  sage: { emoji: "🧠", label: "Sage Bee" },
+};
 
 function agentColorFromId(id: string): { h: number; accent: string; glow: string } {
   let hash = 0;
@@ -27,6 +40,83 @@ function tierFromRating(rating: number): { name: string; color: string; bg: stri
   return { name: "BRONZE", color: "#cd7f32", bg: "#cd7f3220" };
 }
 
+function loadAvatarBase64(avatarUrl: string | null): string | null {
+  if (!avatarUrl) return null;
+  if (!avatarUrl.startsWith("/uploads/")) return null;
+
+  try {
+    const filePath = path.join(process.cwd(), "public", avatarUrl);
+    if (!fs.existsSync(filePath)) return null;
+    const data = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+    return `data:${mime};base64,${data.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+function generateAvatarSVG(agent: any, accent: string): string {
+  const avatarUrl = agent.avatarUrl;
+  const cx = 75;
+  const cy = 100;
+  const r = 36;
+
+  const base64 = loadAvatarBase64(avatarUrl);
+  if (base64) {
+    return `
+    <defs>
+      <clipPath id="avatar-clip">
+        <circle cx="${cx}" cy="${cy}" r="${r}"/>
+      </clipPath>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
+    <image href="${base64}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>`;
+  }
+
+  const beeAvatar = avatarUrl && BEE_AVATARS[avatarUrl];
+  if (beeAvatar) {
+    return `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${accent}" opacity="0.15"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>
+    <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="36">${beeAvatar.emoji}</text>
+    <text x="${cx}" y="${cy + r + 14}" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" fill="${accent}" opacity="0.7">${beeAvatar.label}</text>`;
+  }
+
+  const initial = (agent.name || "A").slice(0, 1).toUpperCase();
+  return `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${accent}" opacity="0.15"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
+    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>
+    <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="bold" fill="${accent}">${initial}</text>`;
+}
+
+function generateHoneycombLogo(accent: string): string {
+  const cx = 46;
+  const cy = 265;
+  const s = 10;
+  const hexPoints = (x: number, y: number, size: number) => {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 6;
+      pts.push(`${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`);
+    }
+    return pts.join(" ");
+  };
+
+  return `
+    <polygon points="${hexPoints(cx, cy, s)}" fill="#f59e0b" opacity="0.9"/>
+    <polygon points="${hexPoints(cx + s * 1.55, cy - s * 0.9, s)}" fill="#f59e0b" opacity="0.6"/>
+    <polygon points="${hexPoints(cx + s * 1.55, cy + s * 0.9, s)}" fill="#f59e0b" opacity="0.45"/>
+    <polygon points="${hexPoints(cx - s * 1.55, cy - s * 0.9, s)}" fill="#f59e0b" opacity="0.45"/>
+    <polygon points="${hexPoints(cx, cy, s * 0.5)}" fill="#0a0a1a" opacity="0.6"/>`;
+}
+
 function generateCardSVG(agent: any, totalPoints: number) {
   const { accent, glow, h } = agentColorFromId(agent.id);
   const tier = tierFromRating(agent.arenaRating || 1000);
@@ -37,7 +127,6 @@ function generateCardSVG(agent: any, totalPoints: number) {
   const bapVerified = agent.bap578Status === "registered";
   const ercVerified = agent.erc8004Status === "registered";
   const name = (agent.name || "Anonymous").slice(0, 20);
-  const initial = name.slice(0, 1).toUpperCase();
 
   const hexPatterns = Array.from({ length: 12 }, (_, i) => {
     const x = 50 + (i % 4) * 140 + ((Math.floor(i / 4) % 2) * 70);
@@ -51,7 +140,10 @@ function generateCardSVG(agent: any, totalPoints: number) {
     return `<line x1="0" y1="${y}" x2="600" y2="${y}" stroke="${accent}" stroke-width="0.3" opacity="0.04" />`;
   }).join("\n");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 315" width="1200" height="630">
+  const avatarSvg = generateAvatarSVG(agent, accent);
+  const logoSvg = generateHoneycombLogo(accent);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 315" width="1200" height="630">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0a0a1a"/>
@@ -91,9 +183,7 @@ function generateCardSVG(agent: any, totalPoints: number) {
     <rect x="10" y="10" width="580" height="4" fill="url(#accent-grad)" opacity="0.8" rx="2"/>
   </g>
 
-  <circle cx="75" cy="100" r="36" fill="${accent}" opacity="0.12"/>
-  <circle cx="75" cy="100" r="36" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>
-  <text x="75" y="108" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="bold" fill="${accent}">${initial}</text>
+  ${avatarSvg}
 
   <text x="125" y="88" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="white">${name}</text>
 
@@ -106,7 +196,7 @@ function generateCardSVG(agent: any, totalPoints: number) {
   <text x="${bapVerified ? 211 : 156}" y="109" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#60a5fa">ERC-8004 ✓</text>
   ` : ""}
 
-  <rect x="125" y="${bapVerified || ercVerified ? 120 : 100}" width="auto" height="18" rx="9" fill="${tier.bg}" stroke="${tier.color}" stroke-width="0.8"/>
+  <rect x="125" y="${bapVerified || ercVerified ? 120 : 100}" width="${tier.name.length * 9 + 20}" height="18" rx="9" fill="${tier.bg}" stroke="${tier.color}" stroke-width="0.8"/>
   <text x="133" y="${bapVerified || ercVerified ? 133 : 113}" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="${tier.color}">${tier.name} TIER</text>
 
   <text x="500" y="60" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6b7280" letter-spacing="2">ARENA RATING</text>
@@ -136,9 +226,9 @@ function generateCardSVG(agent: any, totalPoints: number) {
 
   <line x1="40" y1="240" x2="560" y2="240" stroke="${accent}" stroke-width="0.5" opacity="0.2"/>
 
-  <polygon points="42,265 56,258 56,272 42,272 35,265 35,258" fill="${accent}" opacity="0.3" stroke="${accent}" stroke-width="0.8"/>
-  <text x="66" y="270" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="white">HONEYCOMB</text>
-  <text x="66" y="284" font-family="Arial,sans-serif" font-size="9" fill="#6b7280" letter-spacing="1">DECENTRALIZED SOCIAL • BNB CHAIN</text>
+  ${logoSvg}
+  <text x="72" y="262" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="white">HONEYCOMB</text>
+  <text x="72" y="276" font-family="Arial,sans-serif" font-size="9" fill="#6b7280" letter-spacing="1">DECENTRALIZED SOCIAL • BNB CHAIN</text>
 
   <text x="550" y="278" text-anchor="end" font-family="Arial,sans-serif" font-size="9" fill="#6b7280">thehoneycomb.social</text>
 </svg>`;
