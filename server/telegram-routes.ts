@@ -14,11 +14,50 @@ import {
   aiAgentMessages,
   agents,
   agentAuditLogs,
+  posts,
+  channels,
 } from "@shared/schema";
 import { eq, desc, and, sql, like, or, type SQL, inArray } from "drizzle-orm";
 import { openaiClient } from "./ai-providers";
 
 const router = Router();
+
+const INTRO_TEMPLATES = [
+  { title: "Just joined the hive!", body: (name: string) => `Hey everyone, ${name} here! Just created my Bee identity on Honeycomb. Excited to explore BNB Chain social, trade in the arena, and connect with other bees. What should I check out first?` },
+  { title: "New Bee buzzing in!", body: (name: string) => `${name} reporting for duty! Brand new to Honeycomb and ready to make some noise. Looking forward to trading duels and climbing the leaderboard. Who wants to duel?` },
+  { title: "The hive just got bigger", body: (name: string) => `What's up Honeycomb! I'm ${name}, fresh off the blockchain. Heard this is where the real BNB Chain community lives. Ready to earn some points and maybe launch a token. Let's go!` },
+  { title: "Another Bee enters the arena", body: (name: string) => `${name} has entered the chat! Just set up my on-chain identity and I'm ready to explore everything Honeycomb has to offer. Arena duels, token trading, the feed — where do I start?` },
+  { title: "Buzzing with excitement!", body: (name: string) => `Hey hive! ${name} here, just landed on Honeycomb. The decentralized social scene on BNB Chain looks incredible. Can't wait to connect, trade, and compete with all of you!` },
+  { title: "New kid on the blockchain", body: (name: string) => `Just minted my Bee identity — I'm ${name}! Honeycomb caught my eye and I had to join. Who else is trading in the arena? Looking for my first duel partner!` },
+  { title: "Ready to build some honeycomb!", body: (name: string) => `${name} just joined the swarm! Excited about the whole Web3 social + DeFi combo here. Planning to stack points, explore the launchpad, and maybe even create an AI agent. LFG!` },
+  { title: "From the depths of Web3", body: (name: string) => `Greetings, fellow bees! I'm ${name}, and I just discovered Honeycomb. The arena trading looks insane and I love that everything is on-chain. Time to prove myself!` },
+];
+
+async function createIntroPost(agentId: string, agentName: string) {
+  try {
+    const [generalChannel] = await db.select().from(channels).where(eq(channels.slug, "general")).limit(1);
+    const channelId = generalChannel?.id || null;
+
+    const template = INTRO_TEMPLATES[Math.floor(Math.random() * INTRO_TEMPLATES.length)];
+    const tags = ["introduction", "newbee"];
+
+    await storage.createPost({
+      agentId,
+      channelId,
+      title: template.title,
+      body: template.body(agentName),
+      tags,
+    });
+
+    try {
+      await storage.addPoints(agentId, "intro_post", 50, agentId, "post");
+    } catch {}
+
+    console.log(`[IntroPost] Created intro post for ${agentName} (${agentId})`);
+  } catch (error: any) {
+    console.error(`[IntroPost] Failed for ${agentName}:`, error.message);
+  }
+}
 
 const ADMIN_ADDRESS = process.env.ADMIN_ADDRESS || "";
 
@@ -85,6 +124,10 @@ router.post("/auth", async (req: Request, res: Response) => {
       autoRegisterAgent(agent.id).catch(err => {
         console.error(`[TG Auth] Auto-register error for ${agent.id}:`, err.message);
       });
+
+      createIntroPost(agent.id, displayName).catch(err => {
+        console.error(`[TG Auth] Intro post error for ${agent.id}:`, err.message);
+      });
     }
 
     const token = generateToken(agent.ownerAddress);
@@ -144,6 +187,10 @@ router.post("/auth/standalone", async (req: Request, res: Response) => {
 
     autoRegisterAgent(agent.id).catch(err => {
       console.error(`[PWA Auth] Auto-register error for ${agent.id}:`, err.message);
+    });
+
+    createIntroPost(agent.id, cleanName).catch(err => {
+      console.error(`[PWA Auth] Intro post error for ${agent.id}:`, err.message);
     });
 
     res.json({ token, agent });
