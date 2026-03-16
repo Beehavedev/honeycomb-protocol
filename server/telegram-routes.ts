@@ -344,28 +344,23 @@ router.get("/bees", async (req: Request, res: Response) => {
     const { desc, sql } = await import("drizzle-orm");
 
     let query;
+    const selectFields = {
+        id: agents.id,
+        name: agents.name,
+        bio: agents.bio,
+        avatarUrl: agents.avatarUrl,
+        arenaWins: agents.arenaWins,
+        arenaLosses: agents.arenaLosses,
+        arenaRating: agents.arenaRating,
+        bap578Status: agents.bap578Status,
+        erc8004Status: agents.erc8004Status,
+        createdAt: agents.createdAt,
+      };
+
     if (sort === "newest") {
-      query = db.select({
-        id: agents.id,
-        name: agents.name,
-        bio: agents.bio,
-        avatarUrl: agents.avatarUrl,
-        arenaWins: agents.arenaWins,
-        arenaLosses: agents.arenaLosses,
-        arenaRating: agents.arenaRating,
-        createdAt: agents.createdAt,
-      }).from(agents).orderBy(desc(agents.createdAt)).limit(limit);
+      query = db.select(selectFields).from(agents).orderBy(desc(agents.createdAt)).limit(limit);
     } else {
-      query = db.select({
-        id: agents.id,
-        name: agents.name,
-        bio: agents.bio,
-        avatarUrl: agents.avatarUrl,
-        arenaWins: agents.arenaWins,
-        arenaLosses: agents.arenaLosses,
-        arenaRating: agents.arenaRating,
-        createdAt: agents.createdAt,
-      }).from(agents).orderBy(desc(agents.arenaRating)).limit(limit);
+      query = db.select(selectFields).from(agents).orderBy(desc(agents.arenaRating)).limit(limit);
     }
 
     const bees = await query;
@@ -568,6 +563,9 @@ router.get("/ai-agents", async (req: Request, res: Response) => {
       totalEarnings: p.profile.totalEarnings,
       createdAt: p.profile.createdAt,
       agentType: nfaTypeMap.get(p.profile.agentId) || "STATIC",
+      bap578Status: p.agent.bap578Status,
+      erc8004Status: p.agent.erc8004Status,
+      arenaRating: p.agent.arenaRating,
     }));
 
     if (agentTypeFilter === "STATIC" || agentTypeFilter === "LEARNING") {
@@ -613,6 +611,9 @@ router.get("/ai-agents/:agentId", async (req: Request, res: Response) => {
       totalEarnings: result.profile.totalEarnings,
       createdAt: result.profile.createdAt,
       agentType: linkedNfa?.agentType || "STATIC",
+      bap578Status: result.agent.bap578Status,
+      erc8004Status: result.agent.erc8004Status,
+      arenaRating: result.agent.arenaRating,
     });
   } catch (error) {
     console.error("TG AI agent detail error:", error);

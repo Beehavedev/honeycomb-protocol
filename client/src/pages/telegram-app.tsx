@@ -1011,6 +1011,9 @@ interface TgAiAgent {
   totalEarnings: string;
   createdAt: string;
   agentType: string;
+  bap578Status?: string | null;
+  erc8004Status?: string | null;
+  arenaRating?: number;
 }
 
 interface TgAgentActivity {
@@ -2165,7 +2168,13 @@ function AgentsTab({ onViewAgent, onChatAgent }: { onViewAgent: (agentId: string
                   <Bot className="w-5 h-5 text-purple-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-white truncate block">{agent.name}</span>
+                  <span className="text-sm font-medium text-white truncate flex items-center gap-1">
+                    {agent.name}
+                    <OnChainBadges bap578Status={agent.bap578Status} erc8004Status={agent.erc8004Status} size="xs" />
+                    {typeof agent.arenaRating === "number" && agent.arenaRating > 1000 && (
+                      <span className="text-[8px] text-amber-400 font-bold">{agent.arenaRating}</span>
+                    )}
+                  </span>
                   <span className="text-xs text-gray-500 truncate block">{agent.bio || "AI assistant"}</span>
                 </div>
                 <div className="flex gap-1 shrink-0">
@@ -2677,6 +2686,25 @@ interface BeeListItem {
   arenaWins: number;
   arenaLosses: number;
   arenaRating: number;
+  bap578Status?: string | null;
+  erc8004Status?: string | null;
+}
+
+function OnChainBadges({ bap578Status, erc8004Status, size = "sm" }: { bap578Status?: string | null; erc8004Status?: string | null; size?: "sm" | "xs" }) {
+  const bapOk = bap578Status === "registered";
+  const ercOk = erc8004Status === "registered";
+  if (!bapOk && !ercOk) return null;
+  const sz = size === "xs" ? "w-3 h-3 text-[6px]" : "w-3.5 h-3.5 text-[7px]";
+  return (
+    <span className="inline-flex items-center gap-0.5 shrink-0">
+      {bapOk && (
+        <span className={`${sz} rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold`} title="BAP-578 Verified">N</span>
+      )}
+      {ercOk && (
+        <span className={`${sz} rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold`} title="ERC-8004 Identity">I</span>
+      )}
+    </span>
+  );
 }
 
 function BeesTab({ onBack }: { onBack?: () => void }) {
@@ -2779,6 +2807,7 @@ function BeesTab({ onBack }: { onBack?: () => void }) {
                     <span className="text-sm font-medium text-white truncate" data-testid={`text-tg-bee-name-${bee.id}`}>
                       {bee.name}
                     </span>
+                    <OnChainBadges bap578Status={bee.bap578Status} erc8004Status={bee.erc8004Status} size="xs" />
                     {bee.avatarUrl && BEE_AVATARS.find((a) => a.id === bee.avatarUrl) && (
                       <span className="text-[9px] text-gray-500">
                         {BEE_AVATARS.find((a) => a.id === bee.avatarUrl)?.label}
@@ -2820,6 +2849,9 @@ interface TgPost {
     name: string;
     avatarUrl?: string | null;
     isBot?: boolean;
+    bap578Status?: string | null;
+    erc8004Status?: string | null;
+    arenaRating?: number;
   };
 }
 
@@ -2836,6 +2868,9 @@ interface TgComment {
     name: string;
     avatarUrl?: string | null;
     isBot?: boolean;
+    bap578Status?: string | null;
+    erc8004Status?: string | null;
+    arenaRating?: number;
   };
 }
 
@@ -2930,6 +2965,10 @@ function TgPostCard({
                   {post.agent.name.slice(0, 1).toUpperCase()}
                 </div>
                 <span className="truncate max-w-[80px]">{post.agent.name}</span>
+                <OnChainBadges bap578Status={post.agent.bap578Status} erc8004Status={post.agent.erc8004Status} size="xs" />
+                {typeof post.agent.arenaRating === "number" && post.agent.arenaRating > 1000 && (
+                  <span className="text-[8px] text-amber-400 font-bold">{post.agent.arenaRating}</span>
+                )}
               </span>
             )}
             <span className="flex items-center gap-0.5">
@@ -3096,6 +3135,10 @@ function TgPostDetailView({
                 {post.agent.name.slice(0, 1).toUpperCase()}
               </div>
               <span className="text-xs font-medium text-white">{post.agent.name}</span>
+              <OnChainBadges bap578Status={post.agent.bap578Status} erc8004Status={post.agent.erc8004Status} size="xs" />
+              {typeof post.agent.arenaRating === "number" && post.agent.arenaRating > 1000 && (
+                <span className="text-[9px] text-amber-400 font-bold">{post.agent.arenaRating}</span>
+              )}
             </div>
           )}
           <span className="text-[10px] text-gray-500">{formatTimeAgo(post.createdAt)}</span>
@@ -3209,6 +3252,10 @@ function TgPostDetailView({
                           {comment.agent.name.slice(0, 1).toUpperCase()}
                         </div>
                         <span className="text-[11px] font-medium text-white">{comment.agent.name}</span>
+                        <OnChainBadges bap578Status={comment.agent.bap578Status} erc8004Status={comment.agent.erc8004Status} size="xs" />
+                        {typeof comment.agent.arenaRating === "number" && comment.agent.arenaRating > 1000 && (
+                          <span className="text-[8px] text-amber-400 font-bold">{comment.agent.arenaRating}</span>
+                        )}
                       </>
                     )}
                     <span className="text-[10px] text-gray-500">{formatTimeAgo(comment.createdAt)}</span>
@@ -4291,7 +4338,10 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAg
             {BEE_AVATARS.find((a) => a.id === agent.avatarUrl)?.emoji || "🐝"}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-semibold text-white truncate">{agent.name}</div>
+            <div className="font-semibold text-white truncate flex items-center gap-1.5">
+              {agent.name}
+              <OnChainBadges bap578Status={agent.bap578Status} erc8004Status={agent.erc8004Status} />
+            </div>
             <div className="text-xs text-gray-400 truncate">{agent.bio || "No bio set"}</div>
           </div>
           {onEditBee && (
@@ -5603,7 +5653,10 @@ function LeaderboardView({ onBack }: { onBack: () => void }) {
                     {BEE_AVATARS.find(a => a.id === bee.avatarUrl)?.emoji || "🐝"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{bee.name}</p>
+                    <p className="text-sm font-medium text-white truncate flex items-center gap-1">
+                      {bee.name}
+                      <OnChainBadges bap578Status={bee.bap578Status} erc8004Status={bee.erc8004Status} size="xs" />
+                    </p>
                     <p className="text-[10px] text-gray-500">{bee.arenaWins}W / {bee.arenaLosses}L</p>
                   </div>
                   <div className="text-right">
@@ -5638,6 +5691,12 @@ interface TgAgent {
   avatarUrl?: string;
   bio?: string;
   isSetup?: boolean;
+  bap578Status?: string | null;
+  bap578TokenId?: string | null;
+  bap578TxHash?: string | null;
+  erc8004Status?: string | null;
+  erc8004IdentityId?: string | null;
+  erc8004TxHash?: string | null;
 }
 
 function useTelegramAuth() {
