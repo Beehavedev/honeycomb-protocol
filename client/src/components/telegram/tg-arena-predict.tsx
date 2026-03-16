@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,20 +9,20 @@ import {
 import type { TgAgentInfo } from "./tg-arena-types";
 
 const PREDICT_ASSETS = [
-  { id: "BTC", label: "Bitcoin", short: "BTC" },
-  { id: "ETH", label: "Ethereum", short: "ETH" },
-  { id: "BNB", label: "BNB", short: "BNB" },
-  { id: "SOL", label: "Solana", short: "SOL" },
+  { id: "BTC", label: "Bitcoin", short: "BTC", icon: "₿", color: "from-orange-500 to-amber-500" },
+  { id: "ETH", label: "Ethereum", short: "ETH", icon: "Ξ", color: "from-blue-500 to-indigo-500" },
+  { id: "BNB", label: "BNB", short: "BNB", icon: "◆", color: "from-yellow-500 to-amber-500" },
+  { id: "SOL", label: "Solana", short: "SOL", icon: "◎", color: "from-purple-500 to-violet-500" },
 ];
 
 const PREDICT_DURATIONS = [
-  { seconds: 60, label: "1m" },
-  { seconds: 300, label: "5m" },
-  { seconds: 600, label: "10m" },
+  { seconds: 60, label: "1m", tag: "Speed" },
+  { seconds: 300, label: "5m", tag: "Standard" },
+  { seconds: 600, label: "10m", tag: "Long" },
 ];
 
 const STAKE_OPTIONS = [
-  { value: "0", label: "Free", description: "Practice mode" },
+  { value: "0", label: "Free", description: "Practice" },
   { value: "0.001", label: "0.001", description: "~$0.60" },
   { value: "0.005", label: "0.005", description: "~$3" },
   { value: "0.01", label: "0.01", description: "~$6" },
@@ -85,10 +84,10 @@ export function PredictSubTab({ agent }: { agent?: TgAgentInfo }) {
     const isStaked = selectedStake !== "0" && parseFloat(selectedStake) > 0;
 
     try {
-      if (isStaked) {
-        const haptic = (window as any).Telegram?.WebApp?.HapticFeedback;
-        haptic?.impactOccurred?.("medium");
+      const haptic = (window as any).Telegram?.WebApp?.HapticFeedback;
+      haptic?.impactOccurred?.("medium");
 
+      if (isStaked) {
         const res = await fetch("/api/telegram/duels/create-staked", {
           method: "POST",
           headers: {
@@ -167,10 +166,13 @@ export function PredictSubTab({ agent }: { agent?: TgAgentInfo }) {
 
   if (!agent) {
     return (
-      <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
-        <TrendingUp className="w-10 h-10 text-purple-500/50 mx-auto mb-3" />
-        <p className="text-sm text-gray-400">Open via @honeycombot to predict</p>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-4">
+          <TrendingUp className="w-8 h-8 text-purple-500/60" />
+        </div>
+        <p className="text-sm font-semibold text-white mb-1">Price Predictions</p>
+        <p className="text-xs text-gray-500">Open via @honeycombot to predict</p>
+      </div>
     );
   }
 
@@ -178,133 +180,144 @@ export function PredictSubTab({ agent }: { agent?: TgAgentInfo }) {
   const userBalance = walletData?.balance ? parseFloat(walletData.balance) : 0;
   const selectedStakeNum = parseFloat(selectedStake);
   const insufficientBalance = selectedStakeNum > 0 && userBalance < selectedStakeNum;
-
   return (
-    <div className="space-y-3">
-      <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-blue-600/10 border-purple-500/20">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="w-4 h-4 text-purple-400" />
-          <span className="text-sm font-semibold text-white">Predict Price Direction</span>
-        </div>
-        <p className="text-[10px] text-gray-400 mb-3">Pick an asset, predict UP or DOWN, and win real BNB</p>
-
-        <div className="flex gap-2 mb-3 overflow-x-auto">
+    <div className="space-y-4">
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-0.5">Select Asset</p>
+        <div className="grid grid-cols-4 gap-1.5">
           {PREDICT_ASSETS.map((a) => (
             <button
               key={a.id}
               onClick={() => setSelectedAsset(a.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all ${
+              className={`rounded-xl p-2.5 text-center transition-all active:scale-95 ${
                 selectedAsset === a.id
-                  ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
-                  : "text-gray-400 border border-gray-700/50"
+                  ? "bg-gradient-to-br from-purple-500/20 to-blue-500/10 border border-purple-500/30"
+                  : "bg-white/[0.03] border border-white/[0.04]"
               }`}
               data-testid={`button-tg-predict-asset-${a.id.toLowerCase()}`}
             >
-              {a.short}
+              <span className={`text-lg block ${selectedAsset === a.id ? "" : "opacity-50"}`}>{a.icon}</span>
+              <span className={`text-[10px] font-bold ${selectedAsset === a.id ? "text-purple-400" : "text-gray-500"}`}>{a.short}</span>
             </button>
           ))}
         </div>
+      </div>
 
-        <div className="flex gap-2 mb-3">
+      {currentPrice && (
+        <div className="text-center py-2">
+          <span className="text-[10px] text-gray-500">{selectedAsset}/USDT</span>
+          <div className="text-3xl font-black text-white font-mono tracking-tight" data-testid="text-tg-predict-price">
+            ${parseFloat(currentPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-0.5">Duration</p>
+        <div className="grid grid-cols-3 gap-1.5">
           {PREDICT_DURATIONS.map((d) => (
             <button
               key={d.seconds}
               onClick={() => setSelectedDuration(d.seconds)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+              className={`rounded-xl p-2.5 text-center transition-all active:scale-95 ${
                 selectedDuration === d.seconds
-                  ? "bg-purple-500/20 text-purple-400 border border-purple-500/40"
-                  : "text-gray-400 border border-gray-700/50"
+                  ? "bg-gradient-to-br from-purple-500/20 to-blue-500/10 border border-purple-500/30"
+                  : "bg-white/[0.03] border border-white/[0.04]"
               }`}
               data-testid={`button-tg-predict-duration-${d.seconds}`}
             >
-              {d.label}
+              <span className={`text-sm font-bold ${selectedDuration === d.seconds ? "text-white" : "text-gray-400"}`}>{d.label}</span>
+              <span className={`text-[9px] block ${selectedDuration === d.seconds ? "text-purple-400" : "text-gray-600"}`}>{d.tag}</span>
             </button>
           ))}
         </div>
+      </div>
 
-        <div className="mb-3">
-          <div className="flex items-center gap-1 mb-2">
+      <div>
+        <div className="flex items-center justify-between mb-2 px-0.5">
+          <div className="flex items-center gap-1.5">
             <Coins className="w-3 h-3 text-amber-400" />
-            <span className="text-[10px] text-amber-400 font-medium">Stake BNB</span>
-            {userBalance > 0 && (
-              <span className="text-[10px] text-gray-500 ml-auto">
-                Balance: {userBalance.toFixed(4)} BNB
-              </span>
-            )}
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Stake BNB</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {STAKE_OPTIONS.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setSelectedStake(s.value)}
-                className={`px-2 py-2 rounded-lg text-center transition-all ${
-                  selectedStake === s.value
-                    ? s.value === "0"
-                      ? "bg-gray-600/30 text-white border border-gray-500/50"
-                      : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                    : "text-gray-400 border border-gray-700/40 hover:border-gray-600/60"
-                }`}
-                data-testid={`button-tg-predict-stake-${s.value}`}
-              >
-                <div className="text-xs font-bold">{s.value === "0" ? "Free" : `${s.label} BNB`}</div>
-                <div className="text-[9px] opacity-60">{s.description}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {currentPrice && (
-          <div className="text-center mb-3">
-            <span className="text-[10px] text-gray-500">{selectedAsset}/USDT</span>
-            <div className="text-xl font-bold text-white font-mono" data-testid="text-tg-predict-price">
-              ${parseFloat(currentPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-            </div>
-          </div>
-        )}
-
-        {createError && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 mb-3">
-            <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
-            <span className="text-[10px] text-red-400">{createError}</span>
-          </div>
-        )}
-
-        {insufficientBalance && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3">
-            <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-            <span className="text-[10px] text-amber-400">
-              Insufficient balance. Deposit BNB to your wallet first.
+          {userBalance > 0 && (
+            <span className="text-[10px] text-gray-500 font-mono">
+              {userBalance.toFixed(4)} BNB
             </span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            className="h-12 bg-green-600 hover:bg-green-700 text-white font-bold text-base gap-1"
-            onClick={() => createPrediction("up")}
-            disabled={isCreating || insufficientBalance}
-            data-testid="button-tg-predict-up"
-          >
-            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-            {selectedStakeNum > 0 ? `UP ${selectedStake}` : "UP"}
-          </Button>
-          <Button
-            className="h-12 bg-red-600 hover:bg-red-700 text-white font-bold text-base gap-1"
-            onClick={() => createPrediction("down")}
-            disabled={isCreating || insufficientBalance}
-            data-testid="button-tg-predict-down"
-          >
-            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingDown className="w-4 h-4" />}
-            {selectedStakeNum > 0 ? `DOWN ${selectedStake}` : "DOWN"}
-          </Button>
+          )}
         </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {STAKE_OPTIONS.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setSelectedStake(s.value)}
+              className={`rounded-xl px-2 py-2.5 text-center transition-all active:scale-95 ${
+                selectedStake === s.value
+                  ? s.value === "0"
+                    ? "bg-white/5 text-white border border-white/10"
+                    : "bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30"
+                  : "bg-white/[0.03] border border-white/[0.04]"
+              }`}
+              data-testid={`button-tg-predict-stake-${s.value}`}
+            >
+              <div className={`text-xs font-bold ${
+                selectedStake === s.value ? (s.value === "0" ? "text-white" : "text-amber-400") : "text-gray-400"
+              }`}>{s.value === "0" ? "Free" : `${s.label}`}</div>
+              <div className="text-[9px] text-gray-600">{s.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {selectedStakeNum > 0 && (
-          <p className="text-[9px] text-center text-gray-500 mt-2">
-            Win = {(selectedStakeNum * 2 * 0.95).toFixed(4)} BNB (5% fee) · BNB sent to escrow on confirm
-          </p>
-        )}
-      </Card>
+      {createError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/15">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+          <span className="text-xs text-red-400">{createError}</span>
+        </div>
+      )}
+
+      {insufficientBalance && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/15">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="text-xs text-amber-400">Insufficient balance. Deposit BNB first.</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => createPrediction("up")}
+          disabled={isCreating || insufficientBalance}
+          className="h-16 rounded-xl bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-lg flex flex-col items-center justify-center shadow-lg shadow-green-500/10 hover:from-green-700 hover:to-green-800 active:scale-[0.97] transition-all disabled:opacity-40"
+          data-testid="button-tg-predict-up"
+        >
+          <div className="flex items-center gap-1.5">
+            {isCreating ? <Loader2 className="w-5 h-5 animate-spin" /> : <TrendingUp className="w-5 h-5" />}
+            UP
+          </div>
+          {selectedStakeNum > 0 && (
+            <span className="text-[10px] font-normal opacity-70">{selectedStake} BNB</span>
+          )}
+        </button>
+        <button
+          onClick={() => createPrediction("down")}
+          disabled={isCreating || insufficientBalance}
+          className="h-16 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold text-lg flex flex-col items-center justify-center shadow-lg shadow-red-500/10 hover:from-red-700 hover:to-red-800 active:scale-[0.97] transition-all disabled:opacity-40"
+          data-testid="button-tg-predict-down"
+        >
+          <div className="flex items-center gap-1.5">
+            {isCreating ? <Loader2 className="w-5 h-5 animate-spin" /> : <TrendingDown className="w-5 h-5" />}
+            DOWN
+          </div>
+          {selectedStakeNum > 0 && (
+            <span className="text-[10px] font-normal opacity-70">{selectedStake} BNB</span>
+          )}
+        </button>
+      </div>
+
+      {selectedStakeNum > 0 && (
+        <p className="text-[10px] text-center text-gray-600">
+          Win = {(selectedStakeNum * 2 * 0.95).toFixed(4)} BNB (5% fee) · BNB sent to escrow
+        </p>
+      )}
     </div>
   );
 }
@@ -312,7 +325,7 @@ export function PredictSubTab({ agent }: { agent?: TgAgentInfo }) {
 function PredictActiveView({ prediction, agentId, tgToken, onBack }: {
   prediction: PredictionData;
   agentId: string;
-  tgToken?: string;
+  tgToken?: string | null;
   onBack: () => void;
 }) {
   const [timeLeft, setTimeLeft] = useState(prediction.durationSeconds);
@@ -340,41 +353,64 @@ function PredictActiveView({ prediction, agentId, tgToken, onBack }: {
     ctx.scale(dpr, dpr);
     const w = rect.width;
     const h = rect.height;
-    ctx.fillStyle = "#1a1a2e";
+    ctx.fillStyle = "#0a0b14";
     ctx.fillRect(0, 0, w, h);
     const pts = priceHistory.current;
-    if (pts.length < 2) return;
+    if (pts.length < 2) {
+      ctx.fillStyle = "#374151";
+      ctx.font = "12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Watching price...", w / 2, h / 2);
+      return;
+    }
     const prices = pts.map(p => p.p);
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
     const range = maxP - minP || 1;
     const startP = prediction.startPrice ? Number(prediction.startPrice) : pts[0].p;
-    const startY = h - ((startP - minP) / range) * (h - 8) - 4;
-    ctx.strokeStyle = "rgba(168,85,247,0.3)";
+
+    const startY = h - ((startP - minP) / range) * (h - 16) - 8;
+    ctx.strokeStyle = "rgba(168,85,247,0.4)";
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
+    ctx.setLineDash([6, 4]);
     ctx.beginPath();
     ctx.moveTo(0, startY);
     ctx.lineTo(w, startY);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    ctx.fillStyle = "rgba(168,85,247,0.5)";
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("ENTRY", 4, startY - 4);
+
     const isUp = pts[pts.length - 1].p >= startP;
-    ctx.strokeStyle = isUp ? "#22c55e" : "#ef4444";
-    ctx.lineWidth = 2;
+    const lineColor = isUp ? "#22c55e" : "#ef4444";
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
     ctx.beginPath();
     pts.forEach((pt, i) => {
       const x = (i / (pts.length - 1)) * w;
-      const y = h - ((pt.p - minP) / range) * (h - 8) - 4;
+      const y = h - ((pt.p - minP) / range) * (h - 16) - 8;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, isUp ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)");
+    grad.addColorStop(0, isUp ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)");
     grad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.lineTo(w, h);
     ctx.lineTo(0, h);
     ctx.fillStyle = grad;
+    ctx.fill();
+
+    const lastPt = pts[pts.length - 1];
+    const lastY = h - ((lastPt.p - minP) / range) * (h - 16) - 8;
+    ctx.fillStyle = lineColor;
+    ctx.beginPath();
+    ctx.arc(w - 2, lastY, 4, 0, Math.PI * 2);
     ctx.fill();
   }, [prediction.startPrice]);
 
@@ -391,7 +427,7 @@ function PredictActiveView({ prediction, agentId, tgToken, onBack }: {
             if (priceHistory.current.length > 120) priceHistory.current.shift();
           }
         }
-      } catch { /* network error */ }
+      } catch {}
     }, 2000);
     return () => clearInterval(iv);
   }, [prediction.assetSymbol]);
@@ -458,6 +494,7 @@ function PredictActiveView({ prediction, agentId, tgToken, onBack }: {
 
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
+  const timerUrgent = timeLeft < 30;
 
   if (result) {
     const won = result.userWon ?? result.duel?.winnerId === agentId;
@@ -466,27 +503,33 @@ function PredictActiveView({ prediction, agentId, tgToken, onBack }: {
     const isStaked = prediction.isStaked && stakeAmt > 0;
 
     return (
-      <div className="text-center space-y-4">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
-          draw ? "bg-gray-700/50" : won ? "bg-green-500/20" : "bg-red-500/20"
+      <div className="flex flex-col items-center justify-center py-6 text-center space-y-5">
+        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
+          draw ? "bg-gray-700/30" : won ? "bg-gradient-to-br from-amber-500/20 to-yellow-500/20" : "bg-gradient-to-br from-red-500/20 to-red-700/20"
         }`}>
-          {draw ? <Target className="w-8 h-8 text-gray-400" /> :
-           won ? <Trophy className="w-8 h-8 text-amber-500" /> :
-           <Swords className="w-8 h-8 text-red-400" />}
+          {draw ? <Target className="w-10 h-10 text-gray-400" /> :
+           won ? <Trophy className="w-10 h-10 text-amber-400" /> :
+           <Swords className="w-10 h-10 text-red-400" />}
         </div>
-        <h3 className={`text-xl font-bold ${draw ? "text-gray-300" : won ? "text-green-400" : "text-red-400"}`}>
-          {draw ? "Draw!" : won ? "You Won!" : "You Lost"}
-        </h3>
+
+        <div>
+          <h3 className={`text-2xl font-black ${draw ? "text-gray-300" : won ? "text-amber-400" : "text-red-400"}`}>
+            {draw ? "DRAW" : won ? "YOU WON!" : "YOU LOST"}
+          </h3>
+          <p className="text-xs text-gray-500 mt-1">
+            {prediction.asset}/USDT · {prediction.direction.toUpperCase()} prediction
+          </p>
+        </div>
 
         {isStaked && (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {won && result.payout && (
-              <div className="text-lg font-bold text-amber-400">
+              <div className="text-2xl font-black text-green-400">
                 +{parseFloat(result.payout).toFixed(4)} BNB
               </div>
             )}
             {!won && !draw && (
-              <div className="text-sm text-red-400">
+              <div className="text-lg font-bold text-red-400">
                 -{stakeAmt.toFixed(4)} BNB
               </div>
             )}
@@ -509,63 +552,83 @@ function PredictActiveView({ prediction, agentId, tgToken, onBack }: {
           </div>
         )}
 
-        <Button onClick={onBack} className="bg-gradient-to-r from-amber-500 to-orange-600 text-white" data-testid="button-tg-predict-again">
-          <Sparkles className="w-4 h-4 mr-1" /> Predict Again
+        <Button
+          className="w-full h-14 text-base font-bold bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white rounded-xl shadow-lg shadow-purple-500/20 active:scale-[0.98] transition-transform"
+          onClick={onBack}
+          data-testid="button-tg-predict-again"
+        >
+          <Sparkles className="w-5 h-5 mr-2" /> PREDICT AGAIN
         </Button>
       </div>
     );
   }
 
+  const pctChange = prediction.startPrice && currentPrice
+    ? (((currentPrice - Number(prediction.startPrice)) / Number(prediction.startPrice)) * 100)
+    : null;
+  const isWinning = pctChange !== null && pctChange !== 0
+    ? (prediction.direction === "up" ? pctChange > 0 : pctChange < 0)
+    : null;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <button onClick={onBack} className="text-gray-400 hover:text-white">
-          <ArrowLeft className="w-5 h-5" />
+        <button onClick={onBack} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white active:scale-90 transition-all">
+          <ArrowLeft className="w-4 h-4" />
         </button>
-        <Badge className={`font-mono ${timeLeft < 30 ? "bg-red-500/20 text-red-400" : "bg-purple-500/20 text-purple-400"}`}>
-          <Timer className="w-3 h-3 mr-1" />
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-sm font-bold ${
+          timerUrgent ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-white/5 text-gray-300"
+        }`}>
+          <Timer className="w-3.5 h-3.5" />
           {mins}:{secs.toString().padStart(2, "0")}
-        </Badge>
-        <div className="flex items-center gap-1">
+        </div>
+        <div className="flex items-center gap-1.5">
           {prediction.isStaked && prediction.stakeAmount && (
-            <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/40 text-[10px]">
-              <Coins className="w-2.5 h-2.5 mr-0.5" />
+            <Badge className="bg-amber-500/15 text-amber-400 border-0 text-[10px] font-bold">
               {prediction.stakeAmount} BNB
             </Badge>
           )}
-          <Badge variant="outline" className={`${prediction.direction === "up" ? "text-green-400 border-green-500/40" : "text-red-400 border-red-500/40"}`}>
-            {prediction.direction === "up" ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+            prediction.direction === "up"
+              ? "bg-green-500/15 text-green-400"
+              : "bg-red-500/15 text-red-400"
+          }`}>
+            {prediction.direction === "up" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {prediction.direction.toUpperCase()}
-          </Badge>
+          </div>
         </div>
       </div>
 
-      <Card className="p-3 bg-[#242444] border-gray-700/50">
+      <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] text-gray-500">{prediction.asset || prediction.assetSymbol?.replace("USDT", "")}/USD</span>
-          {prediction.startPrice && currentPrice && (
-            <span className={`text-xs font-bold ${currentPrice >= prediction.startPrice ? "text-green-400" : "text-red-400"}`}>
-              {currentPrice >= prediction.startPrice ? "+" : ""}
-              {(((currentPrice - Number(prediction.startPrice)) / Number(prediction.startPrice)) * 100).toFixed(3)}%
+          <span className="text-[10px] text-gray-500 font-medium">{prediction.asset || prediction.assetSymbol?.replace("USDT", "")}/USDT</span>
+          {pctChange !== null && (
+            <span className={`text-sm font-black ${pctChange >= 0 ? "text-green-400" : "text-red-400"}`}>
+              {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(3)}%
             </span>
           )}
         </div>
-        <div className="text-xl font-bold text-white font-mono" data-testid="text-tg-predict-live-price">
+        <div className="text-3xl font-black text-white font-mono tracking-tight" data-testid="text-tg-predict-live-price">
           {currentPrice ? `$${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "Loading..."}
         </div>
-      </Card>
-
-      <div className="rounded-lg overflow-hidden border border-gray-700/30">
-        <canvas ref={canvasRef} className="w-full" style={{ height: 160 }} data-testid="canvas-tg-predict-chart" />
       </div>
 
-      <div className="text-center">
-        <p className="text-xs text-gray-400">
-          Your prediction: price goes <span className={prediction.direction === "up" ? "text-green-400 font-bold" : "text-red-400 font-bold"}>{prediction.direction.toUpperCase()}</span>
-          {prediction.isStaked && prediction.stakeAmount && (
-            <span className="text-amber-400 ml-1">· {prediction.stakeAmount} BNB staked</span>
-          )}
+      <div className="rounded-xl overflow-hidden border border-white/[0.06] shadow-inner">
+        <canvas ref={canvasRef} className="w-full" style={{ height: 180 }} data-testid="canvas-tg-predict-chart" />
+      </div>
+
+      <div className={`text-center py-2 rounded-xl ${
+        isWinning === null ? "bg-white/5 border border-white/[0.06]" :
+        isWinning ? "bg-green-500/10 border border-green-500/15" : "bg-red-500/10 border border-red-500/15"
+      }`}>
+        <p className={`text-xs font-bold ${
+          isWinning === null ? "text-gray-400" : isWinning ? "text-green-400" : "text-red-400"
+        }`}>
+          {isWinning === null ? "WAITING" : isWinning ? "WINNING" : "LOSING"} · {prediction.direction.toUpperCase()} prediction
         </p>
+        {prediction.isStaked && prediction.stakeAmount && (
+          <p className="text-[10px] text-gray-500 mt-0.5">{prediction.stakeAmount} BNB staked</p>
+        )}
       </div>
     </div>
   );

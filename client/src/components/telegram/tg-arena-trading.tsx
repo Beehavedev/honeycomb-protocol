@@ -10,14 +10,14 @@ import {
 import type { TgAgentInfo, ActiveDuel, Position, DuelResult } from "./tg-arena-types";
 
 const ASSETS = [
-  { symbol: "BTCUSDT", label: "BTC", icon: "₿" },
-  { symbol: "ETHUSDT", label: "ETH", icon: "Ξ" },
-  { symbol: "BNBUSDT", label: "BNB", icon: "◆" },
+  { symbol: "BTCUSDT", label: "BTC", icon: "₿", color: "from-orange-500 to-amber-500", border: "border-orange-500/30" },
+  { symbol: "ETHUSDT", label: "ETH", icon: "Ξ", color: "from-blue-500 to-indigo-500", border: "border-blue-500/30" },
+  { symbol: "BNBUSDT", label: "BNB", icon: "◆", color: "from-yellow-500 to-amber-500", border: "border-yellow-500/30" },
 ];
 
 const DURATIONS = [
-  { seconds: 120, label: "2 min" },
-  { seconds: 300, label: "5 min" },
+  { seconds: 120, label: "2 min", tag: "Quick" },
+  { seconds: 300, label: "5 min", tag: "Standard" },
 ];
 
 type TradingView = "lobby" | "playing" | "results";
@@ -33,6 +33,8 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
   const [createdDuelId, setCreatedDuelId] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState("");
   const [pvpError, setPvpError] = useState("");
+  const [selectedAsset, setSelectedAsset] = useState(0);
+  const [selectedDuration, setSelectedDuration] = useState(0);
 
   useQuery<ActiveDuel>({
     queryKey: ["/api/trading-duels", createdDuelId, "poll"],
@@ -53,8 +55,10 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
     },
   });
 
-  const handleStartBot = async (asset: string, duration: number) => {
+  const handleStartBot = async () => {
     if (!agentId || starting) return;
+    const asset = ASSETS[selectedAsset];
+    const duration = DURATIONS[selectedDuration];
     setStarting(true);
     try {
       const res = await fetch("/api/trading-duels/play-vs-bot", {
@@ -62,8 +66,8 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           creatorId: agentId,
-          assetSymbol: asset,
-          durationSeconds: duration,
+          assetSymbol: asset.symbol,
+          durationSeconds: duration.seconds,
           botDifficulty: "normal",
           botStrategy: "momentum",
         }),
@@ -79,8 +83,10 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
     setStarting(false);
   };
 
-  const handleCreatePvp = async (asset: string, duration: number) => {
+  const handleCreatePvp = async () => {
     if (!agentId || starting) return;
+    const asset = ASSETS[selectedAsset];
+    const duration = DURATIONS[selectedDuration];
     setStarting(true);
     setPvpError("");
     try {
@@ -89,8 +95,8 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           creatorId: agentId,
-          assetSymbol: asset,
-          durationSeconds: duration,
+          assetSymbol: asset.symbol,
+          durationSeconds: duration.seconds,
           matchType: "practice",
         }),
       });
@@ -157,149 +163,160 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
 
   if (!agentId) {
     return (
-      <Card className="p-6 bg-[#242444] border-gray-700/50 text-center" data-testid="container-tg-arena-login">
-        <Swords className="w-10 h-10 text-amber-500/50 mx-auto mb-3" />
-        <p className="text-sm text-gray-400">Open via @honeycombot to play</p>
-      </Card>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center mb-4">
+          <Swords className="w-8 h-8 text-amber-500/60" />
+        </div>
+        <p className="text-sm font-semibold text-white mb-1">Trading Duels</p>
+        <p className="text-xs text-gray-500">Open via @honeycombot to play</p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex gap-2 mb-2">
+    <div className="space-y-4">
+      <div className="flex gap-1 p-0.5 rounded-xl bg-white/[0.03]">
         <button
           onClick={() => { setMode("bot"); setCreatedCode(null); setCreatedDuelId(null); setPvpError(""); }}
-          className={`flex-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-            mode === "bot" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-gray-400 border border-gray-700/50"
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            mode === "bot"
+              ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 shadow-sm"
+              : "text-gray-500 hover:text-gray-300"
           }`}
           data-testid="button-tg-trading-mode-bot"
         >
-          <Bot className="w-3 h-3 inline mr-1" /> vs Bot
+          <Bot className="w-3.5 h-3.5" /> vs AI Bot
         </button>
         <button
           onClick={() => { setMode("pvp"); setPvpError(""); }}
-          className={`flex-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-            mode === "pvp" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-gray-400 border border-gray-700/50"
+          className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+            mode === "pvp"
+              ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 shadow-sm"
+              : "text-gray-500 hover:text-gray-300"
           }`}
           data-testid="button-tg-trading-mode-pvp"
         >
-          <Users className="w-3 h-3 inline mr-1" /> PvP
+          <Users className="w-3.5 h-3.5" /> PvP
         </button>
       </div>
 
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-0.5">Select Asset</p>
+        <div className="grid grid-cols-3 gap-2">
+          {ASSETS.map((a, i) => (
+            <button
+              key={a.symbol}
+              onClick={() => setSelectedAsset(i)}
+              className={`relative rounded-xl p-3 text-center transition-all active:scale-95 ${
+                selectedAsset === i
+                  ? `bg-gradient-to-br ${a.color} bg-opacity-20 border ${a.border} shadow-lg`
+                  : "bg-white/[0.03] border border-white/[0.04] hover:bg-white/[0.06]"
+              }`}
+              style={selectedAsset === i ? { background: `linear-gradient(135deg, rgba(245,158,11,0.15), rgba(234,88,12,0.08))` } : {}}
+              data-testid={`button-tg-quick-${a.label.toLowerCase()}`}
+            >
+              <span className={`text-2xl block mb-1 ${selectedAsset === i ? "scale-110" : "opacity-60"} transition-all`}>{a.icon}</span>
+              <span className={`text-xs font-bold ${selectedAsset === i ? "text-white" : "text-gray-400"}`}>{a.label}/USDT</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 px-0.5">Duration</p>
+        <div className="grid grid-cols-2 gap-2">
+          {DURATIONS.map((d, i) => (
+            <button
+              key={d.seconds}
+              onClick={() => setSelectedDuration(i)}
+              className={`rounded-xl p-3 text-center transition-all active:scale-95 ${
+                selectedDuration === i
+                  ? "bg-gradient-to-br from-amber-500/15 to-orange-500/10 border border-amber-500/30"
+                  : "bg-white/[0.03] border border-white/[0.04] hover:bg-white/[0.06]"
+              }`}
+              data-testid={`button-tg-play-duration-${d.seconds}`}
+            >
+              <div className="flex items-center justify-center gap-1.5">
+                <Timer className={`w-3.5 h-3.5 ${selectedDuration === i ? "text-amber-400" : "text-gray-500"}`} />
+                <span className={`text-sm font-bold ${selectedDuration === i ? "text-white" : "text-gray-400"}`}>{d.label}</span>
+              </div>
+              <span className={`text-[10px] ${selectedDuration === i ? "text-amber-400/70" : "text-gray-600"}`}>{d.tag}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {mode === "bot" ? (
-        <>
-          <Card className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-500/20" data-testid="card-tg-quick-match">
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-semibold text-white">Quick Match vs AI</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {ASSETS.map((a) => (
-                <Button
-                  key={a.symbol}
-                  size="sm"
-                  disabled={starting}
-                  className="bg-[#1a1a2e] border border-gray-700/50 text-white hover:border-amber-500/50 hover:bg-amber-500/10"
-                  onClick={() => handleStartBot(a.symbol, 120)}
-                  data-testid={`button-tg-quick-${a.label.toLowerCase()}`}
-                >
-                  <span className="mr-1">{a.icon}</span> {a.label}
-                </Button>
-              ))}
-            </div>
-            <p className="text-[10px] text-gray-500 text-center">2-min practice duel · $10,000 virtual balance</p>
-          </Card>
-
-          <h3 className="text-sm font-semibold text-gray-300 mb-2 px-1">Choose Duration</h3>
-          <div className="space-y-2">
-            {ASSETS.map((asset) => (
-              <Card key={asset.symbol} className="p-3 bg-[#242444] border-gray-700/50" data-testid={`card-tg-asset-${asset.label.toLowerCase()}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{asset.icon}</span>
-                    <span className="text-sm font-medium text-white">{asset.label}/USDT</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {DURATIONS.map((d) => (
-                      <Button
-                        key={d.seconds}
-                        size="sm"
-                        variant="outline"
-                        disabled={starting}
-                        className="text-xs border-gray-600 text-gray-300 hover:border-amber-500 hover:text-amber-400"
-                        onClick={() => handleStartBot(asset.symbol, d.seconds)}
-                        data-testid={`button-tg-play-${asset.label.toLowerCase()}-${d.seconds}`}
-                      >
-                        <Timer className="w-3 h-3 mr-1" />
-                        {d.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      ) : (
-        <Card className="p-4 bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-500/20">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-semibold text-white">PvP Trading Duel</span>
-          </div>
-          <p className="text-[10px] text-gray-400 mb-3">Create a lobby or join with a code</p>
-
-          {!createdCode ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {ASSETS.map((a) => (
-                  <Button
-                    key={a.symbol}
-                    size="sm"
-                    disabled={starting}
-                    className="bg-[#1a1a2e] border border-gray-700/50 text-white hover:border-amber-500/50"
-                    onClick={() => handleCreatePvp(a.symbol, 300)}
-                    data-testid={`button-tg-pvp-create-${a.label.toLowerCase()}`}
-                  >
-                    {starting ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="mr-1">{a.icon}</span>}
-                    {a.label}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-[10px] text-gray-500 text-center">5-min practice duel</p>
-            </div>
+        <Button
+          className="w-full h-14 text-base font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform"
+          onClick={handleStartBot}
+          disabled={starting}
+          data-testid="button-tg-start-bot-duel"
+        >
+          {starting ? (
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
           ) : (
-            <Card className="p-3 bg-[#1a1a2e] border-amber-500/30 mb-3">
-              <p className="text-[10px] text-gray-400 mb-1">Share this code with your opponent:</p>
+            <Zap className="w-5 h-5 mr-2" />
+          )}
+          {starting ? "Starting..." : `FIGHT ${ASSETS[selectedAsset].label} · ${DURATIONS[selectedDuration].label}`}
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          {!createdCode ? (
+            <Button
+              className="w-full h-14 text-base font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform"
+              onClick={handleCreatePvp}
+              disabled={starting}
+              data-testid="button-tg-create-pvp"
+            >
+              {starting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Users className="w-5 h-5 mr-2" />}
+              {starting ? "Creating..." : "Create PvP Lobby"}
+            </Button>
+          ) : (
+            <div className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-4">
+              <p className="text-[10px] text-gray-400 mb-2 font-medium">Share this code:</p>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold font-mono text-amber-400 tracking-wider flex-1" data-testid="text-tg-trading-join-code">{createdCode}</span>
-                <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard.writeText(createdCode)} data-testid="button-tg-trading-copy-code">
-                  <Copy className="w-3 h-3" />
-                </Button>
+                <span className="text-2xl font-black font-mono text-amber-400 tracking-[0.2em] flex-1" data-testid="text-tg-trading-join-code">{createdCode}</span>
+                <button
+                  onClick={() => navigator.clipboard.writeText(createdCode)}
+                  className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 hover:bg-amber-500/30 active:scale-90 transition-all"
+                  data-testid="button-tg-trading-copy-code"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
               </div>
-              <p className="text-[9px] text-gray-500 mt-1">
-                <Loader2 className="w-3 h-3 inline animate-spin mr-1" />
-                Waiting for opponent to join...
-              </p>
-            </Card>
+              <div className="flex items-center gap-1.5 mt-2">
+                <Loader2 className="w-3 h-3 animate-spin text-gray-500" />
+                <span className="text-[10px] text-gray-500">Waiting for opponent...</span>
+              </div>
+            </div>
           )}
 
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2">
             <input
               value={joinCode}
               onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setPvpError(""); }}
               placeholder="Enter join code..."
               maxLength={8}
-              className="flex-1 bg-[#1a1a2e] border border-gray-700/50 rounded-lg px-3 py-1.5 text-xs text-white font-mono uppercase placeholder-gray-500"
+              className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-white font-mono uppercase placeholder-gray-600 focus:outline-none focus:border-amber-500/40"
               data-testid="input-tg-trading-join-code"
             />
-            <Button size="sm" onClick={handleJoinByCode} disabled={!joinCode.trim()} data-testid="button-tg-trading-join">
+            <Button
+              className="px-5 rounded-xl"
+              onClick={handleJoinByCode}
+              disabled={!joinCode.trim()}
+              data-testid="button-tg-trading-join"
+            >
               Join
             </Button>
           </div>
-          {pvpError && <p className="text-[10px] text-red-400 mt-1">{pvpError}</p>}
-        </Card>
+          {pvpError && <p className="text-[10px] text-red-400 px-1">{pvpError}</p>}
+        </div>
       )}
+
+      <p className="text-[10px] text-gray-600 text-center">
+        $10,000 virtual balance · Practice mode
+      </p>
     </div>
   );
 }
@@ -345,7 +362,7 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
           if (priceHistory.current.length > 120) priceHistory.current.shift();
         }
       }
-    } catch { /* network error */ }
+    } catch {}
   }, [duel.assetSymbol]);
 
   const drawChart = useCallback(() => {
@@ -360,31 +377,66 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
     ctx.scale(dpr, dpr);
     const w = rect.width;
     const h = rect.height;
-    ctx.fillStyle = "#1a1a2e";
+
+    ctx.fillStyle = "#0a0b14";
     ctx.fillRect(0, 0, w, h);
+
     const pts = priceHistory.current;
-    if (pts.length < 2) return;
+    if (pts.length < 2) {
+      ctx.fillStyle = "#374151";
+      ctx.font = "12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Waiting for price data...", w / 2, h / 2);
+      return;
+    }
+
     const prices = pts.map(p => p.p);
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
     const range = maxP - minP || 1;
     const isUp = pts[pts.length - 1].p >= pts[0].p;
-    ctx.strokeStyle = isUp ? "#22c55e" : "#ef4444";
-    ctx.lineWidth = 2;
+
+    ctx.strokeStyle = "#1f2937";
+    ctx.lineWidth = 0.5;
+    for (let i = 1; i < 4; i++) {
+      const gy = (h / 4) * i;
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(w, gy);
+      ctx.stroke();
+    }
+
+    const lineColor = isUp ? "#22c55e" : "#ef4444";
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
     ctx.beginPath();
     pts.forEach((pt, i) => {
       const x = (i / (pts.length - 1)) * w;
-      const y = h - ((pt.p - minP) / range) * (h - 8) - 4;
+      const y = h - ((pt.p - minP) / range) * (h - 16) - 8;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
     ctx.stroke();
+
     const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, isUp ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)");
+    grad.addColorStop(0, isUp ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)");
     grad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.lineTo(w, h);
     ctx.lineTo(0, h);
     ctx.fillStyle = grad;
+    ctx.fill();
+
+    const lastPt = pts[pts.length - 1];
+    const lastY = h - ((lastPt.p - minP) / range) * (h - 16) - 8;
+    ctx.fillStyle = lineColor;
+    ctx.beginPath();
+    ctx.arc(w - 2, lastY, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = lineColor + "40";
+    ctx.beginPath();
+    ctx.arc(w - 2, lastY, 8, 0, Math.PI * 2);
     ctx.fill();
   }, []);
 
@@ -471,7 +523,7 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
           const s = await statusRes.json();
           setStatus(s.relativeStatus || "");
         }
-      } catch { /* network error */ }
+      } catch {}
     };
     fetchStatus();
     const iv = setInterval(fetchStatus, 2000);
@@ -482,6 +534,8 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
     if (trading || price <= 0) return;
     setTrading(true);
     try {
+      const haptic = (window as any).Telegram?.WebApp?.HapticFeedback;
+      haptic?.impactOccurred?.("medium");
       const sizeUsdt = Math.min(balance, parseFloat(duel.initialBalance) * 0.25).toFixed(2);
       if (parseFloat(sizeUsdt) <= 0) { setTrading(false); return; }
       await fetch(`/api/trading-duels/${duel.id}/open-position`, {
@@ -489,7 +543,7 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId, side, leverage: 5, sizeUsdt, clientPrice: price.toString() }),
       });
-    } catch { /* network error */ }
+    } catch {}
     setTrading(false);
   };
 
@@ -502,7 +556,7 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ positionId, agentId, clientPrice: price.toString() }),
       });
-    } catch { /* network error */ }
+    } catch {}
     setTrading(false);
   };
 
@@ -516,45 +570,52 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
   const secs = timeLeft % 60;
   const openPos = positions.filter(p => p.isOpen);
   const pnlColor = pnl >= 0 ? "text-green-400" : "text-red-400";
+  const timerUrgent = timeLeft < 30;
 
   return (
-    <div className="flex flex-col h-full" data-testid="container-tg-game">
-      <div className="flex items-center justify-between mb-2 px-1">
-        <button onClick={onBack} className="text-gray-400 hover:text-white" data-testid="button-tg-game-back">
-          <ArrowLeft className="w-5 h-5" />
+    <div className="flex flex-col" data-testid="container-tg-game">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={onBack} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white active:scale-90 transition-all" data-testid="button-tg-game-back">
+          <ArrowLeft className="w-4 h-4" />
         </button>
-        <Badge className={`${timeLeft < 30 ? "bg-red-500/20 text-red-400" : "bg-gray-700/50 text-gray-300"} font-mono`}>
-          <Timer className="w-3 h-3 mr-1" />
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full font-mono text-sm font-bold ${
+          timerUrgent ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-white/5 text-gray-300"
+        }`}>
+          <Timer className="w-3.5 h-3.5" />
           {mins}:{secs.toString().padStart(2, "0")}
-        </Badge>
-        <span className="text-xs text-gray-500">vs {duel.botName || "Opponent"}</span>
+        </div>
+        <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-1 rounded-full">vs {duel.botName || "Bot"}</span>
       </div>
-      <div className="flex items-center justify-between px-1 mb-1">
+
+      <div className="flex items-end justify-between mb-1 px-0.5">
         <div>
-          <span className="text-[10px] text-gray-500">{duel.assetSymbol.replace("USDT", "/USDT")}</span>
-          <div className="text-lg font-bold text-white font-mono" data-testid="text-tg-live-price">${fmtPrice(price)}</div>
+          <span className="text-[10px] text-gray-500 font-medium">{duel.assetSymbol.replace("USDT", "/USDT")}</span>
+          <div className="text-2xl font-black text-white font-mono tracking-tight" data-testid="text-tg-live-price">${fmtPrice(price)}</div>
         </div>
         <div className="text-right">
-          <span className="text-[10px] text-gray-500">Your P&L</span>
-          <div className={`text-lg font-bold font-mono ${pnlColor}`} data-testid="text-tg-pnl">
+          <span className="text-[10px] text-gray-500 font-medium">P&L</span>
+          <div className={`text-2xl font-black font-mono tracking-tight ${pnlColor}`} data-testid="text-tg-pnl">
             {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)}
           </div>
         </div>
       </div>
+
       {status && (
-        <div className="text-center mb-1">
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-            status.includes("LEAD") ? "bg-green-500/20 text-green-400" :
-            status.includes("BEHIND") ? "bg-red-500/20 text-red-400" :
-            "bg-gray-700/50 text-gray-400"
+        <div className="text-center mb-2">
+          <span className={`text-[10px] font-bold px-3 py-1 rounded-full ${
+            status.includes("LEAD") ? "bg-green-500/15 text-green-400" :
+            status.includes("BEHIND") ? "bg-red-500/15 text-red-400" :
+            "bg-white/5 text-gray-400"
           }`} data-testid="text-tg-status">{status}</span>
         </div>
       )}
-      <div className="flex-1 min-h-0 mb-2 rounded-lg overflow-hidden border border-gray-700/30">
-        <canvas ref={canvasRef} className="w-full h-full" style={{ minHeight: 140 }} data-testid="canvas-tg-chart" />
+
+      <div className="rounded-xl overflow-hidden border border-white/[0.06] mb-3 shadow-inner">
+        <canvas ref={canvasRef} className="w-full" style={{ height: 160 }} data-testid="canvas-tg-chart" />
       </div>
+
       {openPos.length > 0 && (
-        <div className="space-y-1 mb-2">
+        <div className="space-y-1.5 mb-3">
           {openPos.map(pos => {
             const entry = parseFloat(pos.entryPrice);
             const uPnl = price > 0 ? (
@@ -562,38 +623,61 @@ function TradingGameView({ duel, agentId, onEnd, onBack }: {
                 ? ((price - entry) / entry) * parseFloat(pos.sizeUsdt) * pos.leverage
                 : ((entry - price) / entry) * parseFloat(pos.sizeUsdt) * pos.leverage
             ) : 0;
+            const isProfit = uPnl >= 0;
             return (
-              <div key={pos.id} className="flex items-center justify-between bg-[#242444] rounded-lg px-3 py-2" data-testid={`row-tg-position-${pos.id}`}>
+              <div key={pos.id} className={`flex items-center justify-between rounded-xl px-3 py-2.5 border ${
+                isProfit ? "bg-green-500/5 border-green-500/10" : "bg-red-500/5 border-red-500/10"
+              }`} data-testid={`row-tg-position-${pos.id}`}>
                 <div className="flex items-center gap-2">
-                  {pos.side === "long" ? <TrendingUp className="w-3.5 h-3.5 text-green-400" /> : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
-                  <span className="text-xs text-white">{pos.side.toUpperCase()} {pos.leverage}x</span>
+                  {pos.side === "long" ? <TrendingUp className="w-4 h-4 text-green-400" /> : <TrendingDown className="w-4 h-4 text-red-400" />}
+                  <div>
+                    <span className="text-xs font-bold text-white">{pos.side.toUpperCase()} {pos.leverage}x</span>
+                    <span className="text-[10px] text-gray-500 ml-2">${parseFloat(pos.sizeUsdt).toFixed(0)}</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs font-mono ${uPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {uPnl >= 0 ? "+" : ""}{uPnl.toFixed(2)}
+                  <span className={`text-xs font-mono font-bold ${isProfit ? "text-green-400" : "text-red-400"}`}>
+                    {isProfit ? "+" : ""}{uPnl.toFixed(2)}
                   </span>
-                  <Button size="sm" variant="outline" className="h-6 text-[10px] border-gray-600 text-gray-300"
-                    onClick={() => closePosition(pos.id)} disabled={trading} data-testid={`button-tg-close-${pos.id}`}>
-                    Close
-                  </Button>
+                  <button
+                    onClick={() => closePosition(pos.id)}
+                    disabled={trading}
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 active:scale-95 transition-all"
+                    data-testid={`button-tg-close-${pos.id}`}
+                  >
+                    CLOSE
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
       <div className="grid grid-cols-2 gap-2">
-        <Button className="h-12 bg-green-600 hover:bg-green-700 text-white font-bold text-base gap-1"
-          onClick={() => openPosition("long")} disabled={trading || balance <= 0 || timeLeft <= 0} data-testid="button-tg-long">
-          <TrendingUp className="w-4 h-4" /> LONG
-        </Button>
-        <Button className="h-12 bg-red-600 hover:bg-red-700 text-white font-bold text-base gap-1"
-          onClick={() => openPosition("short")} disabled={trading || balance <= 0 || timeLeft <= 0} data-testid="button-tg-short">
-          <TrendingDown className="w-4 h-4" /> SHORT
-        </Button>
+        <button
+          onClick={() => openPosition("long")}
+          disabled={trading || price <= 0 || timeLeft <= 0}
+          className="h-14 rounded-xl bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-green-500/10 hover:from-green-700 hover:to-green-800 active:scale-[0.97] transition-all disabled:opacity-40"
+          data-testid="button-tg-long"
+        >
+          <TrendingUp className="w-5 h-5" />
+          LONG
+        </button>
+        <button
+          onClick={() => openPosition("short")}
+          disabled={trading || price <= 0 || timeLeft <= 0}
+          className="h-14 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-red-500/10 hover:from-red-700 hover:to-red-800 active:scale-[0.97] transition-all disabled:opacity-40"
+          data-testid="button-tg-short"
+        >
+          <TrendingDown className="w-5 h-5" />
+          SHORT
+        </button>
       </div>
-      <div className="flex items-center justify-between px-1 mt-2">
-        <span className="text-[10px] text-gray-500">Balance: ${balance.toFixed(0)} · 5x leverage · 25% size</span>
+
+      <div className="flex items-center justify-between mt-2 px-1">
+        <span className="text-[10px] text-gray-500">5x Leverage · 25% per trade</span>
+        <span className="text-[10px] text-gray-500 font-mono">Balance: ${balance.toFixed(0)}</span>
       </div>
     </div>
   );
@@ -605,42 +689,61 @@ function TradingResultsView({ result, duel, agentId, onPlayAgain }: {
   agentId: string;
   onPlayAgain: () => void;
 }) {
-  const isWinner = result.winnerId === agentId;
-  const isDraw = !result.winnerId;
-  const myPnl = duel.creatorId === agentId
-    ? parseFloat(result.creatorPnl)
-    : parseFloat(result.joinerPnl);
+  const isCreator = duel.creatorId === agentId;
+  const myPnl = parseFloat(isCreator ? result.creatorPnl : result.joinerPnl);
+  const theirPnl = parseFloat(isCreator ? result.joinerPnl : result.creatorPnl);
+  const won = result.winnerId === agentId;
+  const draw = !result.winnerId;
+
+  useEffect(() => {
+    try {
+      const haptic = (window as any).Telegram?.WebApp?.HapticFeedback;
+      if (won) haptic?.notificationOccurred?.("success");
+      else haptic?.notificationOccurred?.("warning");
+    } catch {}
+  }, [won]);
 
   return (
-    <div className="flex flex-col items-center justify-center px-4 pt-8 pb-4" data-testid="container-tg-results">
-      <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
-        isDraw ? "bg-gray-700/50" : isWinner ? "bg-green-500/20" : "bg-red-500/20"
+    <div className="flex flex-col items-center justify-center py-6 text-center space-y-5" data-testid="container-tg-results">
+      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
+        draw ? "bg-gray-700/30" : won ? "bg-gradient-to-br from-amber-500/20 to-yellow-500/20" : "bg-gradient-to-br from-red-500/20 to-red-700/20"
       }`}>
-        {isDraw ? <Target className="w-10 h-10 text-gray-400" /> :
-         isWinner ? <Trophy className="w-10 h-10 text-amber-500" /> :
+        {draw ? <Target className="w-10 h-10 text-gray-400" /> :
+         won ? <Trophy className="w-10 h-10 text-amber-400" /> :
          <Swords className="w-10 h-10 text-red-400" />}
       </div>
-      <h2 className={`text-2xl font-bold mb-1 ${isDraw ? "text-gray-300" : isWinner ? "text-green-400" : "text-red-400"}`} data-testid="text-tg-result-title">
-        {isDraw ? "Draw!" : isWinner ? "Victory!" : "Defeat"}
-      </h2>
-      <p className="text-sm text-gray-400 mb-6">
-        {isDraw ? "Both players tied" : isWinner ? `You beat ${duel.botName || "your opponent"}!` : `${duel.botName || "Opponent"} wins`}
-      </p>
-      <Card className="p-4 bg-[#242444] border-gray-700/50 w-full mb-6" data-testid="card-tg-result-stats">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-gray-400">Your P&L</span>
-          <span className={`text-sm font-bold font-mono ${myPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {myPnl >= 0 ? "+" : ""}{myPnl.toFixed(2)} USDT
-          </span>
+
+      <div>
+        <h3 className={`text-2xl font-black ${draw ? "text-gray-300" : won ? "text-amber-400" : "text-red-400"}`}>
+          {draw ? "DRAW" : won ? "VICTORY!" : "DEFEAT"}
+        </h3>
+        <p className="text-xs text-gray-500 mt-1">
+          {duel.assetSymbol.replace("USDT", "/USDT")} · {Math.floor(duel.durationSeconds / 60)}min duel
+        </p>
+      </div>
+
+      <div className="flex gap-6">
+        <div>
+          <p className="text-[10px] text-gray-500 mb-1">YOUR P&L</p>
+          <p className={`text-xl font-black font-mono ${myPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {myPnl >= 0 ? "+" : ""}{myPnl.toFixed(2)}
+          </p>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">Asset</span>
-          <span className="text-xs text-white">{duel.assetSymbol.replace("USDT", "/USDT")}</span>
+        <div className="w-px bg-white/10" />
+        <div>
+          <p className="text-[10px] text-gray-500 mb-1">OPPONENT</p>
+          <p className={`text-xl font-black font-mono ${theirPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {theirPnl >= 0 ? "+" : ""}{theirPnl.toFixed(2)}
+          </p>
         </div>
-      </Card>
-      <Button size="lg" className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold"
-        onClick={onPlayAgain} data-testid="button-tg-play-again">
-        <Sparkles className="w-4 h-4" /> Play Again
+      </div>
+
+      <Button
+        className="w-full h-14 text-base font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-transform"
+        onClick={onPlayAgain}
+        data-testid="button-tg-play-again"
+      >
+        <Sparkles className="w-5 h-5 mr-2" /> PLAY AGAIN
       </Button>
     </div>
   );
