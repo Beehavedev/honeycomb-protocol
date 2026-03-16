@@ -1084,9 +1084,21 @@ function TokenLogo({ logoUrl, symbol, size = 36, testId }: { logoUrl?: string | 
       />
     );
   }
+  const gradients = [
+    "from-amber-500 to-orange-600",
+    "from-purple-500 to-pink-600",
+    "from-cyan-500 to-blue-600",
+    "from-emerald-500 to-teal-600",
+    "from-rose-500 to-red-600",
+    "from-indigo-500 to-violet-600",
+    "from-yellow-400 to-amber-600",
+    "from-fuchsia-500 to-purple-600",
+  ];
+  const hash = (symbol || "??").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const grad = gradients[hash % gradients.length];
   return (
-    <div className={`${sizeClass} rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-500 font-bold`}>
-      {symbol?.slice(0, 2) || "??"}
+    <div className={`${sizeClass} rounded-full bg-gradient-to-br ${grad} flex items-center justify-center shrink-0 text-white font-bold shadow-md`} data-testid={testId}>
+      {(symbol || "??").slice(0, 2).toUpperCase()}
     </div>
   );
 }
