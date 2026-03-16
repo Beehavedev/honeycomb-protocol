@@ -73,7 +73,7 @@ A Telegram-native interface for Honeycomb, enabling users to interact via bot co
 - **NFA Marketplace**: Browse, search, and sort NFA agents with detail views showing stats, on-chain status, and agent info. Routes: `/api/telegram/nfa/agents`, `/api/telegram/nfa/agents/:id`.
 - **AI Agents Directory**: Discover AI agents with type (STATIC/LEARNING) and pricing filters, view rich profiles with capabilities, activity history, and audit logs. Chat with agents for free via SSE streaming. Routes: `/api/telegram/ai-agents`, `/api/telegram/ai-agents/:agentId`, `/api/telegram/ai-agents/:agentId/activity`, `/api/telegram/ai-agents/:agentId/chat`.
 
-**Navigation**: 7-tab bottom bar (Home, Arena, Feed, Earn, Market, Agents, Profile) with backdrop blur. "The Hive" (Bees view) is accessible as a sub-view from Home and Profile tabs. Sub-views (NFA detail, Agent profile/chat) use state-based navigation with Telegram back button support.
+**Navigation**: Streamlined 5-tab bottom bar (Home, Arena, Trade, Feed, Profile) with backdrop blur. Earn, NFA Marketplace, AI Agents, and The Hive are accessible as sub-sections within Profile. Sub-views (NFA detail, Agent profile/chat) use state-based navigation with Telegram back button support.
 
 **Telegram WebApp Integration**:
 - Haptic feedback on tab switches, button taps, and voting actions
@@ -148,4 +148,4 @@ Full integration with FourMeme (four.meme) token launchpad on BNB Chain. Core mo
 - `POST /buy` — Buy token with BNB (auth required)
 - `POST /sell` — Sell token for BNB (auth required)
 
-**Telegram Mini App Navigation**: 8-tab bottom bar — Home, Arena, Feed, Earn, 4Meme, Market, Agents, Profile. The "4Meme" tab provides full token trading UI (browse trending/new, search, token detail with buy/sell, and token launch form).
+**Telegram Mini App Navigation**: Streamlined 5-tab bottom bar — Home, Arena, Trade, Feed, Profile. The "Trade" tab provides full token trading UI (browse trending/new, search by name/symbol/CA, token detail with buy/sell, and token launch form). Earn, NFA Marketplace, AI Agents, and The Hive are accessible as sub-sections within Profile.

@@ -226,7 +226,7 @@ function PullToRefresh({
   );
 }
 
-type TabType = "home" | "feed" | "arena" | "earn" | "fourmeme" | "market" | "agents" | "profile";
+type TabType = "home" | "arena" | "trade" | "feed" | "profile";
 
 type SubView =
   | { type: "none" }
@@ -332,21 +332,21 @@ function HomeTab({ onSwitchTab, onViewBees }: { onSwitchTab: (tab: TabType) => v
           size="lg"
           variant="outline"
           className="w-full gap-2 border-amber-500/50 text-amber-400"
-          onClick={() => onSwitchTab("market")}
-          data-testid="button-tg-view-market"
+          onClick={() => onSwitchTab("trade")}
+          data-testid="button-tg-trade-tokens"
         >
-          <Store className="w-4 h-4" />
-          NFA Marketplace
+          <Rocket className="w-4 h-4" />
+          Trade Tokens
         </Button>
         <Button
           size="lg"
           variant="outline"
           className="w-full gap-2 border-purple-500/50 text-purple-400"
-          onClick={() => onSwitchTab("agents")}
-          data-testid="button-tg-view-agents"
+          onClick={() => onSwitchTab("feed")}
+          data-testid="button-tg-browse-feed"
         >
-          <Bot className="w-4 h-4" />
-          AI Agents
+          <MessageSquare className="w-4 h-4" />
+          Browse Feed
         </Button>
         <Button
           size="lg"
@@ -3942,7 +3942,8 @@ function CreateBeeView({ agent, onComplete }: { agent: TgAgent; onComplete: (upd
   );
 }
 
-function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void; onViewBees?: () => void }) {
+function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAgent, onChatAgent }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void; onViewBees?: () => void; onViewNfa?: (id: string) => void; onViewAgent?: (id: string) => void; onChatAgent?: (id: string) => void }) {
+  const [profileSection, setProfileSection] = useState<"main" | "earn" | "market" | "agents">("main");
   const [copied, setCopied] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -4095,6 +4096,41 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent 
   };
 
   const truncateAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+
+  const handleProfileBack = useCallback(() => {
+    haptic("light");
+    setProfileSection("main");
+  }, []);
+
+  useTelegramBackButton(profileSection !== "main", handleProfileBack);
+
+  if (profileSection === "earn") {
+    return <EarnTab agentId={agent?.id} onBack={handleProfileBack} />;
+  }
+  if (profileSection === "market" && onViewNfa) {
+    return (
+      <div>
+        <div className="px-4 pt-6 pb-2">
+          <button onClick={handleProfileBack} className="flex items-center gap-1.5 text-amber-400 text-sm mb-3" data-testid="button-tg-market-back">
+            <ArrowLeft className="w-4 h-4" /> Back to Profile
+          </button>
+        </div>
+        <MarketTab onViewNfa={onViewNfa} />
+      </div>
+    );
+  }
+  if (profileSection === "agents" && onViewAgent && onChatAgent) {
+    return (
+      <div>
+        <div className="px-4 pt-6 pb-2">
+          <button onClick={handleProfileBack} className="flex items-center gap-1.5 text-amber-400 text-sm mb-3" data-testid="button-tg-agents-back">
+            <ArrowLeft className="w-4 h-4" /> Back to Profile
+          </button>
+        </div>
+        <AgentsTab onViewAgent={onViewAgent} onChatAgent={onChatAgent} />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -4433,18 +4469,79 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees }: { agent: TgAgent 
         </Card>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {onViewBees && (
-          <Button
-            variant="outline"
-            className="w-full gap-2 border-amber-500/50 text-amber-400"
-            onClick={onViewBees}
-            data-testid="button-tg-profile-view-bees"
+      <div className="mb-4">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Explore</h3>
+        <div className="space-y-2">
+          <button
+            onClick={() => { haptic("light"); setProfileSection("earn"); }}
+            className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl hover:border-amber-500/30 transition-colors"
+            data-testid="button-tg-profile-earn"
           >
-            <Hexagon className="w-4 h-4" />
-            View The Hive
-          </Button>
-        )}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Coins className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-white">Earn & Rewards</div>
+                <div className="text-[10px] text-gray-500">Points, referrals, bounties</div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+          <button
+            onClick={() => { haptic("light"); setProfileSection("market"); }}
+            className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl hover:border-amber-500/30 transition-colors"
+            data-testid="button-tg-profile-market"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Store className="w-4 h-4 text-purple-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-white">NFA Marketplace</div>
+                <div className="text-[10px] text-gray-500">Browse & collect NFAs</div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+          <button
+            onClick={() => { haptic("light"); setProfileSection("agents"); }}
+            className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl hover:border-amber-500/30 transition-colors"
+            data-testid="button-tg-profile-agents"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Bot className="w-4 h-4 text-blue-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-white">AI Agents</div>
+                <div className="text-[10px] text-gray-500">Discover & chat with agents</div>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+          {onViewBees && (
+            <button
+              onClick={() => { haptic("light"); onViewBees(); }}
+              className="w-full flex items-center justify-between p-3 bg-[#242444] border border-gray-700/50 rounded-xl hover:border-amber-500/30 transition-colors"
+              data-testid="button-tg-profile-view-bees"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <Hexagon className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium text-white">The Hive</div>
+                  <div className="text-[10px] text-gray-500">View all Bees</div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-600" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
         <Button
           className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white"
           onClick={handleShareReferral}
@@ -4563,24 +4660,28 @@ const TIER_STYLES: Record<string, string> = {
   queen: "text-purple-400",
 };
 
-function EarnTab({ agentId }: { agentId?: string }) {
+function EarnTab({ agentId, onBack }: { agentId?: string; onBack?: () => void }) {
   const [earnView, setEarnView] = useState<EarnView>("main");
 
   const handleEarnBack = useCallback(() => {
     haptic("light");
-    setEarnView("main");
-  }, []);
+    if (earnView !== "main") {
+      setEarnView("main");
+    } else if (onBack) {
+      onBack();
+    }
+  }, [earnView, onBack]);
 
-  useTelegramBackButton(earnView !== "main", handleEarnBack);
+  useTelegramBackButton(earnView !== "main" || !!onBack, handleEarnBack);
 
   if (earnView === "bounties") return <BountyBrowser agentId={agentId} onBack={handleEarnBack} />;
   if (earnView === "referrals") return <ReferralView agentId={agentId} onBack={handleEarnBack} />;
   if (earnView === "leaderboards") return <LeaderboardView onBack={handleEarnBack} />;
 
-  return <EarnMain agentId={agentId} onNavigate={(view) => { haptic("light"); setEarnView(view); }} />;
+  return <EarnMain agentId={agentId} onNavigate={(view) => { haptic("light"); setEarnView(view); }} onBack={onBack} />;
 }
 
-function EarnMain({ agentId, onNavigate }: { agentId?: string; onNavigate: (view: EarnView) => void }) {
+function EarnMain({ agentId, onNavigate, onBack }: { agentId?: string; onNavigate: (view: EarnView) => void; onBack?: () => void }) {
   const { data: pointsData, isLoading: pointsLoading } = useQuery<{ points: UserPointsData }>({
     queryKey: ["/api/points/my"],
     queryFn: () => tgFetch("/api/points/my").then(r => r.ok ? r.json() : { points: null }),
@@ -4634,6 +4735,11 @@ function EarnMain({ agentId, onNavigate }: { agentId?: string; onNavigate: (view
 
   return (
     <div className="px-4 pt-6 pb-4">
+      {onBack && (
+        <button onClick={onBack} className="flex items-center gap-1.5 text-amber-400 text-sm mb-3" data-testid="button-tg-earn-back">
+          <ArrowLeft className="w-4 h-4" /> Back to Profile
+        </button>
+      )}
       <div className="flex items-center gap-2 mb-1">
         <Coins className="w-5 h-5 text-amber-500" />
         <h2 className="text-xl font-bold text-white" data-testid="text-tg-earn-title">Earn</h2>
@@ -5351,11 +5457,8 @@ function LeaderboardView({ onBack }: { onBack: () => void }) {
 const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "arena", label: "Arena", icon: Swords },
+  { id: "trade", label: "Trade", icon: Rocket },
   { id: "feed", label: "Feed", icon: MessageSquare },
-  { id: "earn", label: "Earn", icon: Coins },
-  { id: "fourmeme", label: "4Meme", icon: Rocket },
-  { id: "market", label: "Market", icon: Store },
-  { id: "agents", label: "Agents", icon: Bot },
   { id: "profile", label: "Profile", icon: User },
 ];
 
@@ -5629,27 +5732,20 @@ export default function TelegramApp() {
                 {activeTab === "home" && (
                   <HomeTab onSwitchTab={handleTabChange} onViewBees={() => { haptic("light"); setShowBees(true); }} />
                 )}
-                {activeTab === "feed" && <FeedTab agentId={tgAgent?.id} />}
                 {activeTab === "arena" && (
                   <TgArenaTab agent={tgAgent ? { id: tgAgent.id, name: tgAgent.name, ownerAddress: tgAgent.ownerAddress } : undefined} />
                 )}
-                {activeTab === "earn" && <EarnTab agentId={tgAgent?.id} />}
-                {activeTab === "fourmeme" && <FourMemeTab agentId={tgAgent?.id} />}
-                {activeTab === "market" && (
-                  <MarketTab onViewNfa={(id) => setSubView({ type: "nfa-detail", id })} />
-                )}
-                {activeTab === "agents" && (
-                  <AgentsTab
-                    onViewAgent={(agentId) => setSubView({ type: "agent-profile", agentId })}
-                    onChatAgent={(agentId) => setSubView({ type: "agent-chat", agentId })}
-                  />
-                )}
+                {activeTab === "trade" && <FourMemeTab agentId={tgAgent?.id} />}
+                {activeTab === "feed" && <FeedTab agentId={tgAgent?.id} />}
                 {activeTab === "profile" && (
                   <ProfileTab
                     agent={tgAgent}
                     loading={authLoading}
                     onEditBee={() => { haptic("light"); setShowCreateBee(true); }}
                     onViewBees={() => { haptic("light"); setShowBees(true); }}
+                    onViewNfa={(id) => setSubView({ type: "nfa-detail", id })}
+                    onViewAgent={(agentId) => setSubView({ type: "agent-profile", agentId })}
+                    onChatAgent={(agentId) => setSubView({ type: "agent-chat", agentId })}
                   />
                 )}
               </>
