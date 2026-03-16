@@ -614,11 +614,22 @@ export async function buyToken(
 ): Promise<{ txHash: string; estimatedTokens: string }> {
   const funds = parseEther(bnbAmount);
 
+  const { walletClient, account } = getWalletClient(privateKey);
+  const publicClient = getPublicClient();
+
+  const balance = await publicClient.getBalance({ address: account.address });
+  const gasEstimate = 300000n;
+  const gasPrice = await publicClient.getGasPrice();
+  const gasCost = gasEstimate * gasPrice;
+
+  if (balance < funds + gasCost) {
+    const available = formatEther(balance > gasCost ? balance - gasCost : 0n);
+    throw new Error(`Insufficient BNB balance. You have ${parseFloat(available).toFixed(6)} BNB available (after gas). You need ${bnbAmount} BNB.`);
+  }
+
   const estimate = await estimateBuy(tokenAddress, bnbAmount);
   const estimatedTokens = parseEther(estimate.estimatedAmount);
   const minAmount = (estimatedTokens * BigInt(100 - slippagePct)) / 100n;
-
-  const { walletClient } = getWalletClient(privateKey);
 
   const txHash = await walletClient.writeContract({
     address: TOKEN_MANAGER,
@@ -628,7 +639,6 @@ export async function buyToken(
     value: funds,
   });
 
-  const publicClient = getPublicClient();
   await publicClient.waitForTransactionReceipt({ hash: txHash, confirmations: 2 });
 
   return { txHash, estimatedTokens: estimate.estimatedAmount };
@@ -643,6 +653,27 @@ export async function sellToken(
   const amount = parseEther(tokenAmount);
   const { walletClient, account } = getWalletClient(privateKey);
   const publicClient = getPublicClient();
+
+  const [tokenBalance, bnbBalance, gasPrice] = await Promise.all([
+    publicClient.readContract({
+      address: tokenAddress as Address,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [account.address],
+    }) as Promise<bigint>,
+    publicClient.getBalance({ address: account.address }),
+    publicClient.getGasPrice(),
+  ]);
+
+  if (tokenBalance < amount) {
+    const available = formatEther(tokenBalance);
+    throw new Error(`Insufficient token balance. You have ${parseFloat(available).toFixed(6)} tokens available.`);
+  }
+
+  const gasCost = 500000n * gasPrice;
+  if (bnbBalance < gasCost) {
+    throw new Error(`Insufficient BNB for gas fees. You need ~${parseFloat(formatEther(gasCost)).toFixed(6)} BNB for gas.`);
+  }
 
   const allowance = await publicClient.readContract({
     address: tokenAddress as Address,

@@ -162,7 +162,13 @@ router.post("/buy", async (req, res) => {
     res.json({ success: true, ...result, bscScanUrl: `https://bscscan.com/tx/${result.txHash}` });
   } catch (err: any) {
     console.error("[FourMeme] Buy error:", err.message);
-    res.status(500).json({ error: err.message });
+    const msg = err.message || "";
+    const friendly = msg.includes("Insufficient BNB") ? msg
+      : msg.includes("insufficient funds") || msg.includes("exceeds the balance") ? "Insufficient BNB balance for this trade (including gas fees)."
+      : msg.includes("slippage") || msg.includes("minAmount") ? "Price moved too much. Try increasing slippage."
+      : msg.includes("execution reverted") ? "Transaction reverted. The token may have trading restrictions."
+      : "Trade failed. Please try again.";
+    res.status(400).json({ error: friendly });
   }
 });
 
@@ -186,7 +192,13 @@ router.post("/sell", async (req, res) => {
     res.json({ success: true, ...result, bscScanUrl: `https://bscscan.com/tx/${result.txHash}` });
   } catch (err: any) {
     console.error("[FourMeme] Sell error:", err.message);
-    res.status(500).json({ error: err.message });
+    const msg = err.message || "";
+    const friendly = msg.includes("Insufficient token") || msg.includes("Insufficient BNB") ? msg
+      : msg.includes("insufficient funds") || msg.includes("exceeds the balance") ? "Insufficient BNB for gas fees."
+      : msg.includes("slippage") || msg.includes("minFunds") ? "Price moved too much. Try increasing slippage."
+      : msg.includes("execution reverted") ? "Transaction reverted. The token may have sell restrictions."
+      : "Sell failed. Please try again.";
+    res.status(400).json({ error: friendly });
   }
 });
 
