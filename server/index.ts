@@ -11,6 +11,7 @@ import { startAutoDuelSpawner } from "./auto-duel-spawner";
 import { setupTelegramWebhook } from "./telegram-bot";
 import { setupArenaChatWS } from "./arena-chat";
 import path from "path";
+import shareCardRouter from "./share-card";
 
 const app = express();
 
@@ -74,6 +75,8 @@ app.use((req, res, next) => {
 
 (async () => {
   await registerRoutes(httpServer, app);
+
+  app.use("/api/share", shareCardRouter);
 
   setupArenaChatWS(httpServer);
 

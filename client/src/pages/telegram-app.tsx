@@ -4107,6 +4107,76 @@ function CreateBeeView({ agent, onComplete }: { agent: TgAgent; onComplete: (upd
   );
 }
 
+function ShareCardSection({ agent }: { agent: TgAgent }) {
+  const [sharing, setSharing] = useState(false);
+  const [shareResult, setShareResult] = useState<string | null>(null);
+
+  const baseUrl = "https://thehoneycomb.social";
+  const cardUrl = `${baseUrl}/api/share/card/${agent.id}`;
+  const imageUrl = `/api/share/card/${agent.id}/image.svg`;
+
+  const tier = agent.arenaRating >= 5000 ? "APEX" : agent.arenaRating >= 3000 ? "DIAMOND" : agent.arenaRating >= 2000 ? "PLATINUM" : agent.arenaRating >= 1500 ? "GOLD" : agent.arenaRating >= 1200 ? "SILVER" : "BRONZE";
+
+  const handleShareTwitter = async () => {
+    setSharing(true);
+    setShareResult(null);
+    try {
+      const token = localStorage.getItem("tg_auth_token");
+      if (token) {
+        const res = await fetch("/api/share/card/track-share", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setShareResult(data.message);
+        }
+      }
+    } catch {}
+
+    const tweetText = `Check out my ${tier} tier agent card on @honeycombchain!\n\nArena Rating: ${agent.arenaRating} | ${agent.arenaWins}W / ${agent.arenaLosses}L\n\nJoin the hive and challenge me! #Honeycomb #BNBChain #Web3`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(cardUrl)}`;
+    window.open(twitterUrl, "_blank");
+    setSharing(false);
+  };
+
+  return (
+    <div className="mb-6">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Your Agent Card</h3>
+      <Card className="bg-[#0d0d24] border-gray-700/50 overflow-hidden" data-testid="card-tg-share-preview">
+        <div className="relative">
+          <img
+            src={imageUrl}
+            alt={`${agent.name}'s Agent Card`}
+            className="w-full rounded-t-xl"
+            loading="lazy"
+          />
+        </div>
+        <div className="p-3 space-y-2">
+          <button
+            onClick={handleShareTwitter}
+            disabled={sharing}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-black hover:bg-gray-900 text-white rounded-xl font-medium text-sm transition-all border border-gray-700/50 hover:border-gray-600"
+            data-testid="button-tg-share-twitter"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            {sharing ? "Sharing..." : "Share on X (Twitter)"}
+          </button>
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-400">
+            <Sparkles className="w-3 h-3" />
+            <span>Earn 250 bonus points on your first share!</span>
+          </div>
+          {shareResult && (
+            <div className="text-center text-[11px] text-green-400 font-medium animate-pulse" data-testid="text-share-result">
+              {shareResult}
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAgent, onChatAgent }: { agent: TgAgent | null; loading: boolean; onEditBee?: () => void; onViewBees?: () => void; onViewNfa?: (id: string) => void; onViewAgent?: (id: string) => void; onChatAgent?: (id: string) => void }) {
   const [profileSection, setProfileSection] = useState<"main" | "earn" | "market" | "agents">("main");
   const [copied, setCopied] = useState(false);
@@ -4684,6 +4754,8 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAg
           <div className="text-[10px] text-gray-500">Rating</div>
         </Card>
       </div>
+
+      <ShareCardSection agent={agent} />
 
       <div className="mb-4">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-1">Explore</h3>
