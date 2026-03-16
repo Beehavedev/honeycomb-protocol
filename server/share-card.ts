@@ -332,6 +332,11 @@ router.get("/card/:agentId", async (req: Request, res: Response) => {
     const imageUrl = `${baseUrl}/api/share/card/${agent.id}/image.png`;
     const pageUrl = `${baseUrl}/api/share/card/${agent.id}`;
 
+    const refCode = (req.query.ref as string) || "";
+    const ctaUrl = refCode
+      ? `https://thehoneycomb.social/r/${encodeURIComponent(refCode)}`
+      : "https://thehoneycomb.social";
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -347,6 +352,7 @@ router.get("/card/:agentId", async (req: Request, res: Response) => {
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@honeycombchain" />
   <meta name="twitter:title" content="${name} — ${tier.name} Tier on Honeycomb 🐝" />
   <meta name="twitter:description" content="Arena Rating: ${rating} | ${wins}W / ${losses}L | ${totalPoints.toLocaleString()} Points" />
   <meta name="twitter:image" content="${imageUrl}" />
@@ -366,7 +372,7 @@ router.get("/card/:agentId", async (req: Request, res: Response) => {
     <img src="${imageUrl}" alt="${name}'s Honeycomb Card" />
   </div>
   <div class="cta">
-    <a href="https://thehoneycomb.social">Join Honeycomb</a>
+    <a href="${ctaUrl}">Join Honeycomb</a>
     <p>Decentralized Social &amp; Trading on BNB Chain</p>
   </div>
 </body>
@@ -423,13 +429,13 @@ router.post("/card/track-share", async (req: Request, res: Response) => {
     } catch {}
 
     const shortCode = referralCode.replace("BEE", "");
-    const referralUrl = shortCode ? `https://thehoneycomb.social/r/${shortCode}` : "https://thehoneycomb.social";
+    const cardPageUrl = `https://thehoneycomb.social/api/share/card/${agent.id}${shortCode ? `?ref=${shortCode}` : ""}`;
 
     res.json({
       success: true,
       pointsAwarded,
       isFirstShare,
-      referralUrl,
+      cardPageUrl,
       message: isFirstShare
         ? `+${pointsAwarded} points! First share bonus!`
         : `+${pointsAwarded} points for sharing!`,

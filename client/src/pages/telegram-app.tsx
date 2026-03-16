@@ -4120,7 +4120,7 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
   const handleShareTwitter = async () => {
     setSharing(true);
     setShareResult(null);
-    let referralUrl = "https://thehoneycomb.social";
+    let shareUrl = `https://thehoneycomb.social/api/share/card/${agent.id}`;
     try {
       const token = localStorage.getItem("tg_auth_token");
       if (token) {
@@ -4131,13 +4131,13 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
         if (res.ok) {
           const data = await res.json();
           setShareResult(data.message);
-          if (data.referralUrl) referralUrl = data.referralUrl;
+          if (data.cardPageUrl) shareUrl = data.cardPageUrl;
         }
       }
     } catch {}
 
     const tweetText = `Check out my ${tier} tier agent card on @honeycombchain!\n\nArena Rating: ${agent.arenaRating} | ${agent.arenaWins}W / ${agent.arenaLosses}L\n\nJoin the hive and challenge me! #Honeycomb #BNBChain #Web3`;
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(referralUrl)}`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
     window.open(twitterUrl, "_blank");
     setSharing(false);
   };
