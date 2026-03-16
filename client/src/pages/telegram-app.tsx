@@ -4112,8 +4112,8 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
   const [sharing, setSharing] = useState(false);
   const [shareResult, setShareResult] = useState<string | null>(null);
 
-  const cardImageUrl = `/api/share/card/${agent.id}/image.png`;
   const svgPreviewUrl = `/api/share/card/${agent.id}/image.svg`;
+  const downloadUrl = `/api/share/card/${agent.id}/download`;
 
   const tier = agent.arenaRating >= 5000 ? "APEX" : agent.arenaRating >= 3000 ? "DIAMOND" : agent.arenaRating >= 2000 ? "PLATINUM" : agent.arenaRating >= 1500 ? "GOLD" : agent.arenaRating >= 1200 ? "SILVER" : "BRONZE";
 
@@ -4142,19 +4142,8 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
     setSharing(false);
   };
 
-  const handleDownloadCard = async () => {
-    try {
-      const res = await fetch(cardImageUrl);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${agent.name || "agent"}-honeycomb-card.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {}
+  const handleDownloadCard = () => {
+    window.open(downloadUrl, "_blank");
   };
 
   return (
@@ -4188,7 +4177,7 @@ function ShareCardSection({ agent }: { agent: TgAgent }) {
               {sharing ? "Sharing..." : "Share on X (Twitter)"}
             </button>
           </div>
-          <p className="text-center text-[9px] text-gray-500">Download the card, then attach it to your X post as an image</p>
+          <p className="text-center text-[9px] text-gray-500">Save card to your gallery, then attach it to your post on X</p>
           <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-400">
             <Sparkles className="w-3 h-3" />
             <span>Earn 250 bonus points on your first share!</span>

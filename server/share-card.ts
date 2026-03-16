@@ -10,35 +10,34 @@ import sharp from "sharp";
 
 const router = Router();
 
-const BEE_AVATARS: Record<string, { emoji: string; label: string }> = {
-  queen: { emoji: "👑", label: "Queen Bee" },
-  worker: { emoji: "🐝", label: "Worker Bee" },
-  scout: { emoji: "🔍", label: "Scout Bee" },
-  guard: { emoji: "🛡️", label: "Guard Bee" },
-  builder: { emoji: "🏗️", label: "Builder Bee" },
-  trader: { emoji: "📈", label: "Trader Bee" },
-  warrior: { emoji: "⚔️", label: "Warrior Bee" },
-  sage: { emoji: "🧠", label: "Sage Bee" },
+const BEE_AVATARS: Record<string, string> = {
+  queen: "Q", worker: "W", scout: "S", guard: "G",
+  builder: "B", trader: "T", warrior: "X", sage: "Z",
 };
 
-function agentColorFromId(id: string): { h: number; accent: string; glow: string } {
+const BEE_LABELS: Record<string, string> = {
+  queen: "QUEEN BEE", worker: "WORKER BEE", scout: "SCOUT BEE", guard: "GUARD BEE",
+  builder: "BUILDER BEE", trader: "TRADER BEE", warrior: "WARRIOR BEE", sage: "SAGE BEE",
+};
+
+function agentColorFromId(id: string): { accent: string; accentDark: string; glow: string } {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
   const hue = Math.abs(hash) % 360;
   return {
-    h: hue,
-    accent: `hsl(${hue}, 80%, 60%)`,
-    glow: `hsl(${hue}, 90%, 50%)`,
+    accent: `hsl(${hue}, 75%, 55%)`,
+    accentDark: `hsl(${hue}, 60%, 25%)`,
+    glow: `hsl(${hue}, 85%, 65%)`,
   };
 }
 
-function tierFromRating(rating: number): { name: string; color: string; bg: string } {
-  if (rating >= 5000) return { name: "APEX", color: "#ff4444", bg: "#ff444420" };
-  if (rating >= 3000) return { name: "DIAMOND", color: "#b9f2ff", bg: "#b9f2ff20" };
-  if (rating >= 2000) return { name: "PLATINUM", color: "#e5e4e2", bg: "#e5e4e220" };
-  if (rating >= 1500) return { name: "GOLD", color: "#fbbf24", bg: "#fbbf2420" };
-  if (rating >= 1200) return { name: "SILVER", color: "#94a3b8", bg: "#94a3b820" };
-  return { name: "BRONZE", color: "#cd7f32", bg: "#cd7f3220" };
+function tierInfo(rating: number): { name: string; color: string; darkColor: string; icon: string } {
+  if (rating >= 5000) return { name: "APEX", color: "#ef4444", darkColor: "#7f1d1d", icon: "A" };
+  if (rating >= 3000) return { name: "DIAMOND", color: "#7dd3fc", darkColor: "#0c4a6e", icon: "D" };
+  if (rating >= 2000) return { name: "PLATINUM", color: "#d1d5db", darkColor: "#374151", icon: "P" };
+  if (rating >= 1500) return { name: "GOLD", color: "#fbbf24", darkColor: "#78350f", icon: "G" };
+  if (rating >= 1200) return { name: "SILVER", color: "#94a3b8", darkColor: "#334155", icon: "S" };
+  return { name: "BRONZE", color: "#d97706", darkColor: "#78350f", icon: "B" };
 }
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
@@ -50,7 +49,7 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
     if (!res.ok) return null;
     const buffer = await res.arrayBuffer();
     const resized = await sharp(Buffer.from(buffer))
-      .resize(150, 150, { fit: "cover" })
+      .resize(200, 200, { fit: "cover" })
       .png()
       .toBuffer();
     return `data:image/png;base64,${resized.toString("base64")}`;
@@ -81,225 +80,160 @@ async function resolveAvatarBase64(avatarUrl: string | null): Promise<string | n
   return null;
 }
 
-function generateAvatarSVG(agent: any, accent: string, photoBase64: string | null): string {
-  const avatarUrl = agent.avatarUrl;
-  const cx = 75;
-  const cy = 100;
-  const r = 36;
-
-  if (photoBase64) {
-    return `
-    <defs>
-      <clipPath id="avatar-clip">
-        <circle cx="${cx}" cy="${cy}" r="${r}"/>
-      </clipPath>
-    </defs>
-    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
-    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
-    <image href="${photoBase64}" x="${cx - r}" y="${cy - r}" width="${r * 2}" height="${r * 2}" clip-path="url(#avatar-clip)" preserveAspectRatio="xMidYMid slice"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>`;
+function hexPath(cx: number, cy: number, r: number): string {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    pts.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`);
   }
-
-  const beeAvatar = avatarUrl && BEE_AVATARS[avatarUrl];
-  if (beeAvatar) {
-    return `
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${accent}" opacity="0.15"/>
-    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
-    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>
-    <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="36">${beeAvatar.emoji}</text>
-    <text x="${cx}" y="${cy + r + 14}" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" fill="${accent}" opacity="0.7">${beeAvatar.label}</text>`;
-  }
-
-  const initial = (agent.name || "A").slice(0, 1).toUpperCase();
-  return `
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${accent}" opacity="0.15"/>
-    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="2.5" opacity="0.8"/>
-    <circle cx="${cx}" cy="${cy}" r="${r + 2}" fill="none" stroke="${accent}" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>
-    <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="bold" fill="${accent}">${initial}</text>`;
-}
-
-function generateHoneycombLogo(): string {
-  const cx = 46;
-  const cy = 265;
-  const s = 10;
-  const hexPoints = (x: number, y: number, size: number) => {
-    const pts = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 3) * i - Math.PI / 6;
-      pts.push(`${x + size * Math.cos(angle)},${y + size * Math.sin(angle)}`);
-    }
-    return pts.join(" ");
-  };
-
-  return `
-    <polygon points="${hexPoints(cx, cy, s)}" fill="#f59e0b" opacity="0.9"/>
-    <polygon points="${hexPoints(cx + s * 1.55, cy - s * 0.9, s)}" fill="#f59e0b" opacity="0.6"/>
-    <polygon points="${hexPoints(cx + s * 1.55, cy + s * 0.9, s)}" fill="#f59e0b" opacity="0.45"/>
-    <polygon points="${hexPoints(cx - s * 1.55, cy - s * 0.9, s)}" fill="#f59e0b" opacity="0.45"/>
-    <polygon points="${hexPoints(cx, cy, s * 0.5)}" fill="#0a0a1a" opacity="0.6"/>`;
+  return pts.join(" ");
 }
 
 function generateCardSVG(agent: any, totalPoints: number, photoBase64: string | null) {
-  const { accent, glow } = agentColorFromId(agent.id);
-  const tier = tierFromRating(agent.arenaRating || 1000);
+  const { accent, accentDark, glow } = agentColorFromId(agent.id);
+  const tier = tierInfo(agent.arenaRating || 1000);
   const wins = agent.arenaWins || 0;
   const losses = agent.arenaLosses || 0;
   const winRate = wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0;
   const rating = agent.arenaRating || 1000;
-  const bapVerified = agent.bap578Status === "registered";
-  const ercVerified = agent.erc8004Status === "registered";
-  const name = (agent.name || "Anonymous").slice(0, 20);
+  const name = (agent.name || "Anonymous").slice(0, 18);
+  const avatarUrl = agent.avatarUrl;
+  const beeLabel = avatarUrl && BEE_LABELS[avatarUrl] ? BEE_LABELS[avatarUrl] : "";
+  const initial = avatarUrl && BEE_AVATARS[avatarUrl] ? BEE_AVATARS[avatarUrl] : name.slice(0, 1).toUpperCase();
+  const hasPhoto = !!photoBase64;
 
-  const hexPatterns = Array.from({ length: 12 }, (_, i) => {
-    const x = 50 + (i % 4) * 140 + ((Math.floor(i / 4) % 2) * 70);
-    const y = 30 + Math.floor(i / 4) * 120;
-    const opacity = 0.03 + (Math.abs(((agent.id.charCodeAt(i % agent.id.length) * 7) % 100)) / 1000);
-    return `<polygon points="${x},${y - 30} ${x + 26},${y - 15} ${x + 26},${y + 15} ${x},${y + 30} ${x - 26},${y + 15} ${x - 26},${y - 15}" fill="none" stroke="${accent}" stroke-width="0.5" opacity="${opacity}" />`;
-  }).join("\n");
+  const bgHexes = Array.from({ length: 20 }, (_, i) => {
+    const col = i % 5;
+    const row = Math.floor(i / 5);
+    const x = 80 + col * 130 + (row % 2) * 65;
+    const y = 40 + row * 90;
+    const o = 0.03 + (Math.abs(agent.id.charCodeAt(i % agent.id.length) * 13) % 40) / 1000;
+    return `<polygon points="${hexPath(x, y, 40)}" fill="none" stroke="${accent}" stroke-width="0.6" opacity="${o}"/>`;
+  }).join("");
 
-  const scanLines = Array.from({ length: 8 }, (_, i) => {
-    const y = 80 + i * 50;
-    return `<line x1="0" y1="${y}" x2="600" y2="${y}" stroke="${accent}" stroke-width="0.3" opacity="0.04" />`;
-  }).join("\n");
+  const avatarSection = hasPhoto ? `
+    <defs>
+      <clipPath id="aclip"><circle cx="80" cy="105" r="42"/></clipPath>
+    </defs>
+    <circle cx="80" cy="105" r="46" fill="${accentDark}"/>
+    <circle cx="80" cy="105" r="44" fill="#111827"/>
+    <image href="${photoBase64}" x="38" y="63" width="84" height="84" clip-path="url(#aclip)" preserveAspectRatio="xMidYMid slice"/>
+    <circle cx="80" cy="105" r="44" fill="none" stroke="${accent}" stroke-width="2.5"/>
+  ` : `
+    <circle cx="80" cy="105" r="46" fill="${accentDark}"/>
+    <circle cx="80" cy="105" r="44" fill="#111827"/>
+    <circle cx="80" cy="105" r="44" fill="none" stroke="${accent}" stroke-width="2.5"/>
+    <text x="80" y="117" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="bold" fill="${accent}">${initial}</text>
+  `;
 
-  const avatarSvg = generateAvatarSVG(agent, accent, photoBase64);
-  const logoSvg = generateHoneycombLogo();
+  const beeLabelSvg = beeLabel && !hasPhoto ? `<text x="80" y="160" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="7" font-weight="bold" fill="${accent}" letter-spacing="1.5" opacity="0.7">${beeLabel}</text>` : "";
+
+  const tierBadge = `
+    <rect x="140" y="100" width="${tier.name.length * 8.5 + 24}" height="22" rx="11" fill="${tier.darkColor}"/>
+    <rect x="140" y="100" width="${tier.name.length * 8.5 + 24}" height="22" rx="11" fill="none" stroke="${tier.color}" stroke-width="1"/>
+    <circle cx="154" cy="111" r="5" fill="${tier.color}"/>
+    <text x="153.5" y="114" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="7" font-weight="bold" fill="${tier.darkColor}">${tier.icon}</text>
+    <text x="165" y="115" font-family="Arial,Helvetica,sans-serif" font-size="10" font-weight="bold" fill="${tier.color}" letter-spacing="1">${tier.name}</text>
+  `;
+
+  const statBox = (x: number, label: string, value: string, color: string) => `
+    <rect x="${x}" y="175" width="110" height="55" rx="8" fill="#111827"/>
+    <rect x="${x}" y="175" width="110" height="55" rx="8" fill="none" stroke="#1f2937" stroke-width="1"/>
+    <text x="${x + 55}" y="195" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#6b7280" letter-spacing="1.5">${label}</text>
+    <text x="${x + 55}" y="220" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" fill="${color}">${value}</text>
+  `;
+
+  const honeycombLogo = [
+    `<polygon points="${hexPath(42, 272, 8)}" fill="#f59e0b"/>`,
+    `<polygon points="${hexPath(55, 264, 8)}" fill="#d97706"/>`,
+    `<polygon points="${hexPath(55, 280, 8)}" fill="#b45309"/>`,
+  ].join("");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 315" width="1200" height="630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0a0a1a"/>
-      <stop offset="50%" stop-color="#0d0d24"/>
-      <stop offset="100%" stop-color="#0a0a1a"/>
-    </linearGradient>
-    <linearGradient id="card-border" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${accent}" stop-opacity="0.6"/>
-      <stop offset="50%" stop-color="${glow}" stop-opacity="0.2"/>
-      <stop offset="100%" stop-color="${accent}" stop-opacity="0.6"/>
-    </linearGradient>
-    <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="${accent}"/>
-      <stop offset="100%" stop-color="${glow}"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="glow-strong">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <clipPath id="card-clip">
-      <rect x="10" y="10" width="580" height="295" rx="16"/>
-    </clipPath>
-  </defs>
+  <rect width="600" height="315" rx="16" fill="#0a0b14"/>
+  <rect x="1" y="1" width="598" height="313" rx="15" fill="none" stroke="#1f2937" stroke-width="1"/>
 
-  <rect width="600" height="315" fill="url(#bg)" rx="16"/>
+  ${bgHexes}
 
-  <g clip-path="url(#card-clip)">
-    ${hexPatterns}
-    ${scanLines}
+  <rect x="0" y="0" width="600" height="5" rx="3" fill="${accent}"/>
 
-    <rect x="10" y="10" width="580" height="295" rx="16" fill="none" stroke="url(#card-border)" stroke-width="1.5"/>
+  ${avatarSection}
+  ${beeLabelSvg}
 
-    <rect x="10" y="10" width="580" height="4" fill="url(#accent-grad)" opacity="0.8" rx="2"/>
-  </g>
+  <text x="140" y="82" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="bold" fill="#f9fafb">${name}</text>
 
-  ${avatarSvg}
+  ${tierBadge}
 
-  <text x="125" y="88" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="white">${name}</text>
+  <rect x="420" y="40" width="150" height="90" rx="12" fill="#111827"/>
+  <rect x="420" y="40" width="150" height="90" rx="12" fill="none" stroke="#1f2937" stroke-width="1"/>
+  <text x="495" y="62" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#6b7280" letter-spacing="2">ARENA RATING</text>
+  <text x="495" y="110" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="bold" fill="${accent}">${rating}</text>
 
-  ${bapVerified ? `
-  <rect x="125" y="96" width="50" height="18" rx="9" fill="#fbbf2420" stroke="#fbbf24" stroke-width="0.8"/>
-  <text x="150" y="109" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#fbbf24">NFA ✓</text>
-  ` : ""}
-  ${ercVerified ? `
-  <rect x="${bapVerified ? 180 : 125}" y="96" width="62" height="18" rx="9" fill="#60a5fa20" stroke="#60a5fa" stroke-width="0.8"/>
-  <text x="${bapVerified ? 211 : 156}" y="109" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="bold" fill="#60a5fa">ERC-8004 ✓</text>
-  ` : ""}
+  <line x1="30" y1="165" x2="570" y2="165" stroke="#1f2937" stroke-width="1"/>
 
-  <rect x="125" y="${bapVerified || ercVerified ? 120 : 100}" width="${tier.name.length * 9 + 20}" height="18" rx="9" fill="${tier.bg}" stroke="${tier.color}" stroke-width="0.8"/>
-  <text x="133" y="${bapVerified || ercVerified ? 133 : 113}" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="${tier.color}">${tier.name} TIER</text>
+  ${statBox(30, "WINS", String(wins), "#4ade80")}
+  ${statBox(150, "LOSSES", String(losses), "#f87171")}
+  ${statBox(270, "WIN RATE", `${winRate}%`, "#f9fafb")}
+  ${statBox(390, "POINTS", totalPoints > 999999 ? `${(totalPoints / 1000000).toFixed(1)}M` : totalPoints > 999 ? `${(totalPoints / 1000).toFixed(1)}K` : String(totalPoints), "#fbbf24")}
 
-  <text x="500" y="60" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" fill="#6b7280" letter-spacing="2">ARENA RATING</text>
-  <text x="500" y="105" text-anchor="middle" font-family="Arial,sans-serif" font-size="52" font-weight="bold" fill="${accent}" filter="url(#glow)">${rating}</text>
+  <rect x="510" y="175" width="60" height="55" rx="8" fill="#111827"/>
+  <rect x="510" y="175" width="60" height="55" rx="8" fill="none" stroke="#1f2937" stroke-width="1"/>
+  <text x="540" y="195" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#6b7280" letter-spacing="1">DUELS</text>
+  <text x="540" y="220" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="bold" fill="#a78bfa">${wins + losses}</text>
 
-  <line x1="40" y1="160" x2="560" y2="160" stroke="${accent}" stroke-width="0.5" opacity="0.2"/>
+  <line x1="30" y1="248" x2="570" y2="248" stroke="#1f2937" stroke-width="1"/>
 
-  <g transform="translate(60, 185)">
-    <text x="0" y="0" font-family="Arial,sans-serif" font-size="10" fill="#6b7280" letter-spacing="1.5">WINS</text>
-    <text x="0" y="28" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#4ade80">${wins}</text>
-  </g>
+  ${honeycombLogo}
+  <text x="70" y="270" font-family="Arial,Helvetica,sans-serif" font-size="16" font-weight="bold" fill="#f9fafb">HONEYCOMB</text>
+  <text x="70" y="284" font-family="Arial,Helvetica,sans-serif" font-size="8" fill="#6b7280" letter-spacing="1.5">DECENTRALIZED SOCIAL ON BNB CHAIN</text>
 
-  <g transform="translate(170, 185)">
-    <text x="0" y="0" font-family="Arial,sans-serif" font-size="10" fill="#6b7280" letter-spacing="1.5">LOSSES</text>
-    <text x="0" y="28" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#f87171">${losses}</text>
-  </g>
-
-  <g transform="translate(290, 185)">
-    <text x="0" y="0" font-family="Arial,sans-serif" font-size="10" fill="#6b7280" letter-spacing="1.5">WIN RATE</text>
-    <text x="0" y="28" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="white">${winRate}%</text>
-  </g>
-
-  <g transform="translate(420, 185)">
-    <text x="0" y="0" font-family="Arial,sans-serif" font-size="10" fill="#6b7280" letter-spacing="1.5">POINTS</text>
-    <text x="0" y="28" font-family="Arial,sans-serif" font-size="26" font-weight="bold" fill="#fbbf24">${totalPoints.toLocaleString()}</text>
-  </g>
-
-  <line x1="40" y1="240" x2="560" y2="240" stroke="${accent}" stroke-width="0.5" opacity="0.2"/>
-
-  ${logoSvg}
-  <text x="72" y="262" font-family="Arial,sans-serif" font-size="15" font-weight="bold" fill="white">HONEYCOMB</text>
-  <text x="72" y="276" font-family="Arial,sans-serif" font-size="9" fill="#6b7280" letter-spacing="1">DECENTRALIZED SOCIAL • BNB CHAIN</text>
-
-  <text x="550" y="278" text-anchor="end" font-family="Arial,sans-serif" font-size="9" fill="#6b7280">thehoneycomb.social</text>
+  <text x="565" y="278" text-anchor="end" font-family="Arial,Helvetica,sans-serif" font-size="9" fill="#4b5563">thehoneycomb.social</text>
 </svg>`;
+}
+
+async function getCardData(agentId: string) {
+  const agent = await storage.getAgent(agentId);
+  if (!agent) return null;
+
+  const [pointsResult] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${pointsHistory.finalPoints}), 0)` })
+    .from(pointsHistory)
+    .where(eq(pointsHistory.agentId, agent.id));
+  const totalPoints = Number(pointsResult?.total || 0);
+  const photoBase64 = await resolveAvatarBase64(agent.avatarUrl);
+
+  return { agent, totalPoints, photoBase64 };
 }
 
 router.get("/card/:agentId/image.svg", async (req: Request, res: Response) => {
   try {
-    const agent = await storage.getAgent(req.params.agentId);
-    if (!agent) return res.status(404).send("Agent not found");
+    const data = await getCardData(req.params.agentId);
+    if (!data) return res.status(404).send("Agent not found");
 
-    const [pointsResult] = await db
-      .select({ total: sql<number>`COALESCE(SUM(${pointsHistory.finalPoints}), 0)` })
-      .from(pointsHistory)
-      .where(eq(pointsHistory.agentId, agent.id));
-    const totalPoints = Number(pointsResult?.total || 0);
-
-    const photoBase64 = await resolveAvatarBase64(agent.avatarUrl);
-    const svg = generateCardSVG(agent, totalPoints, photoBase64);
+    const svg = generateCardSVG(data.agent, data.totalPoints, data.photoBase64);
     res.setHeader("Content-Type", "image/svg+xml");
     res.setHeader("Cache-Control", "public, max-age=300");
     res.send(svg);
   } catch (error) {
-    console.error("Card image error:", error);
+    console.error("Card SVG error:", error);
     res.status(500).send("Failed to generate card");
   }
 });
 
 router.get("/card/:agentId/image.png", async (req: Request, res: Response) => {
   try {
-    const agent = await storage.getAgent(req.params.agentId);
-    if (!agent) return res.status(404).send("Agent not found");
+    const data = await getCardData(req.params.agentId);
+    if (!data) return res.status(404).send("Agent not found");
 
-    const [pointsResult] = await db
-      .select({ total: sql<number>`COALESCE(SUM(${pointsHistory.finalPoints}), 0)` })
-      .from(pointsHistory)
-      .where(eq(pointsHistory.agentId, agent.id));
-    const totalPoints = Number(pointsResult?.total || 0);
-
-    const photoBase64 = await resolveAvatarBase64(agent.avatarUrl);
-    const svg = generateCardSVG(agent, totalPoints, photoBase64);
+    const svg = generateCardSVG(data.agent, data.totalPoints, data.photoBase64);
 
     const pngBuffer = await sharp(Buffer.from(svg))
       .resize(1200, 630)
-      .png()
+      .png({ quality: 90 })
       .toBuffer();
 
     res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Disposition", `inline; filename="${(data.agent.name || "agent").replace(/[^a-zA-Z0-9]/g, "_")}-honeycomb.png"`);
     res.setHeader("Cache-Control", "public, max-age=300");
     res.send(pngBuffer);
   } catch (error) {
@@ -308,29 +242,46 @@ router.get("/card/:agentId/image.png", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/card/:agentId/download", async (req: Request, res: Response) => {
+  try {
+    const data = await getCardData(req.params.agentId);
+    if (!data) return res.status(404).send("Agent not found");
+
+    const svg = generateCardSVG(data.agent, data.totalPoints, data.photoBase64);
+
+    const pngBuffer = await sharp(Buffer.from(svg))
+      .resize(1200, 630)
+      .png({ quality: 90 })
+      .toBuffer();
+
+    const safeName = (data.agent.name || "agent").replace(/[^a-zA-Z0-9]/g, "_");
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}-honeycomb-card.png"`);
+    res.setHeader("Content-Length", pngBuffer.length.toString());
+    res.send(pngBuffer);
+  } catch (error) {
+    console.error("Card download error:", error);
+    res.status(500).send("Failed to download card");
+  }
+});
+
 router.get("/card/:agentId", async (req: Request, res: Response) => {
   try {
-    const agent = await storage.getAgent(req.params.agentId);
-    if (!agent) return res.status(404).send("Agent not found");
+    const data = await getCardData(req.params.agentId);
+    if (!data) return res.status(404).send("Agent not found");
 
-    const [pointsResult] = await db
-      .select({ total: sql<number>`COALESCE(SUM(${pointsHistory.finalPoints}), 0)` })
-      .from(pointsHistory)
-      .where(eq(pointsHistory.agentId, agent.id));
-    const totalPoints = Number(pointsResult?.total || 0);
-
-    const tier = tierFromRating(agent.arenaRating || 1000);
-    const name = (agent.name || "Anonymous").slice(0, 20);
-    const rating = agent.arenaRating || 1000;
-    const wins = agent.arenaWins || 0;
-    const losses = agent.arenaLosses || 0;
+    const tier = tierInfo(data.agent.arenaRating || 1000);
+    const name = (data.agent.name || "Anonymous").slice(0, 20);
+    const rating = data.agent.arenaRating || 1000;
+    const wins = data.agent.arenaWins || 0;
+    const losses = data.agent.arenaLosses || 0;
 
     const baseUrl = process.env.NODE_ENV === "production"
       ? "https://thehoneycomb.social"
       : `http://localhost:${process.env.PORT || 5000}`;
 
-    const imageUrl = `${baseUrl}/api/share/card/${agent.id}/image.png`;
-    const pageUrl = `${baseUrl}/api/share/card/${agent.id}`;
+    const imageUrl = `${baseUrl}/api/share/card/${data.agent.id}/image.png`;
+    const pageUrl = `${baseUrl}/api/share/card/${data.agent.id}`;
 
     const refCode = (req.query.ref as string) || "";
     const ctaUrl = refCode
@@ -345,25 +296,24 @@ router.get("/card/:agentId", async (req: Request, res: Response) => {
   <title>${name} | ${tier.name} Tier | Honeycomb</title>
   <meta property="og:type" content="profile" />
   <meta property="og:url" content="${pageUrl}" />
-  <meta property="og:title" content="${name} — ${tier.name} Tier on Honeycomb 🐝" />
-  <meta property="og:description" content="Arena Rating: ${rating} | ${wins}W / ${losses}L | ${totalPoints.toLocaleString()} Points | Decentralized Social on BNB Chain" />
+  <meta property="og:title" content="${name} - ${tier.name} Tier on Honeycomb" />
+  <meta property="og:description" content="Arena Rating: ${rating} | ${wins}W / ${losses}L | ${data.totalPoints.toLocaleString()} Points | Decentralized Social on BNB Chain" />
   <meta property="og:image" content="${imageUrl}" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@honeycombchain" />
-  <meta name="twitter:title" content="${name} — ${tier.name} Tier on Honeycomb 🐝" />
-  <meta name="twitter:description" content="Arena Rating: ${rating} | ${wins}W / ${losses}L | ${totalPoints.toLocaleString()} Points" />
+  <meta name="twitter:title" content="${name} - ${tier.name} Tier on Honeycomb" />
+  <meta name="twitter:description" content="Arena Rating: ${rating} | ${wins}W / ${losses}L | ${data.totalPoints.toLocaleString()} Points" />
   <meta name="twitter:image" content="${imageUrl}" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0a0a1a; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, sans-serif; padding: 20px; }
+    body { background: #0a0b14; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: -apple-system, sans-serif; padding: 20px; }
     .card-container { max-width: 600px; width: 100%; }
     .card-container img { width: 100%; border-radius: 16px; }
     .cta { margin-top: 24px; text-align: center; }
-    .cta a { display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-weight: 700; padding: 14px 40px; border-radius: 12px; text-decoration: none; font-size: 16px; transition: transform 0.2s; }
-    .cta a:hover { transform: scale(1.05); }
+    .cta a { display: inline-block; background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-weight: 700; padding: 14px 40px; border-radius: 12px; text-decoration: none; font-size: 16px; }
     .cta p { color: #6b7280; font-size: 13px; margin-top: 12px; }
   </style>
 </head>
