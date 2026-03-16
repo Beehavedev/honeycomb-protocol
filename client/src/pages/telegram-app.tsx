@@ -55,6 +55,9 @@ import {
   BarChart3,
   ArrowLeftRight,
   X,
+  Upload,
+  ImagePlus,
+  Wand2,
 } from "lucide-react";
 
 declare global {
@@ -1491,8 +1494,73 @@ function TokenLaunchView({ agentId, onBack }: { agentId?: string; onBack: () => 
   const [description, setDescription] = useState("");
   const [presaleBNB, setPresaleBNB] = useState("0");
   const [launching, setLaunching] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [generatingLogo, setGeneratingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<{ success: boolean; message: string; txHash?: string; tokenAddress?: string } | null>(null);
   const token = localStorage.getItem("tg_token");
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoError(null);
+    if (!file.type.startsWith("image/")) {
+      setLogoError("Please select an image file (PNG, JPG, etc.)");
+      nativeHaptic("error");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError("Image too large (max 5MB)");
+      nativeHaptic("error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setLogoPreview(dataUrl);
+      setLogoBase64(dataUrl.split(",")[1]);
+      nativeHaptic("light");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAIGenerate = async () => {
+    const tokenName = name || symbol || "crypto";
+    setGeneratingLogo(true);
+    setLogoError(null);
+    try {
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `Create a professional crypto token logo for "${tokenName}" (${symbol || "TOKEN"}). Modern, clean, circular icon design suitable for a cryptocurrency. Bold, vibrant colors. No text in the image. White or transparent background.`,
+          size: "1024x1024",
+        }),
+      });
+      const data = await res.json();
+      if (data.b64_json) {
+        setLogoBase64(data.b64_json);
+        setLogoPreview(`data:image/png;base64,${data.b64_json}`);
+        nativeHaptic("success");
+      } else {
+        setLogoError(data.error || "Failed to generate logo. Try again.");
+        nativeHaptic("error");
+      }
+    } catch {
+      setLogoError("Network error. Check your connection and try again.");
+      nativeHaptic("error");
+    } finally {
+      setGeneratingLogo(false);
+    }
+  };
+
+  const removeLogo = () => {
+    setLogoBase64(null);
+    setLogoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const handleLaunch = async () => {
     if (!name || !symbol || !token) return;
@@ -1502,7 +1570,7 @@ function TokenLaunchView({ agentId, onBack }: { agentId?: string; onBack: () => 
       const res = await fetch("/api/telegram/fourmeme/launch", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, symbol, description, presaleBNB }),
+        body: JSON.stringify({ name, symbol, description, presaleBNB, imageBase64: logoBase64 || undefined }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1530,6 +1598,56 @@ function TokenLaunchView({ agentId, onBack }: { agentId?: string; onBack: () => 
       <p className="text-xs text-gray-400 mb-4">Create a new token on FourMeme (0.01 BNB fee)</p>
 
       <div className="space-y-3">
+        <div>
+          <label className="text-xs text-gray-400 mb-1 block">Token Logo</label>
+          <div className="flex items-center gap-3">
+            {logoPreview ? (
+              <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-amber-500/30 flex-shrink-0">
+                <img src={logoPreview} alt="Token logo" className="w-full h-full object-cover" data-testid="img-launch-logo-preview" />
+                <button
+                  onClick={removeLogo}
+                  className="absolute top-0 right-0 bg-black/70 rounded-bl-lg p-0.5"
+                  data-testid="button-launch-logo-remove"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-600 flex items-center justify-center cursor-pointer hover:border-amber-500/50 transition-colors flex-shrink-0"
+                data-testid="button-launch-logo-placeholder"
+              >
+                <ImagePlus className="w-6 h-6 text-gray-500" />
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5 flex-1">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-xs hover:border-amber-500/50 transition-colors"
+                data-testid="button-launch-logo-upload"
+              >
+                <Upload className="w-3.5 h-3.5" /> Upload from device
+              </button>
+              <button
+                onClick={handleAIGenerate}
+                disabled={generatingLogo}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 to-purple-500/20 border border-amber-500/30 text-amber-400 text-xs hover:border-amber-500/50 transition-colors disabled:opacity-50"
+                data-testid="button-launch-logo-ai"
+              >
+                {generatingLogo ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...</>
+                ) : (
+                  <><Wand2 className="w-3.5 h-3.5" /> AI Generate</>
+                )}
+              </button>
+            </div>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" data-testid="input-launch-logo-file" />
+          {logoError && <p className="text-[11px] text-red-400 mt-1" data-testid="text-launch-logo-error">{logoError}</p>}
+          <p className="text-[10px] text-gray-500 mt-1">PNG/JPG, max 5MB. AI uses token name for inspiration.</p>
+        </div>
+
         <div>
           <label className="text-xs text-gray-400 mb-1 block">Token Name *</label>
           <input
