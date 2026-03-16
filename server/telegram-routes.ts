@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { generateToken, verifyToken } from "./auth";
 import { validateTelegramWebAppData, handleTelegramUpdate, setupTelegramWebhook, verifyWebhookSecret } from "./telegram-bot";
 import { generateCustodialWallet } from "./custodial-wallet";
+import { autoRegisterAgent } from "./auto-register";
 import { db } from "./db";
 import {
   nfaAgents,
@@ -80,6 +81,10 @@ router.post("/auth", async (req: Request, res: Response) => {
       await storage.saveCustodialWallet(agent.id, wallet.address, wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
 
       console.log(`[TG Auth] New user created: ${displayName} (tgId: ${telegramId}, agentId: ${agent.id})`);
+
+      autoRegisterAgent(agent.id).catch(err => {
+        console.error(`[TG Auth] Auto-register error for ${agent.id}:`, err.message);
+      });
     }
 
     const token = generateToken(agent.ownerAddress);
@@ -136,6 +141,10 @@ router.post("/auth/standalone", async (req: Request, res: Response) => {
     const token = generateToken(agent.ownerAddress);
 
     console.log(`[PWA Auth] New standalone user: ${cleanName} (agentId: ${agent.id})`);
+
+    autoRegisterAgent(agent.id).catch(err => {
+      console.error(`[PWA Auth] Auto-register error for ${agent.id}:`, err.message);
+    });
 
     res.json({ token, agent });
   } catch (error) {

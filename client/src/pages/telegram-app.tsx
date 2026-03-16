@@ -4572,6 +4572,54 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAg
         </Card>
       )}
 
+      <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4" data-testid="card-tg-onchain-status">
+        <div className="flex items-center gap-2 mb-2">
+          <Shield className="w-4 h-4 text-amber-400" />
+          <span className="text-xs font-semibold text-white">On-Chain Identity</span>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400">BAP-578 (NFA)</span>
+            <span className={`text-[11px] font-medium ${
+              agent.bap578Status === "registered" ? "text-green-400" :
+              agent.bap578Status === "confirming" ? "text-amber-400" :
+              agent.bap578Status === "failed" ? "text-red-400" : "text-gray-500"
+            }`} data-testid="text-bap578-status">
+              {agent.bap578Status === "registered" ? `Minted #${agent.bap578TokenId || ""}` :
+               agent.bap578Status === "confirming" ? "Confirming..." :
+               agent.bap578Status === "failed" ? "Failed" : "Pending"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400">ERC-8004 Identity</span>
+            <span className={`text-[11px] font-medium ${
+              agent.erc8004Status === "registered" ? "text-green-400" :
+              agent.erc8004Status === "confirming" ? "text-amber-400" :
+              agent.erc8004Status === "failed" || agent.erc8004Status === "insufficient_gas" ? "text-red-400" : "text-gray-500"
+            }`} data-testid="text-erc8004-status">
+              {agent.erc8004Status === "registered" ? "Registered" :
+               agent.erc8004Status === "confirming" ? "Confirming..." :
+               agent.erc8004Status === "insufficient_gas" ? "Need BNB" :
+               agent.erc8004Status === "failed" ? "Failed" : "Pending"}
+            </span>
+          </div>
+        </div>
+        {(agent.bap578TxHash || agent.erc8004TxHash) && (
+          <div className="mt-2 pt-2 border-t border-gray-700/30 space-y-1">
+            {agent.bap578TxHash && (
+              <a href={`https://bscscan.com/tx/${agent.bap578TxHash}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-amber-400">
+                <ExternalLink className="w-3 h-3" /> BAP-578 TX
+              </a>
+            )}
+            {agent.erc8004TxHash && (
+              <a href={`https://bscscan.com/tx/${agent.erc8004TxHash}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] text-amber-400">
+                <ExternalLink className="w-3 h-3" /> ERC-8004 TX
+              </a>
+            )}
+          </div>
+        )}
+      </Card>
+
       <div className="grid grid-cols-3 gap-3 mb-6">
         <Card className="p-4 bg-[#242444] border-gray-700/50 text-center" data-testid="card-tg-wins">
           <div className="text-2xl font-bold text-green-400">{agent.arenaWins}</div>

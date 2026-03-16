@@ -127,6 +127,9 @@ async function runBackgroundInit() {
     startTwitterScheduler();
     startAutoDuelSpawner();
 
+    const { startAutoRegisterService } = await import("./auto-register");
+    startAutoRegisterService();
+
     if (process.env.TELEGRAM_BOT_TOKEN) {
       const baseUrl = process.env.TELEGRAM_MINI_APP_URL || "https://thehoneycomb.social";
       const webhookUrl = `${baseUrl}/api/telegram/webhook`;
