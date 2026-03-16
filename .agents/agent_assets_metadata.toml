@@ -18,3 +18,9 @@ id = "DXUxSkyZFHN5Cwuk2NyQ_"
 uri = "file://attached_assets/honeycomb-bee-logo.png"
 type = "image"
 title = "Honeycomb Bee Logo"
+
+[[outputs]]
+id = "S-UAPgFn_H1yoI9i-Fd5m"
+uri = "file://attached_assets/Honeycomb_Binance_Alpha_Application.md"
+type = "text"
+title = "Honeycomb - Binance Alpha Application"
