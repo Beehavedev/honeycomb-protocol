@@ -1095,11 +1095,11 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
   const isContractAddress = /^0x[a-fA-F0-9]{40}$/i.test(searchQuery.trim());
 
   const endpoint = isSearching
-    ? `/api/telegram/fourmeme/tokens/search?q=${encodeURIComponent(searchQuery.trim())}`
-    : `/api/telegram/fourmeme/tokens/${browseTab}`;
+    ? `/api/telegram/fourmeme/search?q=${encodeURIComponent(searchQuery.trim())}`
+    : `/api/telegram/fourmeme/${browseTab}`;
 
   const { data, isLoading, refetch } = useQuery<{ tokens: FourMemeToken[] }>({
-    queryKey: ["/api/telegram/fourmeme/tokens", isSearching ? "search" : browseTab, searchQuery],
+    queryKey: ["/api/telegram/fourmeme", isSearching ? "search" : browseTab, searchQuery],
     queryFn: () => fetch(endpoint).then(r => r.json()),
     staleTime: 30000,
     enabled: !isSearching || searchQuery.trim().length >= 2,
