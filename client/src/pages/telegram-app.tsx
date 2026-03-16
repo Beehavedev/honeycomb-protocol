@@ -54,6 +54,7 @@ import {
   DollarSign,
   BarChart3,
   ArrowLeftRight,
+  X,
 } from "lucide-react";
 
 declare global {
@@ -1062,7 +1063,7 @@ interface TokenTransfer {
 function FourMemeTab({ agentId }: { agentId?: string }) {
   const [view, setView] = useState<"browse" | "detail" | "launch">("browse");
   const [selectedToken, setSelectedToken] = useState<string>("");
-  const [browseTab, setBrowseTab] = useState<"trending" | "new" | "search">("trending");
+  const [browseTab, setBrowseTab] = useState<"trending" | "new">("trending");
   const [searchQuery, setSearchQuery] = useState("");
 
   if (view === "detail" && selectedToken) {
@@ -1083,21 +1084,25 @@ function FourMemeTab({ agentId }: { agentId?: string }) {
 }
 
 function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery, onSelectToken, onLaunch }: {
-  browseTab: "trending" | "new" | "search";
-  setBrowseTab: (t: "trending" | "new" | "search") => void;
+  browseTab: "trending" | "new";
+  setBrowseTab: (t: "trending" | "new") => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onSelectToken: (addr: string) => void;
   onLaunch: () => void;
 }) {
-  const endpoint = browseTab === "search" && searchQuery
-    ? `/api/telegram/fourmeme/tokens/search?q=${encodeURIComponent(searchQuery)}`
-    : `/api/telegram/fourmeme/tokens/${browseTab === "search" ? "trending" : browseTab}`;
+  const isSearching = searchQuery.trim().length > 0;
+  const isContractAddress = /^0x[a-fA-F0-9]{40}$/i.test(searchQuery.trim());
+
+  const endpoint = isSearching
+    ? `/api/telegram/fourmeme/tokens/search?q=${encodeURIComponent(searchQuery.trim())}`
+    : `/api/telegram/fourmeme/tokens/${browseTab}`;
 
   const { data, isLoading, refetch } = useQuery<{ tokens: FourMemeToken[] }>({
-    queryKey: ["/api/telegram/fourmeme/tokens", browseTab, searchQuery],
+    queryKey: ["/api/telegram/fourmeme/tokens", isSearching ? "search" : browseTab, searchQuery],
     queryFn: () => fetch(endpoint).then(r => r.json()),
     staleTime: 30000,
+    enabled: !isSearching || searchQuery.trim().length >= 2,
   });
 
   const tokens = data?.tokens || [];
@@ -1110,32 +1115,48 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
           <Rocket className="w-3 h-3 mr-1" /> Launch
         </Button>
       </div>
-      <p className="text-xs text-gray-400 mb-4">Trade tokens on BNB Chain via FourMeme</p>
+      <p className="text-xs text-gray-400 mb-3">Trade tokens on BNB Chain via FourMeme</p>
 
-      <div className="flex gap-2 mb-3">
-        {([["trending", "Trending", Flame], ["new", "New", Sparkles], ["search", "Search", Search]] as const).map(([id, label, Icon]) => (
+      <div className="relative mb-3">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search name, symbol, or paste CA (0x...)"
+          className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+          data-testid="input-fourmeme-search"
+        />
+        {searchQuery && (
           <button
-            key={id}
-            onClick={() => setBrowseTab(id)}
-            className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors flex items-center gap-1 ${browseTab === id ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"}`}
-            data-testid={`button-fourmeme-tab-${id}`}
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+            data-testid="button-fourmeme-search-clear"
           >
-            <Icon className="w-3 h-3" /> {label}
+            <X className="w-4 h-4" />
           </button>
-        ))}
+        )}
       </div>
 
-      {browseTab === "search" && (
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name or symbol..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#242444] border border-gray-700/50 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
-            data-testid="input-fourmeme-search"
-          />
+      {isSearching && isContractAddress && (
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <span className="text-[11px] text-amber-400/80">Looking up contract address...</span>
+        </div>
+      )}
+
+      {!isSearching && (
+        <div className="flex gap-2 mb-3">
+          {([["trending", "Trending", Flame], ["new", "New", Sparkles]] as const).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              onClick={() => setBrowseTab(id)}
+              className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors flex items-center gap-1 ${browseTab === id ? "bg-amber-500/20 text-amber-400" : "text-gray-500 bg-[#242444]"}`}
+              data-testid={`button-fourmeme-tab-${id}`}
+            >
+              <Icon className="w-3 h-3" /> {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -1157,7 +1178,7 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
       ) : tokens.length === 0 ? (
         <Card className="p-8 bg-[#242444] border-gray-700/50 text-center" data-testid="container-fourmeme-empty">
           <BarChart3 className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">{browseTab === "search" ? "No tokens found" : "No tokens available"}</p>
+          <p className="text-sm text-gray-400">{isSearching ? "No tokens found" : "No tokens available"}</p>
         </Card>
       ) : (
         <div className="space-y-2">
@@ -1179,6 +1200,9 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
                       <Badge className="text-[9px] px-1.5 py-0 bg-gray-700 border-0 text-gray-400">{token.symbol}</Badge>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5">
+                      {isSearching && token.address && (
+                        <span className="font-mono text-gray-600">{token.address.slice(0, 6)}...{token.address.slice(-4)}</span>
+                      )}
                       {token.priceUsd && <span>${parseFloat(token.priceUsd) < 0.01 ? parseFloat(token.priceUsd).toExponential(2) : parseFloat(token.priceUsd).toFixed(4)}</span>}
                       {token.volume24h !== undefined && <span>Vol: ${token.volume24h >= 1000 ? (token.volume24h / 1000).toFixed(1) + "K" : token.volume24h.toFixed(0)}</span>}
                     </div>

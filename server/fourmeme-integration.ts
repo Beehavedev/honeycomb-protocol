@@ -744,7 +744,31 @@ export async function getNewTokens(): Promise<any[]> {
 
 export async function searchTokens(query: string): Promise<any[]> {
   try {
-    const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`, {
+    const trimmed = query.trim();
+    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+      const detail = await getTokenDetail(trimmed);
+      if (detail && (detail.name || detail.symbol)) {
+        return [{
+          address: detail.address,
+          name: detail.name,
+          symbol: detail.symbol,
+          priceUsd: detail.market?.priceUsd,
+          priceNative: detail.market?.priceNative,
+          volume24h: detail.market?.volume24h,
+          marketCap: detail.market?.marketCap,
+          fdv: detail.market?.fdv,
+          liquidity: detail.market?.liquidity,
+          pairAddress: detail.market?.pairAddress,
+          dexId: detail.market?.dexId,
+          priceChange24h: detail.market?.priceChange24h,
+          holders: detail.holders,
+          bondingCurveProgress: detail.onChain?.bondingCurveProgress,
+        }];
+      }
+      return [];
+    }
+
+    const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(trimmed)}`, {
       headers: { Accept: "application/json" },
     });
     if (!res.ok) return [];
