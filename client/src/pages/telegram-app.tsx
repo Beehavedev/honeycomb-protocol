@@ -1362,27 +1362,35 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
 
           {detail.market && (
             <div className="grid grid-cols-2 gap-2 mb-4">
-              <Card className="p-3 bg-[#242444] border-gray-700/50">
-                <p className="text-[10px] text-gray-500 mb-0.5">Price</p>
-                <p className="text-sm font-medium text-white" data-testid="text-token-price">${parseFloat(detail.market.priceUsd) < 0.01 ? parseFloat(detail.market.priceUsd).toExponential(2) : parseFloat(detail.market.priceUsd).toFixed(4)}</p>
-                {detail.market.priceChange24h !== undefined && (
-                  <p className={`text-[10px] ${detail.market.priceChange24h >= 0 ? "text-green-400" : "text-red-400"}`}>
-                    {detail.market.priceChange24h >= 0 ? "+" : ""}{detail.market.priceChange24h.toFixed(2)}%
-                  </p>
-                )}
-              </Card>
-              <Card className="p-3 bg-[#242444] border-gray-700/50">
-                <p className="text-[10px] text-gray-500 mb-0.5">Market Cap</p>
-                <p className="text-sm font-medium text-white">${detail.market.marketCap >= 1e6 ? (detail.market.marketCap / 1e6).toFixed(2) + "M" : (detail.market.marketCap / 1000).toFixed(0) + "K"}</p>
-              </Card>
-              <Card className="p-3 bg-[#242444] border-gray-700/50">
-                <p className="text-[10px] text-gray-500 mb-0.5">Volume 24h</p>
-                <p className="text-sm font-medium text-white">${detail.market.volume24h >= 1000 ? (detail.market.volume24h / 1000).toFixed(1) + "K" : detail.market.volume24h.toFixed(0)}</p>
-              </Card>
-              <Card className="p-3 bg-[#242444] border-gray-700/50">
-                <p className="text-[10px] text-gray-500 mb-0.5">Liquidity</p>
-                <p className="text-sm font-medium text-white">${detail.market.liquidity >= 1000 ? (detail.market.liquidity / 1000).toFixed(1) + "K" : detail.market.liquidity.toFixed(0)}</p>
-              </Card>
+              {detail.market.priceUsd != null && (
+                <Card className="p-3 bg-[#242444] border-gray-700/50">
+                  <p className="text-[10px] text-gray-500 mb-0.5">Price</p>
+                  <p className="text-sm font-medium text-white" data-testid="text-token-price">${parseFloat(detail.market.priceUsd) < 0.01 ? parseFloat(detail.market.priceUsd).toExponential(2) : parseFloat(detail.market.priceUsd).toFixed(4)}</p>
+                  {detail.market.priceChange24h != null && (
+                    <p className={`text-[10px] ${detail.market.priceChange24h >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {detail.market.priceChange24h >= 0 ? "+" : ""}{Number(detail.market.priceChange24h).toFixed(2)}%
+                    </p>
+                  )}
+                </Card>
+              )}
+              {detail.market.marketCap != null && (
+                <Card className="p-3 bg-[#242444] border-gray-700/50">
+                  <p className="text-[10px] text-gray-500 mb-0.5">Market Cap</p>
+                  <p className="text-sm font-medium text-white">${Number(detail.market.marketCap) >= 1e6 ? (Number(detail.market.marketCap) / 1e6).toFixed(2) + "M" : (Number(detail.market.marketCap) / 1000).toFixed(0) + "K"}</p>
+                </Card>
+              )}
+              {detail.market.volume24h != null && (
+                <Card className="p-3 bg-[#242444] border-gray-700/50">
+                  <p className="text-[10px] text-gray-500 mb-0.5">Volume 24h</p>
+                  <p className="text-sm font-medium text-white">${Number(detail.market.volume24h) >= 1000 ? (Number(detail.market.volume24h) / 1000).toFixed(1) + "K" : Number(detail.market.volume24h).toFixed(0)}</p>
+                </Card>
+              )}
+              {detail.market.liquidity != null && (
+                <Card className="p-3 bg-[#242444] border-gray-700/50">
+                  <p className="text-[10px] text-gray-500 mb-0.5">Liquidity</p>
+                  <p className="text-sm font-medium text-white">${Number(detail.market.liquidity) >= 1000 ? (Number(detail.market.liquidity) / 1000).toFixed(1) + "K" : Number(detail.market.liquidity).toFixed(0)}</p>
+                </Card>
+              )}
             </div>
           )}
 
@@ -1390,14 +1398,14 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
             <Card className="p-3 bg-[#242444] border-gray-700/50 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-gray-400">Bonding Curve</span>
-                <span className="text-xs font-medium text-amber-400">{detail.onChain.bondingCurveProgress.toFixed(1)}%</span>
+                <span className="text-xs font-medium text-amber-400">{Number(detail.onChain.bondingCurveProgress || 0).toFixed(1)}%</span>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
-                <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(detail.onChain.bondingCurveProgress, 100)}%` }} />
+                <div className="bg-amber-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(Number(detail.onChain.bondingCurveProgress || 0), 100)}%` }} />
               </div>
               <div className="flex justify-between text-[10px] text-gray-500">
-                <span>{parseFloat(detail.onChain.funds).toFixed(2)} BNB raised</span>
-                <span>{parseFloat(detail.onChain.maxFunds).toFixed(2)} BNB max</span>
+                <span>{parseFloat(detail.onChain.funds || "0").toFixed(2)} BNB raised</span>
+                <span>{parseFloat(detail.onChain.maxFunds || "0").toFixed(2)} BNB max</span>
               </div>
             </Card>
           )}
