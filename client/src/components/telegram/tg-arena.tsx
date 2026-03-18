@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Swords, TrendingUp, Brain, Flame, Gamepad2, Zap,
-  Trophy, Crown, ChevronRight, Sparkles,
+  Trophy, Crown, ChevronRight, Sparkles, HelpCircle, ChevronDown,
 } from "lucide-react";
 
 function arenaHaptic() {
@@ -35,6 +35,117 @@ function PulsingDot({ color }: { color: string }) {
       <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${color} opacity-75`} />
       <span className={`relative inline-flex rounded-full h-2 w-2 ${color}`} />
     </span>
+  );
+}
+
+const GUIDE_SECTIONS = [
+  {
+    title: "Trading Duels",
+    icon: Swords,
+    color: "text-amber-400",
+    bg: "bg-amber-500/10",
+    items: [
+      "Pick an asset (BTC, ETH, or BNB) and a duration (2 or 5 min)",
+      "Choose AI Bot mode to play instantly, or PvP to duel a friend",
+      "Both players go LONG or SHORT on the price",
+      "When time's up, the player whose position gained more wins",
+      "Winner takes the pot minus 10% platform fee (5% for $HONEY holders)",
+      "PvP: Share your duel code with a friend to start",
+    ],
+  },
+  {
+    title: "Price Predictions",
+    icon: TrendingUp,
+    color: "text-purple-400",
+    bg: "bg-purple-500/10",
+    items: [
+      "Pick an asset (BTC, ETH, BNB, or SOL)",
+      "Choose duration: 1 min (Speed), 5 min (Standard), or 10 min (Long)",
+      "Stake BNB — from free practice to 0.1 BNB",
+      "Predict UP or DOWN on the price",
+      "Live chart shows your entry price and current movement",
+      "If your prediction is correct, you win 1.8x your stake",
+      "Status banner shows WAITING → WINNING/LOSING in real time",
+    ],
+  },
+  {
+    title: "Scoring & Rewards",
+    icon: Trophy,
+    color: "text-yellow-400",
+    bg: "bg-yellow-500/10",
+    items: [
+      "Every duel and prediction earns ELO rating points",
+      "Climb the leaderboard: Bronze → Silver → Gold → Diamond → Apex",
+      "All arena activity earns points toward the $HONEY airdrop",
+      "Higher tiers unlock reduced fees and exclusive tournaments",
+      "Winnings are sent directly to your custodial BNB wallet",
+    ],
+  },
+  {
+    title: "How Payouts Work",
+    icon: Sparkles,
+    color: "text-green-400",
+    bg: "bg-green-500/10",
+    items: [
+      "Trading Duels: Winner gets loser's stake minus 10% fee",
+      "Predictions: Correct call pays 1.8x your stake",
+      "Free mode: No BNB risk, still earns points and ELO",
+      "BNB is held in escrow during active duels — fully on-chain",
+      "$HONEY holders pay half fees on everything",
+    ],
+  },
+];
+
+function HowItWorksGuide() {
+  const [open, setOpen] = useState(false);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
+  return (
+    <div className="px-3 mb-4" data-testid="container-tg-arena-guide">
+      <button
+        onClick={() => { arenaHaptic(); setOpen(!open); }}
+        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.04] hover:bg-white/[0.06] active:scale-[0.98] transition-all"
+        data-testid="button-tg-arena-guide-toggle"
+      >
+        <HelpCircle className="w-4 h-4 text-amber-400" />
+        <span className="text-xs font-bold text-white flex-1 text-left">How It Works</span>
+        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2" data-testid="container-tg-arena-guide-content">
+          {GUIDE_SECTIONS.map((section, idx) => {
+            const Icon = section.icon;
+            const isExpanded = expandedIdx === idx;
+            return (
+              <div key={section.title} className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+                <button
+                  onClick={() => { arenaHaptic(); setExpandedIdx(isExpanded ? null : idx); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.03] active:scale-[0.99] transition-all"
+                  data-testid={`button-tg-arena-guide-section-${idx}`}
+                >
+                  <div className={`w-7 h-7 rounded-lg ${section.bg} flex items-center justify-center`}>
+                    <Icon className={`w-3.5 h-3.5 ${section.color}`} />
+                  </div>
+                  <span className="text-xs font-semibold text-white flex-1 text-left">{section.title}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {isExpanded && (
+                  <div className="px-3 pb-3 pt-0.5 space-y-1.5">
+                    {section.items.map((item, i) => (
+                      <div key={i} className="flex gap-2 items-start">
+                        <span className="text-[10px] text-gray-600 mt-0.5 shrink-0">{i + 1}.</span>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">{item}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -216,6 +327,8 @@ export function TgArenaTab({ agent }: { agent?: TgAgentInfo }) {
           </div>
         </div>
       )}
+
+      <HowItWorksGuide />
 
       <div className="px-3">
         <div className="rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/10 p-3 flex items-center gap-3">
