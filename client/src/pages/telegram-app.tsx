@@ -92,8 +92,26 @@ declare global {
           offClick: (cb: () => void) => void;
           isVisible?: boolean;
         };
+        showAlert?: (message: string) => void;
       };
     };
+  }
+}
+
+function copyToClipboard(text: string) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  } catch {
+    try { navigator.clipboard.writeText(text); } catch {}
   }
 }
 
@@ -4268,7 +4286,7 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAg
 
   const handleCopyAddress = () => {
     if (agent?.ownerAddress) {
-      navigator.clipboard.writeText(agent.ownerAddress);
+      copyToClipboard(agent.ownerAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -4317,7 +4335,7 @@ function ProfileTab({ agent, loading, onEditBee, onViewBees, onViewNfa, onViewAg
 
   const handleCopyKey = () => {
     if (privateKey) {
-      navigator.clipboard.writeText(privateKey);
+      copyToClipboard(privateKey);
       setKeyCopied(true);
       setTimeout(() => setKeyCopied(false), 2000);
     }
@@ -5518,7 +5536,7 @@ function ReferralView({ agentId, onBack }: { agentId?: string; onBack: () => voi
   const referralUrl = referralLink ? `${BASE_URL}/r/${shortCode}` : "";
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(referralUrl);
+    copyToClipboard(referralUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

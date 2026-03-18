@@ -278,7 +278,7 @@ export function TradingSubTab({ agentId, agent }: { agentId?: string; agent?: Tg
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black font-mono text-amber-400 tracking-[0.2em] flex-1" data-testid="text-tg-trading-join-code">{createdCode}</span>
                 <button
-                  onClick={() => navigator.clipboard.writeText(createdCode)}
+                  onClick={() => { try { const ta=document.createElement("textarea");ta.value=createdCode;ta.style.position="fixed";ta.style.left="-9999px";document.body.appendChild(ta);ta.focus();ta.select();document.execCommand("copy");document.body.removeChild(ta); } catch { try { navigator.clipboard.writeText(createdCode); } catch {} } }}
                   className="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 hover:bg-amber-500/30 active:scale-90 transition-all"
                   data-testid="button-tg-trading-copy-code"
                 >

@@ -151,7 +151,7 @@ function GameHubLobbyView({ agent, onStartMatch }: {
           <p className="text-xs text-gray-400 mb-2">Share this Match ID with your opponent:</p>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-mono text-green-400 break-all flex-1" data-testid="text-tg-hub-match-id">{pvpMatchId}</span>
-            <Button size="sm" variant="outline" className="text-xs shrink-0" onClick={() => navigator.clipboard.writeText(pvpMatchId)} data-testid="button-tg-hub-copy-id">
+            <Button size="sm" variant="outline" className="text-xs shrink-0" onClick={() => { try { const ta=document.createElement("textarea");ta.value=pvpMatchId;ta.style.position="fixed";ta.style.left="-9999px";document.body.appendChild(ta);ta.focus();ta.select();document.execCommand("copy");document.body.removeChild(ta); } catch { try { navigator.clipboard.writeText(pvpMatchId); } catch {} } }} data-testid="button-tg-hub-copy-id">
               <Copy className="w-3 h-3" />
             </Button>
           </div>

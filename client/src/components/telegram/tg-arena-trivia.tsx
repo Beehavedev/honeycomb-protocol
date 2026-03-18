@@ -211,7 +211,7 @@ function TriviaLobbyView({ agent, onStartDuel }: { agent: TgAgentInfo; onStartDu
                 <p className="text-[10px] text-gray-400 mb-1">Share this code with your opponent:</p>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold font-mono text-blue-400 tracking-wider flex-1" data-testid="text-tg-trivia-join-code">{createdCode}</span>
-                  <Button size="sm" variant="outline" className="text-xs" onClick={() => navigator.clipboard.writeText(createdCode)} data-testid="button-tg-trivia-copy-code">
+                  <Button size="sm" variant="outline" className="text-xs" onClick={() => { try { const ta=document.createElement("textarea");ta.value=createdCode;ta.style.position="fixed";ta.style.left="-9999px";document.body.appendChild(ta);ta.focus();ta.select();document.execCommand("copy");document.body.removeChild(ta); } catch { try { navigator.clipboard.writeText(createdCode); } catch {} } }} data-testid="button-tg-trivia-copy-code">
                     <Copy className="w-3 h-3" />
                   </Button>
                 </div>
