@@ -1122,7 +1122,7 @@ function TokenLogo({ logoUrl, symbol, size = 36, testId }: { logoUrl?: string | 
 }
 
 function FourMemeTab({ agentId }: { agentId?: string }) {
-  const [view, setView] = useState<"browse" | "detail" | "launch">("browse");
+  const [view, setView] = useState<"browse" | "detail" | "launch" | "portfolio">("browse");
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [browseTab, setBrowseTab] = useState<"trending" | "new">("trending");
   const [searchQuery, setSearchQuery] = useState("");
@@ -1133,6 +1133,9 @@ function FourMemeTab({ agentId }: { agentId?: string }) {
   if (view === "launch") {
     return <TokenLaunchView agentId={agentId} onBack={() => setView("browse")} />;
   }
+  if (view === "portfolio") {
+    return <PortfolioView onBack={() => setView("browse")} onSelectToken={(addr) => { setSelectedToken(addr); setView("detail"); }} />;
+  }
 
   return <TokenBrowseView
     browseTab={browseTab}
@@ -1141,16 +1144,18 @@ function FourMemeTab({ agentId }: { agentId?: string }) {
     setSearchQuery={setSearchQuery}
     onSelectToken={(addr) => { setSelectedToken(addr); setView("detail"); }}
     onLaunch={() => setView("launch")}
+    onPortfolio={() => setView("portfolio")}
   />;
 }
 
-function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery, onSelectToken, onLaunch }: {
+function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery, onSelectToken, onLaunch, onPortfolio }: {
   browseTab: "trending" | "new";
   setBrowseTab: (t: "trending" | "new") => void;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   onSelectToken: (addr: string) => void;
   onLaunch: () => void;
+  onPortfolio: () => void;
 }) {
   const isSearching = searchQuery.trim().length > 0;
   const isContractAddress = /^0x[a-fA-F0-9]{40}$/i.test(searchQuery.trim());
@@ -1172,9 +1177,14 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
     <div className="px-4 pt-6 pb-4">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-xl font-bold text-white" data-testid="text-fourmeme-title">FourMeme Tokens</h2>
-        <Button size="sm" onClick={onLaunch} className="bg-amber-500 hover:bg-amber-600 text-black text-xs h-8" data-testid="button-fourmeme-launch">
-          <Rocket className="w-3 h-3 mr-1" /> Launch
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => { haptic("light"); onPortfolio(); }} className="text-xs h-8 border-amber-500/30 text-amber-400 hover:bg-amber-500/10" data-testid="button-fourmeme-portfolio">
+            <Wallet className="w-3 h-3 mr-1" /> Portfolio
+          </Button>
+          <Button size="sm" onClick={onLaunch} className="bg-amber-500 hover:bg-amber-600 text-black text-xs h-8" data-testid="button-fourmeme-launch">
+            <Rocket className="w-3 h-3 mr-1" /> Launch
+          </Button>
+        </div>
       </div>
       <p className="text-xs text-gray-400 mb-3">Trade tokens on BNB Chain via FourMeme</p>
 
@@ -1278,6 +1288,200 @@ function TokenBrowseView({ browseTab, setBrowseTab, searchQuery, setSearchQuery,
               </Card>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelectToken: (addr: string) => void }) {
+  const [portfolioTab, setPortfolioTab] = useState<"holdings" | "history">("holdings");
+  const token = localStorage.getItem("tg_token");
+
+  const { data: portfolioData, isLoading: portfolioLoading } = useQuery<{
+    holdings: { address: string; name: string; symbol: string; decimals: number; balance: string; lastTx: number }[];
+    bnbBalance: string;
+    wallet: string;
+  }>({
+    queryKey: ["/api/telegram/fourmeme/portfolio"],
+    queryFn: () => fetch("/api/telegram/fourmeme/portfolio", {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.ok ? r.json() : { holdings: [], bnbBalance: "0", wallet: "" }),
+    enabled: !!token,
+    staleTime: 15000,
+  });
+
+  const { data: historyData, isLoading: historyLoading } = useQuery<{
+    trades: { hash: string; tokenAddress: string; tokenName: string; tokenSymbol: string; type: "buy" | "sell"; amount: string; timestamp: number; from: string; to: string }[];
+  }>({
+    queryKey: ["/api/telegram/fourmeme/trade-history"],
+    queryFn: () => fetch("/api/telegram/fourmeme/trade-history", {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.ok ? r.json() : { trades: [] }),
+    enabled: !!token && portfolioTab === "history",
+    staleTime: 15000,
+  });
+
+  const holdings = portfolioData?.holdings || [];
+  const trades = historyData?.trades || [];
+
+  const formatAmount = (val: string) => {
+    const n = parseFloat(val);
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
+    if (n >= 1) return n.toFixed(2);
+    if (n >= 0.001) return n.toFixed(4);
+    return n.toExponential(2);
+  };
+
+  const timeAgo = (ts: number) => {
+    const diff = Date.now() - ts;
+    if (diff < 60000) return "just now";
+    if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+    if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+    return Math.floor(diff / 86400000) + "d ago";
+  };
+
+  return (
+    <div className="px-4 pt-6 pb-4">
+      <button onClick={() => { haptic("light"); onBack(); }} className="flex items-center gap-1 text-amber-400 text-sm mb-4" data-testid="button-portfolio-back">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
+
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+          <Wallet className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white" data-testid="text-portfolio-title">My Portfolio</h2>
+          <p className="text-xs text-gray-400">{portfolioData?.bnbBalance ? parseFloat(portfolioData.bnbBalance).toFixed(4) : "0.0000"} BNB</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => { haptic("light"); setPortfolioTab("holdings"); }}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${portfolioTab === "holdings" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#1a1a2e] text-gray-500"}`}
+          data-testid="button-portfolio-holdings"
+        >
+          <Hexagon className="w-3.5 h-3.5 inline mr-1" /> Holdings
+        </button>
+        <button
+          onClick={() => { haptic("light"); setPortfolioTab("history"); }}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${portfolioTab === "history" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#1a1a2e] text-gray-500"}`}
+          data-testid="button-portfolio-history"
+        >
+          <Clock className="w-3.5 h-3.5 inline mr-1" /> History
+        </button>
+      </div>
+
+      {portfolioTab === "holdings" && (
+        <div className="space-y-2">
+          {portfolioLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <Card key={i} className="p-3 bg-[#242444] border-gray-700/50 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gray-700" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-gray-700 rounded w-24" />
+                      <div className="h-2.5 bg-gray-700 rounded w-16" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : holdings.length === 0 ? (
+            <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+              <Wallet className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-400 mb-1">No tokens yet</p>
+              <p className="text-xs text-gray-500">Buy some tokens to see them here</p>
+            </Card>
+          ) : (
+            holdings.map(h => (
+              <Card
+                key={h.address}
+                className="p-3 bg-[#242444] border-gray-700/50 active:scale-[0.98] transition-transform cursor-pointer"
+                onClick={() => { haptic("light"); onSelectToken(h.address); }}
+                data-testid={`card-holding-${h.symbol}`}
+              >
+                <div className="flex items-center gap-3">
+                  <TokenLogo symbol={h.symbol} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-white truncate">{h.name}</span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-400">{h.symbol}</Badge>
+                    </div>
+                    <p className="text-[10px] text-gray-500 font-mono">{h.address.slice(0, 6)}...{h.address.slice(-4)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-white" data-testid={`text-holding-balance-${h.symbol}`}>{formatAmount(h.balance)}</p>
+                    <p className="text-[10px] text-gray-500">{h.symbol}</p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {portfolioTab === "history" && (
+        <div className="space-y-1.5">
+          {historyLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map(i => (
+                <Card key={i} className="p-3 bg-[#242444] border-gray-700/50 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-gray-700" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-gray-700 rounded w-28" />
+                      <div className="h-2.5 bg-gray-700 rounded w-20" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : trades.length === 0 ? (
+            <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
+              <ArrowLeftRight className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-400 mb-1">No trades yet</p>
+              <p className="text-xs text-gray-500">Your buy and sell history will appear here</p>
+            </Card>
+          ) : (
+            trades.map((tx, i) => (
+              <a
+                key={`${tx.hash}-${i}`}
+                href={`https://bscscan.com/tx/${tx.hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+                data-testid={`card-trade-${i}`}
+              >
+                <Card className="p-3 bg-[#242444] border-gray-700/50 hover:border-gray-600/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center ${tx.type === "buy" ? "bg-green-500/20" : "bg-red-500/20"}`}>
+                      {tx.type === "buy" ? <ArrowDown className="w-3.5 h-3.5 text-green-400" /> : <ArrowUp className="w-3.5 h-3.5 text-red-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-semibold ${tx.type === "buy" ? "text-green-400" : "text-red-400"}`}>
+                          {tx.type === "buy" ? "Bought" : "Sold"}
+                        </span>
+                        <span className="text-xs text-white font-medium truncate">{tx.tokenSymbol}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-500">{timeAgo(tx.timestamp)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-white">{formatAmount(tx.amount)}</p>
+                      <p className="text-[10px] text-gray-500">{tx.tokenSymbol}</p>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-gray-600 shrink-0" />
+                  </div>
+                </Card>
+              </a>
+            ))
+          )}
         </div>
       )}
     </div>

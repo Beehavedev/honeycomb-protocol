@@ -1425,6 +1425,45 @@ router.get("/fourmeme/wallet/tokens", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/fourmeme/portfolio", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Auth required" });
+    const payload = verifyToken(authHeader.split(" ")[1]);
+    if (!payload) return res.status(401).json({ error: "Invalid token" });
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(400).json({ error: "No wallet" });
+    const { getWalletTokenBalances, getWalletBnbBalance } = await import("./fourmeme-integration");
+    const [holdings, bnbBalance] = await Promise.all([
+      getWalletTokenBalances(wallet.address),
+      getWalletBnbBalance(wallet.address),
+    ]);
+    res.json({ holdings, bnbBalance, wallet: wallet.address });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/fourmeme/trade-history", async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ error: "Auth required" });
+    const payload = verifyToken(authHeader.split(" ")[1]);
+    if (!payload) return res.status(401).json({ error: "Invalid token" });
+    const agent = await storage.getAgentByAddress(payload.address);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const wallet = await storage.getCustodialWallet(agent.id);
+    if (!wallet) return res.status(400).json({ error: "No wallet" });
+    const { getWalletTradeHistory } = await import("./fourmeme-integration");
+    const trades = await getWalletTradeHistory(wallet.address);
+    res.json({ trades, wallet: wallet.address });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post("/fourmeme/launch", async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;

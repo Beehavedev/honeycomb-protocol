@@ -491,6 +491,44 @@ export async function getWalletTokenList(walletAddress: string): Promise<any[]> 
   return Array.from(tokenMap.values());
 }
 
+export async function getWalletTokenBalances(walletAddress: string): Promise<{ address: string; name: string; symbol: string; decimals: number; balance: string; lastTx: number }[]> {
+  const tokens = await getWalletTokenList(walletAddress);
+  const balances = await Promise.all(
+    tokens.map(async (t) => {
+      try {
+        const balance = await getTokenBalance(t.address, walletAddress);
+        return { ...t, balance };
+      } catch {
+        return { ...t, balance: "0" };
+      }
+    })
+  );
+  return balances.filter(t => parseFloat(t.balance) > 0);
+}
+
+export async function getWalletTradeHistory(walletAddress: string): Promise<any[]> {
+  const result = await bscscanFetch({
+    module: "account",
+    action: "tokentx",
+    address: walletAddress,
+    page: "1",
+    offset: "100",
+    sort: "desc",
+  });
+  if (!Array.isArray(result)) return [];
+  return result.map(tx => ({
+    hash: tx.hash,
+    tokenAddress: tx.contractAddress,
+    tokenName: tx.tokenName,
+    tokenSymbol: tx.tokenSymbol,
+    type: tx.to.toLowerCase() === walletAddress.toLowerCase() ? "buy" : "sell",
+    amount: formatEther(BigInt(tx.value || "0")),
+    timestamp: Number(tx.timeStamp) * 1000,
+    from: tx.from,
+    to: tx.to,
+  }));
+}
+
 export async function getTxStatus(txHash: string): Promise<{ status: boolean; blockNumber?: string; gasUsed?: string }> {
   if (BSCSCAN_KEY) {
     try {
