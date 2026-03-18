@@ -1317,8 +1317,8 @@ function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelect
       headers: { Authorization: `Bearer ${token}` },
     }).then(r => r.ok ? r.json() : { positions: [], totalValueUsd: 0, totalCostBnb: 0, bnbBalance: "0", wallet: "" }),
     enabled: !!token,
-    staleTime: 15000,
-    refetchInterval: portfolioTab === "holdings" ? 30000 : false,
+    staleTime: 8000,
+    refetchInterval: portfolioTab === "holdings" ? 10000 : false,
   });
 
   const { data: historyData, isLoading: historyLoading } = useQuery<{
