@@ -1455,6 +1455,15 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
               </button>
             </div>
 
+            {tradeMode === "sell" && balanceData && parseFloat(balanceData.balance) > 0 && (
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[10px] text-gray-500">Your balance</span>
+                <span className="text-[10px] text-gray-300 font-mono" data-testid="text-sell-balance">
+                  {parseFloat(balanceData.balance) > 1000000 ? (parseFloat(balanceData.balance) / 1000000).toFixed(2) + "M" : parseFloat(balanceData.balance) > 1000 ? (parseFloat(balanceData.balance) / 1000).toFixed(2) + "K" : parseFloat(balanceData.balance).toFixed(2)} {detail.symbol}
+                </span>
+              </div>
+            )}
+
             <div className="relative mb-3">
               <input
                 type="number"
@@ -1480,6 +1489,28 @@ function TokenDetailView({ address, agentId, onBack }: { address: string; agentI
                     data-testid={`button-preset-${v}`}
                   >
                     {v} BNB
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {tradeMode === "sell" && (
+              <div className="flex gap-2 mb-3">
+                {[{ label: "5%", pct: 0.05 }, { label: "25%", pct: 0.25 }, { label: "50%", pct: 0.5 }, { label: "MAX", pct: 1 }].map(({ label, pct }) => (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      haptic("light");
+                      const bal = parseFloat(balanceData?.balance || "0");
+                      if (bal > 0) {
+                        const val = pct === 1 ? bal : Math.floor(bal * pct);
+                        setAmount(val.toString());
+                      }
+                    }}
+                    className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors ${label === "MAX" ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/20" : "bg-[#1a1a2e] text-gray-400 hover:text-amber-400"}`}
+                    data-testid={`button-sell-preset-${label.toLowerCase()}`}
+                  >
+                    {label}
                   </button>
                 ))}
               </div>
