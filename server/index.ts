@@ -134,13 +134,18 @@ async function runBackgroundInit() {
     startAutoRegisterService();
 
     if (process.env.TELEGRAM_BOT_TOKEN) {
-      const baseUrl = process.env.TELEGRAM_MINI_APP_URL || "https://thehoneycomb.social";
-      const webhookUrl = `${baseUrl}/api/telegram/webhook`;
-      setupTelegramWebhook(webhookUrl).then((result) => {
-        log(`Telegram webhook: ${result.message}`);
-      }).catch((err) => {
-        console.error("Telegram webhook setup failed:", err);
-      });
+      const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+      if (isProduction) {
+        const baseUrl = process.env.TELEGRAM_MINI_APP_URL || "https://thehoneycomb.social";
+        const webhookUrl = `${baseUrl}/api/telegram/webhook`;
+        setupTelegramWebhook(webhookUrl).then((result) => {
+          log(`Telegram webhook: ${result.message}`);
+        }).catch((err) => {
+          console.error("Telegram webhook setup failed:", err);
+        });
+      } else {
+        log("Telegram webhook: Skipped in development (webhook stays on production)");
+      }
     }
 
     log("Background initialization complete");
