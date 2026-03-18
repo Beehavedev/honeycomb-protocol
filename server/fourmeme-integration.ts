@@ -755,23 +755,61 @@ async function fetchGeckoLogo(address: string): Promise<string | null> {
   }
 }
 
+async function fetchGeckoLogosBatch(addresses: string[]): Promise<Map<string, string>> {
+  const logoMap = new Map<string, string>();
+  if (addresses.length === 0) return logoMap;
+
+  const uncached: string[] = [];
+  for (const addr of addresses) {
+    const key = addr.toLowerCase();
+    const cached = logoCache.get(key);
+    if (cached && Date.now() - cached.ts < LOGO_CACHE_TTL) {
+      if (cached.url) logoMap.set(key, cached.url);
+    } else {
+      uncached.push(addr);
+    }
+  }
+
+  if (uncached.length === 0) return logoMap;
+
+  try {
+    const res = await fetch(
+      `https://api.geckoterminal.com/api/v2/networks/bsc/tokens/multi/${uncached.join(",")}`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!res.ok) return logoMap;
+    const data = await res.json();
+    const tokens = data.data || [];
+    const resultAddrs = new Set<string>();
+    for (const t of tokens) {
+      const addr = t.attributes?.address;
+      const img = t.attributes?.image_url;
+      if (addr) {
+        const key = addr.toLowerCase();
+        resultAddrs.add(key);
+        logoCache.set(key, { url: img || null, ts: Date.now() });
+        if (img) logoMap.set(key, img);
+      }
+    }
+    for (const addr of uncached) {
+      if (!resultAddrs.has(addr.toLowerCase())) {
+        logoCache.set(addr.toLowerCase(), { url: null, ts: Date.now() });
+      }
+    }
+  } catch {}
+
+  return logoMap;
+}
+
 async function enrichTokensWithLogos(tokens: any[]): Promise<any[]> {
   const needsLogo = tokens.filter((t) => !t.logoUrl && t.address);
   if (needsLogo.length === 0) return tokens;
-  const batch = needsLogo.slice(0, 20);
-  const results = await Promise.allSettled(
-    batch.map((t) => fetchGeckoLogo(t.address))
-  );
-  const logoMap = new Map<string, string>();
-  batch.forEach((t, i) => {
-    const result = results[i];
-    if (result.status === "fulfilled" && result.value) {
-      logoMap.set(t.address, result.value);
-    }
-  });
+
+  const logoMap = await fetchGeckoLogosBatch(needsLogo.map((t) => t.address));
+
   return tokens.map((t) => ({
     ...t,
-    logoUrl: t.logoUrl || logoMap.get(t.address) || null,
+    logoUrl: t.logoUrl || logoMap.get(t.address.toLowerCase()) || null,
   }));
 }
 
