@@ -1298,17 +1298,27 @@ function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelect
   const [portfolioTab, setPortfolioTab] = useState<"holdings" | "history">("holdings");
   const token = localStorage.getItem("tg_token");
 
+  type Position = {
+    address: string; name: string; symbol: string; balance: string;
+    priceUsd: string | null; priceNative: string | null; currentValueUsd: number;
+    costBnb: number; logoUrl: string | null; priceChange24h: number | null;
+    marketCap: number | null; txCount: number; firstBuy: number; lastTx: number;
+  };
+
   const { data: portfolioData, isLoading: portfolioLoading } = useQuery<{
-    holdings: { address: string; name: string; symbol: string; decimals: number; balance: string; lastTx: number }[];
+    positions: Position[];
+    totalValueUsd: number;
+    totalCostBnb: number;
     bnbBalance: string;
     wallet: string;
   }>({
     queryKey: ["/api/telegram/fourmeme/portfolio"],
     queryFn: () => fetch("/api/telegram/fourmeme/portfolio", {
       headers: { Authorization: `Bearer ${token}` },
-    }).then(r => r.ok ? r.json() : { holdings: [], bnbBalance: "0", wallet: "" }),
+    }).then(r => r.ok ? r.json() : { positions: [], totalValueUsd: 0, totalCostBnb: 0, bnbBalance: "0", wallet: "" }),
     enabled: !!token,
     staleTime: 15000,
+    refetchInterval: portfolioTab === "holdings" ? 30000 : false,
   });
 
   const { data: historyData, isLoading: historyLoading } = useQuery<{
@@ -1322,17 +1332,29 @@ function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelect
     staleTime: 15000,
   });
 
-  const holdings = portfolioData?.holdings || [];
+  const positions = portfolioData?.positions || [];
   const trades = historyData?.trades || [];
+  const totalValueUsd = portfolioData?.totalValueUsd || 0;
+  const totalCostBnb = portfolioData?.totalCostBnb || 0;
 
-  const formatAmount = (val: string) => {
-    const n = parseFloat(val);
+  const formatAmount = (val: string | number) => {
+    const n = typeof val === "string" ? parseFloat(val) : val;
     if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
     if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
     if (n >= 1e3) return (n / 1e3).toFixed(2) + "K";
     if (n >= 1) return n.toFixed(2);
     if (n >= 0.001) return n.toFixed(4);
+    if (n === 0) return "0";
     return n.toExponential(2);
+  };
+
+  const formatUsd = (n: number) => {
+    if (n >= 1e6) return "$" + (n / 1e6).toFixed(2) + "M";
+    if (n >= 1e3) return "$" + (n / 1e3).toFixed(2) + "K";
+    if (n >= 1) return "$" + n.toFixed(2);
+    if (n >= 0.01) return "$" + n.toFixed(2);
+    if (n > 0) return "$" + n.toFixed(4);
+    return "$0.00";
   };
 
   const timeAgo = (ts: number) => {
@@ -1349,15 +1371,35 @@ function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelect
         <ArrowLeft className="w-4 h-4" /> Back
       </button>
 
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-          <Wallet className="w-5 h-5 text-white" />
+      <Card className="p-4 bg-gradient-to-br from-[#242444] to-[#1a1a3e] border-amber-500/20 mb-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+            <Wallet className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-white" data-testid="text-portfolio-title">My Portfolio</h2>
+            <p className="text-xs text-gray-400">{positions.length} position{positions.length !== 1 ? "s" : ""}</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-white" data-testid="text-portfolio-title">My Portfolio</h2>
-          <p className="text-xs text-gray-400">{portfolioData?.bnbBalance ? parseFloat(portfolioData.bnbBalance).toFixed(4) : "0.0000"} BNB</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-[#1a1a2e] p-2.5">
+            <p className="text-[10px] text-gray-500 mb-0.5">Total Value</p>
+            <p className="text-sm font-bold text-white" data-testid="text-portfolio-total-value">{formatUsd(totalValueUsd)}</p>
+          </div>
+          <div className="rounded-lg bg-[#1a1a2e] p-2.5">
+            <p className="text-[10px] text-gray-500 mb-0.5">BNB Balance</p>
+            <p className="text-sm font-bold text-white">{portfolioData?.bnbBalance ? parseFloat(portfolioData.bnbBalance).toFixed(4) : "0.0000"} <span className="text-[10px] text-gray-400">BNB</span></p>
+          </div>
+          <div className="rounded-lg bg-[#1a1a2e] p-2.5">
+            <p className="text-[10px] text-gray-500 mb-0.5">Total Invested</p>
+            <p className="text-sm font-bold text-white">{totalCostBnb.toFixed(4)} <span className="text-[10px] text-gray-400">BNB</span></p>
+          </div>
+          <div className="rounded-lg bg-[#1a1a2e] p-2.5">
+            <p className="text-[10px] text-gray-500 mb-0.5">Active Tokens</p>
+            <p className="text-sm font-bold text-amber-400">{positions.length}</p>
+          </div>
         </div>
-      </div>
+      </Card>
 
       <div className="flex gap-2 mb-4">
         <button
@@ -1365,7 +1407,7 @@ function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelect
           className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${portfolioTab === "holdings" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-[#1a1a2e] text-gray-500"}`}
           data-testid="button-portfolio-holdings"
         >
-          <Hexagon className="w-3.5 h-3.5 inline mr-1" /> Holdings
+          <Hexagon className="w-3.5 h-3.5 inline mr-1" /> Positions
         </button>
         <button
           onClick={() => { haptic("light"); setPortfolioTab("history"); }}
@@ -1388,40 +1430,65 @@ function PortfolioView({ onBack, onSelectToken }: { onBack: () => void; onSelect
                       <div className="h-3 bg-gray-700 rounded w-24" />
                       <div className="h-2.5 bg-gray-700 rounded w-16" />
                     </div>
+                    <div className="space-y-2 text-right">
+                      <div className="h-3 bg-gray-700 rounded w-16 ml-auto" />
+                      <div className="h-2.5 bg-gray-700 rounded w-12 ml-auto" />
+                    </div>
                   </div>
                 </Card>
               ))}
             </div>
-          ) : holdings.length === 0 ? (
+          ) : positions.length === 0 ? (
             <Card className="p-6 bg-[#242444] border-gray-700/50 text-center">
               <Wallet className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-              <p className="text-sm text-gray-400 mb-1">No tokens yet</p>
+              <p className="text-sm text-gray-400 mb-1">No positions yet</p>
               <p className="text-xs text-gray-500">Buy some tokens to see them here</p>
             </Card>
           ) : (
-            holdings.map(h => (
-              <Card
-                key={h.address}
-                className="p-3 bg-[#242444] border-gray-700/50 active:scale-[0.98] transition-transform cursor-pointer"
-                onClick={() => { haptic("light"); onSelectToken(h.address); }}
-                data-testid={`card-holding-${h.symbol}`}
-              >
-                <div className="flex items-center gap-3">
-                  <TokenLogo symbol={h.symbol} size={36} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-white truncate">{h.name}</span>
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-400">{h.symbol}</Badge>
+            positions.map((p: Position) => {
+              const change24h = p.priceChange24h;
+              return (
+                <Card
+                  key={p.address}
+                  className="p-3 bg-[#242444] border-gray-700/50 active:scale-[0.98] transition-transform cursor-pointer"
+                  onClick={() => { haptic("light"); onSelectToken(p.address); }}
+                  data-testid={`card-position-${p.symbol}`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <TokenLogo logoUrl={p.logoUrl} symbol={p.symbol} size={36} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-white truncate">{p.name}</span>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-400">{p.symbol}</Badge>
+                      </div>
+                      <p className="text-[10px] text-gray-500 font-mono">{p.address.slice(0, 6)}...{p.address.slice(-4)}</p>
                     </div>
-                    <p className="text-[10px] text-gray-500 font-mono">{h.address.slice(0, 6)}...{h.address.slice(-4)}</p>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-white" data-testid={`text-position-value-${p.symbol}`}>{formatUsd(p.currentValueUsd)}</p>
+                      {change24h != null && (
+                        <p className={`text-[10px] font-medium ${change24h >= 0 ? "text-green-400" : "text-red-400"}`} data-testid={`text-position-change-${p.symbol}`}>
+                          {change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}% <span className="text-gray-500">24h</span>
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-white" data-testid={`text-holding-balance-${h.symbol}`}>{formatAmount(h.balance)}</p>
-                    <p className="text-[10px] text-gray-500">{h.symbol}</p>
+                  <div className="flex items-center justify-between bg-[#1a1a2e] rounded-lg px-2.5 py-1.5">
+                    <div>
+                      <p className="text-[9px] text-gray-500">Balance</p>
+                      <p className="text-[11px] text-white font-medium">{formatAmount(p.balance)} <span className="text-gray-500">{p.symbol}</span></p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[9px] text-gray-500">Price</p>
+                      <p className="text-[11px] text-white font-medium">{p.priceUsd ? (parseFloat(p.priceUsd) >= 0.01 ? "$" + parseFloat(p.priceUsd).toFixed(4) : "$" + parseFloat(p.priceUsd).toExponential(2)) : "—"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] text-gray-500">Cost</p>
+                      <p className="text-[11px] text-white font-medium">{p.costBnb > 0 ? p.costBnb.toFixed(4) + " BNB" : "—"}</p>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </div>
       )}

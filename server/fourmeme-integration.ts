@@ -529,6 +529,177 @@ export async function getWalletTradeHistory(walletAddress: string): Promise<any[
   }));
 }
 
+export async function getPortfolioWithPnl(walletAddress: string): Promise<{
+  positions: any[];
+  totalValueUsd: number;
+  totalCostBnb: number;
+  totalPnlPercent: number;
+}> {
+  const tokenTxResult = await bscscanFetch({
+    module: "account",
+    action: "tokentx",
+    address: walletAddress,
+    page: "1",
+    offset: "200",
+    sort: "asc",
+  });
+  if (!Array.isArray(tokenTxResult) || tokenTxResult.length === 0) {
+    return { positions: [], totalValueUsd: 0, totalCostBnb: 0, totalPnlPercent: 0 };
+  }
+
+  const normalTxResult = await bscscanFetch({
+    module: "account",
+    action: "txlist",
+    address: walletAddress,
+    page: "1",
+    offset: "200",
+    sort: "asc",
+  });
+  const normalTxs = Array.isArray(normalTxResult) ? normalTxResult : [];
+  const bnbByHash = new Map<string, string>();
+  for (const tx of normalTxs) {
+    if (tx.hash && tx.value) bnbByHash.set(tx.hash.toLowerCase(), tx.value);
+  }
+
+  const internalTxResult = await bscscanFetch({
+    module: "account",
+    action: "txlistinternal",
+    address: walletAddress,
+    page: "1",
+    offset: "200",
+    sort: "asc",
+  }).catch(() => []);
+  const internalTxs = Array.isArray(internalTxResult) ? internalTxResult : [];
+  for (const tx of internalTxs) {
+    if (tx.hash && tx.value && BigInt(tx.value) > 0n) {
+      const existing = bnbByHash.get(tx.hash.toLowerCase());
+      if (existing) {
+        bnbByHash.set(tx.hash.toLowerCase(), (BigInt(existing) + BigInt(tx.value)).toString());
+      } else {
+        bnbByHash.set(tx.hash.toLowerCase(), tx.value);
+      }
+    }
+  }
+
+  interface TokenAgg {
+    address: string; name: string; symbol: string; decimals: number;
+    totalBought: bigint; totalSold: bigint; bnbSpent: bigint; bnbReceived: bigint;
+    firstBuy: number; lastTx: number; txCount: number;
+  }
+  const tokenMap = new Map<string, TokenAgg>();
+  const wLower = walletAddress.toLowerCase();
+
+  for (const tx of tokenTxResult) {
+    const ca = tx.contractAddress?.toLowerCase();
+    if (!ca) continue;
+    const isBuy = tx.to.toLowerCase() === wLower;
+    const tokenAmt = BigInt(tx.value || "0");
+    const bnbVal = bnbByHash.get(tx.hash.toLowerCase()) || "0";
+    const ts = Number(tx.timeStamp) * 1000;
+
+    if (!tokenMap.has(ca)) {
+      tokenMap.set(ca, {
+        address: tx.contractAddress,
+        name: tx.tokenName,
+        symbol: tx.tokenSymbol,
+        decimals: Number(tx.tokenDecimal) || 18,
+        totalBought: 0n, totalSold: 0n, bnbSpent: 0n, bnbReceived: 0n,
+        firstBuy: ts, lastTx: ts, txCount: 0,
+      });
+    }
+    const agg = tokenMap.get(ca)!;
+    agg.lastTx = ts;
+    agg.txCount++;
+    if (isBuy) {
+      agg.totalBought += tokenAmt;
+      agg.bnbSpent += BigInt(bnbVal);
+    } else {
+      agg.totalSold += tokenAmt;
+      agg.bnbReceived += BigInt(bnbVal);
+    }
+  }
+
+  const holdingAddresses = Array.from(tokenMap.keys());
+  const balances = await Promise.all(
+    holdingAddresses.map(async (addr) => {
+      try { return await getTokenBalance(addr, walletAddress); } catch { return "0"; }
+    })
+  );
+
+  const activeTokens: string[] = [];
+  holdingAddresses.forEach((addr, i) => {
+    if (parseFloat(balances[i]) > 0) activeTokens.push(addr);
+  });
+
+  let priceMap = new Map<string, { priceUsd: string; priceNative: string; logoUrl: string | null; priceChange24h: number | null; marketCap: number | null }>();
+  if (activeTokens.length > 0) {
+    try {
+      const addrsParam = activeTokens.join(",");
+      const dexRes = await fetch(`https://api.dexscreener.com/tokens/v1/bsc/${addrsParam}`, {
+        headers: { Accept: "application/json" },
+      }).then(r => r.ok ? r.json() : []);
+      const pairs = Array.isArray(dexRes) ? dexRes : [];
+      for (const pair of pairs) {
+        const ba = pair.baseToken?.address?.toLowerCase();
+        if (ba && !priceMap.has(ba)) {
+          priceMap.set(ba, {
+            priceUsd: pair.priceUsd || "0",
+            priceNative: pair.priceNative || "0",
+            logoUrl: pair.info?.imageUrl || null,
+            priceChange24h: pair.priceChange?.h24 || null,
+            marketCap: pair.marketCap || null,
+          });
+        }
+      }
+    } catch {}
+  }
+
+  let totalValueUsd = 0;
+  let totalCostBnb = 0;
+
+  const positions = holdingAddresses.map((addr, i) => {
+    const agg = tokenMap.get(addr)!;
+    const balance = balances[i];
+    const balNum = parseFloat(balance);
+    if (balNum <= 0) return null;
+
+    const price = priceMap.get(addr);
+    const priceUsd = parseFloat(price?.priceUsd || "0");
+    const currentValueUsd = balNum * priceUsd;
+    const costBnb = parseFloat(formatEther(agg.bnbSpent));
+    const receivedBnb = parseFloat(formatEther(agg.bnbReceived));
+    const netCostBnb = Math.max(costBnb - receivedBnb, 0);
+
+    totalValueUsd += currentValueUsd;
+    totalCostBnb += netCostBnb;
+
+    return {
+      address: agg.address,
+      name: agg.name,
+      symbol: agg.symbol,
+      decimals: agg.decimals,
+      balance,
+      priceUsd: price?.priceUsd || null,
+      priceNative: price?.priceNative || null,
+      currentValueUsd,
+      costBnb: netCostBnb,
+      logoUrl: price?.logoUrl || null,
+      priceChange24h: price?.priceChange24h || null,
+      marketCap: price?.marketCap || null,
+      txCount: agg.txCount,
+      firstBuy: agg.firstBuy,
+      lastTx: agg.lastTx,
+    };
+  }).filter(Boolean);
+
+  return {
+    positions,
+    totalValueUsd,
+    totalCostBnb,
+    totalPnlPercent: 0,
+  };
+}
+
 export async function getTxStatus(txHash: string): Promise<{ status: boolean; blockNumber?: string; gasUsed?: string }> {
   if (BSCSCAN_KEY) {
     try {

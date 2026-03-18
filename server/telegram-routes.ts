@@ -1435,12 +1435,12 @@ router.get("/fourmeme/portfolio", async (req: Request, res: Response) => {
     if (!agent) return res.status(404).json({ error: "Agent not found" });
     const wallet = await storage.getCustodialWallet(agent.id);
     if (!wallet) return res.status(400).json({ error: "No wallet" });
-    const { getWalletTokenBalances, getWalletBnbBalance } = await import("./fourmeme-integration");
-    const [holdings, bnbBalance] = await Promise.all([
-      getWalletTokenBalances(wallet.address),
+    const { getPortfolioWithPnl, getWalletBnbBalance } = await import("./fourmeme-integration");
+    const [portfolio, bnbBalance] = await Promise.all([
+      getPortfolioWithPnl(wallet.address),
       getWalletBnbBalance(wallet.address),
     ]);
-    res.json({ holdings, bnbBalance, wallet: wallet.address });
+    res.json({ ...portfolio, bnbBalance, wallet: wallet.address });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
