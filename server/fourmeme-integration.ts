@@ -732,6 +732,49 @@ function mapDexPairToToken(p: any) {
   };
 }
 
+const logoCache = new Map<string, { url: string | null; ts: number }>();
+const LOGO_CACHE_TTL = 30 * 60 * 1000;
+
+async function fetchGeckoLogo(address: string): Promise<string | null> {
+  const key = address.toLowerCase();
+  const cached = logoCache.get(key);
+  if (cached && Date.now() - cached.ts < LOGO_CACHE_TTL) return cached.url;
+  try {
+    const res = await fetch(
+      `https://api.geckoterminal.com/api/v2/networks/bsc/tokens/${address}`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!res.ok) { logoCache.set(key, { url: null, ts: Date.now() }); return null; }
+    const data = await res.json();
+    const url = data.data?.attributes?.image_url || null;
+    logoCache.set(key, { url, ts: Date.now() });
+    return url;
+  } catch {
+    logoCache.set(key, { url: null, ts: Date.now() });
+    return null;
+  }
+}
+
+async function enrichTokensWithLogos(tokens: any[]): Promise<any[]> {
+  const needsLogo = tokens.filter((t) => !t.logoUrl && t.address);
+  if (needsLogo.length === 0) return tokens;
+  const batch = needsLogo.slice(0, 20);
+  const results = await Promise.allSettled(
+    batch.map((t) => fetchGeckoLogo(t.address))
+  );
+  const logoMap = new Map<string, string>();
+  batch.forEach((t, i) => {
+    const result = results[i];
+    if (result.status === "fulfilled" && result.value) {
+      logoMap.set(t.address, result.value);
+    }
+  });
+  return tokens.map((t) => ({
+    ...t,
+    logoUrl: t.logoUrl || logoMap.get(t.address) || null,
+  }));
+}
+
 export async function getTrendingTokens(): Promise<any[]> {
   try {
     const res = await fetch("https://api.dexscreener.com/latest/dex/search?q=fourmeme", {
@@ -751,7 +794,7 @@ export async function getTrendingTokens(): Promise<any[]> {
       })
       .slice(0, 20)
       .map(mapDexPairToToken);
-    return pairs;
+    return enrichTokensWithLogos(pairs);
   } catch {
     return [];
   }
@@ -776,7 +819,7 @@ export async function getNewTokens(): Promise<any[]> {
       })
       .slice(0, 20)
       .map(mapDexPairToToken);
-    return pairs;
+    return enrichTokensWithLogos(pairs);
   } catch {
     return [];
   }
@@ -841,7 +884,7 @@ export async function searchTokens(query: string): Promise<any[]> {
 
 export async function getTokenDetail(tokenAddress: string): Promise<any> {
   try {
-    const [onChain, dexData, metadata, holders, verified] = await Promise.all([
+    const [onChain, dexData, metadata, holders, verified, geckoLogo] = await Promise.all([
       getTokenInfo(tokenAddress).catch(() => null),
       fetch(`https://api.dexscreener.com/tokens/v1/bsc/${tokenAddress}`, {
         headers: { Accept: "application/json" },
@@ -851,6 +894,7 @@ export async function getTokenDetail(tokenAddress: string): Promise<any> {
       getTokenMetadata(tokenAddress).catch(() => null),
       getTokenHolders(tokenAddress).catch(() => null),
       getContractVerified(tokenAddress).catch(() => false),
+      fetchGeckoLogo(tokenAddress).catch(() => null),
     ]);
 
     const pair = Array.isArray(dexData) ? dexData[0] : dexData?.pairs?.[0] || null;
@@ -859,7 +903,7 @@ export async function getTokenDetail(tokenAddress: string): Promise<any> {
       address: tokenAddress,
       name: metadata?.name || pair?.baseToken?.name || "",
       symbol: metadata?.symbol || pair?.baseToken?.symbol || "",
-      logoUrl: pair?.info?.imageUrl || null,
+      logoUrl: pair?.info?.imageUrl || geckoLogo || null,
       decimals: metadata?.decimals || 18,
       totalSupply: metadata?.totalSupply || "",
       onChain,
