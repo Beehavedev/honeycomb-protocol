@@ -24,3 +24,9 @@ id = "S-UAPgFn_H1yoI9i-Fd5m"
 uri = "file://attached_assets/Honeycomb_Binance_Alpha_Application.md"
 type = "text"
 title = "Honeycomb - Binance Alpha Application"
+
+[[outputs]]
+id = "JYHMYHMMjZiWOUrK8gHNJ"
+uri = "file://attached_assets/Honeycomb_DD_Questionnaire_Filled.md"
+type = "text"
+title = "Honeycomb — Binance DD Questionnaire (Filled)"
