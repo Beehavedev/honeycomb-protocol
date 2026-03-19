@@ -892,11 +892,12 @@ export default function HoneyToken() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { allocation: "FourMeme Public Launch (35%)", vesting: "Fair launch via bonding curve, distributed proportionally", progress: 0 },
-                  { allocation: "Community & Staking Rewards (25%)", vesting: "Released over 4 years via staking/earning", progress: 5 },
-                  { allocation: "Liquidity Pool (20%)", vesting: "Locked for 2 years", progress: 0 },
-                  { allocation: "Ecosystem & Development (15%)", vesting: "Partnerships, dev grants, integrations", progress: 0 },
-                  { allocation: "Private Sale (5%)", vesting: "$250K raise at $5M FDV, 3-month linear vest", progress: 0 },
+                  { allocation: "FourMeme Fair Launch (40%)", vesting: "100% at TGE via bonding curve", progress: 0 },
+                  { allocation: "Community & Staking (20%)", vesting: "0% TGE — released over 4 years via staking/earning", progress: 0 },
+                  { allocation: "Liquidity Pool (20%)", vesting: "100% at TGE — locked 2 years", progress: 0 },
+                  { allocation: "Ecosystem & Dev (10%)", vesting: "0% TGE — 1 month cliff, 24 month linear vest", progress: 0 },
+                  { allocation: "Marketing (5%)", vesting: "0% TGE — 1 month cliff, 12 month linear vest", progress: 0 },
+                  { allocation: "Treasury DAO (5%)", vesting: "0% TGE — 1 month cliff, 24 month linear vest", progress: 0 },
                 ].map((item) => (
                   <div key={item.allocation} className="space-y-1">
                     <div className="flex justify-between text-sm">

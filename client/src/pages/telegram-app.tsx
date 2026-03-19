@@ -5309,11 +5309,12 @@ function getEarnActionLabel(action: string): string {
 }
 
 const TOKENOMICS_DATA = [
-  { label: "FourMeme Public Launch", pct: "35%", amount: "350M", highlight: true },
-  { label: "Community & Staking", pct: "25%", amount: "250M", highlight: true },
-  { label: "Liquidity Pool", pct: "20%", amount: "200M", highlight: false },
-  { label: "Ecosystem & Dev", pct: "15%", amount: "150M", highlight: false },
-  { label: "Private Sale", pct: "5%", amount: "50M", highlight: false },
+  { label: "FourMeme Fair Launch", pct: "40%", amount: "400M", highlight: true },
+  { label: "Community & Staking", pct: "20%", amount: "200M", highlight: true },
+  { label: "Liquidity Pool (locked 2yr)", pct: "20%", amount: "200M", highlight: false },
+  { label: "Ecosystem & Dev (1mo cliff)", pct: "10%", amount: "100M", highlight: false },
+  { label: "Marketing (1mo cliff)", pct: "5%", amount: "50M", highlight: false },
+  { label: "Treasury DAO (1mo cliff)", pct: "5%", amount: "50M", highlight: false },
 ];
 
 const TIER_STYLES: Record<string, string> = {

@@ -123,28 +123,28 @@ Web3 users want to trade, socialize, and earn in one place without managing 10+ 
 
 **Token Distribution:**
 
-| Allocation | % | Amount | Notes |
-|-----------|---|--------|-------|
-| Pre-Launch Points Conversion | 1% | 10,000,000 | At TGE for early users |
-| Post-TGE Play-to-Earn | 25% | 250,000,000 | Ongoing platform rewards |
-| Liquidity (PancakeSwap + CEX) | 20% | 200,000,000 | Locked 2 years |
-| Team & Advisors | 15% | 150,000,000 | 4-year vest, 1-year cliff |
-| Staking Rewards | 10% | 100,000,000 | 4-year emission schedule |
-| Ecosystem & Developer Grants | 10% | 100,000,000 | For builders |
-| Treasury & Operations | 10% | 100,000,000 | DAO-governed |
-| Marketing & Growth | 5% | 50,000,000 | Community campaigns |
-| Strategic Partners | 4% | 40,000,000 | Key backers |
+| Allocation | % | Amount | TGE Unlock | Cliff | Vesting |
+|-----------|---|--------|-----------|-------|---------|
+| FourMeme Fair Launch | 40% | 400,000,000 | 100% | None | Immediate via bonding curve |
+| Community & Staking Rewards | 20% | 200,000,000 | 0% | None | Released over 4 years via staking/earning |
+| Liquidity Pool | 20% | 200,000,000 | 100% | None | Locked 2 years, then linear unlock |
+| Ecosystem & Development | 10% | 100,000,000 | 0% | 1 month | Linear over 24 months after cliff |
+| Marketing | 5% | 50,000,000 | 0% | 1 month | Linear over 12 months after cliff |
+| Treasury (DAO) | 5% | 50,000,000 | 0% | 1 month | Linear over 24 months after cliff |
 
 **Key highlights:**
-- NO private sale round
-- NO VC allocation
-- Fair launch model — 26% available to community at/near TGE (1% pre-launch + 25% play-to-earn begins)
-- Team tokens fully locked for 1 year, then vest over 4 years
+- NO private sale, NO investors, NO VC allocation, NO team allocation
+- 0% insider unlock at TGE
+- Fair launch only — 100% community-driven distribution
+- Ecosystem/Marketing/Treasury all have 1-month cliff with 0% TGE unlock
 - Liquidity locked for 2 years
+- Treasury managed by arms-length entity for legal compliance
+- Estimated circulating supply at TGE: ~40% (fair launch via bonding curve only)
+- 25% of all platform fees used for buyback & burn
 
-**Total funding raised:** [TO BE FILLED BY TEAM]
+**Total funding raised:** $0 (fair launch, no fundraise)
 
-**FDV of each round:** [TO BE FILLED BY TEAM]
+**FDV of each round:** N/A (no private rounds)
 
 ---
 
@@ -214,14 +214,14 @@ Yes — Honeycomb is already exclusively built on and deployed to BNB Smart Chai
 
 ### Tokenomics & Valuation Adjustments
 
-- **Open to extend vesting for investors/advisors?** Yes. Current: 4-year vest, 1-year cliff. Open to discussion.
-- **Open to extend vesting for team?** Yes. Current: 4-year vest, 1-year cliff. Open to longer if required.
+- **Open to extend vesting for investors/advisors?** N/A — no investor or advisor allocation. Zero insider tokens.
+- **Open to extend vesting for team?** N/A — no team allocation. 100% fair launch.
 - **Open to lower valuation for Alpha Initial Airdrops?** Yes — open to discussion.
 - **Open to lower valuation for Launchpool?** Yes — open to discussion.
 - **Open to lower valuation for Megadrop?** Yes — open to discussion.
-- **Estimated % airdrops for community?** 1% at TGE (pre-launch conversion) + ongoing 25% play-to-earn
-- **Estimated % airdrops for Binance users?** [TO BE DISCUSSED — open to allocating from Marketing/Growth pool]
-- **Estimated % circulating supply at TGE?** ~6% (1% pre-launch conversion + 5% initial liquidity)
+- **Estimated % airdrops for community?** 20% over 4 years (Community & Staking Rewards pool)
+- **Estimated % airdrops for Binance users?** [TO BE DISCUSSED — open to allocating from Marketing pool (5%)]
+- **Estimated % circulating supply at TGE?** ~40% (fair launch via FourMeme bonding curve only — no insider unlocks, no investor tokens, Ecosystem/Marketing/Treasury all locked with 1-month cliff)
 
 ### Exchanges
 
