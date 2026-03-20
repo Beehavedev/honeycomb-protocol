@@ -126,7 +126,7 @@ async function runBackgroundInit() {
     await storage.seedTradingDuels();
     await ensureArenaBots();
     await runRoutesInit();
-    await twitterService.updateBotForGiveawayPromotion();
+    await twitterService.updateBotPromptAndSchedule();
     startTwitterScheduler();
     startAutoDuelSpawner();
 
