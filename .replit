@@ -47,6 +47,7 @@ waitForPort = 5000
 
 [userenv.shared]
 VITE_WALLETCONNECT_PROJECT_ID = "ded4829184c82dd4cdbbef200ba97168"
+TELEGRAM_MINI_APP_URL = "https://honeycomb-sj2s.onrender.com"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0", "github:1.0.0"]
