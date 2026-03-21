@@ -136,7 +136,7 @@ async function runBackgroundInit() {
     if (process.env.TELEGRAM_BOT_TOKEN) {
       const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
       if (isProduction) {
-        const baseUrl = process.env.TELEGRAM_MINI_APP_URL || "https://thehoneycomb.social";
+        const baseUrl = process.env.TELEGRAM_MINI_APP_URL || "https://honeycomb-sj2s.onrender.com";
         const webhookUrl = `${baseUrl}/api/telegram/webhook`;
         setupTelegramWebhook(webhookUrl).then((result) => {
           log(`Telegram webhook: ${result.message}`);

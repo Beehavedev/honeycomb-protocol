@@ -15,7 +15,7 @@ const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
 
 function getMiniAppUrl(): string {
   if (process.env.TELEGRAM_MINI_APP_URL) return process.env.TELEGRAM_MINI_APP_URL;
-  return "https://thehoneycomb.social";
+  return "https://honeycomb-sj2s.onrender.com";
 }
 
 function getBotToken(): string | null {
