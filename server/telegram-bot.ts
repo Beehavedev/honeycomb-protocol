@@ -1612,7 +1612,8 @@ export async function setupTelegramWebhook(webhookUrl: string): Promise<{ succes
   if (!token) return { success: false, message: "TELEGRAM_BOT_TOKEN not set" };
 
   try {
-    const [webhookRes, commandsRes] = await Promise.all([
+    const miniAppUrl = getMiniAppUrl();
+    const [webhookRes, commandsRes, menuRes] = await Promise.all([
       fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1647,14 +1648,27 @@ export async function setupTelegramWebhook(webhookUrl: string): Promise<{ succes
           ],
         }),
       }),
+      fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          menu_button: {
+            type: "web_app",
+            text: "Open Honeycomb",
+            web_app: { url: `${miniAppUrl}/tg` },
+          },
+        }),
+      }),
     ]);
 
     const webhookData = await webhookRes.json() as any;
     const commandsData = await commandsRes.json() as any;
 
+    const menuData = await menuRes.json() as any;
+
     return {
       success: webhookData.ok,
-      message: `Webhook set to ${webhookUrl}. Commands: ${commandsData.ok ? "set" : "failed"}`,
+      message: `Webhook set to ${webhookUrl}. Commands: ${commandsData.ok ? "set" : "failed"}. Menu button: ${menuData.ok ? `set to ${miniAppUrl}/tg` : "failed"}`,
     };
   } catch (error) {
     console.error("setupTelegramWebhook error:", error);
