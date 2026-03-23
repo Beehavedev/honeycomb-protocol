@@ -2258,12 +2258,30 @@ export async function registerRoutes(
   });
 
   // Submit HoneyRunner game session for points
+  const gameSessionTokens = new Map<string, { agentId: string; startedAt: number; used: boolean }>();
+
+  app.post("/api/points/game/honey-runner/start", authMiddleware, async (req, res) => {
+    try {
+      const agent = await storage.getAgentByAddress(req.walletAddress!);
+      if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+      const sessionToken = crypto.randomBytes(16).toString("hex");
+      gameSessionTokens.set(sessionToken, { agentId: agent.id, startedAt: Date.now(), used: false });
+
+      setTimeout(() => gameSessionTokens.delete(sessionToken), 600000);
+
+      res.json({ sessionToken });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to start game session" });
+    }
+  });
+
   app.post("/api/points/game/honey-runner", authMiddleware, async (req, res) => {
     try {
       const agent = await storage.getAgentByAddress(req.walletAddress!);
       if (!agent) return res.status(404).json({ message: "Agent not found" });
 
-      const { score, duration } = req.body;
+      const { score, duration, sessionToken } = req.body;
       if (typeof score !== "number" || score < 0) {
         return res.status(400).json({ message: "Invalid score" });
       }
@@ -2271,13 +2289,42 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Session too short (minimum 15 seconds)" });
       }
 
+      if (!sessionToken || typeof sessionToken !== "string") {
+        return res.status(400).json({ message: "Missing game session token. Start a game first." });
+      }
+
+      const session = gameSessionTokens.get(sessionToken);
+      if (!session) {
+        return res.status(400).json({ message: "Invalid or expired game session" });
+      }
+      if (session.agentId !== agent.id) {
+        return res.status(403).json({ message: "Session does not belong to this account" });
+      }
+      if (session.used) {
+        return res.status(400).json({ message: "Session already used" });
+      }
+
+      const elapsedSeconds = (Date.now() - session.startedAt) / 1000;
+      if (elapsedSeconds < 10) {
+        return res.status(400).json({ message: "Game session too short to be valid" });
+      }
+      if (duration > elapsedSeconds + 5) {
+        return res.status(400).json({ message: "Reported duration exceeds actual session time" });
+      }
+
+      const maxReasonableScore = Math.floor(elapsedSeconds * 50);
+      const cappedScore = Math.min(score, maxReasonableScore);
+
+      session.used = true;
+      gameSessionTokens.delete(sessionToken);
+
       const { awardGamePoints } = await import("./points-engine");
       const result = await awardGamePoints({
         gameType: "honey_runner",
         agentId: agent.id,
-        score,
+        score: cappedScore,
         isBotMatch: false,
-        metadata: { duration },
+        metadata: { duration, reportedScore: score, cappedScore, elapsed: elapsedSeconds },
       });
 
       res.json(result);

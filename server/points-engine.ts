@@ -27,11 +27,9 @@ interface GameSessionData {
   metadata?: Record<string, any>;
 }
 
-const PRE_TGE = true;
-
-const DAILY_CAP = PRE_TGE ? Infinity : 500;
-const WEEKLY_CAP = PRE_TGE ? Infinity : 3000;
-const GLOBAL_DAILY_CAP = PRE_TGE ? Infinity : 1_500_000;
+const DAILY_CAP = 500;
+const WEEKLY_CAP = 3000;
+const GLOBAL_DAILY_CAP = 1_500_000;
 const DIMINISH_THRESHOLD_1 = 10;
 const DIMINISH_THRESHOLD_2 = 20;
 const DIMINISH_FACTOR_1 = 0.5;
