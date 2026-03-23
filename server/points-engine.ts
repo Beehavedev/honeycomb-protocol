@@ -322,14 +322,14 @@ export function getGameRewards() {
 
 export function getPointsCaps() {
   return {
-    dailyCap: PRE_TGE ? null : DAILY_CAP,
-    weeklyCap: PRE_TGE ? null : WEEKLY_CAP,
-    globalDailyCap: PRE_TGE ? null : GLOBAL_DAILY_CAP,
+    dailyCap: DAILY_CAP,
+    weeklyCap: WEEKLY_CAP,
+    globalDailyCap: GLOBAL_DAILY_CAP,
     diminishThreshold1: DIMINISH_THRESHOLD_1,
     diminishThreshold2: DIMINISH_THRESHOLD_2,
     diminishFactor1: DIMINISH_FACTOR_1,
     diminishFactor2: DIMINISH_FACTOR_2,
-    preTge: PRE_TGE,
+    preTge: false,
   };
 }
 

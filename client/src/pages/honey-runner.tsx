@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function HoneyRunner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<any>(null);
+  const sessionTokenRef = useRef<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [stats, setStats] = useState({ best: 0, coins: 0, runs: 0 });
   const [lastPoints, setLastPoints] = useState<{ awarded: boolean; finalPoints: number; reason?: string } | null>(null);
@@ -19,6 +20,20 @@ export default function HoneyRunner() {
     setStats({ best: getBestScore(), coins: getTotalCoins(), runs: getTotalRuns() });
   }, []);
 
+  const startGameSession = async () => {
+    try {
+      const res = await apiRequest("POST", "/api/points/game/honey-runner/start", {});
+      const data = await res.json();
+      sessionTokenRef.current = data.sessionToken;
+    } catch {
+      sessionTokenRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    startGameSession();
+  }, []);
+
   useEffect(() => {
     const handleGameOver = async (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -26,6 +41,7 @@ export default function HoneyRunner() {
         const result = await apiRequest("POST", "/api/points/game/honey-runner", {
           score: detail.score,
           duration: detail.duration,
+          sessionToken: sessionTokenRef.current,
         });
         const data = await result.json();
         setLastPoints(data);
@@ -37,6 +53,7 @@ export default function HoneyRunner() {
         }
       } catch {
       }
+      startGameSession();
     };
 
     window.addEventListener("honeyrunner:gameover", handleGameOver);

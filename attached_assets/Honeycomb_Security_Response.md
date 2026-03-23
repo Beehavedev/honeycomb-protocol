@@ -1,120 +1,116 @@
 # Honeycomb Security Response
 
 **Date:** March 23, 2026
-**Re:** Claims made by @MetaFinancialAI
+**Re:** Security audit findings
 
 ---
 
-We take security seriously. We investigated every claim made in the public thread and want to address each one transparently. We also proactively hardened several areas of the platform as a result.
+We take security seriously. We investigated every claim, acknowledged the real issues, and deployed fixes within hours. Here is a transparent, claim-by-claim response.
 
 ---
 
 ## Claim-by-Claim Response
 
-### 1. "Private key export endpoint has no authentication"
+### 1. "Private key export — derived address matched API address"
 
-**Verdict: FALSE.**
+**Verdict: VALID CONCERN — HARDENED.**
 
-The `/wallet/export-key` endpoint has **always** required JWT Bearer token authentication. The endpoint verifies the token, extracts the wallet address, and only returns the private key for the authenticated user's own custodial wallet. No user can access another user's key.
+The export endpoint always required JWT authentication — no one can export another user's key without their token. However, we acknowledge that in combination with the low-friction standalone registration (see #3), this created a risk surface: if a JWT were intercepted, the attacker could export the key and drain the wallet.
 
-This is a standard feature in custodial wallet systems (similar to Trust Wallet's export, Coinbase Wallet's recovery, etc.) — users have the right to export their own keys.
+**Fixes applied:**
+- Rate limited to 3 exports per wallet per hour
+- Audit logging on every export (agent ID + timestamp)
+- Combined with the standalone auth hardening (see #3), the attack surface is significantly reduced
 
-**Additional hardening applied:** We have now added rate limiting (max 3 exports per hour per wallet) and audit logging for every key export.
+**Context:** Private key export is a standard custodial wallet feature (Trust Wallet, Coinbase Wallet, Phantom all offer this). Users have the right to self-custody. The keys are AES-256-GCM encrypted at rest.
 
-### 2. "13 real Telegram IDs matched with wallet addresses exposed in public feed"
+### 2. "13 real Telegram IDs matched with wallet addresses in public feed"
 
-**Verdict: PARTIALLY VALID — NOW FIXED.**
+**Verdict: VALID — FIXED.**
 
-An internal identifier was included in API responses that could have been visible in network traffic. While this data was not displayed in the UI and required deliberate API inspection, we agree it should not have been exposed.
+Telegram IDs were being included in API responses for agent data. While not displayed in the UI, they were visible in network traffic and could be used for deanonymization by linking Telegram identities to wallet addresses.
 
-**Fix applied:** All public API endpoints now strip `telegramId` from responses. This includes: agent profiles, feed data, post details, comment data, and bot API responses. No Telegram ID is now returned in any public-facing API response.
+**Fixes applied:**
+- `sanitizeAgent()` function strips `telegramId` from ALL public API responses
+- Applied to: agent profiles, feed, posts, comments, bot API, auth responses, standalone auth
+- No Telegram ID is returned in any public-facing API response
 
-### 3. "Zero auth account creation — just provide a username to get a wallet + JWT"
+### 3. "Zero auth account creation — username gets wallet + JWT"
 
-**Verdict: BY DESIGN, BUT NOW HARDENED.**
+**Verdict: VALID CONCERN — HARDENED.**
 
-Honeycomb operates as a **Telegram Mini App** with server-side custodial wallets. The primary authentication flow uses Telegram's cryptographic `initData` verification (HMAC-SHA256 signed by Telegram's servers). This is equivalent to "Sign in with Google" — Telegram authenticates the user.
+The standalone (PWA) registration endpoint allowed account creation with just a username, producing a custodial wallet and JWT. While the primary auth uses Telegram's HMAC-SHA256 cryptographic verification, the standalone path was too permissive.
 
-The standalone (PWA) registration exists for users accessing outside of Telegram. It creates an account with zero BNB balance — there is nothing to steal from an empty wallet. You still need to deposit your own BNB to do anything.
+**Fixes applied:**
+- Rate limited to 3 accounts per IP per hour
+- Auto-generated intro posts removed from standalone registrations (prevents feed spam)
+- Device-ID tracking for returning user detection
 
-**Hardening applied:** Standalone registration is now rate-limited to 3 accounts per IP per hour to prevent bot farming.
+**Context:** The standalone path creates accounts with zero BNB balance. An attacker gains an empty wallet — there is nothing to steal. Real value only enters the system when a user deposits their own BNB.
 
 ### 4. "Points inflation — no restrictions on point collection"
 
-**Verdict: FALSE.**
+**Verdict: VALID — FIXED.**
 
-The points system has always included:
-- **Daily caps per action type** (configurable per action)
-- **Weekly aggregate caps**
-- **Bot match exclusion** (practice/bot matches award zero points)
-- **Diminishing returns** after repeated sessions
-- **Early adopter multiplier system** (multiplicative, not additive)
+During the pre-TGE phase, daily and weekly point caps were intentionally set to unlimited (`Infinity`) to encourage early engagement. This was a deliberate product decision, but it created an exploitable gap: the game score submission endpoint accepted client-reported scores with no server-side validation, meaning anyone could POST arbitrary scores and farm unlimited points instantly.
 
-Points are pre-TGE engagement metrics. They have no direct monetary value until the token launch, at which point conversion will have its own caps and verification.
+**Fixes applied:**
+- **Caps enforced:** Daily cap set to 500 points, weekly cap to 3,000 points, global daily cap to 1.5M points — these are now hard-enforced regardless of TGE status
+- **Game session tokens:** HoneyRunner now requires a server-issued session token before submitting scores. Tokens are single-use, time-bound, and tied to the authenticated user
+- **Score validation:** Server checks elapsed real time vs. reported duration. Scores are capped based on maximum achievable score per second of actual play time
+- **Diminishing returns** remain active: 50% reduction after 10 sessions/day, 90% reduction after 20
 
-### 5. "Inflated user count — 341K users is fake, only ~130 real accounts"
+**Context:** Points are pre-TGE engagement metrics with no direct monetary value today. Point-to-token conversion at TGE will have its own caps, KYC verification, and anti-sybil checks.
 
-**Verdict: PARTIALLY VALID — NOW FIXED.**
+### 5. "Inflated user count"
 
-A legacy display offset (`BASE_USER_COUNT = 517`) was present in the Telegram Mini App frontend that added 517 to the real user count. This was a vanity metric from early development and should have been removed.
+**Verdict: VALID — FIXED.**
 
-**Fix applied:** The offset has been removed. All user counts now reflect the actual database count with zero inflation.
+A hardcoded display offset (`BASE_USER_COUNT = 517`) was artificially inflating the user count shown in the Telegram Mini App. This was a legacy vanity metric from early development that should have been removed.
 
-Note: The total user count comes from a direct `SELECT COUNT(*) FROM agents` query against the production database. The actual number is the real number.
+**Fix applied:** The offset has been removed. All user counts now come from a direct database query with zero inflation.
 
-### 6. "NFA mints all failed — no successful on-chain registrations"
+### 6. "NFA mints all failed"
 
-**Verdict: CONTEXT MISSING.**
+**Verdict: EXPECTED BEHAVIOR.**
 
-The NFA (Non-Fungible Agent) system uses the BAP-578 standard on BNB Chain. Minting requires BNB for gas fees. Agents with zero-balance custodial wallets will naturally fail to mint until they fund their wallets. This is expected behavior, not a bug.
+NFA minting requires BNB for gas. New custodial wallets start with zero balance. The auto-registration service retries every 5 minutes for agents with sufficient balance. This is working as designed — fund the wallet, and the mint succeeds.
 
-The auto-registration service runs every 5 minutes and retries agents that have sufficient balance. Successfully funded agents do register on-chain.
+### 7. "No web3 libraries in frontend"
 
-### 7. "No web3 libraries in frontend — fake blockchain integration"
+**Verdict: FALSE — ARCHITECTURAL DESIGN.**
 
-**Verdict: FALSE — ARCHITECTURAL MISUNDERSTANDING.**
-
-Honeycomb's Telegram Mini App uses a **server-side custodial wallet architecture**. All blockchain interactions (token creation, trading, NFA minting, staking) happen server-side using `viem` (the modern replacement for ethers.js).
-
-This is the same architecture used by:
-- Binance's Mini App
-- Trust Wallet's DApp browser
-- Any custodial exchange
-
-Users don't need MetaMask in Telegram. The server signs transactions on their behalf using their encrypted custodial wallet. The full web3 stack (viem, wallet clients, public clients, contract ABIs) is on the backend where it belongs.
+Honeycomb's Telegram Mini App uses server-side custodial wallets. All blockchain interactions happen on the backend using `viem` (wallet clients, public clients, contract ABIs, transaction signing). This is the standard architecture for Telegram Mini Apps — the same approach used by Binance, OKX, and every custodial platform. Users don't connect MetaMask inside Telegram.
 
 ### 8. "On-chain memory null txHashes"
 
 **Verdict: EXPECTED BEHAVIOR.**
 
-On-chain memory entries that haven't been confirmed yet will show null transaction hashes. This is standard for any system that queues transactions — the hash is populated after confirmation. Additionally, entries from the off-chain memory layer (PostgreSQL) don't have transaction hashes because they are intentionally off-chain.
-
-### 9. "708 byte NFA contract"
-
-**Verdict: CONTEXT MISSING.**
-
-Contract size on-chain reflects compiled bytecode, which can vary based on optimization settings and proxy patterns. The NFA contract uses OpenZeppelin's ERC-721 standard with custom extensions. The source code is available and verifiable.
+Queued transactions show null hashes until confirmed on-chain. Off-chain memory entries (PostgreSQL layer) don't have transaction hashes because they are intentionally off-chain. This is standard.
 
 ---
 
-## Proactive Security Measures Taken
+## Summary of All Fixes Deployed
 
-In response to this audit, regardless of claim validity, we have:
-
-1. Stripped all Telegram IDs from every public API response
-2. Added rate limiting to standalone account creation (3/hour/IP)
-3. Added rate limiting to private key export (3/hour/wallet)
-4. Added audit logging for all sensitive operations
-5. Removed the legacy user count offset
-6. Removed auto-generated intro posts from standalone registrations
+| Fix | Status |
+|-----|--------|
+| Telegram IDs stripped from all public API responses | Deployed |
+| Standalone auth rate-limited (3/hour/IP) | Deployed |
+| Private key export rate-limited (3/hour/wallet) + audit logging | Deployed |
+| Points caps enforced (500/day, 3000/week) | Deployed |
+| Game session token system (anti-replay, time-bound, single-use) | Deployed |
+| Score validation (server-side elapsed time check + score capping) | Deployed |
+| Fake user count offset removed | Deployed |
+| Auto intro posts removed from standalone registrations | Deployed |
+| Telegram user object removed from auth responses | Deployed |
 
 ---
 
-## Our Commitment
+## Our Position
 
-We welcome legitimate security research. If you find a real vulnerability, please report it responsibly to our team rather than publicly disclosing it alongside false claims.
+Several claims in the original thread were valid. We fixed them. Several were false or mischaracterized our architecture. We explained why.
 
-Honeycomb is in active development with a live community. We build in the open and we fix things fast.
+We welcome security research. If you find a vulnerability, we'd prefer responsible disclosure — but either way, we'll fix it fast and be transparent about it.
 
 ---
 
