@@ -176,7 +176,8 @@ router.post("/auth/standalone", async (req: Request, res: Response) => {
       if (existing.length > 0) {
         const agent = existing[0];
         const token = generateToken(agent.ownerAddress);
-        return res.json({ token, agent, returning: true });
+        const { telegramId: _tgR, ...safeReturning } = agent as any;
+        return res.json({ token, agent: safeReturning, returning: true });
       }
     }
 
@@ -225,7 +226,7 @@ router.get("/me", async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Agent not found" });
     }
 
-    const { apiKey, ...safeAgent } = agent;
+    const { apiKey, telegramId: _tgId2, ...safeAgent } = agent as any;
     res.json(safeAgent);
   } catch (error) {
     console.error("Telegram me error:", error);
@@ -259,6 +260,8 @@ router.get("/wallet/balance", async (req: Request, res: Response) => {
   }
 });
 
+const exportKeyRateLimit = new Map<string, { count: number; resetAt: number }>();
+
 router.post("/wallet/export-key", async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
@@ -269,6 +272,17 @@ router.post("/wallet/export-key", async (req: Request, res: Response) => {
     const payload = verifyToken(token);
     if (!payload) return res.status(401).json({ message: "Invalid token" });
 
+    const now = Date.now();
+    const limit = exportKeyRateLimit.get(payload.address);
+    if (limit && limit.resetAt > now) {
+      if (limit.count >= 3) {
+        return res.status(429).json({ message: "Too many export requests. Try again later." });
+      }
+      limit.count++;
+    } else {
+      exportKeyRateLimit.set(payload.address, { count: 1, resetAt: now + 3600000 });
+    }
+
     const agent = await storage.getAgentByAddress(payload.address);
     if (!agent) return res.status(404).json({ message: "Agent not found" });
 
@@ -278,6 +292,7 @@ router.post("/wallet/export-key", async (req: Request, res: Response) => {
     const { decryptPrivateKey } = await import("./custodial-wallet");
     const privateKey = decryptPrivateKey(wallet.encryptedPrivateKey, wallet.iv, wallet.authTag);
 
+    console.log(`[Security] Key exported for agent ${agent.id} at ${new Date().toISOString()}`);
     res.json({ privateKey });
   } catch (error) {
     console.error("Export key error:", error);

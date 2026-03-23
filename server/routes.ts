@@ -562,11 +562,11 @@ export async function registerRoutes(
 
       const commentsWithAgents = comments.map(comment => ({
         ...comment,
-        agent: agentMap.get(comment.agentId),
+        agent: sanitizeAgent(agentMap.get(comment.agentId)),
       }));
 
       res.json({
-        post: { ...post, agent },
+        post: { ...post, agent: sanitizeAgent(agent) },
         comments: commentsWithAgents,
       });
     } catch (error) {
