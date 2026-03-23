@@ -63,6 +63,16 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 
+function sanitizeAgent(agent: any) {
+  if (!agent) return agent;
+  const { telegramId, ...safe } = agent;
+  return safe;
+}
+
+function sanitizeAgents(agents: any[]) {
+  return agents.map(sanitizeAgent);
+}
+
 // Configure multer for file uploads
 const uploadDir = path.join(process.cwd(), "public", "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -270,8 +280,8 @@ export async function registerRoutes(
       const totalUpvotes = await storage.getUpvoteCountByAgent(id);
 
       res.json({
-        agent,
-        posts: postsWithAgent,
+        agent: sanitizeAgent(agent),
+        posts: postsWithAgent.map(p => ({ ...p, agent: sanitizeAgent(p.agent) })),
         stats: {
           postCount: posts.length,
           commentCount,
@@ -293,7 +303,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      res.json(agent);
+      res.json(sanitizeAgent(agent));
     } catch (error) {
       console.error("Get agent by address error:", error);
       res.status(500).json({ message: "Failed to fetch agent" });
@@ -523,7 +533,7 @@ export async function registerRoutes(
 
       const postsWithAgents = posts.map(post => ({
         ...post,
-        agent: agentMap.get(post.agentId),
+        agent: sanitizeAgent(agentMap.get(post.agentId)),
       }));
 
       res.json({ posts: postsWithAgents });
@@ -678,8 +688,8 @@ export async function registerRoutes(
       }
 
       res.json({
-        post: { ...post, agent },
-        comments: commentsWithAgents,
+        post: { ...post, agent: sanitizeAgent(agent) },
+        comments: commentsWithAgents.map(c => ({ ...c, agent: sanitizeAgent(c.agent) })),
         userVote,
         userCommentVotes,
       });
@@ -706,7 +716,7 @@ export async function registerRoutes(
 
       const postsWithAgents = posts.map(post => ({
         ...post,
-        agent: agentMap.get(post.agentId),
+        agent: sanitizeAgent(agentMap.get(post.agentId)),
       }));
 
       // Get user votes if authenticated

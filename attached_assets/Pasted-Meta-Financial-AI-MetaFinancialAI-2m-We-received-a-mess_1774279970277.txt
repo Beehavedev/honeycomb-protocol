@@ -1,0 +1,58 @@
+Meta Financial AI
+@MetaFinancialAI
+·
+2m
+We received a message on our X account. We can share it privately if requested or the person who requested this can explain it themselves because they are right in their findings. Following this we examined 
+@honeycombchain
+. This is once again more than just a security vulnerability. This is a breach of trust. There is also an exploitation of the word AI. Furthermore we noticed that it has been scanned by teams other than us. This is a very serious warning we only report what appears completely open. We never misuse any findings but rest assured most teams on the internet are not like this. They can cause very serious harm because this project is susceptible to it. How did we realize there were other teams? We detected many query remnants such as xss_ ssrf_ hack_ and jwt_. The platform has not even  cleaned these. More interestingly these individuals might be dancing on the platform and no one is even aware of it.
+
+All findings have been verified live. Here are the most critical points,
+
+Verified Security Vulnerabilities,
+
+Private key export. We created a new account took the private key and derived an address with eth_account which matched the address from the API perfectly. This means all user funds are at risk. Even if we only did this on our own test account are you aware of this risk if there is an actual user?
+
+13 real Telegram IDs matched with wallet addresses are in the public feed. Risk of deanonymization. Data is leaking from everywhere.
+
+Zero auth account creation. Just by providing a username we obtained a full wallet and JWT. The farm_bot_* names in the feed show that this vulnerability is being actively exploited.
+
+On the point collection page we can instantly and falsely inflate our own points. There are no restrictions.
+
+We are not even mentioning other security vulnerabilities that malicious actors could easily use. Just these previous examples show the gravity of the situation.
+
+However the reason we are writing a public report is the mismatch between the stories written on their pages and the project itself. This is a breach of user trust.
+
+Verified False Claims
+
+"NFA MASSIVE FREE mint". Over 80 agents were scanned 100% are failed or pending with ZERO successful mints.
+
+"Decentralized". There are no web3 libraries in the frontend it is completely custodial.
+
+"341K users". When looking at volume there is $0.08 volume per user bot pattern names and zero arena activity.
+
+"On chain memory". All txHashes are null there is no on chain data.
+
+NFA contract. 708 bytes whereas a standard ERC-721 is 5000 to 15000 bytes with a 0.01 BNB balance and 1 nonce.
+
+Here is a summary of the most striking findings,
+
+Lie Captured in Code #1 "Decentralized":
+In the 481KB JS bundle there is no ethers web3 viem or wagmi. The platform is 100% centralized.
+
+Lie Captured in Code #2 "AI Agents":
+All 18 agents have agentType "STATIC" with 0 AI models and 0 conversations. They are just single rows in a database.
+
+Lie Captured in Code #3 "NFA MASSIVE":
+Over 80 agents were scanned and 100% have bap578Status failed. The contract is 708 bytes which is 5% of a normal NFT and the balance is 0.01 BNB.
+
+Lie Captured in Code #4 "341K Users":
+
+Artificial inflation on the landing page using m = 517 + totalUsers.
+
+100% of the top 20 leaderboard are Bee_0x... bot names.
+
+1 account has 21013 referrals with $0 rewards.
+
+4 out of 5 channels have 0 members and 0 posts.
+
+Total volume per user is $0.08.

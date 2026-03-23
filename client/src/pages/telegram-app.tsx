@@ -271,8 +271,7 @@ function HomeTab({ onSwitchTab, onViewBees }: { onSwitchTab: (tab: TabType) => v
     refetchOnWindowFocus: false,
   });
 
-  const BASE_USER_COUNT = 517;
-  const totalUsers = BASE_USER_COUNT + (stats?.totalUsers || 0);
+  const totalUsers = stats?.totalUsers || 0;
 
   const handleInvite = () => {
     const shareUrl = `${BASE_URL}/r/tg`;

@@ -132,13 +132,10 @@ router.post("/auth", async (req: Request, res: Response) => {
 
     const token = generateToken(agent.ownerAddress);
 
+    const { telegramId: _tgId, ...safeAgent } = agent as any;
     res.json({
       token,
-      agent: {
-        ...agent,
-        telegramId,
-      },
-      telegramUser: result.user,
+      agent: safeAgent,
       walletAddress: agent.ownerAddress,
     });
   } catch (error) {
@@ -147,8 +144,22 @@ router.post("/auth", async (req: Request, res: Response) => {
   }
 });
 
+const standaloneRateLimit = new Map<string, { count: number; resetAt: number }>();
+
 router.post("/auth/standalone", async (req: Request, res: Response) => {
   try {
+    const ip = req.ip || req.headers["x-forwarded-for"] as string || "unknown";
+    const now = Date.now();
+    const limit = standaloneRateLimit.get(ip);
+    if (limit && limit.resetAt > now) {
+      if (limit.count >= 3) {
+        return res.status(429).json({ message: "Too many accounts created. Try again later." });
+      }
+      limit.count++;
+    } else {
+      standaloneRateLimit.set(ip, { count: 1, resetAt: now + 3600000 });
+    }
+
     const { username } = req.body;
     if (!username || typeof username !== "string" || username.trim().length < 2) {
       return res.status(400).json({ message: "Username must be at least 2 characters" });
@@ -187,10 +198,6 @@ router.post("/auth/standalone", async (req: Request, res: Response) => {
 
     autoRegisterAgent(agent.id).catch(err => {
       console.error(`[PWA Auth] Auto-register error for ${agent.id}:`, err.message);
-    });
-
-    createIntroPost(agent.id, cleanName).catch(err => {
-      console.error(`[PWA Auth] Intro post error for ${agent.id}:`, err.message);
     });
 
     res.json({ token, agent });
